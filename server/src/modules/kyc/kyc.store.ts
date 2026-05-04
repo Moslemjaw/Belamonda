@@ -88,6 +88,22 @@ export const kycStore = {
   ensureUser(userId: string, role: string) {
     if (!users.has(userId)) {
       users.set(userId, { id: userId, role, verificationStatus: "unverified", createdAt: nowIso() });
+      
+      // Auto-approve cust1 for testing purposes
+      if (userId === "cust1") {
+         const user = users.get(userId)!;
+         user.verificationStatus = "approved";
+         
+         if (!wallets.has(userId)) {
+            wallets.set(userId, {
+               userId: userId,
+               ceilingKwd: "500.000",
+               lockedKwd: "500.000",
+               unlockedKwd: "25.000", // Give some initial cashback
+               createdAt: nowIso()
+            });
+         }
+      }
     }
     return users.get(userId)!;
   },

@@ -5,6 +5,9 @@ import { useAuth } from "../../app/AuthContext";
 import { useApi, useKycQueue, usePendingPayments, useComplaints, useProducts, useFinanceSnapshot } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
+import { allTreatments, treatmentCategories } from "../../lib/treatments";
+import { OfferTemplate, getOfferTemplates, saveOfferTemplates, upsertOfferTemplate, deleteOfferTemplate, seedDefaultOffers, getSubscriptions } from "../../lib/offerSystem";
+import { sharedClinics } from "../../lib/clinics";
 
 const ar = () => i18n.language === "ar";
 
@@ -34,150 +37,420 @@ function KpiCard({ label, value, sub, icon, isHighlighted, trend }: { label: str
 
 // ── Sub-pages ──
 function OffersManager() {
-  const { getAuthHeader } = useAuth();
-  const { data, refetch } = useApi<{ items: any[] }>("/offers/admin");
   const { data: clinicsData } = useApi<{ clinics: any[] }>("/clinics/admin");
-  const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ 
-    name: "", category: "laser", type: "A", clinicId: "", 
-    subscriptionPriceKwd: "99.000", validityDays: 365, 
-    cashbackPerSessionKwd: "20.000", sessionIntervalDays: 25, 
-    maxSessions: 6, imageUrl: "",
-    allowFullPayment: true, allowInstallments: false, allowDeposit: false, 
-    maxInstallments: 4, depositAmount: "50.000"
-  });
+  const [offers, setOffers] = useState<OfferTemplate[]>(() => { seedDefaultOffers(); return getOfferTemplates(); });
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setForm({ ...form, imageUrl: reader.result as string });
-      };
-      reader.readAsDataURL(file);
-    }
+  const emptyForm = { nameEn: "", nameAr: "", category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "" };
+  const [form, setForm] = useState(emptyForm);
+
+  const refresh = () => setOffers(getOfferTemplates());
+
+  const openCreate = () => { setForm(emptyForm); setEditingId(null); setShowForm(true); };
+  const openEdit = (o: OfferTemplate) => {
+    setForm({ nameEn: o.nameEn, nameAr: o.nameAr, category: o.category, price: String(o.price), validityDays: String(o.validityDays), maxSessions: o.maxSessions ? String(o.maxSessions) : "0", unlimitedSessions: o.maxSessions === null, sessionIntervalDays: String(o.sessionIntervalDays), imageUrl: o.imageUrl, signupCashback: String(o.signupCashback), perSessionCashback: String(o.perSessionCashback), cashbackActivationFee: String(o.cashbackActivationFee), allowFullPayment: o.allowFullPayment, allowInstallments: o.allowInstallments, maxInstallments: String(o.maxInstallments), allowDeposit: o.allowDeposit, depositAmount: String(o.depositAmount), tagsEn: o.tagsEn.join(", "), tagsAr: o.tagsAr.join(", ") });
+    setEditingId(o.id); setShowForm(true);
   };
 
-  const createOffer = async () => {
-    await apiFetch("/offers/admin", { method: "POST", headers: getAuthHeader(), body: JSON.stringify({ ...form, active: true, featured: true, enrollmentCap: 100 }) });
-    setShowCreate(false);
-    refetch();
+  const saveOffer = () => {
+    if (!form.nameEn) return;
+    const offer: OfferTemplate = {
+      id: editingId || `offer_${Date.now()}`, nameEn: form.nameEn, nameAr: form.nameAr || form.nameEn, category: form.category, price: parseFloat(form.price) || 0, validityDays: parseInt(form.validityDays) || 365, maxSessions: form.unlimitedSessions ? null : (parseInt(form.maxSessions) || 6), sessionIntervalDays: parseInt(form.sessionIntervalDays) || 25, imageUrl: form.imageUrl,
+      signupCashback: parseFloat(form.signupCashback) || 0, perSessionCashback: parseFloat(form.perSessionCashback) || 0, cashbackActivationFee: parseFloat(form.cashbackActivationFee) || 0,
+      allowFullPayment: form.allowFullPayment, allowInstallments: form.allowInstallments, maxInstallments: parseInt(form.maxInstallments) || 4, allowDeposit: form.allowDeposit, depositAmount: parseFloat(form.depositAmount) || 0,
+      tagsEn: form.tagsEn.split(",").map(s => s.trim()).filter(Boolean), tagsAr: form.tagsAr.split(",").map(s => s.trim()).filter(Boolean),
+      active: true, createdAt: editingId ? (offers.find(o => o.id === editingId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
+    };
+    upsertOfferTemplate(offer); refresh(); setShowForm(false); setEditingId(null);
   };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { const r = new FileReader(); r.onloadend = () => setForm({ ...form, imageUrl: r.result as string }); r.readAsDataURL(file); } };
+  const toggleActive = (o: OfferTemplate) => { upsertOfferTemplate({ ...o, active: !o.active }); refresh(); };
+  const handleDelete = (id: string) => { deleteOfferTemplate(id); refresh(); };
+  const subs = getSubscriptions();
+
+  const F = (label: string, children: React.ReactNode, span?: string) => <div className={span || ""}><label className="text-xs font-medium text-surface-500 mb-1 block">{label}</label>{children}</div>;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "إدارة العروض" : "Offer Management"}</h3>
-        <button className="btn-primary btn-sm" onClick={() => setShowCreate(!showCreate)}>+ {ar() ? "إنشاء عرض" : "Create Offer"}</button>
+        <button className="btn-primary btn-sm" onClick={openCreate}>+ {ar() ? "إنشاء عرض" : "Create Offer"}</button>
       </div>
-      {showCreate && (
+
+      {showForm && (
         <div className="card-elevated p-5 animate-slide-up">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div><label className="text-xs font-medium text-surface-500">{ar() ? "اسم العرض" : "Offer Name"}</label><input className="input-field mt-1" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></div>
-            <div><label className="text-xs font-medium text-surface-500">{ar() ? "النوع" : "Type"}</label><select className="select-field mt-1" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })}><option value="A">A — Cashback</option><option value="B">B — Discount</option></select></div>
-            <div><label className="text-xs font-medium text-surface-500">{ar() ? "السعر" : "Price (KWD)"}</label><input className="input-field mt-1" value={form.subscriptionPriceKwd} onChange={e => setForm({ ...form, subscriptionPriceKwd: e.target.value })} /></div>
-            
-            <div>
-              <label className="text-xs font-medium text-surface-500">{ar() ? "العيادة" : "Clinic"}</label>
-              <select className="select-field mt-1" value={form.clinicId} onChange={e => setForm({ ...form, clinicId: e.target.value })}>
-                <option value="" disabled>{ar() ? "اختر العيادة" : "Select a Clinic"}</option>
-                <option value="clinic_glow">Glow Clinic</option>
-                <option value="clinic_derma">Derma Clinic</option>
-                {(clinicsData?.clinics || []).map((c: any) => (
-                  <option key={c.id} value={c.id}>{c.nameEn || c.id}</option>
-                ))}
-              </select>
-            </div>
-            <div><label className="text-xs font-medium text-surface-500">{ar() ? "المدة (أيام)" : "Validity (days)"}</label><input className="input-field mt-1" type="number" value={form.validityDays} onChange={e => setForm({ ...form, validityDays: +e.target.value })} /></div>
-            <div><label className="text-xs font-medium text-surface-500">{ar() ? "كاش باك/جلسة" : "Cashback/Session"}</label><input className="input-field mt-1" value={form.cashbackPerSessionKwd} onChange={e => setForm({ ...form, cashbackPerSessionKwd: e.target.value })} /></div>
-            
-            <div className="md:col-span-3 border-t border-surface-100 pt-4 mt-2">
-              <h4 className="text-sm font-bold text-surface-900 mb-4">{ar() ? "خيارات الدفع للمستخدم (يمكن اختيار أكثر من خيار)" : "User Payment Options (Multi-select)"}</h4>
-              <div className="grid gap-4 md:grid-cols-3">
-                <label className={`flex items-start gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors ${form.allowFullPayment ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
-                   <input type="checkbox" className="mt-1" checked={form.allowFullPayment} onChange={e => setForm({...form, allowFullPayment: e.target.checked})} />
-                   <div>
-                     <div className="font-bold text-surface-900">{ar() ? "دفع كامل" : "Full Payment"}</div>
-                     <div className="text-xs text-surface-500 mt-1">{ar() ? "السماح بالدفع الكامل مقدماً" : "Allow full payment upfront"}</div>
-                   </div>
+          <h4 className="text-sm font-bold text-surface-800 mb-4">{editingId ? (ar() ? "تعديل العرض" : "Edit Offer") : (ar() ? "إنشاء عرض جديد" : "Create New Offer")}</h4>
+          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {F(ar() ? "اسم العرض (EN)" : "Offer Name (EN)", <input className="input-field" value={form.nameEn} onChange={e => setForm({...form, nameEn: e.target.value})} />)}
+            {F(ar() ? "اسم العرض (AR)" : "Offer Name (AR)", <input className="input-field" dir="rtl" value={form.nameAr} onChange={e => setForm({...form, nameAr: e.target.value})} />)}
+            {F(ar() ? "الفئات المشمولة" : "Included Categories", (
+              <div className="border border-surface-200 rounded-lg p-3 max-h-40 overflow-y-auto bg-surface-50 flex flex-wrap gap-2">
+                <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-white p-2 rounded-lg border border-surface-200 shadow-sm w-[calc(50%-0.25rem)] lg:w-[calc(25%-0.5rem)]">
+                  <input type="checkbox" className="accent-brand-pink-500 w-4 h-4 rounded" checked={form.category === "all"} onChange={e => setForm({...form, category: e.target.checked ? "all" : ""})} />
+                  <span className="font-medium">🌟 {ar() ? "جميع الفئات" : "All Categories"}</span>
                 </label>
-
-                <div className={`p-4 rounded-xl border-2 transition-colors ${form.allowInstallments ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
-                   <label className="flex items-start gap-3 cursor-pointer">
-                     <input type="checkbox" className="mt-1" checked={form.allowInstallments} onChange={e => setForm({...form, allowInstallments: e.target.checked})} />
-                     <div>
-                       <div className="font-bold text-surface-900">{ar() ? "دفع بالأقساط" : "Installments"}</div>
-                       <div className="text-xs text-surface-500 mt-1">{ar() ? "السماح بالدفع على دفعات" : "Allow paying per session"}</div>
-                     </div>
-                   </label>
-                   {form.allowInstallments && (
-                     <div className="mt-4 pt-4 border-t border-brand-pink-200">
-                        <label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "عدد الأقساط (جلسات مدفوعة)" : "Number of Installments"}</label>
-                        <input className="input-field bg-white" type="number" value={form.maxInstallments} onChange={e => setForm({ ...form, maxInstallments: +e.target.value })} />
-                        <div className="text-[10px] text-surface-400 mt-1 leading-tight">{ar() ? "مثال: 4 يعني الدفع في أول 4 جلسات والجلسات اللاحقة مجانية" : "e.g., 4 means paying for first 4 sessions, rest are free"}</div>
-                     </div>
-                   )}
-                </div>
-
-                <div className={`p-4 rounded-xl border-2 transition-colors ${form.allowDeposit ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
-                   <label className="flex items-start gap-3 cursor-pointer">
-                     <input type="checkbox" className="mt-1" checked={form.allowDeposit} onChange={e => setForm({...form, allowDeposit: e.target.checked})} />
-                     <div>
-                       <div className="font-bold text-surface-900">{ar() ? "عربون (دفع لاحقاً)" : "Deposit (Pay Later)"}</div>
-                       <div className="text-xs text-surface-500 mt-1">{ar() ? "السماح بدفع جزء مقدماً" : "Allow paying a partial deposit"}</div>
-                     </div>
-                   </label>
-                   {form.allowDeposit && (
-                     <div className="mt-4 pt-4 border-t border-brand-pink-200">
-                        <label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "مبلغ العربون (KWD)" : "Deposit Amount (KWD)"}</label>
-                        <input className="input-field bg-white" value={form.depositAmount} onChange={e => setForm({ ...form, depositAmount: e.target.value })} />
-                     </div>
-                   )}
-                </div>
+                {treatmentCategories.map(c => (
+                  <label key={c.id} className={`flex items-center gap-2 text-sm cursor-pointer hover:bg-white p-2 rounded-lg border border-surface-200 shadow-sm w-[calc(50%-0.25rem)] lg:w-[calc(25%-0.5rem)] ${form.category === "all" ? "opacity-50 pointer-events-none grayscale" : ""}`}>
+                    <input type="checkbox" className="accent-brand-pink-500 w-4 h-4 rounded" 
+                           checked={form.category !== "all" && form.category.split(',').includes(c.id)}
+                           onChange={e => {
+                              if (form.category === "all") return;
+                              let arr = form.category ? form.category.split(',').filter(Boolean) : [];
+                              if (e.target.checked) arr.push(c.id); else arr = arr.filter(x => x !== c.id);
+                              setForm({...form, category: arr.join(',')});
+                           }} />
+                    <span className="font-medium">{c.icon} {ar() ? c.nameAr : c.nameEn}</span>
+                  </label>
+                ))}
               </div>
-            </div>
+            ), "md:col-span-3 lg:col-span-4")}
+            {F(ar() ? "السعر (KWD)" : "Price (KWD)", <input className="input-field" type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />)}
+            {F(ar() ? "المدة (أيام)" : "Validity (days)", <input className="input-field" type="number" value={form.validityDays} onChange={e => setForm({...form, validityDays: e.target.value})} />)}
+            {F(ar() ? "الجلسات" : "Max Sessions", <div className="flex items-center gap-2"><input className="input-field flex-1" type="number" value={form.maxSessions} onChange={e => setForm({...form, maxSessions: e.target.value})} disabled={form.unlimitedSessions} /><label className="flex items-center gap-1 text-xs whitespace-nowrap"><input type="checkbox" checked={form.unlimitedSessions} onChange={e => setForm({...form, unlimitedSessions: e.target.checked})} />{ar() ? "غير محدود" : "Unlimited"}</label></div>)}
+            {F(ar() ? "فترة الانتظار (أيام)" : "Interval (days)", <input className="input-field" type="number" value={form.sessionIntervalDays} onChange={e => setForm({...form, sessionIntervalDays: e.target.value})} />)}
+          </div>
 
-            <div className="md:col-span-3 border-t border-surface-100 pt-4 mt-2">
-              <label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "صورة العرض (اختياري)" : "Offer Image (Optional)"}</label>
-              <div className="border-2 border-dashed border-surface-200 rounded-xl p-4 flex flex-col items-center justify-center bg-surface-50 relative group transition-colors hover:border-brand-pink-300 hover:bg-brand-pink-50/30 min-h-[140px]">
-                <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                {form.imageUrl ? (
-                  <div className="relative w-full h-40 rounded-lg overflow-hidden border border-surface-200 shadow-sm">
-                    <img src={form.imageUrl} alt="Offer Preview" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <span className="text-white text-sm font-medium">{ar() ? "تغيير الصورة" : "Change Image"}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center pointer-events-none">
-                    <svg className="w-8 h-8 text-surface-400 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <div className="text-sm font-medium text-surface-700">{ar() ? "اضغط لرفع صورة العرض" : "Click to upload an image"}</div>
-                    <div className="text-xs text-surface-400 mt-1">PNG, JPG up to 5MB</div>
-                  </div>
-                )}
+          <div className="border-t border-surface-100 pt-4 mt-4">
+            <h5 className="text-sm font-bold text-surface-800 mb-3">{ar() ? "قواعد الكاش باك" : "Cashback Rules"}</h5>
+            <div className="grid gap-4 md:grid-cols-3">
+              {F(ar() ? "كاش باك عند الاشتراك (KWD)" : "Signup Cashback (KWD)", <input className="input-field" type="number" value={form.signupCashback} onChange={e => setForm({...form, signupCashback: e.target.value})} />)}
+              {F(ar() ? "خصم كاش باك لكل جلسة (KWD)" : "Per-Session Cashback (KWD)", <input className="input-field" type="number" value={form.perSessionCashback} onChange={e => setForm({...form, perSessionCashback: e.target.value})} />)}
+              {F(ar() ? "رسوم تفعيل الكاش باك (KWD)" : "Cashback Activation Fee (KWD)", <input className="input-field" type="number" value={form.cashbackActivationFee} onChange={e => setForm({...form, cashbackActivationFee: e.target.value})} />)}
+            </div>
+          </div>
+
+          <div className="border-t border-surface-100 pt-4 mt-4">
+            <h5 className="text-sm font-bold text-surface-800 mb-3">{ar() ? "خيارات الدفع" : "Payment Options"}</h5>
+            <div className="grid gap-4 md:grid-cols-3">
+              <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer ${form.allowFullPayment ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200'}`}><input type="checkbox" checked={form.allowFullPayment} onChange={e => setForm({...form, allowFullPayment: e.target.checked})} /><span className="font-bold text-sm text-surface-900">{ar() ? "دفع كامل" : "Full Payment"}</span></label>
+              <div className={`p-3 rounded-xl border-2 ${form.allowInstallments ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200'}`}>
+                <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={form.allowInstallments} onChange={e => setForm({...form, allowInstallments: e.target.checked})} /><span className="font-bold text-sm text-surface-900">{ar() ? "أقساط" : "Installments"}</span></label>
+                {form.allowInstallments && <input className="input-field mt-2" type="number" placeholder="Max installments" value={form.maxInstallments} onChange={e => setForm({...form, maxInstallments: e.target.value})} />}
+              </div>
+              <div className={`p-3 rounded-xl border-2 ${form.allowDeposit ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200'}`}>
+                <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={form.allowDeposit} onChange={e => setForm({...form, allowDeposit: e.target.checked})} /><span className="font-bold text-sm text-surface-900">{ar() ? "عربون" : "Deposit"}</span></label>
+                {form.allowDeposit && <input className="input-field mt-2" type="number" placeholder="Deposit KWD" value={form.depositAmount} onChange={e => setForm({...form, depositAmount: e.target.value})} />}
               </div>
             </div>
           </div>
-          <div className="flex gap-2 mt-4"><button className="btn-primary btn-sm" onClick={createOffer}>{ar() ? "إنشاء" : "Create"}</button><button className="btn-secondary btn-sm" onClick={() => setShowCreate(false)}>{ar() ? "إلغاء" : "Cancel"}</button></div>
+
+          <div className="border-t border-surface-100 pt-4 mt-4">
+            <h5 className="text-sm font-bold text-surface-800 mb-3">{ar() ? "علامات العرض" : "Display Tags"}</h5>
+            <div className="grid gap-4 md:grid-cols-2">
+              {F("Tags (EN) — comma separated", <input className="input-field" value={form.tagsEn} onChange={e => setForm({...form, tagsEn: e.target.value})} placeholder="e.g. 1 Year, 500 KWD Cashback" />)}
+              {F("Tags (AR) — comma separated", <input className="input-field" dir="rtl" value={form.tagsAr} onChange={e => setForm({...form, tagsAr: e.target.value})} placeholder="مثال: سنة واحدة, كاش باك 500 دك" />)}
+            </div>
+          </div>
+
+          <div className="border-t border-surface-100 pt-4 mt-4">
+            <label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "صورة العرض" : "Offer Image"}</label>
+            <div className="border-2 border-dashed border-surface-200 rounded-xl p-4 flex items-center justify-center bg-surface-50 relative group hover:border-brand-pink-300 min-h-[100px]">
+              <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+              {form.imageUrl ? <img src={form.imageUrl} alt="" className="h-24 rounded-lg object-cover" /> : <span className="text-sm text-surface-400">{ar() ? "اضغط لرفع صورة" : "Click to upload"}</span>}
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-4">
+            <button className="btn-primary btn-sm" onClick={saveOffer}>{editingId ? (ar() ? "حفظ التغييرات" : "Save Changes") : (ar() ? "إنشاء" : "Create")}</button>
+            <button className="btn-secondary btn-sm" onClick={() => { setShowForm(false); setEditingId(null); }}>{ar() ? "إلغاء" : "Cancel"}</button>
+          </div>
         </div>
       )}
-      <div className="card-elevated overflow-hidden">
-        <table className="data-table">
-          <thead><tr><th>{ar() ? "الاسم" : "Name"}</th><th>{ar() ? "النوع" : "Type"}</th><th>{ar() ? "السعر" : "Price"}</th><th>{ar() ? "مسجلين" : "Enrolled"}</th><th>{ar() ? "الحالة" : "Status"}</th></tr></thead>
-          <tbody>
-            {(data?.items || []).map((o: any) => (
-              <tr key={o.id}><td className="font-medium">{o.name}</td><td><span className="badge-pink">{o.type}</span></td><td>{o.subscriptionPriceKwd} KWD</td><td>{o.enrolledCount}/{o.enrollmentCap || "∞"}</td><td><span className={o.active ? "badge-green" : "badge-gray"}>{o.active ? "Active" : "Inactive"}</span></td></tr>
-            ))}
-            {(data?.items || []).length === 0 && <tr><td colSpan={5} className="text-center text-surface-400 py-8">{ar() ? "لا توجد عروض" : "No offers yet"}</td></tr>}
-          </tbody>
-        </table>
+
+      {/* Offer Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {offers.map(o => {
+          const enrolled = subs.filter(s => s.offerId === o.id).length;
+          const isExpanded = expandedId === o.id;
+          const displayTitle = ar() ? o.nameAr : o.nameEn;
+          const cats = o.category === "all" ? [] : o.category.split(',');
+          const categoryName = o.category === "all" ? (ar() ? "جميع الفئات" : "All Categories") : cats.map(c => {
+            const cDef = treatmentCategories.find(tc => tc.id === c);
+            return cDef ? (ar() ? cDef.nameAr : cDef.nameEn) : c;
+          }).join(' • ');
+          const firstDef = treatmentCategories.find(tc => tc.id === cats[0]);
+          const catIcon = o.category === "all" ? "🌟" : (firstDef?.icon || "✨");
+          return (
+            <div key={o.id} className={`card-elevated p-0 overflow-hidden ${!o.active ? 'opacity-60 grayscale' : ''}`}>
+              {o.imageUrl && <div className="h-32 w-full relative"><img src={o.imageUrl} className="w-full h-full object-cover" alt="" /><div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" /></div>}
+              <div className="p-5">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1 min-w-0 pr-4">
+                    <h4 className="font-bold text-surface-900 truncate" title={displayTitle}>{displayTitle}</h4>
+                    <div className="text-xs text-surface-500 mt-0.5 line-clamp-1" title={categoryName}>{catIcon} {categoryName} • {o.validityDays} {ar() ? "يوم" : "days"} • {o.maxSessions === null ? (ar() ? "غير محدود" : "Unlimited") : `${o.maxSessions} sessions`}</div>
+                  </div>
+                  <span className={o.active ? "badge-green shrink-0" : "badge-gray shrink-0"}>{o.active ? (ar() ? "نشط" : "Active") : (ar() ? "متوقف" : "Inactive")}</span>
+                </div>
+                <div className="text-2xl font-black text-brand-pink-600 mb-3">{o.price} <span className="text-sm text-surface-400 font-medium">KWD</span></div>
+                
+                {/* Cashback summary */}
+                <div className="flex flex-wrap gap-1.5 mb-3">
+                  {o.signupCashback > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">💰 {o.signupCashback} KWD {ar() ? "كاش باك" : "signup CB"}</span>}
+                  {o.perSessionCashback > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700">🔄 {o.perSessionCashback} KWD/{ar() ? "جلسة" : "session"}</span>}
+                  {o.cashbackActivationFee > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700">🔑 +{o.cashbackActivationFee} KWD {ar() ? "تفعيل" : "activation"}</span>}
+                </div>
+
+                <div className="text-xs text-surface-500 mb-3">{enrolled} {ar() ? "مشترك" : "enrolled"} • {o.sessionIntervalDays}d {ar() ? "انتظار" : "interval"}</div>
+
+                {/* Expandable details */}
+                {isExpanded && (
+                  <div className="border-t border-surface-100 pt-3 mt-2 space-y-2 text-xs animate-fade-in">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "دفع كامل" : "Full Pay"}</span><div className="font-bold">{o.allowFullPayment ? "✓" : "✗"}</div></div>
+                      <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "أقساط" : "Installments"}</span><div className="font-bold">{o.allowInstallments ? `✓ (${o.maxInstallments})` : "✗"}</div></div>
+                      <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "عربون" : "Deposit"}</span><div className="font-bold">{o.allowDeposit ? `✓ (${o.depositAmount} KWD)` : "✗"}</div></div>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-1">{(ar() ? o.tagsAr : o.tagsEn).map(t => <span key={t} className="bg-surface-100 text-surface-600 text-[9px] uppercase font-bold px-2 py-0.5 rounded">{t}</span>)}</div>
+                  </div>
+                )}
+
+                <div className="flex gap-2 mt-3 pt-3 border-t border-surface-100">
+                  <button className="text-xs font-bold text-brand-pink-600 bg-brand-pink-50 px-3 py-1.5 rounded-lg hover:bg-brand-pink-100" onClick={() => openEdit(o)}>{ar() ? "تعديل" : "Edit"}</button>
+                  <button className="text-xs font-bold text-surface-500 bg-surface-100 px-3 py-1.5 rounded-lg hover:bg-surface-200" onClick={() => setExpandedId(isExpanded ? null : o.id)}>{isExpanded ? (ar() ? "إخفاء" : "Less") : (ar() ? "تفاصيل" : "Details")}</button>
+                  <button className="text-xs font-bold px-3 py-1.5 rounded-lg ml-auto" onClick={() => toggleActive(o)}>{o.active ? <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">{ar() ? "إيقاف" : "Deactivate"}</span> : <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">{ar() ? "تفعيل" : "Activate"}</span>}</button>
+                  <button className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100" onClick={() => handleDelete(o.id)}>{ar() ? "حذف" : "Delete"}</button>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {offers.length === 0 && <div className="md:col-span-3 text-center text-surface-400 py-12 card-elevated">{ar() ? "لا توجد عروض" : "No offers yet"}</div>}
+      </div>
+    </div>
+  );
+}
+
+function SessionsManager() {
+  const [sessions, setSessions] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem('demo_standalone_sessions_v6');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.length > 0) return parsed;
+      }
+      const defaults = allTreatments.map(t => {
+        const cat = treatmentCategories.find(c => c.id === t.category);
+        return {
+          id: `sess_${t.id}`,
+          title: ar() ? t.nameAr : t.nameEn,
+          icon: cat?.icon || "✨",
+          categoryId: t.category,
+          treatmentId: t.id,
+          clinicId: "clinic_qibla",
+          price: t.category === "injectables" ? 150 : t.category === "laser" ? 60 : 90,
+          cashbackDeduction: t.category === "injectables" ? 50 : 20
+        };
+      });
+      localStorage.setItem('demo_standalone_sessions_v6', JSON.stringify(defaults));
+      return defaults;
+    } catch(e) { return []; }
+  });
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [sessionFilter, setSessionFilter] = useState("all");
+  const [form, setForm] = useState({ categoryId: "injectables", treatmentId: "", clinicId: "", price: "19", cashbackDeduction: "0" });
+  
+  const { data: clinicsData } = useApi<{ clinics: any[] }>("/clinics/admin");
+
+  const availableTreatments = allTreatments.filter(t => t.category === form.categoryId);
+
+  const saveSession = () => {
+     if (!form.clinicId || !form.treatmentId) return;
+     const treatment = allTreatments.find(t => t.id === form.treatmentId);
+     const category = treatmentCategories.find(c => c.id === form.categoryId);
+     if (!treatment || !category) return;
+
+     const newSession = { 
+        id: editingSessionId || `sess_${Date.now()}`, 
+        title: ar() ? treatment.nameAr : treatment.nameEn, 
+        icon: category.icon, 
+        categoryId: form.categoryId,
+        treatmentId: form.treatmentId,
+        clinicId: form.clinicId, 
+        price: parseFloat(form.price) || 0,
+        cashbackDeduction: parseFloat(form.cashbackDeduction) || 0
+     };
+
+     let updated;
+     if (editingSessionId) {
+        updated = sessions.map(s => s.id === editingSessionId ? newSession : s);
+     } else {
+        updated = [...sessions, newSession];
+     }
+     setSessions(updated);
+     localStorage.setItem('demo_standalone_sessions_v6', JSON.stringify(updated));
+     setShowCreate(false);
+     setEditingSessionId(null);
+  };
+
+  const deleteSession = (id: string) => {
+     const updated = sessions.filter(s => s.id !== id);
+     setSessions(updated);
+     localStorage.setItem('demo_standalone_sessions_v6', JSON.stringify(updated));
+  };
+  
+  const editSession = (session: any) => {
+     setForm({
+       categoryId: session.categoryId || "injectables",
+       treatmentId: session.treatmentId || "",
+       clinicId: session.clinicId || "",
+       price: String(session.price),
+       cashbackDeduction: String(session.cashbackDeduction || 0)
+     });
+     setEditingSessionId(session.id);
+     setShowCreate(true);
+  };
+
+  // Group sessions by treatmentId for display
+  const grouped = sessions.reduce((acc: Record<string, any[]>, s: any) => {
+    const tid = s.treatmentId || s.id;
+    if (!acc[tid]) acc[tid] = [];
+    acc[tid].push(s);
+    return acc;
+  }, {});
+
+  const addClinicToTreatment = (treatmentId: string) => {
+    const existing = sessions.find((s: any) => s.treatmentId === treatmentId);
+    if (!existing) return;
+    setForm({
+      categoryId: existing.categoryId || "injectables",
+      treatmentId: existing.treatmentId,
+      clinicId: "",
+      price: "19",
+      cashbackDeduction: "0"
+    });
+    setEditingSessionId(null);
+    setShowCreate(true);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-bold text-surface-900">{ar() ? "إدارة الجلسات المنفردة" : "Standalone Sessions"}</h3>
+        <button className="btn-primary btn-sm" onClick={() => { setShowCreate(!showCreate); setEditingSessionId(null); setForm({ categoryId: "injectables", treatmentId: "", clinicId: "", price: "19", cashbackDeduction: "0" }); }}>+ {ar() ? "إضافة جلسة جديدة" : "Add New Session"}</button>
+      </div>
+
+      {showCreate && (
+         <div className="card-elevated p-5 animate-slide-up">
+           <h4 className="text-sm font-bold text-surface-800 mb-3">{editingSessionId ? (ar() ? "تعديل بيانات العيادة" : "Edit Clinic Entry") : (ar() ? "إضافة جلسة / عيادة جديدة" : "Add New Session / Clinic")}</h4>
+           <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
+              <div>
+                 <label className="text-xs font-medium text-surface-500">{ar() ? "الفئة" : "Category"}</label>
+                 <select className="select-field mt-1" value={form.categoryId} onChange={e => {
+                    const catId = e.target.value;
+                    const firstTreatment = allTreatments.find(t => t.category === catId);
+                    setForm({ ...form, categoryId: catId, treatmentId: firstTreatment?.id || "" });
+                 }}>
+                    {treatmentCategories.map(c => (
+                      <option key={c.id} value={c.id}>{c.icon} {ar() ? c.nameAr : c.nameEn}</option>
+                    ))}
+                 </select>
+              </div>
+              <div>
+                 <label className="text-xs font-medium text-surface-500">{ar() ? "نوع العلاج" : "Treatment Type"}</label>
+                 <select className="select-field mt-1" value={form.treatmentId} onChange={e => setForm({ ...form, treatmentId: e.target.value })}>
+                    <option value="" disabled>{ar() ? "اختر الجلسة" : "Select Treatment"}</option>
+                    {availableTreatments.map(t => (
+                      <option key={t.id} value={t.id}>{ar() ? t.nameAr : t.nameEn}</option>
+                    ))}
+                 </select>
+              </div>
+              <div className="lg:col-span-2">
+                <label className="text-xs font-medium text-surface-500">{ar() ? "العيادة" : "Clinic"}</label>
+                <select className="select-field mt-1" value={form.clinicId} onChange={e => setForm({ ...form, clinicId: e.target.value })}>
+                  <option value="" disabled>{ar() ? "اختر العيادة" : "Select Clinic"}</option>
+                  {sharedClinics.map(c => (
+                    <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>
+                  ))}
+                  {(clinicsData?.clinics || []).map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.nameEn || c.id}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                 <label className="text-xs font-medium text-surface-500">{ar() ? "السعر الأصلي (KWD)" : "Original Price (KWD)"}</label>
+                 <input className="input-field mt-1" type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
+              </div>
+              <div>
+                 <label className="text-xs font-medium text-surface-500">{ar() ? "خصم الكاش باك (KWD)" : "Cashback Deduction (KWD)"}</label>
+                 <input className="input-field mt-1" type="number" value={form.cashbackDeduction} onChange={e => setForm({ ...form, cashbackDeduction: e.target.value })} />
+              </div>
+           </div>
+           <div className="mt-4 flex gap-2">
+             <button className="btn-primary btn-sm" onClick={saveSession}>{editingSessionId ? (ar() ? "حفظ التغييرات" : "Save Changes") : (ar() ? "حفظ" : "Save")}</button>
+             <button className="btn-secondary btn-sm" onClick={() => { setShowCreate(false); setEditingSessionId(null); }}>{ar() ? "إلغاء" : "Cancel"}</button>
+           </div>
+         </div>
+      )}
+
+      <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-4">
+        {[
+          { id: "all", icon: "✨", label: ar() ? "الكل" : "All" },
+          ...treatmentCategories.map(c => ({ id: c.id, icon: c.icon, label: ar() ? c.nameAr : c.nameEn }))
+        ].map(f => (
+          <button
+            key={f.id}
+            onClick={() => setSessionFilter(f.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-xs font-bold transition-all ${sessionFilter === f.id ? "bg-surface-900 text-white shadow-md" : "bg-white text-surface-600 border border-surface-200 hover:bg-surface-100"}`}
+          >
+            <span>{f.icon}</span>
+            <span>{f.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        {Object.entries(grouped).filter(([_, items]) => sessionFilter === "all" || items[0].categoryId === sessionFilter).length === 0 && (
+          <div className="card-elevated p-8 text-center text-surface-400">{ar() ? "لا توجد جلسات منفردة" : "No standalone sessions found"}</div>
+        )}
+        {Object.entries(grouped).filter(([_, items]) => sessionFilter === "all" || items[0].categoryId === sessionFilter).map(([tid, items]: [string, any[]]) => {
+          const first = items[0];
+          const tDef = allTreatments.find(t => t.id === tid);
+          const cDef = treatmentCategories.find(c => c.id === first.categoryId);
+          const treatmentName = tDef ? (ar() ? tDef.nameAr : tDef.nameEn) : first.title;
+          const categoryName = cDef ? (ar() ? cDef.nameAr : cDef.nameEn) : first.categoryId;
+          return (
+            <div key={tid} className="card-elevated overflow-hidden">
+              <div className="bg-surface-50 px-5 py-3 border-b border-surface-100 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-surface-900 flex items-center gap-2">
+                    <span className="text-lg">{first.icon}</span> {treatmentName}
+                  </div>
+                  <div className="text-xs text-surface-500 mt-0.5">{categoryName} • {items.length} {ar() ? "عيادة" : items.length === 1 ? "clinic" : "clinics"}</div>
+                </div>
+                <button className="btn-sm bg-brand-pink-50 text-brand-pink-600 hover:bg-brand-pink-100 font-bold text-xs rounded-lg px-3 py-1.5" onClick={() => addClinicToTreatment(tid)}>
+                  + {ar() ? "إضافة عيادة" : "Add Clinic"}
+                </button>
+              </div>
+              <table className="data-table">
+                <thead><tr><th>{ar() ? "العيادة" : "Clinic"}</th><th>{ar() ? "السعر الأصلي" : "Original Price"}</th><th>{ar() ? "خصم الكاش باك" : "Cashback Deduction"}</th><th></th></tr></thead>
+                <tbody>
+                  {items.map((s: any) => (
+                    <tr key={s.id}>
+                      <td className="text-surface-700 font-medium">{s.clinicId}</td>
+                      <td className="text-brand-pink-600 font-bold">{s.price} KWD</td>
+                      <td className="text-blue-600 font-bold">{s.cashbackDeduction || 0} KWD</td>
+                      <td className="text-right flex gap-2 justify-end">
+                        <button className="text-brand-pink-600 hover:text-brand-pink-800 text-sm font-bold bg-brand-pink-50 px-3 py-1 rounded-lg" onClick={() => editSession(s)}>{ar() ? "تعديل" : "Edit"}</button>
+                        <button className="text-red-500 hover:text-red-700 text-sm font-bold bg-red-50 px-3 py-1 rounded-lg" onClick={() => deleteSession(s.id)}>{ar() ? "حذف" : "Delete"}</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 }
 
 function ClinicsManager() {
-  const { getAuthHeader } = useAuth();
+  const { getAuthHeader, login } = useAuth();
   const { data, refetch } = useApi<{ clinics: any[] }>("/clinics/admin");
   const [showCreate, setShowCreate] = useState(false);
   const [newClinicId, setNewClinicId] = useState<string | null>(null);
@@ -186,6 +459,14 @@ function ClinicsManager() {
     address: "", 
     account: "",
     password: ""
+  });
+
+  const apiClinics = data?.clinics || [];
+  const allClinics = [...apiClinics];
+  sharedClinics.forEach(sc => {
+      if (!allClinics.find(c => c.id === sc.id)) {
+          allClinics.push({ ...sc, contactPhone: "+965 —", contactEmail: "No Email", account: sc.id });
+      }
   });
 
   const createClinic = async () => {
@@ -257,8 +538,8 @@ function ClinicsManager() {
       
       {!showCreate && !newClinicId && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {(data?.clinics || []).map((c: any) => (
-            <div key={c.id} className="card-elevated p-5 relative overflow-hidden group">
+          {allClinics.map((c: any) => (
+            <div key={c.id} className="card-elevated p-5 relative overflow-hidden group flex flex-col">
               <div className="absolute top-0 right-0 w-24 h-24 bg-brand-pink-50 rounded-bl-[100px] -z-10 group-hover:scale-110 transition-transform" />
               <div className="text-base font-bold text-surface-900">{c.nameEn || "New Clinic"}</div>
               <div className="text-xs text-surface-500 mt-1">{c.nameAr || "عيادة جديدة"} • {c.address || "No Address"}</div>
@@ -266,13 +547,23 @@ function ClinicsManager() {
                  <div className="flex items-center gap-2"><svg className="w-3.5 h-3.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg> <span dir="ltr">{c.contactPhone || "+965 —"}</span></div>
                  <div className="flex items-center gap-2"><svg className="w-3.5 h-3.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg> {c.contactEmail || "No Email"}</div>
               </div>
-              <div className="mt-4 pt-4 border-t border-surface-100 flex justify-between items-center">
+              <div className="mt-4 pt-4 border-t border-surface-100 flex justify-between items-center mb-4">
                  <div className="text-xs text-surface-500 font-mono bg-surface-100 px-2 py-1 rounded">ID: {c.id}</div>
                  <span className="badge bg-emerald-50 text-emerald-600 border border-emerald-100">{ar() ? "نشط" : "Active"}</span>
               </div>
+              
+              <div className="mt-auto grid grid-cols-2 gap-2">
+                 <button className="btn-primary py-2 text-xs w-full flex items-center justify-center gap-1.5" onClick={() => login(c.account || c.id, "clinic")}>
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
+                    {ar() ? "دخول" : "Login"}
+                 </button>
+                 <button className="btn-secondary py-2 text-xs w-full bg-white hover:bg-surface-50 border-surface-200" onClick={() => alert(ar() ? "سيتم تفعيل التعديل قريباً" : "Edit functionality coming soon")}>
+                    {ar() ? "تعديل" : "Edit Details"}
+                 </button>
+              </div>
             </div>
           ))}
-          {(data?.clinics || []).length === 0 && <div className="col-span-full card-elevated p-12 text-center border-dashed border-2 border-surface-200">
+          {allClinics.length === 0 && <div className="col-span-full card-elevated p-12 text-center border-dashed border-2 border-surface-200">
             <div className="text-4xl mb-3 opacity-50">🏥</div>
             <div className="text-base font-bold text-surface-900 mb-1">{ar() ? "لا توجد عيادات مسجلة" : "No clinics registered"}</div>
             <div className="text-sm text-surface-400">{ar() ? "قم بإنشاء أول عيادة في المنصة" : "Create the first clinic in the platform"}</div>
@@ -787,6 +1078,7 @@ export default function AdminDashboard() {
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
     { key: "offers", icon: Icons.offers, label: t("offers") },
+    { key: "standalone", icon: Icons.calendar, label: ar() ? "الجلسات" : "Sessions" },
     { key: "users", icon: Icons.users, label: t("users") },
     { key: "clinics", icon: Icons.clinic, label: t("clinics") },
     { key: "tasks", icon: Icons.clipboard, label: t("tasks") },
@@ -848,6 +1140,7 @@ export default function AdminDashboard() {
           </>
         )}
         {activeNav === "offers" && <OffersManager />}
+        {activeNav === "standalone" && <SessionsManager />}
         {activeNav === "clinics" && <ClinicsManager />}
         {activeNav === "tasks" && <TasksManager />}
         {activeNav === "complaints" && <ComplaintsView />}

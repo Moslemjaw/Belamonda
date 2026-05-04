@@ -4,11 +4,10 @@ import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
 import { useClinicSchedule } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
+import { sharedClinics } from "../../lib/clinics";
 import i18n from "../../app/i18n";
 
 const ar = () => i18n.language === "ar";
-
-const CLINIC_ID = "clinic_glow"; // Default demo clinic
 
 function KpiCard({ label, value, icon, isHighlighted, iconBg = "bg-brand-pink-50", iconText = "text-brand-pink-600", iconBorder = "border-brand-pink-100" }: { label: string; value: string | number; icon: React.ReactNode; isHighlighted?: boolean; iconBg?: string; iconText?: string; iconBorder?: string; }) {
   return (
@@ -96,16 +95,19 @@ function SessionCard({ session, onMark }: { session: any; onMark: (id: string, s
 
 export default function ClinicDashboard() {
   const { t } = useTranslation();
-  const { getAuthHeader } = useAuth();
+  const { auth, getAuthHeader } = useAuth();
   const [activeNav, setActiveNav] = useState("home");
   const [isEditingSettings, setIsEditingSettings] = useState(false);
+  const CLINIC_ID = auth?.userId || sharedClinics[0].id;
+  const clinicData = sharedClinics.find(c => c.id === CLINIC_ID) || sharedClinics[0];
+
   const [settingsForm, setSettingsForm] = useState({
-    nameEn: "Derma Clinic",
-    nameAr: "ديرما كلينك",
-    address: "Kuwait City, Sharq",
-    contactName: "Dr. Sarah",
-    contactPhone: "+965 99123456",
-    contactEmail: "contact@dermaclinic.com"
+    nameEn: clinicData.nameEn,
+    nameAr: clinicData.nameAr,
+    address: "Kuwait City",
+    contactName: "Admin",
+    contactPhone: "+965 90000000",
+    contactEmail: `contact@${CLINIC_ID}.com`
   });
   const { data, loading, refetch } = useClinicSchedule(CLINIC_ID);
 
@@ -132,7 +134,7 @@ export default function ClinicDashboard() {
   ];
 
   return (
-    <DashboardShell navItems={navItems} activeKey={activeNav} onNavigate={setActiveNav} title={ar() ? "لوحة العيادة" : "Clinic Dashboard"} subtitle={ar() ? "عيادة جلو — جدول اليوم" : "Glow Clinic — Today's Schedule"}>
+    <DashboardShell navItems={navItems} activeKey={activeNav} onNavigate={setActiveNav} title={ar() ? "لوحة العيادة" : "Clinic Dashboard"} subtitle={ar() ? `${clinicData.nameAr} — جدول اليوم` : `${clinicData.nameEn} — Today's Schedule`}>
       <div className="space-y-6 animate-fade-in">
         {(activeNav === "home" || activeNav === "schedule") && (
           <>

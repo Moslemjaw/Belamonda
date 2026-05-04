@@ -5,6 +5,7 @@ import { useWallet, useMyOffers, useNotifications, useApi } from "../../hooks/us
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { BelamondaIcon } from "../../components/BelamondaLogo";
+import { treatmentCategories, allTreatments, clinics } from "../../lib/treatments";
 
 const ar = () => i18n.language === "ar";
 
@@ -241,6 +242,7 @@ export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState("home");
   const [showKyc, setShowKyc] = useState(false);
   const [offerFilter, setOfferFilter] = useState("all");
+  const [sessionFilter, setSessionFilter] = useState("all");
   const [selectedPkg, setSelectedPkg] = useState<any>(null);
 
   const { data: walletData, loading: wLoading } = useWallet();
@@ -248,12 +250,12 @@ export default function CustomerDashboard() {
   const { data: notifData } = useNotifications();
 
   const [localOffers, setLocalOffers] = useState<any[]>(() => {
-    try { return JSON.parse(localStorage.getItem('demo_offers') || '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem('demo_offers_v3') || '[]'); } catch { return []; }
   });
 
   useEffect(() => {
     const sync = () => {
-       try { setLocalOffers(JSON.parse(localStorage.getItem('demo_offers') || '[]')); } catch {}
+       try { setLocalOffers(JSON.parse(localStorage.getItem('demo_offers_v3') || '[]')); } catch {}
     };
     window.addEventListener('storage', sync);
     const interval = setInterval(sync, 1000); // Polling for same-window syncing
@@ -262,7 +264,7 @@ export default function CustomerDashboard() {
 
   const saveOffers = (newOffers: any[]) => {
     setLocalOffers(newOffers);
-    localStorage.setItem('demo_offers', JSON.stringify(newOffers));
+    localStorage.setItem('demo_offers_v3', JSON.stringify(newOffers));
   };
   const [sysAlert, setSysAlert] = useState<string | null>(null);
   const [showBookingModal, setShowBookingModal] = useState<any>(null);
@@ -285,6 +287,7 @@ export default function CustomerDashboard() {
       try {
         const data = await apiFetch("/kyc/me/wallet", { headers: getAuthHeader() }) as any;
         setKycStatus(data.wallet ? "approved" : "unverified");
+        // Update local wallet data if not using the hook directly, though useWallet handles its own state
       } catch { setKycStatus("unverified"); }
     };
     if (!showKyc) check();
@@ -429,14 +432,17 @@ export default function CustomerDashboard() {
               <div>
                 <div className="flex justify-between items-end mb-4">
                   <h3 className="text-lg font-bold text-surface-900">{ar() ? "عروضي النشطة" : "Active Subscriptions"}</h3>
-                  <button onClick={() => setActiveTab("offers")} className="text-sm font-medium text-brand-pink-500 hover:text-brand-pink-600">
-                    {ar() ? "تصفح المزيد" : "Browse more"}
+                  <button onClick={() => setActiveTab("offers")} className="text-sm font-medium text-brand-pink-500 hover:text-brand-pink-600 flex items-center gap-1">
+                    {ar() ? "تصفح باقاتنا" : "Browse Memberships"} <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </div>
                 {offers.length === 0 ? (
-                  <div className="bg-white border border-surface-200 border-dashed rounded-2xl p-8 text-center text-surface-500">
+                  <div className="bg-white border border-surface-200 border-dashed rounded-2xl p-8 text-center text-surface-500 flex flex-col items-center justify-center">
                     <span className="text-4xl block mb-3">✨</span>
-                    {ar() ? "ليس لديك أي عروض نشطة حالياً" : "You don't have any active offers yet"}
+                    <p className="mb-4 text-surface-600 font-medium">{ar() ? "ليس لديك أي عروض نشطة حالياً" : "You don't have any active offers yet"}</p>
+                    <button onClick={() => setActiveTab("offers")} className="btn-primary px-6 py-2 shadow-sm hover:scale-105 transition-transform">
+                       {ar() ? "تصفح باقاتنا والعضويات" : "Browse Memberships & Offers"}
+                    </button>
                   </div>
                 ) : (
                   <div className="grid gap-4 md:grid-cols-2">
@@ -444,7 +450,7 @@ export default function CustomerDashboard() {
                       <div key={o.id} className={`card-elevated p-5 border-l-4 ${o.status === 'pending payment' ? 'border-l-amber-400' : 'border-l-brand-pink-400'}`}>
                         <div className="flex justify-between items-start">
                           <div>
-                            <h4 className="font-bold text-surface-900">{o.offerId?.slice(0, 15) || "Special Package"}</h4>
+                            <h4 className="font-bold text-surface-900 text-lg">{o.offerId || "Special Package"}</h4>
                             <p className="text-xs text-surface-400 mt-1">Status: <span className={`font-bold uppercase ${o.status === 'pending payment' ? 'text-amber-500' : 'text-emerald-600'}`}>{o.status}</span></p>
                             {o.method === "Installments" && (
                                <p className="text-[10px] text-brand-pink-500 font-bold mt-1 uppercase">Paid: {o.paidInstallments} / {o.totalInstallments}</p>
@@ -469,6 +475,137 @@ export default function CustomerDashboard() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* ── Book a Session ── */}
+              <div className="mt-10">
+                 <div className="flex items-start gap-4 mb-6">
+                    <div className="w-12 h-12 rounded-2xl bg-brand-pink-50 flex items-center justify-center text-brand-pink-500 shrink-0">
+                       <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    </div>
+                    <div>
+                       <h3 className="text-xl font-bold text-surface-900">{ar() ? "حجز جلسة / خدمة جديدة" : "Book a Session"}</h3>
+                       <p className="text-sm text-surface-500 mt-1">{ar() ? "تصفح جميع الخدمات المتاحة واحجز موعدك بسهولة" : "Browse all available services and book your appointment easily"}</p>
+                    </div>
+                 </div>
+
+                 {/* Session Categories Filter */}
+                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-4 mb-4">
+                    <button
+                      onClick={() => setSessionFilter("all")}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap font-medium transition-all ${sessionFilter === "all" ? "bg-surface-900 text-white shadow-md scale-105" : "bg-surface-50 text-surface-600 border border-surface-200 hover:bg-surface-100"}`}
+                    >
+                      ✨ {ar() ? "الكل" : "All"}
+                    </button>
+                    {treatmentCategories.map(cat => (
+                      <button
+                        key={cat.id}
+                        onClick={() => setSessionFilter(cat.id)}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap font-medium transition-all ${sessionFilter === cat.id ? "bg-brand-pink-500 text-white shadow-md scale-105" : "bg-surface-50 text-surface-600 border border-surface-200 hover:bg-surface-100"}`}
+                      >
+                        <span>{cat.icon}</span>
+                        <span>{ar() ? cat.nameAr : cat.nameEn}</span>
+                      </button>
+                    ))}
+                 </div>
+
+                 {/* Sessions Grid */}
+                 <div className="grid gap-5 md:grid-cols-2">
+                    {allTreatments.filter(t => sessionFilter === "all" || t.category === sessionFilter).map((t) => {
+                       const hasMembership = localOffers.length > 0;
+                       const actualDiscountPct = hasMembership ? t.discountPct : 0;
+                       const actualCashbackKwd = hasMembership ? t.cashbackKwd : 0;
+
+                       const discountAmt = actualDiscountPct > 0 ? +(t.priceKwd * actualDiscountPct / 100).toFixed(3) : 0;
+                       const finalPrice = +(t.priceKwd - discountAmt).toFixed(3);
+                       const availableClinics = clinics.filter(c => t.clinicIds.includes(c.id));
+                       
+                       return (
+                       <div key={t.id} className="bg-white rounded-[24px] p-6 relative overflow-hidden shadow-sm border border-surface-200/80 hover:shadow-xl hover:border-brand-pink-200/50 hover:-translate-y-1 transition-all duration-300 group flex flex-col">
+                          {/* Admin-style corner blob hover effect */}
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-pink-50/60 rounded-bl-[100px] -z-0 group-hover:scale-110 transition-transform duration-500 origin-top-right" />
+                          
+                          <div className="relative z-10 flex flex-col flex-1">
+                             {/* Row 1: Icon and Category */}
+                          <div className="flex items-center gap-3 mb-3">
+                              <div className="w-10 h-10 bg-brand-pink-50 rounded-[12px] flex items-center justify-center text-xl text-brand-pink-500">
+                                  {treatmentCategories.find(c => c.id === t.category)?.icon}
+                              </div>
+                              <div className="text-[11px] font-bold text-surface-400 uppercase tracking-widest">
+                                  {ar() ? treatmentCategories.find(c => c.id === t.category)?.nameAr : treatmentCategories.find(c => c.id === t.category)?.nameEn}
+                              </div>
+                          </div>
+
+                          {/* Row 2: Title */}
+                          <h3 className="text-xl font-extrabold text-surface-900 leading-snug mb-5 tracking-tight">
+                              {ar() ? t.nameAr : t.nameEn}
+                          </h3>
+
+                          {/* Row 3: Dropdown */}
+                          <div className="mb-6">
+                              {availableClinics.length > 0 ? (
+                                  <div className="relative">
+                                      <select className="w-full bg-surface-50 border border-surface-200 rounded-xl px-4 py-3 text-sm text-surface-700 font-medium focus:outline-none focus:ring-2 focus:ring-surface-900 focus:border-surface-900 transition-all appearance-none cursor-pointer pr-10">
+                                          {availableClinics.map(cl => <option key={cl.id} value={cl.id}>{ar() ? cl.nameAr : cl.nameEn}</option>)}
+                                      </select>
+                                      <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-surface-400">
+                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+                                      </div>
+                                  </div>
+                              ) : (
+                                  <div className="w-full bg-surface-50 border border-dashed border-surface-300 rounded-xl px-3 py-3 text-sm text-center text-surface-400 italic">
+                                      {ar() ? "لا توجد عيادات حالياً" : "No clinics available"}
+                                  </div>
+                              )}
+                          </div>
+
+                          {/* Separator Line */}
+                          <hr className="border-surface-100 mb-5" />
+
+                          {/* Row 4: Pricing & Actions */}
+                          <div className="mt-auto">
+                             <div className="flex justify-between items-center mb-4 min-h-[24px]">
+                                {hasMembership && actualDiscountPct > 0 ? (
+                                   <>
+                                       <span className="text-surface-400 line-through font-bold text-sm">{t.priceKwd} KWD</span>
+                                       {actualCashbackKwd > 0 && <span className="text-emerald-500 font-bold text-sm bg-emerald-50 px-3 py-1 rounded-md">+{actualCashbackKwd} KWD Cashback</span>}
+                                   </>
+                                ) : (
+                                   <span className="text-surface-400 font-medium text-xs">{ar() ? "السعر القياسي" : "Standard Price"}</span>
+                                )}
+                             </div>
+
+                             <div className="flex items-center justify-between">
+                                 <div className="flex items-baseline gap-1.5">
+                                     <span className="text-[26px] font-black text-surface-900 leading-none">{finalPrice}</span>
+                                     <span className="text-[12px] font-bold text-surface-500 uppercase">KWD</span>
+                                 </div>
+                                 
+                                 <button 
+                                     className={`px-6 py-3 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 ${availableClinics.length > 0 ? 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5' : 'bg-surface-100 text-surface-400 cursor-not-allowed'}`}
+                                     disabled={availableClinics.length === 0}
+                                     onClick={() => {
+                                         const offer = {
+                                           id: `temp_${t.id}`,
+                                           offerId: ar() ? t.nameAr : t.nameEn,
+                                           status: "active",
+                                           method: "Standalone",
+                                           priceKwd: t.priceKwd,
+                                           discountPct: actualDiscountPct,
+                                           cashbackKwd: actualCashbackKwd,
+                                           finalPrice
+                                         };
+                                         setShowBookingModal(offer);
+                                     }}
+                                 >
+                                     {ar() ? "احجز جلستك" : "Book Your Session"}
+                                 </button>
+                             </div>
+                          </div>
+                          </div>
+                       </div>
+                    );})}
+                 </div>
               </div>
             </div>
           )}
@@ -722,6 +859,13 @@ export default function CustomerDashboard() {
             </div>
 
             <button className="bg-brand-pink-400 hover:bg-brand-pink-500 text-white font-bold w-full rounded-2xl py-3.5 transition-colors shadow-sm" onClick={() => {
+               const existing = localOffers.find(o => o.offerId === selectedPkg.title);
+               if (existing) {
+                  setSysAlert(ar() ? "لديك باقة فعالة أو معلقة من هذا النوع مسبقاً!" : "You already have an active or pending package of this type!");
+                  setTimeout(() => setSysAlert(null), 4000);
+                  return;
+               }
+
                const newOffer = { 
                   id: "off_" + Date.now(), 
                   userId: auth?.userId || "cust1",
@@ -738,9 +882,9 @@ export default function CustomerDashboard() {
                saveOffers(updatedOffers);
 
                try {
-                 const pending = JSON.parse(localStorage.getItem('demo_pending_payments') || '[]');
+                 const pending = JSON.parse(localStorage.getItem('demo_pending_payments_v3') || '[]');
                  pending.push(newOffer);
-                 localStorage.setItem('demo_pending_payments', JSON.stringify(pending));
+                 localStorage.setItem('demo_pending_payments_v3', JSON.stringify(pending));
                } catch (e) {}
 
                setSelectedPkg(null);
@@ -762,41 +906,75 @@ export default function CustomerDashboard() {
                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
             <h3 className="text-xl font-bold text-surface-900 mb-2">{ar() ? "حجز موعد" : "Book Appointment"}</h3>
-            <p className="text-sm text-surface-500 mb-6">{ar() ? "يرجى تحديد نوع الجلسة التي ترغب بها، وسيتواصل معك الفريق لتحديد الموعد." : "Please select the session type, and our team will contact you to schedule."}</p>
+            <p className="text-sm text-surface-500 mb-6">{ar() ? "الرجاء مراجعة تفاصيل الحجز، وسيتواصل معك الفريق لتأكيد الموعد." : "Please review the booking details, and our team will contact you to confirm the time."}</p>
             
+            <div className="bg-surface-50 border border-surface-200 rounded-xl p-4 mb-5">
+               <div className="text-xs text-surface-500 mb-1">{ar() ? "الخدمة / الباقة المختارة" : "Selected Service / Package"}</div>
+               <div className="font-bold text-surface-900">{showBookingModal.offerId || "Booking"}</div>
+               {showBookingModal.method === "Standalone" && (
+                 <div className="text-xs text-brand-pink-500 font-bold mt-1">{ar() ? "جلسة مفردة الدفع لاحقاً" : "Single Session (Pay Later)"}</div>
+               )}
+            </div>
+
             <div className="space-y-4 mb-6">
-               <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "نوع الجلسة المطلوبة" : "Requested Session Type"}</label>
-               <select className="select-field w-full bg-surface-50">
-                  <option>{ar() ? "جلسة ليزر" : "Laser Session"}</option>
-                  <option>{ar() ? "تجميل / فيلر" : "Beauty / Fillers"}</option>
-                  <option>{ar() ? "عناية بالبشرة" : "Skincare"}</option>
-               </select>
+               <div>
+                  <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "العيادة المفضلة" : "Preferred Clinic"}</label>
+                  <select className="select-field w-full bg-surface-50">
+                     <option>{ar() ? "بيلاموندا السالمية" : "Belamonda Salmiya"}</option>
+                     <option>{ar() ? "بيلاموندا حولي" : "Belamonda Hawally"}</option>
+                  </select>
+               </div>
+
+               {/* Cashback Usage Option */}
+               {wallet && parseFloat(wallet.unlockedBalance || "0") > 0 && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3 mt-4">
+                     <input type="checkbox" className="mt-1 w-4 h-4 text-emerald-500 rounded border-emerald-300 focus:ring-emerald-400" id="useCashbackModal" />
+                     <div>
+                        <label htmlFor="useCashbackModal" className="font-bold text-emerald-800 text-sm cursor-pointer">{ar() ? "استخدام الكاش باك المتاح" : "Use Available Cashback"}</label>
+                        <p className="text-xs text-emerald-600 mt-0.5">{ar() ? `لديك ${parseFloat(wallet.unlockedBalance).toFixed(3)} د.ك متاحة كخصم` : `You have ${parseFloat(wallet.unlockedBalance).toFixed(3)} KWD available for discount`}</p>
+                     </div>
+                  </div>
+               )}
             </div>
 
             <button className="btn-primary w-full shadow-md" onClick={() => {
                const offer = showBookingModal;
-               
-               const isInstallments = offer.method === "Installments";
-               let nextStatus = "active";
-               
-               if (isInstallments && offer.paidInstallments < offer.totalInstallments) {
-                  nextStatus = "pending payment";
+               const clinicSelect = document.querySelector('select.bg-surface-50') as HTMLSelectElement;
+               const clinicName = clinicSelect ? clinicSelect.value : "Preferred Clinic";
+
+               if (offer.method !== "Standalone") {
+                  const isInstallments = offer.method === "Installments";
+                  let nextStatus = "active";
+                  if (isInstallments && offer.paidInstallments < offer.totalInstallments) {
+                     nextStatus = "pending payment";
+                  }
+                  const updatedOffer = { ...offer, sessionsUsed: (offer.sessionsUsed || 0) + 1, status: nextStatus };
+                  const updatedOffers = localOffers.map(o => o.id === offer.id ? updatedOffer : o);
+                  saveOffers(updatedOffers);
+                  if (nextStatus === "pending payment") {
+                      try {
+                        const pending = JSON.parse(localStorage.getItem('demo_pending_payments_v3') || '[]');
+                        pending.push(updatedOffer);
+                        localStorage.setItem('demo_pending_payments_v3', JSON.stringify(pending));
+                      } catch (e) {}
+                  }
                }
 
-               const updatedOffer = { ...offer, sessionsUsed: (offer.sessionsUsed || 0) + 1, status: nextStatus };
-               const updatedOffers = localOffers.map(o => o.id === offer.id ? updatedOffer : o);
-               saveOffers(updatedOffers);
-
-               if (nextStatus === "pending payment") {
-                   try {
-                     const pending = JSON.parse(localStorage.getItem('demo_pending_payments') || '[]');
-                     pending.push(updatedOffer);
-                     localStorage.setItem('demo_pending_payments', JSON.stringify(pending));
-                   } catch (e) {}
-               }
+               try {
+                  const bookings = JSON.parse(localStorage.getItem('demo_pending_bookings_v3') || '[]');
+                  bookings.push({
+                     id: `book_${Date.now()}`,
+                     userId: auth?.userId || "cust1",
+                     offerId: offer.offerId,
+                     treatment: offer.method === "Standalone" ? "Standalone Session" : offer.treatment || "Package Session",
+                     clinic: clinicName,
+                     createdAt: new Date().toISOString()
+                  });
+                  localStorage.setItem('demo_pending_bookings_v3', JSON.stringify(bookings));
+               } catch (e) {}
 
                setShowBookingModal(null);
-               setSysAlert(ar() ? "تم الطلب بنجاح! سيتواصل معك قسم خدمة العملاء خلال 24 ساعة لتأكيد الموعد المتاح." : "Request submitted! Customer Service will contact you within 24 hours to schedule.");
+               setSysAlert(ar() ? "تم إرسال طلب الحجز للعيادة بنجاح!" : "Booking request sent successfully to the clinic!");
                setTimeout(() => setSysAlert(null), 6000);
             }}>
                {ar() ? "طلب الموعد الآن" : "Request Appointment Now"}

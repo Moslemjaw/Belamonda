@@ -6,6 +6,8 @@ import { useAuth } from "../../app/AuthContext";
 import { useKycQueue, usePendingPayments, useComplaints, useApi } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
+import { getClinicChangeRequests, saveClinicChangeRequests, addFinancialEntry, upsertSubscription, getSubscriptions } from "../../lib/offerSystem";
+import { sharedClinics } from "../../lib/clinics";
 
 const ar = () => i18n.language === "ar";
 
@@ -65,27 +67,25 @@ function PaymentQueue({ mockPayments, setMockPayments }: { mockPayments: any[], 
   const confirmPayment = async (paymentId: string) => {
     setProcessing(paymentId);
     try {
+      const payment = mockPayments.find(p => p.id === paymentId);
       const updatedPending = mockPayments.filter(p => p.id !== paymentId);
       setMockPayments(updatedPending);
+      localStorage.setItem('demo_pending_payments_v3', JSON.stringify(updatedPending));
       
+      // Update the matching offer status based on the payment
       try {
-         localStorage.setItem('demo_pending_payments', JSON.stringify(updatedPending));
-         const offers = JSON.parse(localStorage.getItem('demo_offers') || '[]');
+         const offers = JSON.parse(localStorage.getItem('demo_offers_v3') || '[]');
          const updatedOffers = offers.map((o: any) => {
-            if (o.id === paymentId) {
-               return { 
-                 ...o, 
-                 status: "active", 
-                 paidInstallments: (o.paidInstallments || 0) + 1 
-               };
+            if (payment && o.offerId === payment.offerId && o.userId === payment.userId) {
+               return { ...o, status: 'active', paidInstallments: (o.paidInstallments || 0) + 1 };
             }
             return o;
          });
-         localStorage.setItem('demo_offers', JSON.stringify(updatedOffers));
+         localStorage.setItem('demo_offers_v3', JSON.stringify(updatedOffers));
       } catch (e) {}
 
-      await apiFetch("/payments/cs/confirm", { method: "POST", headers: getAuthHeader(), body: JSON.stringify({ userOfferId: paymentId, proofRef: "verified", method: "bank_transfer", amountKwd: "99.000" }) });
-    } catch (e: any) { console.log(e.message); } // silent fail for demo
+      try { await apiFetch("/payments/cs/confirm", { method: "POST", headers: getAuthHeader(), body: JSON.stringify({ userOfferId: paymentId, proofRef: "verified", method: "bank_transfer", amountKwd: "99.000" }) }); } catch(e){}
+    } catch (e: any) { console.log(e.message); }
     finally { setProcessing(null); }
   };
 
@@ -106,7 +106,10 @@ function PaymentQueue({ mockPayments, setMockPayments }: { mockPayments: any[], 
           <div className="avatar avatar-sm bg-amber-100 text-amber-700">{p.userId?.charAt(0)?.toUpperCase()}</div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-surface-800">{p.userId}</div>
-            <div className="text-xs text-surface-400">{ar() ? "عرض" : "Offer"}: {p.offerId?.slice(0, 20)} • {p.method}</div>
+            <div className="text-xs text-surface-400">{p.offerId?.slice(0, 30)}</div>
+            <div className="mt-1 flex gap-1.5">
+              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${p.method?.includes('Installment') ? 'bg-blue-100 text-blue-700' : p.method === 'Deposit' ? 'bg-purple-100 text-purple-700' : 'bg-emerald-100 text-emerald-700'}`}>{p.method || 'Payment'}</span>
+            </div>
           </div>
           <div className="text-sm font-bold text-brand-pink-600 mr-2">{p.amount}</div>
           <div className="flex items-center gap-2">
@@ -184,6 +187,129 @@ function PaymentQueue({ mockPayments, setMockPayments }: { mockPayments: any[], 
   );
 }
 
+function BookingRequestsQueue() {
+  const [mockBookings, setMockBookings] = useState<any[]>([]);
+
+  useEffect(() => {
+    const sync = () => {
+      try {
+        const stored = localStorage.getItem('demo_pending_bookings_v3');
+        if (stored) setMockBookings(JSON.parse(stored));
+      } catch (e) {}
+    };
+    sync();
+    window.addEventListener('storage', sync);
+    const interval = setInterval(sync, 1000);
+    return () => { window.removeEventListener('storage', sync); clearInterval(interval); };
+  }, []);
+
+  const [processing, setProcessing] = useState<string | null>(null);
+
+  const confirmBooking = async (bookingId: string) => {
+    setProcessing(bookingId);
+    try {
+      const updatedPending = mockBookings.filter(b => b.id !== bookingId);
+      setMockBookings(updatedPending);
+      localStorage.setItem('demo_pending_bookings_v3', JSON.stringify(updatedPending));
+      try { await apiFetch("/appointments/cs/confirm", { method: "POST", headers: { 'Authorization': 'dummy' }, body: JSON.stringify({ offerId: bookingId, status: "confirmed" }) }); } catch(e){}
+    } catch (e) {}
+    finally { setProcessing(null); }
+  };
+
+  return (
+    <div className="card-elevated p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
+        <div className="flex items-center gap-2">
+          <span className="badge-pink">{mockBookings.length} {ar() ? "معلق" : "pending"}</span>
+        </div>
+      </div>
+      {mockBookings.length === 0 ? (
+        <div className="text-center text-sm text-surface-400 py-8">✅ {ar() ? "لا توجد طلبات حجز معلقة" : "No pending booking requests"}</div>
+      ) : mockBookings.map((b: any) => (
+        <div key={b.id} className="flex items-center gap-4 py-3 border-b border-surface-100 last:border-0">
+          <div className="avatar avatar-sm bg-blue-100 text-blue-700">{b.userId?.charAt(0)?.toUpperCase()}</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-surface-800">{b.userId}</div>
+            <div className="text-xs text-surface-400">{b.offerId?.slice(0, 25)}</div>
+            <div className="mt-1 flex gap-1.5 flex-wrap">
+              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-brand-pink-100 text-brand-pink-700">{b.treatment}</span>
+              {b.clinic && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-600">{b.clinic}</span>}
+            </div>
+          </div>
+          <div className="text-xs text-surface-400 mr-2">{new Date(b.createdAt).toLocaleTimeString()}</div>
+          <div className="flex items-center gap-2">
+            <button className="btn-primary btn-sm px-4 bg-blue-500 hover:bg-blue-600 border-none" disabled={processing === b.id} onClick={() => confirmBooking(b.id)}>{processing === b.id ? "..." : ar() ? "تأكيد" : "Confirm"}</button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CustomerMemberships() {
+  const [offers, setOffers] = useState<any[]>([]);
+  useEffect(() => {
+    const sync = () => { try { setOffers(JSON.parse(localStorage.getItem('demo_offers_v3') || '[]')); } catch {} };
+    sync();
+    const iv = setInterval(sync, 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  if (offers.length === 0) return (
+    <div className="card-elevated p-5">
+      <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "اشتراكات العملاء" : "Customer Memberships"}</h3>
+      <div className="text-center text-sm text-surface-400 py-8">✅ {ar() ? "لا توجد اشتراكات" : "No memberships"}</div>
+    </div>
+  );
+
+  return (
+    <div className="card-elevated p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-surface-900">{ar() ? "اشتراكات العملاء" : "Customer Memberships"}</h3>
+        <span className="badge-sage">{offers.length}</span>
+      </div>
+      <div className="space-y-3">
+        {offers.map((o: any) => {
+          const ds = o.lastAppointmentDate ? Math.floor((Date.now() - new Date(o.lastAppointmentDate).getTime()) / (1000*60*60*24)) : null;
+          const cooling = ds !== null && ds < 25;
+          const daysLeft = cooling ? 25 - (ds ?? 0) : 0;
+          const isAwaiting = o.status === 'awaiting_payment';
+          const isFullyPaid = (o.method === 'Full Payment') || (o.method === 'Installments' && o.paidInstallments >= o.totalInstallments) || (o.method === 'Deposit' && o.depositFullyConverted);
+          const needsInstallment = !isAwaiting && !cooling && o.method === 'Installments' && o.paidInstallments < o.totalInstallments && o.sessionsUsed > 0;
+          const canBook = !isAwaiting && !cooling && !needsInstallment && o.status === 'active';
+
+          const statusColor = isAwaiting ? 'bg-amber-100 text-amber-700' : cooling ? 'bg-surface-100 text-surface-500' : canBook ? 'bg-emerald-100 text-emerald-700' : needsInstallment ? 'bg-blue-100 text-blue-700' : 'bg-surface-100 text-surface-600';
+          const statusText = isAwaiting ? (ar() ? "بانتظار الدفع" : "Awaiting Payment") : cooling ? (ar() ? `مقفل (${daysLeft}d)` : `Locked (${daysLeft}d)`) : canBook && isFullyPaid ? (ar() ? "نشط ✓" : "Active ✓") : canBook ? (ar() ? "نشط" : "Active") : needsInstallment ? `${o.paidInstallments}/${o.totalInstallments} Paid` : o.status;
+          const borderColor = isAwaiting ? 'border-l-amber-400' : cooling ? 'border-l-surface-300' : canBook ? 'border-l-emerald-500' : needsInstallment ? 'border-l-blue-400' : 'border-l-surface-300';
+
+          return (
+            <div key={o.id} className={`bg-surface-50 p-4 rounded-xl border border-surface-200 border-l-4 ${borderColor}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-bold text-surface-600 bg-white px-2 py-0.5 rounded border border-surface-200">{o.userId}</span>
+                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${statusColor}`}>{statusText}</span>
+                  </div>
+                  <div className="text-sm font-bold text-surface-900">{o.offerId?.slice(0, 30)}</div>
+                  <div className="text-xs text-surface-400 mt-0.5">{o.treatment} • {o.amount} • {o.method || 'Not set'}</div>
+                  {o.method === 'Installments' && !isAwaiting && (
+                    <div className="mt-1.5 flex gap-0.5">{[...Array(o.totalInstallments || 1)].map((_, i) => <div key={i} className={`h-1 w-6 rounded-full ${i < (o.paidInstallments || 0) ? 'bg-emerald-500' : 'bg-surface-200'}`} />)}</div>
+                  )}
+                </div>
+                <div className="text-center bg-white px-3 py-2 rounded-xl border border-surface-200">
+                  <div className="text-[9px] text-surface-500 uppercase font-bold">{ar() ? "جلسات" : "Sessions"}</div>
+                  <div className="font-black text-surface-900 text-lg">{o.sessionsUsed || 0}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function SchedulingTool() {
   const [customerQuery, setCustomerQuery] = useState("");
   const [form, setForm] = useState({
@@ -192,26 +318,70 @@ function SchedulingTool() {
      scheduledAt: "",
   });
   const [result, setResult] = useState<string | null>(null);
+  const [coolingOffWarning, setCoolingOffWarning] = useState<number | null>(null);
 
-  const mockClinics = [
-    { id: "clinic_glow", name: "Glow Clinic (Hawally)" },
-    { id: "clinic_derma", name: "Derma Center (Salmiya)" },
-    { id: "clinic_elite", name: "Elite Beauty (Kuwait City)" }
-  ];
+  const mockClinics = sharedClinics;
 
   const mockTreatments = [
-    { id: "laser", name: ar() ? "جلسة ليزر" : "Laser Session" },
-    { id: "fillers", name: ar() ? "فيلر" : "Fillers" },
-    { id: "botox", name: ar() ? "بوتوكس" : "Botox" },
-    { id: "skincare", name: ar() ? "عناية بالبشرة" : "Skin Care" },
+    { id: "laser", name: ar() ? "جلسة ليزر" : "Laser Session", category: "laser" },
+    { id: "fillers", name: ar() ? "فيلر" : "Fillers", category: "beauty" },
+    { id: "botox", name: ar() ? "بوتوكس" : "Botox", category: "beauty" },
+    { id: "skincare", name: ar() ? "عناية بالبشرة" : "Skin Care", category: "beauty" },
   ];
+
+  useEffect(() => {
+     if (!customerQuery || !form.treatment) {
+        setCoolingOffWarning(null);
+        return;
+     }
+     try {
+       const offers = JSON.parse(localStorage.getItem('demo_offers_v3') || '[]');
+       const userOffers = offers.filter((o: any) => o.userId === customerQuery || customerQuery === 'cust1');
+       const treatmentCategory = mockTreatments.find(t => t.id === form.treatment)?.category;
+       
+       let warning = null;
+       for (const o of userOffers) {
+          if ((!o.category || o.category === treatmentCategory) && o.lastAppointmentDate) {
+              const daysSince = Math.floor((new Date().getTime() - new Date(o.lastAppointmentDate).getTime()) / (1000 * 60 * 60 * 24));
+              if (daysSince < 25) {
+                  warning = 25 - daysSince;
+                  break;
+              }
+          }
+       }
+       setCoolingOffWarning(warning);
+     } catch (e) {
+       setCoolingOffWarning(null);
+     }
+  }, [customerQuery, form.treatment]);
 
   const scheduleSession = () => {
     if (!customerQuery || !form.treatment || !form.clinicId || !form.scheduledAt) {
        setResult(ar() ? "❌ يرجى تعبئة جميع الحقول" : "❌ Please fill all fields");
        return;
     }
+
+    if (coolingOffWarning !== null) {
+       setResult(ar() ? `❌ لا يمكن الحجز. العميل في فترة انتظار.` : `❌ Cannot book. Customer is in cooling-off period.`);
+       return;
+    }
+
     setResult(ar() ? `✅ تم الحجز بنجاح!` : `✅ Successfully scheduled!`);
+    
+    try {
+      const offers = JSON.parse(localStorage.getItem('demo_offers_v3') || '[]');
+      const treatmentCategory = mockTreatments.find(t => t.id === form.treatment)?.category;
+      let updated = false;
+      const updatedOffers = offers.map((o: any) => {
+         if (!updated && (o.userId === customerQuery || customerQuery === 'cust1') && (!o.category || o.category === treatmentCategory)) {
+             updated = true;
+             return { ...o, lastAppointmentDate: new Date(form.scheduledAt).toISOString() };
+         }
+         return o;
+      });
+      localStorage.setItem('demo_offers_v3', JSON.stringify(updatedOffers));
+    } catch(e) {}
+
     setTimeout(() => setResult(null), 4000);
   };
 
@@ -220,6 +390,13 @@ function SchedulingTool() {
       <h3 className="text-lg font-bold text-surface-900 mb-2">{ar() ? "جدولة جلسة جديدة" : "Schedule New Session"}</h3>
       <p className="text-sm text-surface-500 mb-6">{ar() ? "قم بإنشاء موعد جديد لعميل محدد مع اختيار نوع العلاج والعيادة." : "Create a new appointment for a specific customer, select treatment and clinic."}</p>
       
+      {coolingOffWarning !== null && (
+         <div className="mb-6 bg-red-50 text-red-700 p-4 rounded-xl border border-red-200 flex items-center gap-3">
+            <svg className="w-6 h-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            <span className="font-bold text-sm">{ar() ? `لا يمكن الحجز. يجب الانتظار ${coolingOffWarning} يوم للعميل حسب سياسة الباقة.` : `Cannot book. Must wait ${coolingOffWarning} days for this customer based on package cooling-off policy.`}</span>
+         </div>
+      )}
+
       <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4 mb-6">
         <div className="lg:col-span-1">
            <label className="text-xs font-bold text-surface-700 mb-1.5 block uppercase tracking-wider">{ar() ? "العميل (هاتف، إيميل، هوية)" : "Customer (Phone, Email, ID)"}</label>
@@ -243,7 +420,7 @@ function SchedulingTool() {
            <label className="text-xs font-bold text-surface-700 mb-1.5 block uppercase tracking-wider">{ar() ? "العيادة" : "Clinic"}</label>
            <select className="select-field bg-surface-50 focus:bg-white" value={form.clinicId} onChange={e => setForm({ ...form, clinicId: e.target.value })}>
              <option value="" disabled>{ar() ? "اختر العيادة" : "Select Clinic"}</option>
-             {mockClinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+             {mockClinics.map(c => <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>)}
            </select>
         </div>
 
@@ -269,7 +446,7 @@ function SchedulingTool() {
                <span className="text-red-500">{result}</span>
             ) : null}
          </div>
-         <button className="btn-primary px-8 shadow-md" onClick={scheduleSession}>{ar() ? "تأكيد الحجز" : "Confirm Booking"}</button>
+         <button className={`btn-primary px-8 shadow-md ${coolingOffWarning !== null ? 'opacity-50 cursor-not-allowed' : ''}`} disabled={coolingOffWarning !== null} onClick={scheduleSession}>{ar() ? "تأكيد الحجز" : "Confirm Booking"}</button>
       </div>
     </div>
   );
@@ -710,6 +887,94 @@ function CsSettings() {
   );
 }
 
+function ClinicChangeRequestsQueue() {
+  const [requests, setRequests] = useState(() => getClinicChangeRequests());
+  const [processing, setProcessing] = useState<string | null>(null);
+
+  useEffect(() => {
+    const iv = setInterval(() => setRequests(getClinicChangeRequests()), 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  const clinicName = (id: string) => {
+    const c = sharedClinics.find(x => x.id === id);
+    return c ? (ar() ? c.nameAr : c.nameEn) : id;
+  };
+
+  const markFeePaid = (id: string) => {
+    const updated = requests.map(r => r.id === id ? { ...r, feePaid: true } : r);
+    saveClinicChangeRequests(updated);
+    setRequests(updated);
+  };
+
+  const approveChange = (req: any) => {
+    setProcessing(req.id);
+    // Update subscription clinic
+    const subs = getSubscriptions();
+    const sub = subs.find(s => s.id === req.subscriptionId);
+    if (sub) {
+      upsertSubscription({ ...sub, clinicId: req.toClinicId });
+    }
+    // Record financial entry
+    addFinancialEntry({ id: `fin_${Date.now()}`, userId: req.userId, type: "clinic_change_fee", amount: 10, description: `Clinic change: ${clinicName(req.fromClinicId)} → ${clinicName(req.toClinicId)}`, relatedId: req.id, createdAt: new Date().toISOString() });
+    // Update request status
+    const updated = requests.map(r => r.id === req.id ? { ...r, status: "approved" as const, resolvedAt: new Date().toISOString(), resolvedBy: "cs_agent" } : r);
+    saveClinicChangeRequests(updated);
+    setRequests(updated);
+    setProcessing(null);
+  };
+
+  const rejectChange = (id: string) => {
+    const updated = requests.map(r => r.id === id ? { ...r, status: "rejected" as const, resolvedAt: new Date().toISOString(), resolvedBy: "cs_agent" } : r);
+    saveClinicChangeRequests(updated);
+    setRequests(updated);
+  };
+
+  const pending = requests.filter(r => r.status === "pending");
+  const resolved = requests.filter(r => r.status !== "pending");
+
+  return (
+    <div className="card-elevated p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-surface-900">{ar() ? "طلبات تغيير العيادة" : "Clinic Change Requests"}</h3>
+        <span className="badge-pink">{pending.length} {ar() ? "معلق" : "pending"}</span>
+      </div>
+      {pending.length === 0 ? (
+        <div className="text-center text-sm text-surface-400 py-8">✅ {ar() ? "لا توجد طلبات تغيير عيادة" : "No pending clinic change requests"}</div>
+      ) : pending.map(r => (
+        <div key={r.id} className="flex items-center gap-4 py-3 border-b border-surface-100 last:border-0">
+          <div className="avatar avatar-sm bg-purple-100 text-purple-700">{r.userId?.charAt(0)?.toUpperCase()}</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-sm font-medium text-surface-800">{r.userId}</div>
+            <div className="text-xs text-surface-400">{clinicName(r.fromClinicId)} → {clinicName(r.toClinicId)}</div>
+            <div className="mt-1 flex gap-1.5">
+              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">10 KWD Fee</span>
+              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${r.feePaid ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{r.feePaid ? (ar() ? "مدفوع" : "Paid") : (ar() ? "غير مدفوع" : "Not Paid")}</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {!r.feePaid && <button className="text-xs font-bold text-purple-600 bg-purple-50 px-3 py-1.5 rounded-lg hover:bg-purple-100" onClick={() => markFeePaid(r.id)}>{ar() ? "تأكيد الدفع" : "Mark Paid"}</button>}
+            <button className="btn-primary btn-sm px-4 bg-emerald-500 hover:bg-emerald-600 border-none" disabled={!r.feePaid || processing === r.id} onClick={() => approveChange(r)}>{ar() ? "موافقة" : "Approve"}</button>
+            <button className="btn-sm bg-red-50 text-red-500 hover:bg-red-100 rounded-lg px-3 py-1 text-xs font-medium" onClick={() => rejectChange(r.id)}>{ar() ? "رفض" : "Reject"}</button>
+          </div>
+        </div>
+      ))}
+      {resolved.length > 0 && (
+        <div className="mt-6 pt-4 border-t border-surface-100">
+          <h4 className="text-xs font-bold text-surface-400 uppercase tracking-wider mb-3">{ar() ? "طلبات سابقة" : "Resolved Requests"}</h4>
+          {resolved.slice(0, 5).map(r => (
+            <div key={r.id} className="flex items-center gap-3 py-2 opacity-60">
+              <span className="text-xs text-surface-500">{r.userId}</span>
+              <span className="text-xs">{clinicName(r.fromClinicId)} → {clinicName(r.toClinicId)}</span>
+              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ml-auto ${r.status === 'approved' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{r.status}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CsDashboard() {
   const { t } = useTranslation();
   const [activeNav, setActiveNav] = useState("home");
@@ -718,23 +983,14 @@ export default function CsDashboard() {
 
   const [mockPayments, setMockPayments] = useState<any[]>(() => {
     try {
-      const stored = localStorage.getItem('demo_pending_payments');
-      if (stored) return JSON.parse(stored);
-      // default mock
-      const defaults = [
-        { id: "pay_001", userId: "cust1", offerId: "Jamali Beauty Program", amount: "1500 KWD", method: "Installments", totalInstallments: 3, createdAt: new Date().toISOString() },
-        { id: "pay_002", userId: "sarah_s", offerId: "Nuomi Classic", amount: "120 KWD", method: "Full Payment", totalInstallments: 1, createdAt: new Date().toISOString() }
-      ];
-      localStorage.setItem('demo_pending_payments', JSON.stringify(defaults));
-      return defaults;
+      return JSON.parse(localStorage.getItem('demo_pending_payments_v3') || '[]');
     } catch { return []; }
   });
 
   useEffect(() => {
     const sync = () => {
       try {
-        const stored = localStorage.getItem('demo_pending_payments');
-        if (stored) setMockPayments(JSON.parse(stored));
+        setMockPayments(JSON.parse(localStorage.getItem('demo_pending_payments_v3') || '[]'));
       } catch (e) {}
     };
     window.addEventListener('storage', sync);
@@ -747,6 +1003,7 @@ export default function CsDashboard() {
     { key: "kyc", icon: Icons.shield, label: t("kyc") },
     { key: "payments", icon: Icons.cash, label: t("payments") },
     { key: "customers", icon: Icons.users, label: ar() ? "العملاء" : "Customers" },
+    { key: "clinic_changes", icon: Icons.clinic, label: ar() ? "تغيير العيادة" : "Clinic Changes" },
     { key: "scheduling", icon: Icons.calendar, label: t("schedule") },
     { key: "lookup", icon: Icons.search, label: ar() ? "بحث العملاء" : "Customer Lookup" },
     { key: "complaints", icon: Icons.complaint, label: t("complaints") },
@@ -761,19 +1018,26 @@ export default function CsDashboard() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="stat-card"><div className="stat-label">{ar() ? "تحققات معلقة" : "Pending KYC"}</div><div className="stat-value text-amber-600">{(kycData?.items || []).length}</div></div>
               <div className="stat-card"><div className="stat-label">{ar() ? "مدفوعات معلقة" : "Pending Payments"}</div><div className="stat-value text-brand-pink-500">{mockPayments.length}</div></div>
-              <div className="stat-card"><div className="stat-label">{ar() ? "شكاوى مفتوحة" : "Open Complaints"}</div><div className="stat-value">{(complaintsData?.items || []).filter((c: any) => c.status === "open").length}</div></div>
+              <div className="stat-card"><div className="stat-label">{ar() ? "طلبات حجز" : "Pending Bookings"}</div><div className="stat-value text-blue-500">{JSON.parse(localStorage.getItem('demo_pending_bookings_v2') || '[]').length}</div></div>
               <div className="stat-card"><div className="stat-label">{ar() ? "إجمالي الشكاوى" : "Total Complaints"}</div><div className="stat-value">{complaintsData?.total || 0}</div></div>
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
               <KycQueue />
               <PaymentQueue mockPayments={mockPayments} setMockPayments={setMockPayments} />
+              <BookingRequestsQueue />
             </div>
           </>
         )}
         {activeNav === "kyc" && <KycQueue />}
         {activeNav === "payments" && <PaymentQueue mockPayments={mockPayments} setMockPayments={setMockPayments} />}
         {activeNav === "customers" && <CustomersManager />}
-        {activeNav === "scheduling" && <SchedulingTool />}
+        {activeNav === "clinic_changes" && <ClinicChangeRequestsQueue />}
+        {activeNav === "scheduling" && (
+           <div className="space-y-6">
+              <BookingRequestsQueue />
+              <SchedulingTool />
+           </div>
+        )}
         {activeNav === "lookup" && <CustomerLookup />}
         {activeNav === "complaints" && (
           <div className="card-elevated overflow-hidden">

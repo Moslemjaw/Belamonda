@@ -4,13 +4,14 @@ import type { Role } from "@belamonda/shared";
 import { useAuth } from "../app/AuthContext";
 import { BelamondaLogo } from "../components/BelamondaLogo";
 import i18n from "../app/i18n";
+import { sharedClinics } from "../lib/clinics";
 
 const DEMO_ACCOUNTS: { id: string; role: Role; label: string; labelAr: string; icon: string }[] = [
   { id: "cust1", role: "customer", label: "Customer", labelAr: "عميلة", icon: "👤" },
   { id: "admin1", role: "admin", label: "Admin", labelAr: "مدير", icon: "⚙️" },
   { id: "cs1", role: "cs", label: "Customer Service", labelAr: "خدمة العملاء", icon: "🎧" },
   { id: "fin1", role: "finance", label: "Finance", labelAr: "المالية", icon: "📊" },
-  { id: "clinic1", role: "clinicStaff", label: "Clinic Staff", labelAr: "العيادة", icon: "🏥" },
+  ...sharedClinics.map(c => ({ id: c.id, role: "clinicStaff" as Role, label: c.nameEn, labelAr: c.nameAr, icon: "🏥" }))
 ];
 
 export default function LoginPage() {
