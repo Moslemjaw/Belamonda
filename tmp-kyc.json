@@ -1,0 +1,14 @@
+{
+  "civilIdNumber": "123456789012",
+  "civilIdFrontRef": "front.png",
+  "civilIdBackRef": "back.png",
+  "signatureRef": "sig.png",
+  "checkboxes": {
+    "termsAndConditions": true,
+    "dataPrivacyConsent": true,
+    "serviceLiabilityWaiver": true,
+    "age18Plus": true,
+    "paymentTermsAcknowledgment": true
+  }
+}
+

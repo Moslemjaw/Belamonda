@@ -1,0 +1,13 @@
+{
+  "name": "belamonda",
+  "private": true,
+  "scripts": {
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "build:shared": "npm run build --prefix shared",
+    "build:server": "npm run build --prefix server",
+    "build:client": "npm run build --prefix client",
+    "install:all": "npm install --prefix shared && npm install --prefix server && npm install --prefix client"
+  }
+}
+
