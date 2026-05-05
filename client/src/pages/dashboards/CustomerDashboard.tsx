@@ -249,13 +249,55 @@ export default function CustomerDashboard() {
   const { data: offersData } = useMyOffers();
   const { data: notifData } = useNotifications();
 
+  const [selectedClinic, setSelectedClinic] = useState<string>("clinic_qibla");
+  const [showChangeClinicModal, setShowChangeClinicModal] = useState<any>(null);
+  const [newClinicSelection, setNewClinicSelection] = useState<string>("clinic_qibla");
+
   const [localOffers, setLocalOffers] = useState<any[]>(() => {
-    try { return JSON.parse(localStorage.getItem('demo_offers_v3') || '[]'); } catch { return []; }
+    try { 
+       const data = JSON.parse(localStorage.getItem('demo_offers_v4') || '[]');
+       return data.map((o: any) => {
+          let patched = { ...o };
+          if (patched.offerId === "Nuomi Classic" && !patched.maxSessions) patched.maxSessions = 6;
+          if (patched.offerId === "Jamali Beauty Program" && patched.cashbackBalance === undefined) { patched.cashbackBalance = 1500; patched.isCashbackOnly = true; }
+          if (patched.offerId === "Mini Jamali" && patched.cashbackBalance === undefined) { patched.cashbackBalance = 500; patched.isCashbackOnly = true; }
+          if (patched.offerId === "Sabaya Membership" && patched.cashbackBalance === undefined) patched.cashbackBalance = 300;
+          return patched;
+       });
+    } catch { return []; }
+  });
+
+  const [localBookings, setLocalBookings] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]'); } catch { return []; }
+  });
+
+  const [localLedger, setLocalLedger] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('bel_financial_ledger_v1') || '[]'); } catch { return []; }
+  });
+
+  const [localClinicChanges, setLocalClinicChanges] = useState<any[]>(() => {
+    try { return JSON.parse(localStorage.getItem('bel_clinic_change_requests_v1') || '[]'); } catch { return []; }
   });
 
   useEffect(() => {
     const sync = () => {
-       try { setLocalOffers(JSON.parse(localStorage.getItem('demo_offers_v3') || '[]')); } catch {}
+       try { 
+          const data = JSON.parse(localStorage.getItem('demo_offers_v4') || '[]');
+          setLocalOffers(data.map((o: any) => {
+             let patched = { ...o };
+             if (patched.offerId === "Nuomi Classic" && !patched.maxSessions) patched.maxSessions = 6;
+             if (patched.offerId === "Jamali Beauty Program" && patched.cashbackBalance === undefined) { patched.cashbackBalance = 1500; patched.isCashbackOnly = true; }
+             if (patched.offerId === "Mini Jamali" && patched.cashbackBalance === undefined) { patched.cashbackBalance = 500; patched.isCashbackOnly = true; }
+             if (patched.offerId === "Sabaya Membership" && patched.cashbackBalance === undefined) patched.cashbackBalance = 300;
+             return patched;
+          }));
+          const bookings = JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]');
+          setLocalBookings(bookings);
+          const ledger = JSON.parse(localStorage.getItem('bel_financial_ledger_v1') || '[]');
+          setLocalLedger(ledger);
+          const changes = JSON.parse(localStorage.getItem('bel_clinic_change_requests_v1') || '[]');
+          setLocalClinicChanges(changes);
+       } catch {}
     };
     window.addEventListener('storage', sync);
     const interval = setInterval(sync, 1000); // Polling for same-window syncing
@@ -264,12 +306,24 @@ export default function CustomerDashboard() {
 
   const saveOffers = (newOffers: any[]) => {
     setLocalOffers(newOffers);
-    localStorage.setItem('demo_offers_v3', JSON.stringify(newOffers));
+    localStorage.setItem('demo_offers_v4', JSON.stringify(newOffers));
   };
   const [sysAlert, setSysAlert] = useState<string | null>(null);
   const [showBookingModal, setShowBookingModal] = useState<any>(null);
+  const [showBookingPromptModal, setShowBookingPromptModal] = useState<any>(null);
   const [paymentOption, setPaymentOption] = useState("full");
   const [installments, setInstallments] = useState(2);
+  const [bookFirstSession, setBookFirstSession] = useState(true);
+  const [selectedFirstSession, setSelectedFirstSession] = useState<string>("");
+  const [selectedFirstClinic, setSelectedFirstClinic] = useState<string>("");
+
+  useEffect(() => {
+     if (selectedPkg) {
+        setBookFirstSession(true);
+        setSelectedFirstSession("");
+        setSelectedFirstClinic("");
+     }
+  }, [selectedPkg]);
 
   const [kycStatus, setKycStatus] = useState<string>("checking");
   const { getAuthHeader } = useAuth();
@@ -346,7 +400,7 @@ export default function CustomerDashboard() {
             {[
               { key: "home", label: t("home"), icon: CustomerIcons.home },
               { key: "offers", label: t("offers"), icon: CustomerIcons.offers },
-              { key: "wallet", label: t("wallet"), icon: CustomerIcons.wallet },
+              { key: "history", label: ar() ? "السجل" : "History", icon: CustomerIcons.wallet },
               { key: "profile", label: t("profile"), icon: CustomerIcons.profile },
             ].map(tab => (
               <button
@@ -405,28 +459,34 @@ export default function CustomerDashboard() {
           {activeTab === "home" && (
             <div className="space-y-8">
               {/* Wallet Hero Card */}
+              {(() => {
+                const totalCashback = localOffers.filter(o => o.status === 'active' && o.cashbackBalance > 0).reduce((sum, o) => sum + (o.cashbackBalance || 0), 0);
+                const walletBalance = parseFloat(wallet?.unlockedBalance || "0") + totalCashback;
+                return (
               <div className="wallet-card shadow-glow-lg">
                 <div className="flex justify-between items-start mb-6">
                   <div>
                     <div className="text-white/80 text-sm">{ar() ? "الرصيد المتاح (كاش باك)" : "Available Cashback"}</div>
-                    <div className="text-4xl font-bold mt-1 text-white">{parseFloat(wallet?.unlockedBalance || "0").toFixed(3)} <span className="text-xl opacity-80">KWD</span></div>
+                    <div className="text-4xl font-bold mt-1 text-white">{walletBalance.toFixed(3)} <span className="text-xl opacity-80">KWD</span></div>
                   </div>
                   <div className="bg-white/20 px-3 py-1 rounded-full text-xs font-semibold text-white backdrop-blur-md">
-                    {wallet ? (ar() ? "محفظة نشطة" : "Active Wallet") : (ar() ? "غير نشط" : "Inactive")}
+                    {wallet || totalCashback > 0 ? (ar() ? "محفظة نشطة" : "Active Wallet") : (ar() ? "غير نشط" : "Inactive")}
                   </div>
                 </div>
-                {wallet && (
+                {(wallet || totalCashback > 0) && (
                   <>
                     <div className="flex justify-between text-sm text-white/80 mb-2">
-                      <span>{ar() ? "المقفل:" : "Locked:"} {parseFloat(wallet.lockedBalance).toFixed(3)}</span>
-                      <span>{ar() ? "السقف:" : "Ceiling:"} {parseFloat(wallet.ceiling).toFixed(3)}</span>
+                      <span>{ar() ? "من الباقات:" : "From Offers:"} {totalCashback.toFixed(3)}</span>
+                      <span>{ar() ? "من المحفظة:" : "From Wallet:"} {parseFloat(wallet?.unlockedBalance || "0").toFixed(3)}</span>
                     </div>
                     <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden">
-                      <div className="h-full bg-white rounded-full" style={{ width: `${(parseFloat(wallet.unlockedBalance) / parseFloat(wallet.ceiling)) * 100}%` }} />
+                      <div className="h-full bg-white rounded-full" style={{ width: `${Math.min(walletBalance > 0 ? 100 : 0, 100)}%` }} />
                     </div>
                   </>
                 )}
               </div>
+                );
+              })()}
 
               {/* Active Subscriptions/Offers */}
               <div>
@@ -436,19 +496,21 @@ export default function CustomerDashboard() {
                     {ar() ? "تصفح باقاتنا" : "Browse Memberships"} <svg className="w-4 h-4 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                   </button>
                 </div>
-                {offers.length === 0 ? (
-                  <div className="bg-white border border-surface-200 border-dashed rounded-2xl p-8 text-center text-surface-500 flex flex-col items-center justify-center">
-                    <span className="text-4xl block mb-3">✨</span>
-                    <p className="mb-4 text-surface-600 font-medium">{ar() ? "ليس لديك أي عروض نشطة حالياً" : "You don't have any active offers yet"}</p>
-                    <button onClick={() => setActiveTab("offers")} className="btn-primary px-6 py-2 shadow-sm hover:scale-105 transition-transform">
-                       {ar() ? "تصفح باقاتنا والعضويات" : "Browse Memberships & Offers"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {offers.map(o => (
-                      <div key={o.id} className={`card-elevated p-5 border-l-4 ${o.status === 'pending payment' ? 'border-l-amber-400' : 'border-l-brand-pink-400'}`}>
-                        <div className="flex justify-between items-start">
+                {(() => {
+                  const activeOffers = offers.filter(o => !(o.maxSessions && o.sessionsUsed >= o.maxSessions));
+                  return activeOffers.length === 0 ? (
+                    <div className="bg-white border border-surface-200 border-dashed rounded-2xl p-8 text-center text-surface-500 flex flex-col items-center justify-center">
+                      <span className="text-4xl block mb-3">✨</span>
+                      <p className="mb-4 text-surface-600 font-medium">{ar() ? "ليس لديك أي عروض نشطة حالياً" : "You don't have any active offers yet"}</p>
+                      <button onClick={() => setActiveTab("offers")} className="btn-primary px-6 py-2 shadow-sm hover:scale-105 transition-transform">
+                         {ar() ? "تصفح باقاتنا والعضويات" : "Browse Memberships & Offers"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {activeOffers.map(o => (
+                        <div key={o.id} className={`card-elevated p-5 border-l-4 ${o.status === 'pending payment' ? 'border-l-amber-400' : 'border-l-brand-pink-400'}`}>
+                          <div className="flex justify-between items-start">
                           <div>
                             <h4 className="font-bold text-surface-900 text-lg">{o.offerId || "Special Package"}</h4>
                             <p className="text-xs text-surface-400 mt-1">Status: <span className={`font-bold uppercase ${o.status === 'pending payment' ? 'text-amber-500' : 'text-emerald-600'}`}>{o.status}</span></p>
@@ -456,11 +518,39 @@ export default function CustomerDashboard() {
                                <p className="text-[10px] text-brand-pink-500 font-bold mt-1 uppercase">Paid: {o.paidInstallments} / {o.totalInstallments}</p>
                             )}
                           </div>
-                          <div className="bg-surface-50 px-3 py-2 rounded-xl text-center">
+                          <div className="bg-surface-50 px-3 py-2 rounded-xl text-center shrink-0">
                             <div className="text-[10px] text-surface-500 uppercase font-bold tracking-wider">{ar() ? "جلسات" : "Sessions"}</div>
-                            <div className="font-black text-surface-900 text-lg leading-none mt-1">{o.sessionsUsed || 0}</div>
+                            <div className="font-black text-surface-900 text-lg leading-none mt-1">
+                              {o.maxSessions ? `${o.sessionsUsed || 0} / ${o.maxSessions}` : (o.sessionsUsed || 0)}
+                            </div>
+                            {o.maxSessions && (
+                              <div className="w-full bg-surface-200 rounded-full h-1 mt-1.5">
+                                <div className="bg-brand-pink-400 h-1 rounded-full transition-all" style={{ width: `${Math.min(((o.sessionsUsed || 0) / o.maxSessions) * 100, 100)}%` }} />
+                              </div>
+                            )}
                           </div>
                         </div>
+                        {o.category === "laser" && o.clinicId && (
+                           <div className="mt-3 text-xs bg-surface-50 border border-surface-200 rounded-lg p-2 flex items-center justify-between">
+                              <span className="text-surface-600 font-medium">{ar() ? "العيادة المحددة:" : "Assigned Clinic:"} <span className="font-bold text-brand-pink-600">{clinics.find(c => c.id === o.clinicId)?.nameEn || o.clinicId}</span></span>
+                              <button onClick={() => {
+                                 const changesCount = localClinicChanges.filter(req => req.subscriptionId === o.id).length;
+                                 const fee = (changesCount + 1) * 10;
+                                 setShowChangeClinicModal({ ...o, currentFee: fee });
+                              }} className="text-[10px] font-bold text-surface-500 hover:text-brand-pink-500 underline">{ar() ? `تغيير العيادة (${(localClinicChanges.filter(req => req.subscriptionId === o.id).length + 1) * 10} د.ك)` : `Change Clinic (${(localClinicChanges.filter(req => req.subscriptionId === o.id).length + 1) * 10} KD)`}</button>
+                           </div>
+                        )}
+                        {o.isCashbackOnly ? (
+                          <div className="mt-4 w-full text-center py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                            <div className="flex items-center justify-center gap-2 text-emerald-700 font-bold">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                              {ar() ? "كاش باك فقط — لا يتطلب حجز موعد" : "Cashback Only — No Appointment Needed"}
+                            </div>
+                            {o.cashbackBalance > 0 && (
+                              <div className="text-xs text-emerald-600 mt-1 font-medium">{ar() ? `رصيد الكاش باك: ${o.cashbackBalance} د.ك` : `Cashback Balance: ${o.cashbackBalance} KWD`}</div>
+                            )}
+                          </div>
+                        ) : (
                         <button 
                           className={`mt-4 w-full font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 ${o.status === 'pending payment' ? 'bg-surface-100 text-surface-400 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`} 
                           onClick={() => setShowBookingModal(o)}
@@ -471,10 +561,11 @@ export default function CustomerDashboard() {
                           )}
                           {ar() ? "حجز موعد" : "Book Appointment"}
                         </button>
+                        )}
                       </div>
                     ))}
                   </div>
-                )}
+                )})()}
               </div>
 
               {/* ── Book a Session ── */}
@@ -512,7 +603,14 @@ export default function CustomerDashboard() {
                  {/* Sessions Grid */}
                  <div className="grid gap-5 md:grid-cols-2">
                     {allTreatments.filter(t => sessionFilter === "all" || t.category === sessionFilter).map((t) => {
-                       const hasMembership = localOffers.length > 0;
+                       const activeOffers = localOffers.filter(o => o.status === 'active');
+                       const applicableCashbackOffer = activeOffers.find(o => {
+                          if (!o.cashbackBalance || o.cashbackBalance <= 0) return false;
+                          if (o.category === "all") return true;
+                          if (o.category) return o.category.split(',').includes(t.category);
+                          return false;
+                       });
+                       const hasMembership = !!applicableCashbackOffer;
                        const actualDiscountPct = hasMembership ? t.discountPct : 0;
                        const actualCashbackKwd = hasMembership ? t.cashbackKwd : 0;
 
@@ -521,9 +619,9 @@ export default function CustomerDashboard() {
                        const availableClinics = clinics.filter(c => t.clinicIds.includes(c.id));
                        
                        return (
-                       <div key={t.id} className="bg-white rounded-[24px] p-6 relative overflow-hidden shadow-sm border border-surface-200/80 hover:shadow-xl hover:border-brand-pink-200/50 hover:-translate-y-1 transition-all duration-300 group flex flex-col">
+                       <div key={t.id} className={`${hasMembership ? 'bg-brand-pink-50/30 border-brand-pink-300 shadow-brand-pink-500/10' : 'bg-white border-surface-200/80'} rounded-[24px] p-6 relative overflow-hidden shadow-sm hover:shadow-xl hover:border-brand-pink-200/50 hover:-translate-y-1 transition-all duration-300 group flex flex-col`}>
                           {/* Admin-style corner blob hover effect */}
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-brand-pink-50/60 rounded-bl-[100px] -z-0 group-hover:scale-110 transition-transform duration-500 origin-top-right" />
+                          <div className={`absolute top-0 right-0 w-32 h-32 ${hasMembership ? 'bg-brand-pink-200/40' : 'bg-brand-pink-50/60'} rounded-bl-[100px] -z-0 group-hover:scale-110 transition-transform duration-500 origin-top-right`} />
                           
                           <div className="relative z-10 flex flex-col flex-1">
                              {/* Row 1: Icon and Category */}
@@ -585,6 +683,16 @@ export default function CustomerDashboard() {
                                      className={`px-6 py-3 rounded-xl text-sm font-bold transition-all duration-200 flex items-center justify-center gap-2 ${availableClinics.length > 0 ? 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5' : 'bg-surface-100 text-surface-400 cursor-not-allowed'}`}
                                      disabled={availableClinics.length === 0}
                                      onClick={() => {
+                                         if (applicableCashbackOffer) {
+                                            const hasUnpaidInstallments = applicableCashbackOffer.method === "Installments" && (applicableCashbackOffer.totalInstallments || 1) > (applicableCashbackOffer.paidInstallments || 0);
+                                            const requireInstallmentPayment = localStorage.getItem('bel_require_installment_booking_v1') === 'true';
+                                            if (hasUnpaidInstallments && requireInstallmentPayment) {
+                                               setSysAlert(ar() ? "يجب دفع القسط المستحق أولاً قبل حجز الجلسة باستخدام رصيد الكاش باك." : "You must pay your due installment before booking a session using cashback.");
+                                               setTimeout(() => setSysAlert(null), 5000);
+                                               return;
+                                            }
+                                         }
+                                         
                                          const offer = {
                                            id: `temp_${t.id}`,
                                            offerId: ar() ? t.nameAr : t.nameEn,
@@ -593,7 +701,8 @@ export default function CustomerDashboard() {
                                            priceKwd: t.priceKwd,
                                            discountPct: actualDiscountPct,
                                            cashbackKwd: actualCashbackKwd,
-                                           finalPrice
+                                           finalPrice,
+                                           applicableCashbackOfferId: applicableCashbackOffer ? applicableCashbackOffer.id : null
                                          };
                                          setShowBookingModal(offer);
                                      }}
@@ -634,12 +743,12 @@ export default function CustomerDashboard() {
 
               <div className="grid gap-4 mt-2 md:grid-cols-2">
                 {[
-                  { id: "p1", category: "beauty", title: "Jamali Beauty Program", price: "1500 KWD", tags: ["1 Year", "Full Network", "1500 KWD Cashback"], image: "https://images.unsplash.com/photo-1560750588-73207b1ef5b8?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: true, maxInstallments: 4, allowDeposit: false },
-                  { id: "p2", category: "beauty", title: "Mini Jamali", price: "500 KWD", tags: ["6 Months", "Full Network"], image: "https://images.unsplash.com/photo-1616394584738-fc6e612e71c9?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: false, allowDeposit: false },
-                  { id: "p3", category: "beauty", title: "Sabaya Membership", price: "79 KWD", tags: ["1 Year", "Up to 3 Friends"], image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&q=80&w=800", allowFullPayment: false, allowInstallments: false, allowDeposit: true, depositAmount: 20 },
-                  { id: "p4", category: "laser", title: "Nuomi Classic", price: "120 KWD", tags: ["8 Months", "6 Sessions", "Prepaid"], image: "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: true, maxInstallments: 3, allowDeposit: false },
-                  { id: "p5", category: "laser", title: "Nuomi Plus", price: "20 KWD", tags: ["20 KWD Cashback per session"], image: "https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: false, allowDeposit: true, depositAmount: 5 },
-                  { id: "p6", category: "laser", title: "Single Session", price: "19 KWD", tags: ["Optional 30 KWD Cashback"], allowFullPayment: true, allowInstallments: false, allowDeposit: false },
+                  { id: "p1", category: "beauty", title: "Jamali Beauty Program", price: "1500 KWD", maxSessions: null, tags: ["1 Year", "Full Network", "1500 KWD Cashback"], image: "https://images.unsplash.com/photo-1560750588-73207b1ef5b8?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: true, maxInstallments: 4, allowDeposit: false, isCashbackOnly: true, signupCashback: 1500 },
+                  { id: "p2", category: "beauty", title: "Mini Jamali", price: "500 KWD", maxSessions: null, tags: ["6 Months", "Full Network", "500 KWD Cashback"], image: "https://images.unsplash.com/photo-1616394584738-fc6e612e71c9?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: false, allowDeposit: false, isCashbackOnly: true, signupCashback: 500 },
+                  { id: "p3", category: "beauty", title: "Sabaya Membership", price: "79 KWD", maxSessions: null, tags: ["1 Year", "Up to 3 Friends", "300 KWD Cashback"], image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&q=80&w=800", allowFullPayment: false, allowInstallments: false, allowDeposit: true, depositAmount: 20, signupCashback: 300 },
+                  { id: "p4", category: "laser", title: "Nuomi Classic", price: "120 KWD", maxSessions: 6, tags: ["8 Months", "6 Free Sessions", "Prepaid"], image: "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: true, maxInstallments: 3, allowDeposit: false },
+                  { id: "p5", category: "laser", title: "Nuomi Plus", price: "20 KWD", maxSessions: null, tags: ["20 KWD Cashback per session"], image: "https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: false, allowDeposit: true, depositAmount: 5 },
+                  { id: "p6", category: "laser", title: "Single Session", price: "19 KWD", maxSessions: 1, tags: ["Optional 30 KWD Cashback"], allowFullPayment: true, allowInstallments: false, allowDeposit: false },
                 ].filter(pkg => offerFilter === "all" || pkg.category === offerFilter).map((pkg) => (
                   <div key={pkg.id} className="card-elevated p-0 flex flex-col h-full relative overflow-hidden group animate-slide-up bg-white">
                     {pkg.image ? (
@@ -676,33 +785,97 @@ export default function CustomerDashboard() {
             </div>
           )}
 
-          {activeTab === "wallet" && (
-            <div>
-              <h2 className="text-xl font-bold text-surface-900 mb-6">{ar() ? "المحفظة" : "Wallet History"}</h2>
-              <div className="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
-                {(walletData?.txns || []).length === 0 ? (
-                  <div className="p-8 text-center text-surface-400">{t("noData")}</div>
-                ) : (
-                  <div className="divide-y divide-surface-100">
-                    {walletData!.txns.map(txn => (
-                      <div key={txn.id} className="p-4 flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${txn.type === 'unlock' ? 'bg-emerald-50 text-emerald-500' : 'bg-red-50 text-red-500'}`}>
-                            {txn.type === 'unlock' ? '+' : '-'}
+          {activeTab === "history" && (
+            <div className="space-y-8 animate-fade-in">
+              {/* Offers History */}
+              <div>
+                <h2 className="text-xl font-bold text-surface-900 mb-4">{ar() ? "سجل الباقات المشتراة" : "Offers History"}</h2>
+                <div className="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
+                  {localOffers.length === 0 ? (
+                    <div className="p-8 text-center text-surface-400">{t("noData")}</div>
+                  ) : (
+                    <div className="divide-y divide-surface-100">
+                      {localOffers.map(o => (
+                        <div key={o.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-brand-pink-50 text-brand-pink-500 shrink-0">
+                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                            </div>
+                            <div>
+                              <div className="font-bold text-surface-900 text-sm">{o.offerId || "Package"}</div>
+                              <div className="text-xs text-surface-500 mt-0.5">{ar() ? "طريقة الدفع:" : "Method:"} {o.method}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="font-semibold text-surface-900 text-sm">{txn.type.toUpperCase()}</div>
-                            <div className="text-xs text-surface-400">{new Date(txn.createdAt).toLocaleDateString()}</div>
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between">
+                            <div className="font-black text-brand-pink-500">{o.amount || "0 KWD"}</div>
+                            <div className="text-[10px] text-surface-400 mt-1">{new Date(o.createdAt).toLocaleDateString()}</div>
                           </div>
                         </div>
-                        <div className={`font-bold ${txn.type === 'unlock' ? 'text-emerald-600' : 'text-red-500'}`}>
-                          {txn.type === 'unlock' ? '+' : '-'}{txn.amount} KWD
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {/* Sessions History */}
+              <div>
+                <h2 className="text-xl font-bold text-surface-900 mb-4">{ar() ? "سجل الجلسات المحجوزة" : "Sessions History"}</h2>
+                <div className="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
+                  {localBookings.length === 0 ? (
+                    <div className="p-8 text-center text-surface-400">{t("noData")}</div>
+                  ) : (
+                    <div className="divide-y divide-surface-100">
+                      {localBookings.map(b => (
+                        <div key={b.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-50 text-blue-500 shrink-0">
+                               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            </div>
+                            <div>
+                              <div className="font-bold text-surface-900 text-sm">{b.treatment || "Session"}</div>
+                              <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold text-surface-700">{b.clinic}</span></div>
+                            </div>
+                          </div>
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between">
+                            <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{ar() ? "بانتظار التأكيد" : "Pending Confirmation"}</div>
+                            <div className="text-[10px] text-surface-400 mt-1">{new Date(b.createdAt).toLocaleDateString()}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Payments/Wallet History */}
+              <div>
+                <h2 className="text-xl font-bold text-surface-900 mb-4">{ar() ? "سجل المدفوعات" : "Payment History"}</h2>
+                <div className="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
+                  {localLedger.length === 0 ? (
+                    <div className="p-8 text-center text-surface-400">{t("noData")}</div>
+                  ) : (
+                    <div className="divide-y divide-surface-100">
+                      {localLedger.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map(txn => (
+                        <div key={txn.id} className="p-4 flex items-center justify-between hover:bg-surface-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-blue-50 text-blue-500">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            </div>
+                            <div>
+                              <div className="font-semibold text-surface-900 text-sm">{txn.description || txn.type.replace(/_/g, ' ').toUpperCase()}</div>
+                              <div className="text-xs text-surface-400 mt-0.5">{new Date(txn.createdAt).toLocaleDateString()} {new Date(txn.createdAt).toLocaleTimeString()}</div>
+                            </div>
+                          </div>
+                          <div className="font-bold text-surface-900">
+                            {txn.amount} KWD
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           )}
 
@@ -796,7 +969,7 @@ export default function CustomerDashboard() {
         {[
           { key: "home", label: t("home"), icon: CustomerIcons.home },
           { key: "offers", label: t("offers"), icon: CustomerIcons.offers },
-          { key: "wallet", label: t("wallet"), icon: CustomerIcons.wallet },
+          { key: "history", label: ar() ? "السجل" : "History", icon: CustomerIcons.wallet },
           { key: "profile", label: t("profile"), icon: CustomerIcons.profile },
         ].map(tab => (
           <button
@@ -823,6 +996,46 @@ export default function CustomerDashboard() {
                <div className="font-bold text-surface-900 text-[15px]">{selectedPkg.title}</div>
                <div className="text-brand-pink-500 font-black text-xl mt-1.5">{selectedPkg.price}</div>
             </div>
+
+            {selectedPkg.category === "laser" && (
+               <div className="mb-6">
+                  <label className="text-xs font-bold text-surface-900 block mb-3 uppercase tracking-wide">{ar() ? "اختر العيادة (مخصصة لهذا العرض)" : "Select Clinic (Restricted to this offer)"}</label>
+                  <select className="select-field w-full bg-surface-50 border-surface-200" value={selectedClinic} onChange={e => setSelectedClinic(e.target.value)}>
+                     {clinics.map(c => <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>)}
+                  </select>
+                  <p className="text-[10px] text-brand-pink-500 mt-2 font-medium">{ar() ? "ملاحظة: تغيير العيادة لاحقاً يتطلب دفع رسوم إدارية بقيمة 10 د.ك" : "Note: Changing the clinic later requires a 10 KD administrative fee."}</p>
+                  
+                  <label className="flex items-center gap-3 mt-4 p-3 bg-brand-pink-50 rounded-xl cursor-pointer">
+                     <input type="checkbox" checked={bookFirstSession} onChange={e => setBookFirstSession(e.target.checked)} className="text-brand-pink-500 w-4 h-4 focus:ring-brand-pink-400 border-surface-300 rounded" />
+                     <span className="font-bold text-surface-900 text-sm">{ar() ? "حجز الجلسة الأولى فوراً" : "Book first session immediately"}</span>
+                  </label>
+               </div>
+            )}
+
+            {selectedPkg.category !== "laser" && (
+               <div className="mb-6 space-y-4">
+                  <div>
+                     <label className="text-xs font-bold text-surface-900 block mb-3 uppercase tracking-wide">{ar() ? "اختر الخدمة لحجز الموعد الأول (اختياري)" : "Select First Session (Optional)"}</label>
+                     <select className="select-field w-full bg-surface-50 border-surface-200" value={selectedFirstSession} onChange={e => setSelectedFirstSession(e.target.value)}>
+                        <option value="">{ar() ? "-- حجز لاحقاً --" : "-- Book Later --"}</option>
+                        {allTreatments.filter(t => t.category !== "laser" && t.category !== "dental").map(t => (
+                           <option key={t.id} value={t.id}>{ar() ? t.nameAr : t.nameEn}</option>
+                        ))}
+                     </select>
+                  </div>
+                  {selectedFirstSession && (
+                     <div className="animate-fade-in">
+                        <label className="text-xs font-bold text-surface-900 block mb-3 uppercase tracking-wide">{ar() ? "العيادة المفضلة" : "Preferred Clinic"}</label>
+                        <select className="select-field w-full bg-surface-50 border-surface-200" value={selectedFirstClinic} onChange={e => setSelectedFirstClinic(e.target.value)}>
+                           <option value="" disabled>{ar() ? "اختر العيادة..." : "Select Clinic..."}</option>
+                           {clinics.filter(c => allTreatments.find(t => t.id === selectedFirstSession)?.clinicIds.includes(c.id) || allTreatments.find(t => t.id === selectedFirstSession)?.clinicIds.length === 0).map(c => (
+                              <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>
+                           ))}
+                        </select>
+                     </div>
+                  )}
+               </div>
+            )}
 
             <div className="space-y-3 mb-8">
                <label className="text-xs font-bold text-surface-900 block mb-3 uppercase tracking-wide">{ar() ? "خيارات الدفع" : "Payment Options"}</label>
@@ -859,7 +1072,7 @@ export default function CustomerDashboard() {
             </div>
 
             <button className="bg-brand-pink-400 hover:bg-brand-pink-500 text-white font-bold w-full rounded-2xl py-3.5 transition-colors shadow-sm" onClick={() => {
-               const existing = localOffers.find(o => o.offerId === selectedPkg.title);
+               const existing = localOffers.find(o => o.offerId === selectedPkg.title && !(o.maxSessions && o.sessionsUsed >= o.maxSessions));
                if (existing) {
                   setSysAlert(ar() ? "لديك باقة فعالة أو معلقة من هذا النوع مسبقاً!" : "You already have an active or pending package of this type!");
                   setTimeout(() => setSysAlert(null), 4000);
@@ -876,19 +1089,56 @@ export default function CustomerDashboard() {
                   totalInstallments: paymentOption === "installments" ? installments : 1,
                   paidInstallments: 0,
                   sessionsUsed: 0,
+                  maxSessions: selectedPkg.maxSessions || null,
+                  category: selectedPkg.category,
+                  clinicId: selectedPkg.category === "laser" ? selectedClinic : null,
+                  cashbackBalance: selectedPkg.signupCashback || 0,
+                  isCashbackOnly: selectedPkg.isCashbackOnly || false,
                   createdAt: new Date().toISOString()
                };
                const updatedOffers = [...localOffers, newOffer];
                saveOffers(updatedOffers);
 
                try {
-                 const pending = JSON.parse(localStorage.getItem('demo_pending_payments_v3') || '[]');
+                 const pending = JSON.parse(localStorage.getItem('demo_pending_payments_v4') || '[]');
                  pending.push(newOffer);
-                 localStorage.setItem('demo_pending_payments_v3', JSON.stringify(pending));
+                 localStorage.setItem('demo_pending_payments_v4', JSON.stringify(pending));
                } catch (e) {}
 
+               let booked = false;
+               if (selectedPkg.category === "laser" && bookFirstSession) {
+                  try {
+                     const bookings = JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]');
+                     bookings.push({
+                        id: `book_${Date.now()}`,
+                        userId: auth?.userId || "cust1",
+                        offerId: selectedPkg.title,
+                        treatment: "Laser Session",
+                        clinic: clinics.find(c => c.id === selectedClinic)?.nameEn || selectedClinic,
+                        createdAt: new Date().toISOString()
+                     });
+                     localStorage.setItem('demo_pending_bookings_v4', JSON.stringify(bookings));
+                     booked = true;
+                  } catch (e) {}
+               } else if (selectedPkg.category !== "laser" && selectedFirstSession && selectedFirstClinic) {
+                  try {
+                     const treatment = allTreatments.find(t => t.id === selectedFirstSession);
+                     const bookings = JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]');
+                     bookings.push({
+                        id: `book_${Date.now()}`,
+                        userId: auth?.userId || "cust1",
+                        offerId: selectedPkg.title,
+                        treatment: treatment ? treatment.nameEn : "Beauty Session",
+                        clinic: clinics.find(c => c.id === selectedFirstClinic)?.nameEn || selectedFirstClinic,
+                        createdAt: new Date().toISOString()
+                     });
+                     localStorage.setItem('demo_pending_bookings_v4', JSON.stringify(bookings));
+                     booked = true;
+                  } catch (e) {}
+               }
+
                setSelectedPkg(null);
-               setSysAlert(ar() ? "تم بنجاح! سيتواصل معك قسم خدمة العملاء قريباً لإتمام عملية الدفع." : "Success! Customer Service will contact you soon to process the payment.");
+               setSysAlert(ar() ? `تم بنجاح! ${booked ? 'سيتواصل معك قسم خدمة العملاء قريباً لإتمام عملية الدفع وتأكيد الموعد.' : 'سيتواصل معك قسم خدمة العملاء قريباً لإتمام عملية الدفع.'}` : `Success! ${booked ? 'Customer Service will contact you soon for payment & appointment.' : 'Customer Service will contact you soon for payment.'}`);
                setTimeout(() => setSysAlert(null), 6000);
                setActiveTab("home");
             }}>
@@ -919,28 +1169,65 @@ export default function CustomerDashboard() {
             <div className="space-y-4 mb-6">
                <div>
                   <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "العيادة المفضلة" : "Preferred Clinic"}</label>
-                  <select className="select-field w-full bg-surface-50">
-                     <option>{ar() ? "بيلاموندا السالمية" : "Belamonda Salmiya"}</option>
-                     <option>{ar() ? "بيلاموندا حولي" : "Belamonda Hawally"}</option>
-                  </select>
+                  {showBookingModal.category === "laser" && showBookingModal.clinicId ? (
+                     <select className="select-field w-full bg-surface-50 opacity-80" disabled value={showBookingModal.clinicId}>
+                        {clinics.map(c => <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>)}
+                     </select>
+                  ) : (
+                     <select className="select-field w-full bg-surface-50" id="bookingClinicSelect">
+                        {clinics.map(c => <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>)}
+                     </select>
+                  )}
+                  {showBookingModal.category === "laser" && showBookingModal.clinicId && (
+                     <p className="text-[10px] text-brand-pink-500 mt-1">{ar() ? "ملاحظة: هذا العرض مخصص لعيادة واحدة. لتغيير العيادة يجب دفع الرسوم." : "Note: This offer is restricted to the selected clinic. To change, you must pay the fee."}</p>
+                  )}
                </div>
 
                {/* Cashback Usage Option */}
-               {wallet && parseFloat(wallet.unlockedBalance || "0") > 0 && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3 mt-4">
-                     <input type="checkbox" className="mt-1 w-4 h-4 text-emerald-500 rounded border-emerald-300 focus:ring-emerald-400" id="useCashbackModal" />
-                     <div>
-                        <label htmlFor="useCashbackModal" className="font-bold text-emerald-800 text-sm cursor-pointer">{ar() ? "استخدام الكاش باك المتاح" : "Use Available Cashback"}</label>
-                        <p className="text-xs text-emerald-600 mt-0.5">{ar() ? `لديك ${parseFloat(wallet.unlockedBalance).toFixed(3)} د.ك متاحة كخصم` : `You have ${parseFloat(wallet.unlockedBalance).toFixed(3)} KWD available for discount`}</p>
+               {(() => {
+                  const relatedOffer = showBookingModal.applicableCashbackOfferId ? localOffers.find(o => o.id === showBookingModal.applicableCashbackOfferId) : null;
+                  if (relatedOffer && relatedOffer.cashbackBalance > 0) {
+                     const available = relatedOffer.cashbackBalance;
+                     const cost = showBookingModal.finalPrice;
+                     const applied = Math.min(available, cost);
+                     const remaining = cost - applied;
+                     return (
+                        <div className="bg-brand-pink-50 border border-brand-pink-200 rounded-2xl p-4 mt-4">
+                           <div className="font-bold text-brand-pink-800 text-sm mb-1">{ar() ? "استخدام رصيد الباقة" : "Package Cashback Applied"}</div>
+                           {available >= cost ? (
+                              <p className="text-xs text-brand-pink-600 leading-relaxed font-medium">
+                                 {ar() ? `رصيدك في العرض يغطي بالكامل قيمة هذه الجلسة (${cost} د.ك). لن يتم خصم أي مبالغ إضافية.` : `Your offer's cashback fully covers this session (${cost} KWD). You don't need to pay anything extra.`}
+                              </p>
+                           ) : (
+                              <p className="text-xs text-brand-pink-600 leading-relaxed font-medium">
+                                 {ar() ? `رصيدك في العرض يغطي جزءاً من الجلسة (${applied} د.ك). سيتوجب عليك دفع المبلغ المتبقي (${remaining} د.ك) في العيادة.` : `Your offer's cashback partially covers this session (${applied} KWD). You must pay the remaining ${remaining} KWD at the clinic.`}
+                              </p>
+                           )}
+                        </div>
+                     );
+                  }
+                  
+                  return wallet && parseFloat(wallet.unlockedBalance || "0") > 0 ? (
+                     <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3 mt-4">
+                        <input type="checkbox" className="mt-1 w-4 h-4 text-emerald-500 rounded border-emerald-300 focus:ring-emerald-400" id="useCashbackModal" />
+                        <div>
+                           <label htmlFor="useCashbackModal" className="font-bold text-emerald-800 text-sm cursor-pointer">{ar() ? "استخدام الكاش باك المتاح من المحفظة العامة" : "Use Available General Cashback"}</label>
+                           <p className="text-xs text-emerald-600 mt-0.5">{ar() ? `لديك ${parseFloat(wallet.unlockedBalance).toFixed(3)} د.ك متاحة كخصم` : `You have ${parseFloat(wallet.unlockedBalance).toFixed(3)} KWD available for discount`}</p>
+                        </div>
                      </div>
-                  </div>
-               )}
+                  ) : null;
+               })()}
             </div>
 
             <button className="btn-primary w-full shadow-md" onClick={() => {
                const offer = showBookingModal;
-               const clinicSelect = document.querySelector('select.bg-surface-50') as HTMLSelectElement;
-               const clinicName = clinicSelect ? clinicSelect.value : "Preferred Clinic";
+               let clinicName = "";
+               if (offer.category === "laser" && offer.clinicId) {
+                  clinicName = clinics.find(c => c.id === offer.clinicId)?.nameEn || offer.clinicId;
+               } else {
+                  const clinicSelect = document.getElementById('bookingClinicSelect') as HTMLSelectElement;
+                  clinicName = clinicSelect ? clinics.find(c => c.id === clinicSelect.value)?.nameEn || "Preferred Clinic" : "Preferred Clinic";
+               }
 
                if (offer.method !== "Standalone") {
                   const isInstallments = offer.method === "Installments";
@@ -953,15 +1240,24 @@ export default function CustomerDashboard() {
                   saveOffers(updatedOffers);
                   if (nextStatus === "pending payment") {
                       try {
-                        const pending = JSON.parse(localStorage.getItem('demo_pending_payments_v3') || '[]');
+                        const pending = JSON.parse(localStorage.getItem('demo_pending_payments_v4') || '[]');
                         pending.push(updatedOffer);
-                        localStorage.setItem('demo_pending_payments_v3', JSON.stringify(pending));
+                        localStorage.setItem('demo_pending_payments_v4', JSON.stringify(pending));
                       } catch (e) {}
+                  }
+               } else if (offer.applicableCashbackOfferId) {
+                  // Deduct cashback from the associated offer for standalone booking
+                  const relatedOffer = localOffers.find(o => o.id === offer.applicableCashbackOfferId);
+                  if (relatedOffer && relatedOffer.cashbackBalance > 0) {
+                     const applied = Math.min(relatedOffer.cashbackBalance, offer.finalPrice);
+                     const updatedRelatedOffer = { ...relatedOffer, cashbackBalance: relatedOffer.cashbackBalance - applied };
+                     const updatedOffers = localOffers.map(o => o.id === relatedOffer.id ? updatedRelatedOffer : o);
+                     saveOffers(updatedOffers);
                   }
                }
 
                try {
-                  const bookings = JSON.parse(localStorage.getItem('demo_pending_bookings_v3') || '[]');
+                  const bookings = JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]');
                   bookings.push({
                      id: `book_${Date.now()}`,
                      userId: auth?.userId || "cust1",
@@ -970,7 +1266,7 @@ export default function CustomerDashboard() {
                      clinic: clinicName,
                      createdAt: new Date().toISOString()
                   });
-                  localStorage.setItem('demo_pending_bookings_v3', JSON.stringify(bookings));
+                  localStorage.setItem('demo_pending_bookings_v4', JSON.stringify(bookings));
                } catch (e) {}
 
                setShowBookingModal(null);
@@ -981,6 +1277,95 @@ export default function CustomerDashboard() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Change Clinic Modal */}
+      {showChangeClinicModal && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-slide-up relative">
+             <button className="absolute top-4 right-4 text-surface-400 hover:text-surface-900" onClick={() => setShowChangeClinicModal(null)}>✕</button>
+             <h3 className="text-xl font-bold text-surface-900 mb-2">{ar() ? "تغيير العيادة" : "Change Clinic"}</h3>
+             <p className="text-sm text-surface-500 mb-6">{ar() ? `تغيير العيادة لهذا العرض يتطلب دفع رسوم إدارية ${showChangeClinicModal.currentFee} د.ك.` : `Changing the clinic for this offer requires a ${showChangeClinicModal.currentFee} KD administrative fee.`}</p>
+             
+             <div className="mb-6">
+                <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اختر العيادة الجديدة" : "Select New Clinic"}</label>
+                <select className="select-field w-full bg-surface-50" value={newClinicSelection} onChange={e => setNewClinicSelection(e.target.value)}>
+                   {clinics.map(c => <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>)}
+                </select>
+             </div>
+
+             <div className="flex gap-3">
+                <button className="flex-1 px-4 py-2 bg-surface-100 text-surface-600 rounded-xl font-bold hover:bg-surface-200 transition-colors" onClick={() => setShowChangeClinicModal(null)}>{ar() ? "إلغاء" : "Cancel"}</button>
+                <button className="flex-1 px-4 py-2 bg-brand-pink-500 text-white rounded-xl font-bold shadow-md hover:bg-brand-pink-600 transition-colors" onClick={() => {
+                   // Add to clinic change requests
+                   try {
+                      const requests = JSON.parse(localStorage.getItem("bel_clinic_change_requests_v1") || "[]");
+                      requests.push({
+                         id: "req_" + Date.now(),
+                         userId: auth?.userId || "cust1",
+                         subscriptionId: showChangeClinicModal.id,
+                         fromClinicId: showChangeClinicModal.clinicId,
+                         toClinicId: newClinicSelection,
+                         feePaid: true,
+                         status: "pending",
+                         createdAt: new Date().toISOString()
+                      });
+                      localStorage.setItem("bel_clinic_change_requests_v1", JSON.stringify(requests));
+                   } catch(e) {}
+
+                   // Add to financial ledger
+                   try {
+                      const ledger = JSON.parse(localStorage.getItem("bel_financial_ledger_v1") || "[]");
+                      ledger.push({
+                         id: "txn_" + Date.now(),
+                         userId: auth?.userId || "cust1",
+                         type: "clinic_change_fee",
+                         amount: showChangeClinicModal.currentFee,
+                         description: ar() ? `تغيير عيادة الليزر إلى ${clinics.find(c => c.id === newClinicSelection)?.nameAr}` : `Change clinic to ${clinics.find(c => c.id === newClinicSelection)?.nameEn} for laser package`,
+                         relatedId: showChangeClinicModal.id,
+                         createdAt: new Date().toISOString()
+                      });
+                      localStorage.setItem("bel_financial_ledger_v1", JSON.stringify(ledger));
+                   } catch(e) {}
+
+                   const updatedOffer = { ...showChangeClinicModal, clinicId: newClinicSelection }; // Optimistic update for booking modal
+
+                   setShowChangeClinicModal(null);
+                   setSysAlert(ar() ? `تم إرسال طلب تغيير العيادة بنجاح وتم تحصيل رسوم ${showChangeClinicModal.currentFee} د.ك.` : `Clinic change request sent successfully. ${showChangeClinicModal.currentFee} KD fee applied.`);
+                   setTimeout(() => setSysAlert(null), 5000);
+                   
+                   // Show custom booking prompt
+                   setShowBookingPromptModal(updatedOffer);
+                }}>
+                   {ar() ? `دفع ${showChangeClinicModal.currentFee} د.ك وتغيير` : `Pay ${showChangeClinicModal.currentFee} KD & Change`}
+                </button>
+             </div>
+           </div>
+         </div>
+      )}
+
+      {/* Booking Prompt Modal */}
+      {showBookingPromptModal && (
+         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-slide-up relative text-center">
+             <div className="w-16 h-16 bg-brand-pink-100 text-brand-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+             </div>
+             <h3 className="text-xl font-bold text-surface-900 mb-2">{ar() ? "حجز موعد جديد" : "Book an Appointment"}</h3>
+             <p className="text-sm text-surface-500 mb-6">{ar() ? "هل ترغب في حجز موعد لهذه الخدمة الآن؟" : "Would you like to book an appointment for this service now?"}</p>
+             
+             <div className="flex gap-3">
+                <button className="flex-1 px-4 py-2 bg-surface-100 text-surface-600 rounded-xl font-bold hover:bg-surface-200 transition-colors" onClick={() => setShowBookingPromptModal(null)}>{ar() ? "لاحقاً" : "Later"}</button>
+                <button className="flex-1 px-4 py-2 bg-brand-pink-500 text-white rounded-xl font-bold shadow-md hover:bg-brand-pink-600 transition-colors" onClick={() => {
+                   const offerToBook = showBookingPromptModal;
+                   setShowBookingPromptModal(null);
+                   setShowBookingModal(offerToBook);
+                }}>
+                   {ar() ? "نعم، احجز الآن" : "Yes, Book Now"}
+                </button>
+             </div>
+           </div>
+         </div>
       )}
 
       {/* System Alerts */}

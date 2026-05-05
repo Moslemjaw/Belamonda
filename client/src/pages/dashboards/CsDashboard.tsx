@@ -6,8 +6,9 @@ import { useAuth } from "../../app/AuthContext";
 import { useKycQueue, usePendingPayments, useComplaints, useApi } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
-import { getClinicChangeRequests, saveClinicChangeRequests, addFinancialEntry, upsertSubscription, getSubscriptions } from "../../lib/offerSystem";
+import { getClinicChangeRequests, saveClinicChangeRequests, addFinancialEntry, upsertSubscription, getSubscriptions, getFinancialLedger } from "../../lib/offerSystem";
 import { sharedClinics } from "../../lib/clinics";
+import { clinics as treatmentClinics, allTreatments } from "../../lib/treatments";
 
 const ar = () => i18n.language === "ar";
 
@@ -70,19 +71,63 @@ function PaymentQueue({ mockPayments, setMockPayments }: { mockPayments: any[], 
       const payment = mockPayments.find(p => p.id === paymentId);
       const updatedPending = mockPayments.filter(p => p.id !== paymentId);
       setMockPayments(updatedPending);
-      localStorage.setItem('demo_pending_payments_v3', JSON.stringify(updatedPending));
+      localStorage.setItem('demo_pending_payments_v4', JSON.stringify(updatedPending));
       
       // Update the matching offer status based on the payment
       try {
-         const offers = JSON.parse(localStorage.getItem('demo_offers_v3') || '[]');
+         const offers = JSON.parse(localStorage.getItem('demo_offers_v4') || '[]');
          const updatedOffers = offers.map((o: any) => {
             if (payment && o.offerId === payment.offerId && o.userId === payment.userId) {
-               return { ...o, status: 'active', paidInstallments: (o.paidInstallments || 0) + 1 };
+               const isFirstActivation = o.status === 'pending payment' && (o.paidInstallments || 0) === 0;
+               const cashbackToCredit = isFirstActivation && o.signupCashback > 0 ? o.signupCashback : 0;
+               
+               const updated = { 
+                  ...o, 
+                  status: 'active', 
+                  paidInstallments: (o.paidInstallments || 0) + 1,
+                  cashbackBalance: (o.cashbackBalance || 0) + cashbackToCredit,
+               };
+
+               // Record cashback credit to financial ledger
+               if (cashbackToCredit > 0) {
+                  addFinancialEntry({
+                     id: `fin_cb_${Date.now()}`,
+                     userId: o.userId || 'cust1',
+                     type: 'cashback_usage',
+                     amount: cashbackToCredit,
+                     description: `Cashback credited for ${o.offerId} (${cashbackToCredit} KWD)`,
+                     relatedId: o.id,
+                     createdAt: new Date().toISOString()
+                  });
+               }
+
+               return updated;
             }
             return o;
          });
-         localStorage.setItem('demo_offers_v3', JSON.stringify(updatedOffers));
+         localStorage.setItem('demo_offers_v4', JSON.stringify(updatedOffers));
       } catch (e) {}
+
+      // Record to financial ledger
+      if (payment) {
+         const priceNum = parseFloat(payment.amount) || 0;
+         const isInstallments = payment.method === 'Installments';
+         const totalInst = payment.totalInstallments || 1;
+         const paidInst = (payment.paidInstallments || 0) + 1;
+         const perInstallment = isInstallments ? priceNum / totalInst : priceNum;
+         
+         addFinancialEntry({
+            id: `fin_${Date.now()}`,
+            userId: payment.userId || 'cust1',
+            type: isInstallments ? 'installment' : 'offer_purchase',
+            amount: isInstallments ? perInstallment : priceNum,
+            description: isInstallments 
+               ? `Installment ${paidInst}/${totalInst} for ${payment.offerId}` 
+               : `Full payment for ${payment.offerId}`,
+            relatedId: payment.id,
+            createdAt: new Date().toISOString()
+         });
+      }
 
       try { await apiFetch("/payments/cs/confirm", { method: "POST", headers: getAuthHeader(), body: JSON.stringify({ userOfferId: paymentId, proofRef: "verified", method: "bank_transfer", amountKwd: "99.000" }) }); } catch(e){}
     } catch (e: any) { console.log(e.message); }
@@ -158,19 +203,35 @@ function PaymentQueue({ mockPayments, setMockPayments }: { mockPayments: any[], 
                </div>
 
                {/* Installment Details (Conditional) */}
-               {selectedPayment.method === "Installments" && (
+               {selectedPayment.method === "Installments" && (() => {
+                  const total = selectedPayment.totalInstallments || 2;
+                  const paid = selectedPayment.paidInstallments || 0;
+                  const priceNum = parseFloat(selectedPayment.amount) || 0;
+                  const perInstallment = priceNum / total;
+                  const remaining = priceNum - (perInstallment * paid);
+                  return (
                   <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100">
                      <h4 className="text-xs font-bold text-blue-500 uppercase tracking-wider mb-2">{ar() ? "خطة الأقساط" : "Installment Plan"}</h4>
                      <div className="flex justify-between items-center text-sm text-blue-900 mb-1">
-                        <span>{ar() ? "الدفعة الأولى المطلوبة" : "First Payment Required"}</span>
-                        <span className="font-bold">{(parseFloat(selectedPayment.amount) / 3).toFixed(3)} KWD</span>
+                        <span>{ar() ? "عدد الأقساط" : "Total Installments"}</span>
+                        <span className="font-bold">{total} {ar() ? "دفعات" : "Payments"}</span>
+                     </div>
+                     <div className="flex justify-between items-center text-sm text-blue-900 mb-1">
+                        <span>{ar() ? "قيمة كل قسط" : "Per Installment"}</span>
+                        <span className="font-bold">{perInstallment.toFixed(3)} KWD</span>
+                     </div>
+                     <div className="flex justify-between items-center text-sm text-blue-900 mb-1">
+                        <span>{ar() ? "الأقساط المدفوعة" : "Paid So Far"}</span>
+                        <span className="font-bold">{paid} / {total}</span>
                      </div>
                      <div className="flex justify-between items-center text-sm text-blue-900">
                         <span>{ar() ? "المتبقي" : "Remaining Balance"}</span>
-                        <span className="font-bold">{(parseFloat(selectedPayment.amount) * 2 / 3).toFixed(3)} KWD (2 Months)</span>
+                        <span className="font-bold">{remaining.toFixed(3)} KWD</span>
                      </div>
+                     <div className="mt-2 flex gap-0.5">{[...Array(total)].map((_,i) => <div key={i} className={`h-1.5 flex-1 rounded-full ${i < paid ? 'bg-emerald-500' : 'bg-blue-200'}`} />)}</div>
                   </div>
-               )}
+                  );
+               })()}
              </div>
 
              <div className="mt-8 flex gap-3">
@@ -193,7 +254,7 @@ function BookingRequestsQueue() {
   useEffect(() => {
     const sync = () => {
       try {
-        const stored = localStorage.getItem('demo_pending_bookings_v3');
+        const stored = localStorage.getItem('demo_pending_bookings_v4');
         if (stored) setMockBookings(JSON.parse(stored));
       } catch (e) {}
     };
@@ -204,20 +265,21 @@ function BookingRequestsQueue() {
   }, []);
 
   const [processing, setProcessing] = useState<string | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
 
   const confirmBooking = async (bookingId: string) => {
     setProcessing(bookingId);
     try {
       const updatedPending = mockBookings.filter(b => b.id !== bookingId);
       setMockBookings(updatedPending);
-      localStorage.setItem('demo_pending_bookings_v3', JSON.stringify(updatedPending));
+      localStorage.setItem('demo_pending_bookings_v4', JSON.stringify(updatedPending));
       try { await apiFetch("/appointments/cs/confirm", { method: "POST", headers: { 'Authorization': 'dummy' }, body: JSON.stringify({ offerId: bookingId, status: "confirmed" }) }); } catch(e){}
     } catch (e) {}
     finally { setProcessing(null); }
   };
 
   return (
-    <div className="card-elevated p-5">
+    <div className="card-elevated p-5 relative">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
         <div className="flex items-center gap-2">
@@ -239,18 +301,84 @@ function BookingRequestsQueue() {
           </div>
           <div className="text-xs text-surface-400 mr-2">{new Date(b.createdAt).toLocaleTimeString()}</div>
           <div className="flex items-center gap-2">
+            <button className="bg-surface-100 hover:bg-surface-200 text-surface-600 font-medium px-3 py-1.5 rounded-xl text-xs transition-colors" onClick={() => setSelectedBooking(b)}>{ar() ? "التفاصيل" : "Details"}</button>
             <button className="btn-primary btn-sm px-4 bg-blue-500 hover:bg-blue-600 border-none" disabled={processing === b.id} onClick={() => confirmBooking(b.id)}>{processing === b.id ? "..." : ar() ? "تأكيد" : "Confirm"}</button>
           </div>
         </div>
       ))}
+
+      {/* Booking Details Modal */}
+      {selectedBooking && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+           <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-slide-up relative">
+             <button className="absolute top-5 right-5 text-surface-400 hover:text-surface-900 transition-colors" onClick={() => setSelectedBooking(null)}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+             </button>
+             <h3 className="text-xl font-bold text-surface-900 mb-6 flex items-center gap-2">
+                <svg className="w-6 h-6 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                {ar() ? "تفاصيل الحجز" : "Booking Details"}
+             </h3>
+
+             <div className="space-y-4">
+               {/* Customer Info */}
+               <div className="bg-surface-50 rounded-2xl p-4 border border-surface-100">
+                  <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-3">{ar() ? "بيانات العميل" : "Customer Information"}</h4>
+                  <div className="flex items-center gap-3">
+                     <div className="avatar avatar-sm bg-blue-100 text-blue-700">{selectedBooking.userId?.charAt(0)?.toUpperCase()}</div>
+                     <div>
+                        <div className="font-bold text-surface-900">{selectedBooking.userId}</div>
+                        <div className="text-xs text-surface-500">{new Date(selectedBooking.createdAt).toLocaleString()}</div>
+                     </div>
+                  </div>
+               </div>
+
+               {/* Treatment Details */}
+               <div className="bg-surface-50 rounded-2xl p-4 border border-surface-100">
+                  <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-3">{ar() ? "تفاصيل الجلسة" : "Session Details"}</h4>
+                  <div className="space-y-2">
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-surface-500">{ar() ? "نوع العلاج" : "Treatment"}</span>
+                        <span className="font-bold text-surface-900">{selectedBooking.treatment}</span>
+                     </div>
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-surface-500">{ar() ? "العيادة المطلوبة" : "Requested Clinic"}</span>
+                        <span className="font-bold text-brand-pink-600">{selectedBooking.clinic || "N/A"}</span>
+                     </div>
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-surface-500">{ar() ? "العرض المرتبط" : "Associated Offer"}</span>
+                        <span className="font-bold text-surface-900">{selectedBooking.offerId}</span>
+                     </div>
+                  </div>
+               </div>
+
+               {/* Action Section */}
+               <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100 text-sm text-blue-800">
+                  <div className="flex items-start gap-2">
+                     <svg className="w-5 h-5 shrink-0 mt-0.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                     <p>{ar() ? "الرجاء التأكد من توافر الموعد مع العيادة قبل تأكيد هذا الطلب في النظام." : "Please ensure availability with the clinic before confirming this request in the system."}</p>
+                  </div>
+               </div>
+             </div>
+
+             <div className="mt-8 flex gap-3">
+                <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors" onClick={() => setSelectedBooking(null)}>{ar() ? "إغلاق" : "Close"}</button>
+                <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm" disabled={processing === selectedBooking.id} onClick={() => {
+                   confirmBooking(selectedBooking.id);
+                   setSelectedBooking(null);
+                }}>{processing === selectedBooking.id ? "..." : ar() ? "تأكيد الحجز" : "Confirm Booking"}</button>
+             </div>
+           </div>
+        </div>, document.body
+      )}
     </div>
   );
 }
 
+
 function CustomerMemberships() {
   const [offers, setOffers] = useState<any[]>([]);
   useEffect(() => {
-    const sync = () => { try { setOffers(JSON.parse(localStorage.getItem('demo_offers_v3') || '[]')); } catch {} };
+    const sync = () => { try { setOffers(JSON.parse(localStorage.getItem('demo_offers_v4') || '[]')); } catch {} };
     sync();
     const iv = setInterval(sync, 1000);
     return () => clearInterval(iv);
@@ -335,7 +463,7 @@ function SchedulingTool() {
         return;
      }
      try {
-       const offers = JSON.parse(localStorage.getItem('demo_offers_v3') || '[]');
+       const offers = JSON.parse(localStorage.getItem('demo_offers_v4') || '[]');
        const userOffers = offers.filter((o: any) => o.userId === customerQuery || customerQuery === 'cust1');
        const treatmentCategory = mockTreatments.find(t => t.id === form.treatment)?.category;
        
@@ -369,7 +497,7 @@ function SchedulingTool() {
     setResult(ar() ? `✅ تم الحجز بنجاح!` : `✅ Successfully scheduled!`);
     
     try {
-      const offers = JSON.parse(localStorage.getItem('demo_offers_v3') || '[]');
+      const offers = JSON.parse(localStorage.getItem('demo_offers_v4') || '[]');
       const treatmentCategory = mockTreatments.find(t => t.id === form.treatment)?.category;
       let updated = false;
       const updatedOffers = offers.map((o: any) => {
@@ -379,7 +507,7 @@ function SchedulingTool() {
          }
          return o;
       });
-      localStorage.setItem('demo_offers_v3', JSON.stringify(updatedOffers));
+      localStorage.setItem('demo_offers_v4', JSON.stringify(updatedOffers));
     } catch(e) {}
 
     setTimeout(() => setResult(null), 4000);
@@ -548,40 +676,76 @@ function CustomerLookup() {
                   <h4 className="font-bold text-surface-900 mb-4 flex items-center justify-between pb-2 border-b border-surface-100">
                      {ar() ? "الاشتراكات والعروض" : "Subscriptions & Offers"}
                   </h4>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                     <div className="bg-surface-50 p-4 rounded-xl border border-surface-200 shadow-sm flex flex-col">
-                        <div className="text-sm font-bold text-surface-900">Jamali Beauty Program</div>
-                        <div className="text-xs text-surface-500 mt-1 mb-3">1500 KWD • 1 Year Validity</div>
-                        <div className="mt-auto pt-3 border-t border-surface-100 flex justify-between items-center">
-                           <span className="text-[10px] font-bold text-brand-pink-600 bg-brand-pink-50 px-2 py-1 rounded uppercase tracking-wider">Paid in Full</span>
-                        </div>
+                  {(() => {
+                     const userOffers = (() => { try { return JSON.parse(localStorage.getItem('demo_offers_v4') || '[]'); } catch { return []; } })();
+                     const activeOffers = userOffers.filter((o: any) => !(o.maxSessions && o.sessionsUsed >= o.maxSessions));
+                     return activeOffers.length === 0 ? (
+                        <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد اشتراكات" : "No subscriptions"}</div>
+                     ) : (
+                     <div className="grid gap-3 sm:grid-cols-2">
+                        {activeOffers.map((o: any) => (
+                           <div key={o.id} className="bg-surface-50 p-4 rounded-xl border border-surface-200 shadow-sm flex flex-col">
+                              <div className="text-sm font-bold text-surface-900">{o.offerId}</div>
+                              <div className="text-xs text-surface-500 mt-1 mb-3">{o.amount} • {o.method || "N/A"}</div>
+                              <div className="mt-auto pt-3 border-t border-surface-100 flex justify-between items-center">
+                                 <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${o.status === 'active' ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'}`}>
+                                    {o.method === 'Installments' ? `${o.paidInstallments || 0}/${o.totalInstallments} Paid` : o.status}
+                                 </span>
+                                 {o.maxSessions && <span className="text-[10px] font-bold text-surface-400">{o.maxSessions - (o.sessionsUsed || 0)} Left</span>}
+                              </div>
+                           </div>
+                        ))}
                      </div>
-                  </div>
+                     );
+                  })()}
                </div>
 
                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                     <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المواعيد" : "Appointments"}</h4>
-                     <div className="space-y-3">
-                        <div className="bg-surface-50 p-3 rounded-lg border-l-4 border-l-blue-500 border border-surface-200 shadow-sm">
-                           <div className="text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">Upcoming • Tomorrow</div>
-                           <div className="text-sm font-bold text-surface-900">Laser Session</div>
+                  {(() => {
+                     const bookings = (() => { try { return JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]'); } catch { return []; } })();
+                     return (
+                     <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
+                        <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المواعيد" : "Appointments"}</h4>
+                        {bookings.length === 0 ? (
+                           <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا مواعيد" : "No appointments"}</div>
+                        ) : (
+                        <div className="space-y-3">
+                           {bookings.slice(0, 3).map((b: any) => (
+                              <div key={b.id} className="bg-surface-50 p-3 rounded-lg border-l-4 border-l-blue-500 border border-surface-200 shadow-sm">
+                                 <div className="text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">{b.userId} • {new Date(b.createdAt).toLocaleDateString()}</div>
+                                 <div className="text-sm font-bold text-surface-900">{b.offerId}</div>
+                                 {b.clinic && <div className="text-xs text-surface-500">📍 {b.clinic}</div>}
+                              </div>
+                           ))}
                         </div>
+                        )}
                      </div>
-                  </div>
+                     );
+                  })()}
 
-                  <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                     <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المدفوعات" : "Payments"}</h4>
-                     <div className="space-y-3">
-                        <div className="flex items-center justify-between bg-surface-50 p-3 rounded-lg border border-surface-200 shadow-sm">
-                           <div>
-                              <div className="text-sm font-bold text-surface-900">Full Payment</div>
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400">Jamali Beauty</div>
-                           </div>
-                           <div className="text-sm font-black text-emerald-600">+1500.000 KWD</div>
+                  {(() => {
+                     const ledger = getFinancialLedger().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                     return (
+                     <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
+                        <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المدفوعات" : "Payments"}</h4>
+                        {ledger.length === 0 ? (
+                           <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا مدفوعات" : "No payments"}</div>
+                        ) : (
+                        <div className="space-y-3">
+                           {ledger.slice(0, 3).map((e: any) => (
+                              <div key={e.id} className="flex items-center justify-between bg-surface-50 p-3 rounded-lg border border-surface-200 shadow-sm">
+                                 <div>
+                                    <div className="text-sm font-bold text-surface-900">{e.description?.slice(0, 25)}</div>
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400">{e.type?.replace(/_/g, ' ')}</div>
+                                 </div>
+                                 <div className={`text-sm font-black ${e.amount >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{e.amount >= 0 ? '+' : ''}{e.amount.toFixed(3)} KWD</div>
+                              </div>
+                           ))}
                         </div>
+                        )}
                      </div>
-                  </div>
+                     );
+                  })()}
                </div>
             </div>
           </div>
@@ -596,6 +760,12 @@ function CustomersManager() {
   const [search, setSearch] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
+  
+  const [showGrantModal, setShowGrantModal] = useState(false);
+  const [grantType, setGrantType] = useState<"offer" | "session">("session");
+  const [grantItem, setGrantItem] = useState("");
+  const [grantAmount, setGrantAmount] = useState("");
+  const [grantSessions, setGrantSessions] = useState("");
   
   const [mockUsers, setMockUsers] = useState([
     { id: "USR-001", name: "Ahmed Al-Fadhli", phone: "+965 99887766", role: "Customer", status: "Verified", kyc: true, balance: "145.000 KWD" },
@@ -680,68 +850,93 @@ function CustomersManager() {
             </div>
             
             <div className="lg:col-span-2 space-y-6">
-               {/* Active Offers */}
-               <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                  <h4 className="font-bold text-surface-900 mb-4 flex items-center justify-between pb-2 border-b border-surface-100">
-                     {ar() ? "الاشتراكات والعروض" : "Subscriptions & Offers"}
-                     <span className="badge-pink text-xs">2 {ar() ? "نشط" : "Active"}</span>
-                  </h4>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                     <div className="bg-surface-50 p-4 rounded-xl border border-surface-200 shadow-sm flex flex-col">
-                        <div className="text-sm font-bold text-surface-900">Jamali Beauty Program</div>
-                        <div className="text-xs text-surface-500 mt-1 mb-3">1500 KWD • 1 Year Validity</div>
-                        <div className="mt-auto pt-3 border-t border-surface-100 flex justify-between items-center">
-                           <span className="text-[10px] font-bold text-brand-pink-600 bg-brand-pink-50 px-2 py-1 rounded uppercase tracking-wider">Paid in Full</span>
-                        </div>
+               {/* Active Offers - DYNAMIC */}
+               {(() => {
+                  const userOffers = (() => { try { return JSON.parse(localStorage.getItem('demo_offers_v4') || '[]'); } catch { return []; } })();
+                  const activeOffers = userOffers.filter((o: any) => !(o.maxSessions && o.sessionsUsed >= o.maxSessions));
+                  return (
+                  <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
+                     <h4 className="font-bold text-surface-900 mb-4 flex items-center justify-between pb-2 border-b border-surface-100">
+                        {ar() ? "الاشتراكات والعروض" : "Subscriptions & Offers"}
+                        <span className="badge-pink text-xs">{activeOffers.length} {ar() ? "نشط" : "Active"}</span>
+                     </h4>
+                     {activeOffers.length === 0 ? (
+                        <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد اشتراكات" : "No active subscriptions"}</div>
+                     ) : (
+                     <div className="grid gap-3 sm:grid-cols-2">
+                        {activeOffers.map((o: any) => {
+                           const sessionsLeft = o.maxSessions ? o.maxSessions - (o.sessionsUsed || 0) : null;
+                           const clinicName = o.clinicId ? (treatmentClinics.find(c => c.id === o.clinicId)?.nameEn || sharedClinics.find(c => c.id === o.clinicId)?.nameEn || o.clinicId) : null;
+                           return (
+                           <div key={o.id} className="bg-surface-50 p-4 rounded-xl border border-surface-200 shadow-sm flex flex-col">
+                              <div className="text-sm font-bold text-surface-900">{o.offerId}</div>
+                              <div className="text-xs text-surface-500 mt-1 mb-1">{o.amount} • {o.method || "N/A"}</div>
+                              {clinicName && <div className="text-[10px] text-brand-pink-600 font-medium mb-2">📍 {clinicName}</div>}
+                              <div className="mt-auto pt-3 border-t border-surface-100 flex justify-between items-center">
+                                 <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${o.status === 'active' ? 'text-emerald-600 bg-emerald-50' : o.status === 'pending payment' ? 'text-amber-600 bg-amber-50' : 'text-surface-600 bg-surface-100'}`}>
+                                    {o.method === 'Installments' ? `${o.paidInstallments || 0}/${o.totalInstallments} Paid` : o.status}
+                                 </span>
+                                 {sessionsLeft !== null && <span className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">{sessionsLeft} {ar() ? "جلسة متبقية" : "Sessions Left"}</span>}
+                              </div>
+                              {o.method === 'Installments' && (
+                                 <div className="mt-1.5 flex gap-0.5">{[...Array(o.totalInstallments || 1)].map((_: any, i: number) => <div key={i} className={`h-1 w-6 rounded-full ${i < (o.paidInstallments || 0) ? 'bg-emerald-500' : 'bg-surface-200'}`} />)}</div>
+                              )}
+                           </div>
+                           );
+                        })}
                      </div>
-                     <div className="bg-surface-50 p-4 rounded-xl border border-surface-200 shadow-sm flex flex-col">
-                        <div className="text-sm font-bold text-surface-900">Nuomi Classic Laser</div>
-                        <div className="text-xs text-surface-500 mt-1 mb-3">120 KWD • 6 Sessions</div>
-                        <div className="mt-auto pt-3 border-t border-surface-100 flex justify-between items-center">
-                           <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded uppercase tracking-wider">Installments (2/4)</span>
-                           <span className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">4 Sessions Left</span>
-                        </div>
-                     </div>
+                     )}
                   </div>
-               </div>
+                  );
+               })()}
 
-               {/* Appointments & Payments */}
+               {/* Appointments & Payments - DYNAMIC */}
                <div className="grid gap-6 md:grid-cols-2">
-                  <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                     <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المواعيد" : "Appointments"}</h4>
-                     <div className="space-y-3">
-                        <div className="bg-white p-3 rounded-lg border-l-4 border-l-blue-500 border border-surface-200 shadow-sm">
-                           <div className="text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">Upcoming • Tomorrow, 10:00 AM</div>
-                           <div className="text-sm font-bold text-surface-900">Laser Session</div>
-                           <div className="text-xs text-surface-500">Glow Clinic</div>
+                  {(() => {
+                     const bookings = (() => { try { return JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]'); } catch { return []; } })();
+                     return (
+                     <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
+                        <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المواعيد" : "Appointments"}</h4>
+                        {bookings.length === 0 ? (
+                           <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد مواعيد" : "No appointments yet"}</div>
+                        ) : (
+                        <div className="space-y-3">
+                           {bookings.slice(0, 5).map((b: any) => (
+                              <div key={b.id} className="bg-white p-3 rounded-lg border-l-4 border-l-blue-500 border border-surface-200 shadow-sm">
+                                 <div className="text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">{b.userId} • {new Date(b.createdAt).toLocaleDateString()}</div>
+                                 <div className="text-sm font-bold text-surface-900">{b.offerId}</div>
+                                 {b.clinic && <div className="text-xs text-surface-500">📍 {b.clinic}</div>}
+                              </div>
+                           ))}
                         </div>
-                        <div className="bg-white p-3 rounded-lg border-l-4 border-l-emerald-500 border border-surface-200 shadow-sm opacity-70">
-                           <div className="text-[10px] font-bold text-emerald-600 mb-1 uppercase tracking-wider">Completed • 12 Oct 2025</div>
-                           <div className="text-sm font-bold text-surface-900">Consultation</div>
-                           <div className="text-xs text-surface-500">Derma Clinic</div>
-                        </div>
+                        )}
                      </div>
-                  </div>
+                     );
+                  })()}
 
-                  <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                     <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المدفوعات الأخيرة" : "Recent Payments"}</h4>
-                     <div className="space-y-3">
-                        <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-surface-200 shadow-sm">
-                           <div>
-                              <div className="text-sm font-bold text-surface-900">Installment 2/4</div>
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400">Nuomi Classic</div>
-                           </div>
-                           <div className="text-sm font-black text-emerald-600">+30.000 KWD</div>
+                  {(() => {
+                     const ledger = getFinancialLedger().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                     return (
+                     <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
+                        <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المدفوعات الأخيرة" : "Recent Payments"}</h4>
+                        {ledger.length === 0 ? (
+                           <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد مدفوعات" : "No payments yet"}</div>
+                        ) : (
+                        <div className="space-y-3">
+                           {ledger.slice(0, 5).map((e: any) => (
+                              <div key={e.id} className="flex items-center justify-between bg-white p-3 rounded-lg border border-surface-200 shadow-sm">
+                                 <div>
+                                    <div className="text-sm font-bold text-surface-900">{e.description?.slice(0, 30)}</div>
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400">{e.userId} • {e.type?.replace(/_/g, ' ')}</div>
+                                 </div>
+                                 <div className={`text-sm font-black ${e.amount >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{e.amount >= 0 ? '+' : ''}{e.amount.toFixed(3)} KWD</div>
+                              </div>
+                           ))}
                         </div>
-                        <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-surface-200 shadow-sm">
-                           <div>
-                              <div className="text-sm font-bold text-surface-900">Full Payment</div>
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400">Jamali Beauty</div>
-                           </div>
-                           <div className="text-sm font-black text-emerald-600">+1500.000 KWD</div>
-                        </div>
+                        )}
                      </div>
-                  </div>
+                     );
+                  })()}
                </div>
             </div>
           </div>
@@ -750,6 +945,10 @@ function CustomersManager() {
              <button className="btn-primary flex items-center gap-2" onClick={handleLoginAsUser}>
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
                 {ar() ? "دخول كـ مستخدم" : "Login As User"}
+             </button>
+             <button className="btn-primary flex items-center gap-2 bg-purple-500 hover:bg-purple-600 border-none shadow-sm" onClick={() => setShowGrantModal(true)}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                {ar() ? "منح عرض / جلسة" : "Grant Offer / Session"}
              </button>
              <button className="btn-secondary" onClick={handleEditToggle}>
                 {isEditing ? (ar() ? "حفظ التعديلات" : "Save Details") : (ar() ? "تعديل البيانات" : "Edit Details")}
@@ -761,6 +960,108 @@ function CustomersManager() {
                 <button className="btn-secondary ml-auto text-surface-500" onClick={() => setIsEditing(false)}>{ar() ? "إلغاء" : "Cancel"}</button>
              )}
           </div>
+
+          {/* Grant Modal */}
+          {showGrantModal && createPortal(
+             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+               <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-slide-up relative">
+                 <button className="absolute top-5 right-5 text-surface-400 hover:text-surface-900 transition-colors" onClick={() => setShowGrantModal(false)}>
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                 </button>
+                 <h3 className="text-xl font-bold text-surface-900 mb-6 flex items-center gap-2">
+                    <svg className="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4M12 20V4" /></svg>
+                    {ar() ? "منح عرض أو جلسة" : "Grant Offer / Session"}
+                 </h3>
+
+                 <div className="space-y-4">
+                   <div>
+                     <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "نوع المنحة" : "Grant Type"}</label>
+                     <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                           <input type="radio" checked={grantType === "session"} onChange={() => setGrantType("session")} className="text-purple-500 focus:ring-purple-400" />
+                           <span className="text-sm font-medium">{ar() ? "جلسة مجانية" : "Free Session"}</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                           <input type="radio" checked={grantType === "offer"} onChange={() => setGrantType("offer")} className="text-purple-500 focus:ring-purple-400" />
+                           <span className="text-sm font-medium">{ar() ? "باقة / عرض" : "Package / Offer"}</span>
+                        </label>
+                     </div>
+                   </div>
+
+                   {grantType === "session" ? (
+                     <div>
+                        <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اختر الجلسة" : "Select Session"}</label>
+                        <select className="select-field w-full" value={grantItem} onChange={e => setGrantItem(e.target.value)}>
+                           <option value="">-- {ar() ? "اختر الجلسة" : "Select"} --</option>
+                           {allTreatments.map(t => <option key={t.id} value={t.nameEn}>{ar() ? t.nameAr : t.nameEn}</option>)}
+                        </select>
+                     </div>
+                   ) : (
+                     <>
+                        <div>
+                           <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اسم الباقة / العرض" : "Offer / Package Name"}</label>
+                           <input type="text" className="input-field" placeholder={ar() ? "مثال: باقة الليزر الذهبية" : "e.g. Golden Laser Package"} value={grantItem} onChange={e => setGrantItem(e.target.value)} />
+                        </div>
+                        <div className="flex gap-4">
+                           <div className="flex-1">
+                              <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "عدد الجلسات" : "No. of Sessions"}</label>
+                              <input type="number" className="input-field" placeholder="0" value={grantSessions} onChange={e => setGrantSessions(e.target.value)} />
+                           </div>
+                           <div className="flex-1">
+                              <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "القيمة (اختياري)" : "Value (Optional)"}</label>
+                              <input type="text" className="input-field" placeholder="0.000" value={grantAmount} onChange={e => setGrantAmount(e.target.value)} />
+                           </div>
+                        </div>
+                     </>
+                   )}
+                 </div>
+
+                 <div className="mt-8 flex gap-3">
+                    <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors" onClick={() => setShowGrantModal(false)}>{ar() ? "إلغاء" : "Cancel"}</button>
+                    <button className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm" disabled={!grantItem} onClick={() => {
+                       // Save the granted item
+                       try {
+                          const offers = JSON.parse(localStorage.getItem('demo_offers_v4') || '[]');
+                          const newGrant = {
+                             id: "grant_" + Date.now(),
+                             userId: selectedUser.id,
+                             offerId: grantType === "session" ? `Free Session: ${grantItem}` : grantItem,
+                             amount: grantAmount || "0 KWD",
+                             status: "active",
+                             method: "Admin Granted",
+                             totalInstallments: 1,
+                             paidInstallments: 1,
+                             sessionsUsed: 0,
+                             maxSessions: grantType === "session" ? 1 : (parseInt(grantSessions) || null),
+                             category: grantType === "session" ? "granted_session" : "granted_offer",
+                             createdAt: new Date().toISOString()
+                          };
+                          offers.push(newGrant);
+                          localStorage.setItem('demo_offers_v4', JSON.stringify(offers));
+                          
+                          // If session, automatically put in bookings queue
+                          if (grantType === "session") {
+                             const bookings = JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]');
+                             bookings.push({
+                                id: `book_${Date.now()}`,
+                                userId: selectedUser.id,
+                                offerId: `Free Session: ${grantItem}`,
+                                treatment: grantItem,
+                                clinic: "Preferred Clinic",
+                                createdAt: new Date().toISOString()
+                             });
+                             localStorage.setItem('demo_pending_bookings_v4', JSON.stringify(bookings));
+                          }
+                       } catch(e) {}
+                       setShowGrantModal(false);
+                       setGrantItem("");
+                       setGrantSessions("");
+                       setGrantAmount("");
+                    }}>{ar() ? "منح وتأكيد" : "Grant & Confirm"}</button>
+                 </div>
+               </div>
+             </div>, document.body
+          )}
         </div>
       ) : (
         <div className="card-elevated overflow-hidden">
@@ -983,14 +1284,14 @@ export default function CsDashboard() {
 
   const [mockPayments, setMockPayments] = useState<any[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem('demo_pending_payments_v3') || '[]');
+      return JSON.parse(localStorage.getItem('demo_pending_payments_v4') || '[]');
     } catch { return []; }
   });
 
   useEffect(() => {
     const sync = () => {
       try {
-        setMockPayments(JSON.parse(localStorage.getItem('demo_pending_payments_v3') || '[]'));
+        setMockPayments(JSON.parse(localStorage.getItem('demo_pending_payments_v4') || '[]'));
       } catch (e) {}
     };
     window.addEventListener('storage', sync);
@@ -1018,7 +1319,7 @@ export default function CsDashboard() {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="stat-card"><div className="stat-label">{ar() ? "تحققات معلقة" : "Pending KYC"}</div><div className="stat-value text-amber-600">{(kycData?.items || []).length}</div></div>
               <div className="stat-card"><div className="stat-label">{ar() ? "مدفوعات معلقة" : "Pending Payments"}</div><div className="stat-value text-brand-pink-500">{mockPayments.length}</div></div>
-              <div className="stat-card"><div className="stat-label">{ar() ? "طلبات حجز" : "Pending Bookings"}</div><div className="stat-value text-blue-500">{JSON.parse(localStorage.getItem('demo_pending_bookings_v2') || '[]').length}</div></div>
+              <div className="stat-card"><div className="stat-label">{ar() ? "طلبات حجز" : "Pending Bookings"}</div><div className="stat-value text-blue-500">{JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]').length}</div></div>
               <div className="stat-card"><div className="stat-label">{ar() ? "إجمالي الشكاوى" : "Total Complaints"}</div><div className="stat-value">{complaintsData?.total || 0}</div></div>
             </div>
             <div className="grid gap-6 lg:grid-cols-2">

@@ -14,6 +14,7 @@ export interface OfferTemplate {
   maxSessions: number | null;       // null = unlimited
   sessionIntervalDays: number;
   imageUrl: string;
+  isCashbackOnly?: boolean;
 
   // Cashback
   signupCashback: number;           // Credited after first payment
@@ -240,7 +241,7 @@ export function seedDefaultOffers() {
       signupCashback: 500, perSessionCashback: 0, cashbackActivationFee: 0,
       allowFullPayment: true, allowInstallments: false, maxInstallments: 1, allowDeposit: false, depositAmount: 0,
       tagsEn: ["600 KWD Cashback", "6 Months", "All Beauty Services"], tagsAr: ["كاش باك 600 دك", "6 أشهر", "جميع خدمات التجميل"],
-      active: true, createdAt: new Date().toISOString()
+      isCashbackOnly: true, active: true, createdAt: new Date().toISOString()
     },
     {
       id: "offer_jamali", nameEn: "Jamali Beauty Program", nameAr: "برنامج جمالي الشامل",
@@ -248,7 +249,7 @@ export function seedDefaultOffers() {
       signupCashback: 1500, perSessionCashback: 0, cashbackActivationFee: 0,
       allowFullPayment: true, allowInstallments: true, maxInstallments: 4, allowDeposit: false, depositAmount: 0,
       tagsEn: ["1500 KWD Cashback", "1 Year", "100 KWD Free Services"], tagsAr: ["كاش باك 1500 دك", "سنة واحدة", "100 دك أعمال مجانية"],
-      active: true, createdAt: new Date().toISOString()
+      isCashbackOnly: true, active: true, createdAt: new Date().toISOString()
     },
     {
       id: "offer_painrelief", nameEn: "Pain Relief Package (6 Sessions)", nameAr: "باقة العلاج الطبيعي (6 جلسات)",

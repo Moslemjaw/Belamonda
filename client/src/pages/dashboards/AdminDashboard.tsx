@@ -43,14 +43,14 @@ function OffersManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const emptyForm = { nameEn: "", nameAr: "", category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "" };
+  const emptyForm = { nameEn: "", nameAr: "", category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false };
   const [form, setForm] = useState(emptyForm);
 
   const refresh = () => setOffers(getOfferTemplates());
 
   const openCreate = () => { setForm(emptyForm); setEditingId(null); setShowForm(true); };
   const openEdit = (o: OfferTemplate) => {
-    setForm({ nameEn: o.nameEn, nameAr: o.nameAr, category: o.category, price: String(o.price), validityDays: String(o.validityDays), maxSessions: o.maxSessions ? String(o.maxSessions) : "0", unlimitedSessions: o.maxSessions === null, sessionIntervalDays: String(o.sessionIntervalDays), imageUrl: o.imageUrl, signupCashback: String(o.signupCashback), perSessionCashback: String(o.perSessionCashback), cashbackActivationFee: String(o.cashbackActivationFee), allowFullPayment: o.allowFullPayment, allowInstallments: o.allowInstallments, maxInstallments: String(o.maxInstallments), allowDeposit: o.allowDeposit, depositAmount: String(o.depositAmount), tagsEn: o.tagsEn.join(", "), tagsAr: o.tagsAr.join(", ") });
+    setForm({ nameEn: o.nameEn, nameAr: o.nameAr, category: o.category, price: String(o.price), validityDays: String(o.validityDays), maxSessions: o.maxSessions ? String(o.maxSessions) : "0", unlimitedSessions: o.maxSessions === null, sessionIntervalDays: String(o.sessionIntervalDays), imageUrl: o.imageUrl, signupCashback: String(o.signupCashback), perSessionCashback: String(o.perSessionCashback), cashbackActivationFee: String(o.cashbackActivationFee), allowFullPayment: o.allowFullPayment, allowInstallments: o.allowInstallments, maxInstallments: String(o.maxInstallments), allowDeposit: o.allowDeposit, depositAmount: String(o.depositAmount), tagsEn: o.tagsEn.join(", "), tagsAr: o.tagsAr.join(", "), isCashbackOnly: o.isCashbackOnly || false });
     setEditingId(o.id); setShowForm(true);
   };
 
@@ -61,6 +61,7 @@ function OffersManager() {
       signupCashback: parseFloat(form.signupCashback) || 0, perSessionCashback: parseFloat(form.perSessionCashback) || 0, cashbackActivationFee: parseFloat(form.cashbackActivationFee) || 0,
       allowFullPayment: form.allowFullPayment, allowInstallments: form.allowInstallments, maxInstallments: parseInt(form.maxInstallments) || 4, allowDeposit: form.allowDeposit, depositAmount: parseFloat(form.depositAmount) || 0,
       tagsEn: form.tagsEn.split(",").map(s => s.trim()).filter(Boolean), tagsAr: form.tagsAr.split(",").map(s => s.trim()).filter(Boolean),
+      isCashbackOnly: form.isCashbackOnly,
       active: true, createdAt: editingId ? (offers.find(o => o.id === editingId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
     };
     upsertOfferTemplate(offer); refresh(); setShowForm(false); setEditingId(null);
@@ -119,6 +120,15 @@ function OffersManager() {
               {F(ar() ? "كاش باك عند الاشتراك (KWD)" : "Signup Cashback (KWD)", <input className="input-field" type="number" value={form.signupCashback} onChange={e => setForm({...form, signupCashback: e.target.value})} />)}
               {F(ar() ? "خصم كاش باك لكل جلسة (KWD)" : "Per-Session Cashback (KWD)", <input className="input-field" type="number" value={form.perSessionCashback} onChange={e => setForm({...form, perSessionCashback: e.target.value})} />)}
               {F(ar() ? "رسوم تفعيل الكاش باك (KWD)" : "Cashback Activation Fee (KWD)", <input className="input-field" type="number" value={form.cashbackActivationFee} onChange={e => setForm({...form, cashbackActivationFee: e.target.value})} />)}
+            </div>
+            <div className="mt-4">
+              <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${form.isCashbackOnly ? 'border-emerald-500 bg-emerald-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
+                <input type="checkbox" checked={form.isCashbackOnly} onChange={e => setForm({...form, isCashbackOnly: e.target.checked})} className="accent-emerald-500 w-4 h-4" />
+                <div>
+                  <span className="font-bold text-sm text-surface-900">{ar() ? "كاش باك فقط (بدون حجز مواعيد)" : "Cashback Only (No Appointment Booking)"}</span>
+                  <p className="text-xs text-surface-500 mt-0.5">{ar() ? "هذا العرض للكاش باك فقط ولا يتطلب حجز جلسات أو مواعيد" : "This offer is for cashback only — no sessions or appointments needed"}</p>
+                </div>
+              </label>
             </div>
           </div>
 
@@ -188,6 +198,7 @@ function OffersManager() {
                 
                 {/* Cashback summary */}
                 <div className="flex flex-wrap gap-1.5 mb-3">
+                  {o.isCashbackOnly && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">💳 {ar() ? "كاش باك فقط" : "Cashback Only"}</span>}
                   {o.signupCashback > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">💰 {o.signupCashback} KWD {ar() ? "كاش باك" : "signup CB"}</span>}
                   {o.perSessionCashback > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700">🔄 {o.perSessionCashback} KWD/{ar() ? "جلسة" : "session"}</span>}
                   {o.cashbackActivationFee > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700">🔑 +{o.cashbackActivationFee} KWD {ar() ? "تفعيل" : "activation"}</span>}
@@ -765,8 +776,13 @@ function ComplaintsView() {
 
 function AdminSettings() {
   const [loading, setLoading] = useState(false);
+  const [requireInstallmentPayment, setRequireInstallmentPayment] = useState(() => {
+    try { return localStorage.getItem('bel_require_installment_booking_v1') === 'true'; } catch { return false; }
+  });
+
   const save = () => {
     setLoading(true);
+    localStorage.setItem('bel_require_installment_booking_v1', String(requireInstallmentPayment));
     setTimeout(() => setLoading(false), 800);
   };
   return (
@@ -836,6 +852,16 @@ function AdminSettings() {
             <div>
               <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "لغة النظام الافتراضية" : "Default System Language"}</label>
               <select className="select-field"><option>English (EN)</option><option>Arabic (AR)</option></select>
+            </div>
+            <div className="flex items-center justify-between mt-4 pt-4 border-t border-surface-100">
+              <div>
+                <span className="text-sm font-medium text-surface-700 block">{ar() ? "إلزام دفع القسط المستحق قبل حجز موعد" : "Require Installment Payment Before Booking"}</span>
+                <span className="text-[10px] text-surface-400">{ar() ? "يمنع المستخدم من حجز مواعيد إذا كان هناك أقساط غير مدفوعة للباقة" : "Prevents users from booking sessions if they have unpaid installments"}</span>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" className="sr-only peer" checked={requireInstallmentPayment} onChange={e => setRequireInstallmentPayment(e.target.checked)} />
+                <div className="w-11 h-6 bg-surface-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-pink-500"></div>
+              </label>
             </div>
           </div>
         </div>
