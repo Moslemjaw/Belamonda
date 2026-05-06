@@ -1,4 +1,5 @@
 import type { VerificationStatus } from "@belamonda/shared";
+import { env } from "../../config/env.js";
 
 export type KycCheckboxes = {
   termsAndConditions: boolean;
@@ -89,8 +90,8 @@ export const kycStore = {
     if (!users.has(userId)) {
       users.set(userId, { id: userId, role, verificationStatus: "unverified", createdAt: nowIso() });
       
-      // Auto-approve cust1 for testing purposes
-      if (userId === "cust1") {
+      // Auto-approve cust1 for local/testing only (not in production)
+      if (userId === "cust1" && env.NODE_ENV !== "production") {
          const user = users.get(userId)!;
          user.verificationStatus = "approved";
          

@@ -1,4 +1,6 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string;
+export const API_BASE_URL =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
+  "http://localhost:8081";
 
 export async function apiFetch(path: string, init?: RequestInit) {
   const res = await fetch(`${API_BASE_URL}${path}`, {

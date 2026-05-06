@@ -1,6 +1,8 @@
-import { offersStore } from "../offers/offers.store.js";
-import { clinicsStore } from "../clinics/clinics.store.js";
-import { commerceStore } from "../commerce/commerce.store.js";
+import * as clinicService from "../../services/clinic.service.js";
+import * as offerService from "../../services/offer.service.js";
+import * as userOfferService from "../../services/userOffer.service.js";
+import { sumCompletedPaymentsKwd } from "../../services/payment.service.js";
+import { PaymentModel } from "../../models/payment.model.js";
 import { kycStore } from "../kyc/kyc.store.js";
 
 function parseKwd(s: string) {
@@ -16,27 +18,23 @@ function fmtKwd(mils: number) {
   return `${sign}${a}.${b}`;
 }
 
-export function computeFinanceSnapshot() {
-  // Revenue = sum of confirmed subscription payments (we store on userOffer as paymentAmountKwd).
-  // Pending = sum of pending subscription prices (we infer from offer.subscriptionPriceKwd).
-  const pending = commerceStore.listPendingPayments();
+export async function computeFinanceSnapshot() {
+  const revenueKwd = await sumCompletedPaymentsKwd();
+
+  const pending = await userOfferService.listPendingPaymentsQueue();
   let pendingMils = 0;
   for (const uo of pending) {
-    const offer = offersStore.get(uo.offerId);
+    const offer = await offerService.getOffer(uo.offerId);
     if (offer) pendingMils += parseKwd(offer.subscriptionPriceKwd);
   }
 
-  const allUserOffers = new Set<string>(); // no direct list-all; approximate via pending + users’ lists
-  // In local MVP, we don’t have a global user list; compute from pending queue and skip the rest.
-  // This is enough for demo; later replace with Mongo queries.
+  const paymentUserIds = await PaymentModel.distinct<string>("userId");
+  const walletUserIds = new Set<string>([...paymentUserIds, ...pending.map((p) => p.userId), "cust1"]);
 
-  // Cashback liability (system-wide): sum wallets locked/unlocked/utilized from txns.
-  // utilized = sum deductions
-  const demoUsers = ["cust1"]; // local demo default; later replace with DB query
   let locked = 0;
   let unlocked = 0;
   let utilized = 0;
-  for (const uid of demoUsers) {
+  for (const uid of walletUserIds) {
     const w = kycStore.getWallet(uid);
     if (!w) continue;
     locked += parseKwd(w.lockedKwd);
@@ -47,8 +45,11 @@ export function computeFinanceSnapshot() {
 
   const liability = locked + unlocked - utilized;
 
+  const clinics = await clinicService.listClinics({ activeOnly: true });
+  const offersRes = await offerService.listOffersPublic({});
+
   return {
-    revenueKwd: "0.000",
+    revenueKwd,
     pendingKwd: fmtKwd(pendingMils),
     cashback: {
       lockedKwd: fmtKwd(locked),
@@ -58,9 +59,16 @@ export function computeFinanceSnapshot() {
     },
     counts: {
       pendingPayments: pending.length,
-      activeClinics: clinicsStore.list({ activeOnly: true }).length,
-      activeOffers: offersStore.listPublic({}).length
-    }
+      activeClinics: clinics.length,
+      activeOffers: offersRes.items.length
+    },
+    totalRevenue: revenueKwd,
+    totalCashbackLocked: fmtKwd(locked),
+    totalCashbackUnlocked: fmtKwd(unlocked),
+    totalCashbackUtilized: fmtKwd(utilized),
+    pendingPaymentsCount: pending.length,
+    pendingPaymentsKwd: fmtKwd(pendingMils),
+    sessionsToday: 0,
+    sessionsThisMonth: 0
   };
 }
-

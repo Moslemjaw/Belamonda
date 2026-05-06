@@ -1,30 +1,45 @@
+import { lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../app/AuthContext";
 import LoginPage from "../pages/LoginPage";
-import CustomerDashboard from "../pages/dashboards/CustomerDashboard";
-import AdminDashboard from "../pages/dashboards/AdminDashboard";
-import CsDashboard from "../pages/dashboards/CsDashboard";
-import FinanceDashboard from "../pages/dashboards/FinanceDashboard";
-import ClinicDashboard from "../pages/dashboards/ClinicDashboard";
+import HomePage from "../pages/HomePage";
+
+const CustomerDashboard = lazy(() => import("../pages/dashboards/CustomerDashboard"));
+const AdminDashboard = lazy(() => import("../pages/dashboards/AdminDashboard"));
+const CsDashboard = lazy(() => import("../pages/dashboards/CsDashboard"));
+const FinanceDashboard = lazy(() => import("../pages/dashboards/FinanceDashboard"));
+const ClinicDashboard = lazy(() => import("../pages/dashboards/ClinicDashboard"));
+
+function DashboardFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-surface-50 text-surface-600 text-sm font-medium">
+      Loading dashboard…
+    </div>
+  );
+}
 
 function RoleDashboard() {
   const { auth } = useAuth();
   if (!auth) return <Navigate to="/login" replace />;
 
-  switch (auth.role) {
-    case "customer":
-      return <CustomerDashboard />;
-    case "admin":
-      return <AdminDashboard />;
-    case "cs":
-      return <CsDashboard />;
-    case "finance":
-      return <FinanceDashboard />;
-    case "clinicStaff":
-      return <ClinicDashboard />;
-    default:
-      return <Navigate to="/login" replace />;
-  }
+  const dash = (() => {
+    switch (auth.role) {
+      case "customer":
+        return <CustomerDashboard />;
+      case "admin":
+        return <AdminDashboard />;
+      case "cs":
+        return <CsDashboard />;
+      case "finance":
+        return <FinanceDashboard />;
+      case "clinicStaff":
+        return <ClinicDashboard />;
+      default:
+        return <Navigate to="/login" replace />;
+    }
+  })();
+
+  return <Suspense fallback={<DashboardFallback />}>{dash}</Suspense>;
 }
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -38,10 +53,8 @@ export default function App() {
 
   return (
     <Routes>
-      <Route
-        path="/login"
-        element={auth ? <Navigate to="/dashboard" replace /> : <LoginPage />}
-      />
+      <Route path="/" element={<HomePage />} />
+      <Route path="/login" element={auth ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
       <Route
         path="/dashboard"
         element={
@@ -50,11 +63,7 @@ export default function App() {
           </RequireAuth>
         }
       />
-      {/* Default redirect */}
-      <Route
-        path="*"
-        element={<Navigate to={auth ? "/dashboard" : "/login"} replace />}
-      />
+      <Route path="*" element={<Navigate to={auth ? "/dashboard" : "/"} replace />} />
     </Routes>
   );
 }

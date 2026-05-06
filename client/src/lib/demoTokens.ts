@@ -1,13 +1,25 @@
 import { apiFetch } from "./api";
-import type { Role } from "@belamonda/shared";
 
-export async function demoLogin(
-  userId: string,
-  role: Role
-): Promise<string> {
+export async function passwordLogin(input: {
+  identifier: string;
+  password: string;
+}): Promise<{ accessToken: string; userId: string; role: string; clinicId?: string }> {
   const data = (await apiFetch("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ userId, role }),
+    body: JSON.stringify(input),
+  })) as { accessToken: string; userId: string; role: string; clinicId?: string };
+  return data;
+}
+
+export async function passwordRegister(input: {
+  username?: string;
+  email?: string;
+  phone?: string;
+  password: string;
+}): Promise<{ accessToken: string }> {
+  const data = (await apiFetch("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(input),
   })) as { accessToken: string };
-  return data.accessToken;
+  return data;
 }

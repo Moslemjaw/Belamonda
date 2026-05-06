@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
@@ -54,6 +54,14 @@ function SessionCard({ session, onMark }: { session: any; onMark: (id: string, s
       </div>
 
       <div className="space-y-2 mb-5 bg-surface-50 p-4 rounded-2xl border border-surface-100/50 pl-4 ml-2">
+        {session.payment && (
+          <div className="flex items-center justify-between text-xs pb-2 border-b border-surface-200">
+            <span className="text-surface-600 font-medium">{ar() ? "سجل الدفع" : "Enrollment payment"}</span>
+            <span className="font-bold text-surface-800">
+              {session.payment.status} · {session.payment.amountKwd} KWD
+            </span>
+          </div>
+        )}
         <div className="flex items-center justify-between text-xs">
            <span className="text-surface-600 font-medium">{ar() ? "العرض نشط" : "Offer Active"}</span>
            {session.eligibility?.offerActive ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold">No</span>}
@@ -98,8 +106,10 @@ export default function ClinicDashboard() {
   const { auth, getAuthHeader } = useAuth();
   const [activeNav, setActiveNav] = useState("home");
   const [isEditingSettings, setIsEditingSettings] = useState(false);
-  const CLINIC_ID = auth?.userId || sharedClinics[0].id;
-  const clinicData = sharedClinics.find(c => c.id === CLINIC_ID) || sharedClinics[0];
+  // Clinic staff accounts are linked to a clinicId from backend auth.
+  // Fall back to the old demo clinic ids only if missing.
+  const CLINIC_ID = auth?.clinicId || auth?.userId || sharedClinics[0].id;
+  const clinicData = sharedClinics.find((c) => c.id === CLINIC_ID) || sharedClinics[0];
 
   const [settingsForm, setSettingsForm] = useState({
     nameEn: clinicData.nameEn,
@@ -110,6 +120,13 @@ export default function ClinicDashboard() {
     contactEmail: `contact@${CLINIC_ID}.com`
   });
   const { data, loading, refetch } = useClinicSchedule(CLINIC_ID);
+
+  useEffect(() => {
+    const t = window.setInterval(() => {
+      void refetch();
+    }, 15_000);
+    return () => window.clearInterval(t);
+  }, [refetch]);
 
   const sessions = data?.items || [];
   const scheduled = sessions.filter(s => s.status === "scheduled");

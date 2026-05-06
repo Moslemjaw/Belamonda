@@ -121,6 +121,15 @@ export function useNotifications() {
 export function useFinanceSnapshot() {
   return useApi<{
     snapshot: {
+      revenueKwd?: string;
+      pendingKwd?: string;
+      cashback?: {
+        lockedKwd: string;
+        unlockedKwd: string;
+        utilizedKwd: string;
+        netLiabilityKwd: string;
+      };
+      counts?: { pendingPayments: number; activeClinics: number; activeOffers: number };
       totalRevenue: string;
       totalCashbackLocked: string;
       totalCashbackUnlocked: string;
@@ -153,6 +162,18 @@ export function useComplaints() {
   }>("/complaints/all");
 }
 
+export function useMyComplaints() {
+  return useApi<{
+    items: Array<{
+      id: string;
+      category: string;
+      subject: string;
+      status: string;
+      createdAt: string;
+    }>;
+  }>("/complaints/me");
+}
+
 export function useProducts() {
   return useApi<{
     products: Array<{
@@ -168,9 +189,62 @@ export function useClinicSchedule(clinicId: string) {
   const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
   return useApi<{
     items: Array<{
-      id: string; userOfferId: string; userId?: string; scheduledAt: string;
-      status: string; notes?: string;
+      id: string;
+      userOfferId: string;
+      userId?: string;
+      scheduledAt: string;
+      status: string;
+      notes?: string;
       eligibility: { offerActive: boolean; paymentConfirmed: boolean; intervalMet: boolean };
+      payment?: {
+        id: string;
+        status: string;
+        amountKwd: string;
+        method?: string;
+        bookingId?: string;
+      } | null;
     }>;
-  }>(`/scheduling/clinic/${clinicId}/schedule?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
+  }>(`/scheduling/clinic/${clinicId}/schedule?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
+    deps: [clinicId]
+  });
+}
+
+export function useBookingRequests(status: "pending" | "scheduled" | "cancelled" | "all" = "pending") {
+  const q = `?status=${encodeURIComponent(status)}`;
+  return useApi<{
+    items: Array<{
+      id: string;
+      userId: string;
+      userOfferId: string;
+      offerId: string;
+      clinicId: string;
+      clinicNameEn?: string;
+      clinicNameAr?: string;
+      status: string;
+      preferredAt?: string;
+      notes?: string;
+      createdAt?: string;
+    }>;
+  }>(`/scheduling/cs/requests${q}`, { deps: [status] });
+}
+
+export function useMySessions() {
+  return useApi<{
+    items: Array<{
+      id: string;
+      offerId: string;
+      clinicId: string;
+      userOfferId: string;
+      scheduledAt: string;
+      status: string;
+      notes?: string;
+    }>;
+  }>("/scheduling/me/sessions");
+}
+
+export function usePaymentsLedger(status?: string) {
+  const q = status ? `?status=${encodeURIComponent(status)}&limit=50` : "?limit=50";
+  return useApi<{ items: Array<{ id: string; userId: string; amountKwd: string; status: string; method: string; createdAt: string }>; total: number }>(
+    `/payments${q}`
+  );
 }

@@ -2,14 +2,15 @@ import { Router } from "express";
 import { z } from "zod";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
-import { clinicsStore } from "../clinics/clinics.store.js";
-import { offersStore } from "./offers.store.js";
+import * as clinicService from "../../services/clinic.service.js";
+import * as offerService from "../../services/offer.service.js";
 
-const KwdString = z.string().regex(/^\d+(\.\d{3})$/); // SRS: 3 decimals
+const KwdString = z.string().regex(/^\d+(\.\d{3})$/);
 
-const OfferBaseSchema = z.object({
+const OfferBaseFields = z.object({
   name: z.string().min(1),
-  category: z.enum(["laser", "beauty", "skincare", "other"]),
+  category: z.enum(["laser", "beauty", "skincare", "other"]).optional(),
+  categoryIds: z.array(z.string().min(1)).optional(),
   clinicId: z.string().min(1),
   subscriptionPriceKwd: KwdString,
   validityDays: z.number().int().positive(),
@@ -25,11 +26,11 @@ const OfferBaseSchema = z.object({
   terms: z.string().optional()
 });
 
-const OfferTypeASchema = OfferBaseSchema.extend({
+const OfferTypeASchema = OfferBaseFields.extend({
   type: z.literal("A")
 });
 
-const OfferTypeBSchema = OfferBaseSchema.extend({
+const OfferTypeBSchema = OfferBaseFields.extend({
   type: z.literal("B"),
   perVisitPriceKwd: KwdString,
   originalClinicPriceKwd: KwdString
@@ -40,46 +41,71 @@ const OfferUpdateSchema = z.union([OfferTypeASchema.partial(), OfferTypeBSchema.
 
 export const offersRouter = Router();
 
-// Public catalog browse (SRS FR-04, §5.1 catalog)
-offersRouter.get("/", (req, res) => {
-  const clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
-  const category =
-    req.query.category === "laser" || req.query.category === "beauty" || req.query.category === "skincare" || req.query.category === "other"
-      ? req.query.category
-      : undefined;
-  const type = req.query.type === "A" || req.query.type === "B" ? req.query.type : undefined;
-  const featured =
-    req.query.featured === "true" ? true : req.query.featured === "false" ? false : undefined;
+offersRouter.get("/", async (req, res, next) => {
+  try {
+    const clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
+    const category = typeof req.query.category === "string" ? req.query.category : undefined;
+    const type = req.query.type === "A" || req.query.type === "B" ? req.query.type : undefined;
+    const featured =
+      req.query.featured === "true" ? true : req.query.featured === "false" ? false : undefined;
+    const search = typeof req.query.search === "string" ? req.query.search : undefined;
+    const page = req.query.page ? Number(req.query.page) : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
 
-  const items = offersStore.listPublic({ clinicId, category, type, featured });
-  return res.json({ items });
+    const result = await offerService.listOffersPublic({
+      clinicId,
+      category,
+      type,
+      featured,
+      search,
+      page,
+      limit
+    });
+    return res.json({ items: result.items, page: result.page, limit: result.limit });
+  } catch (e) {
+    next(e);
+  }
 });
 
-// Admin list (includes inactive and outside windows)
-offersRouter.get("/admin", authRequired, requireRole(["admin"]), (_req, res) => {
-  const items = offersStore.listAdmin();
-  return res.json({ items });
+offersRouter.get("/admin", authRequired, requireRole(["admin"]), async (_req, res, next) => {
+  try {
+    const items = await offerService.listOffersAdmin();
+    return res.json({ items, offers: items });
+  } catch (e) {
+    next(e);
+  }
 });
 
-offersRouter.post("/admin", authRequired, requireRole(["admin"]), (req, res) => {
-  const parsed = OfferCreateSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+offersRouter.post("/admin", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const parsed = OfferCreateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    if (!parsed.data.category && !(parsed.data.categoryIds && parsed.data.categoryIds.length)) {
+      return res.status(400).json({ error: "VALIDATION_ERROR", details: { formErrors: [], fieldErrors: { category: ["category or categoryIds required"] } } });
+    }
 
-  const clinic = clinicsStore.get(parsed.data.clinicId);
-  if (!clinic || !clinic.active) return res.status(400).json({ error: "CLINIC_NOT_FOUND_OR_INACTIVE" });
+    const clinic = await clinicService.getClinic(parsed.data.clinicId);
+    if (!clinic || !clinic.active) return res.status(400).json({ error: "CLINIC_NOT_FOUND_OR_INACTIVE" });
 
-  const offer = offersStore.create({
-    ...parsed.data,
-    enrolledCount: 0
-  } as any);
-  return res.status(201).json({ offer });
+    const offer = await offerService.createOffer({
+      ...parsed.data,
+      category: parsed.data.category,
+      categoryIds: parsed.data.categoryIds
+    });
+    return res.status(201).json({ offer });
+  } catch (e) {
+    next(e);
+  }
 });
 
-offersRouter.patch("/admin/:offerId", authRequired, requireRole(["admin"]), (req, res) => {
-  const parsed = OfferUpdateSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
-  const offer = offersStore.update(req.params.offerId, parsed.data as any);
-  if (!offer) return res.status(404).json({ error: "NOT_FOUND" });
-  return res.json({ offer });
+offersRouter.patch("/admin/:offerId", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const parsed = OfferUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    const offer = await offerService.updateOffer(req.params.offerId, parsed.data as Record<string, unknown>);
+    if (!offer) return res.status(404).json({ error: "NOT_FOUND" });
+    return res.json({ offer });
+  } catch (e) {
+    next(e);
+  }
 });
-

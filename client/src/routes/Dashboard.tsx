@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useMemo, useState } from "react";
 import type { Role } from "@belamonda/shared";
-import { demoLogin } from "../lib/demoTokens";
+import { passwordLogin } from "../lib/demoTokens";
 
 const roleRoutes: { role: Role; label: string; routes: { to: string; label: string }[] }[] = [
   {
@@ -59,7 +59,8 @@ export default function Dashboard() {
   const allowed = useMemo(() => roleRoutes.find((r) => r.role === role)!, [role]);
 
   async function login() {
-    setToken(await demoLogin(userId, role));
+    const r = await passwordLogin({ identifier: userId, password: "demo12345" });
+    setToken(r.accessToken);
   }
 
   return (

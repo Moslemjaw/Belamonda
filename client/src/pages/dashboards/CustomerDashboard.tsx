@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../app/AuthContext";
-import { useWallet, useMyOffers, useNotifications, useApi } from "../../hooks/useApi";
+import { useWallet, useMyOffers, useMySessions, useMyComplaints, useNotifications, useApi } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { BelamondaIcon } from "../../components/BelamondaLogo";
 import { treatmentCategories, allTreatments, clinics } from "../../lib/treatments";
+import type { ApiOfferRow } from "../../features/admin/OffersAdminPanel";
 
 const ar = () => i18n.language === "ar";
 
@@ -14,6 +15,7 @@ const CustomerIcons = {
   offers: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>,
   wallet: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>,
   profile: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>,
+  help: <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 11-12.728 0 9 9 0 0112.728 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M12 17h.01M11 13a1 1 0 011-1 2 2 0 10-2-2"/></svg>,
 };
 
 // ==========================================
@@ -238,7 +240,7 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
 
 export default function CustomerDashboard() {
   const { t } = useTranslation();
-  const { auth, logout } = useAuth();
+  const { auth, logout, getAuthHeader } = useAuth();
   const [activeTab, setActiveTab] = useState("home");
   const [showKyc, setShowKyc] = useState(false);
   const [offerFilter, setOfferFilter] = useState("all");
@@ -246,8 +248,23 @@ export default function CustomerDashboard() {
   const [selectedPkg, setSelectedPkg] = useState<any>(null);
 
   const { data: walletData, loading: wLoading } = useWallet();
-  const { data: offersData } = useMyOffers();
+  const { data: offersData, refetch: refetchMyOffers } = useMyOffers();
+  const { data: sessionsData, refetch: refetchMySessions } = useMySessions();
+  const { data: myComplaintsData, refetch: refetchMyComplaints } = useMyComplaints();
   const { data: notifData } = useNotifications();
+  const { data: clinicsPublic } = useApi<{ items: Array<{ id: string; nameEn: string; nameAr: string }> }>("/clinics");
+  const clinicsById = new Map((clinicsPublic?.items || []).map((c) => [c.id, c]));
+
+  const catalogPath =
+    activeTab === "offers"
+      ? offerFilter === "all"
+        ? "/offers"
+        : `/offers?category=${encodeURIComponent(offerFilter)}`
+      : null;
+  const { data: catalogData, loading: catalogLoading, error: catalogError } = useApi<{ items: ApiOfferRow[] }>(
+    catalogPath,
+    { deps: [activeTab, offerFilter] }
+  );
 
   const [selectedClinic, setSelectedClinic] = useState<string>("clinic_qibla");
   const [showChangeClinicModal, setShowChangeClinicModal] = useState<any>(null);
@@ -267,9 +284,7 @@ export default function CustomerDashboard() {
     } catch { return []; }
   });
 
-  const [localBookings, setLocalBookings] = useState<any[]>(() => {
-    try { return JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]'); } catch { return []; }
-  });
+  const sessions = sessionsData?.items || [];
 
   const [localLedger, setLocalLedger] = useState<any[]>(() => {
     try { return JSON.parse(localStorage.getItem('bel_financial_ledger_v1') || '[]'); } catch { return []; }
@@ -291,8 +306,6 @@ export default function CustomerDashboard() {
              if (patched.offerId === "Sabaya Membership" && patched.cashbackBalance === undefined) patched.cashbackBalance = 300;
              return patched;
           }));
-          const bookings = JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]');
-          setLocalBookings(bookings);
           const ledger = JSON.parse(localStorage.getItem('bel_financial_ledger_v1') || '[]');
           setLocalLedger(ledger);
           const changes = JSON.parse(localStorage.getItem('bel_clinic_change_requests_v1') || '[]');
@@ -317,6 +330,8 @@ export default function CustomerDashboard() {
   const [selectedFirstSession, setSelectedFirstSession] = useState<string>("");
   const [selectedFirstClinic, setSelectedFirstClinic] = useState<string>("");
 
+  const [complaintForm, setComplaintForm] = useState({ category: "other", subject: "", description: "" });
+
   useEffect(() => {
      if (selectedPkg) {
         setBookFirstSession(true);
@@ -326,7 +341,6 @@ export default function CustomerDashboard() {
   }, [selectedPkg]);
 
   const [kycStatus, setKycStatus] = useState<string>("checking");
-  const { getAuthHeader } = useAuth();
   
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({
@@ -401,6 +415,7 @@ export default function CustomerDashboard() {
               { key: "home", label: t("home"), icon: CustomerIcons.home },
               { key: "offers", label: t("offers"), icon: CustomerIcons.offers },
               { key: "history", label: ar() ? "السجل" : "History", icon: CustomerIcons.wallet },
+              { key: "help", label: ar() ? "مساعدة" : "Help", icon: CustomerIcons.help },
               { key: "profile", label: t("profile"), icon: CustomerIcons.profile },
             ].map(tab => (
               <button
@@ -500,7 +515,9 @@ export default function CustomerDashboard() {
                   const activeOffers = offers.filter(o => !(o.maxSessions && o.sessionsUsed >= o.maxSessions));
                   return activeOffers.length === 0 ? (
                     <div className="bg-white border border-surface-200 border-dashed rounded-2xl p-8 text-center text-surface-500 flex flex-col items-center justify-center">
-                      <span className="text-4xl block mb-3">✨</span>
+                      <div className="w-12 h-12 rounded-2xl bg-brand-pink-50 text-brand-pink-600 flex items-center justify-center mb-3">
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-10V6m0 12v-2m8-4a8 8 0 11-16 0 8 8 0 0116 0z"/></svg>
+                      </div>
                       <p className="mb-4 text-surface-600 font-medium">{ar() ? "ليس لديك أي عروض نشطة حالياً" : "You don't have any active offers yet"}</p>
                       <button onClick={() => setActiveTab("offers")} className="btn-primary px-6 py-2 shadow-sm hover:scale-105 transition-transform">
                          {ar() ? "تصفح باقاتنا والعضويات" : "Browse Memberships & Offers"}
@@ -586,7 +603,7 @@ export default function CustomerDashboard() {
                       onClick={() => setSessionFilter("all")}
                       className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap font-medium transition-all ${sessionFilter === "all" ? "bg-surface-900 text-white shadow-md scale-105" : "bg-surface-50 text-surface-600 border border-surface-200 hover:bg-surface-100"}`}
                     >
-                      ✨ {ar() ? "الكل" : "All"}
+                      {ar() ? "الكل" : "All"}
                     </button>
                     {treatmentCategories.map(cat => (
                       <button
@@ -722,65 +739,73 @@ export default function CustomerDashboard() {
           {activeTab === "offers" && (
             <div className="animate-fade-in">
               <div className="sticky top-[68px] lg:top-0 z-20 bg-surface-50 pt-2 pb-4 -mx-4 px-4 lg:mx-0 lg:px-0">
-                <h2 className="text-xl font-bold text-surface-900 mb-4">{ar() ? "باقات بيلاموندا" : "Belamonda Packages"}</h2>
+                <h2 className="text-xl font-bold text-surface-900 mb-4">{ar() ? "العروض" : "Offers"}</h2>
+                <p className="text-sm text-surface-500 mb-4 max-w-xl">
+                  {ar()
+                    ? "مصدر البيانات: الخادم. اختر فئة أو تصفح الكل، ثم اضغط اشتراك لإنشاء طلب دفع."
+                    : "Data from server API. Filter by category or browse all, then subscribe to create a payment hold."}
+                </p>
                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                   {[
-                    { id: "all", icon: "✨", label: ar() ? "الكل" : "All" },
-                    { id: "beauty", icon: "💄", label: ar() ? "تجميل وعناية" : "Beauty & Skincare" },
-                    { id: "laser", icon: "⚡", label: ar() ? "ليزر" : "Laser & Hair Removal" },
-                  ].map(f => (
+                    { id: "all", label: ar() ? "الكل" : "All" },
+                    { id: "beauty", label: ar() ? "تجميل" : "Beauty" },
+                    { id: "skincare", label: ar() ? "عناية البشرة" : "Skincare" },
+                    { id: "laser", label: ar() ? "ليزر" : "Laser" },
+                    { id: "other", label: ar() ? "أخرى" : "Other" }
+                  ].map((f) => (
                     <button
                       key={f.id}
+                      type="button"
                       onClick={() => setOfferFilter(f.id)}
                       className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap font-medium transition-all ${offerFilter === f.id ? "bg-surface-900 text-white shadow-md scale-105" : "bg-white text-surface-600 border border-surface-200 hover:bg-surface-100"}`}
                     >
-                      <span>{f.icon}</span>
                       <span>{f.label}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
+              {catalogLoading && <div className="text-sm text-surface-500 py-8">{ar() ? "جاري تحميل العروض…" : "Loading offers…"}</div>}
+              {catalogError && <div className="text-sm text-red-600 py-4">{catalogError}</div>}
+
               <div className="grid gap-4 mt-2 md:grid-cols-2">
-                {[
-                  { id: "p1", category: "beauty", title: "Jamali Beauty Program", price: "1500 KWD", maxSessions: null, tags: ["1 Year", "Full Network", "1500 KWD Cashback"], image: "https://images.unsplash.com/photo-1560750588-73207b1ef5b8?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: true, maxInstallments: 4, allowDeposit: false, isCashbackOnly: true, signupCashback: 1500 },
-                  { id: "p2", category: "beauty", title: "Mini Jamali", price: "500 KWD", maxSessions: null, tags: ["6 Months", "Full Network", "500 KWD Cashback"], image: "https://images.unsplash.com/photo-1616394584738-fc6e612e71c9?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: false, allowDeposit: false, isCashbackOnly: true, signupCashback: 500 },
-                  { id: "p3", category: "beauty", title: "Sabaya Membership", price: "79 KWD", maxSessions: null, tags: ["1 Year", "Up to 3 Friends", "300 KWD Cashback"], image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&q=80&w=800", allowFullPayment: false, allowInstallments: false, allowDeposit: true, depositAmount: 20, signupCashback: 300 },
-                  { id: "p4", category: "laser", title: "Nuomi Classic", price: "120 KWD", maxSessions: 6, tags: ["8 Months", "6 Free Sessions", "Prepaid"], image: "https://images.unsplash.com/photo-1580618672591-eb180b1a973f?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: true, maxInstallments: 3, allowDeposit: false },
-                  { id: "p5", category: "laser", title: "Nuomi Plus", price: "20 KWD", maxSessions: null, tags: ["20 KWD Cashback per session"], image: "https://images.unsplash.com/photo-1512290923902-8a9f81dc236c?auto=format&fit=crop&q=80&w=800", allowFullPayment: true, allowInstallments: false, allowDeposit: true, depositAmount: 5 },
-                  { id: "p6", category: "laser", title: "Single Session", price: "19 KWD", maxSessions: 1, tags: ["Optional 30 KWD Cashback"], allowFullPayment: true, allowInstallments: false, allowDeposit: false },
-                ].filter(pkg => offerFilter === "all" || pkg.category === offerFilter).map((pkg) => (
-                  <div key={pkg.id} className="card-elevated p-0 flex flex-col h-full relative overflow-hidden group animate-slide-up bg-white">
-                    {pkg.image ? (
-                      <div className="h-48 w-full relative overflow-hidden bg-surface-100">
-                        <img src={pkg.image} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={pkg.title} />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                        <div className="absolute bottom-4 px-6 w-full">
-                           <div className="text-sm font-medium text-brand-pink-400 mb-1 uppercase tracking-wide flex items-center gap-1.5 drop-shadow-md">
-                             {pkg.category === "beauty" ? "💄" : "⚡"} {pkg.category === "beauty" ? (ar() ? "تجميل" : "Beauty") : (ar() ? "ليزر" : "Laser")}
-                           </div>
-                           <h3 className="text-xl font-bold text-white drop-shadow-md leading-tight">{pkg.title}</h3>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-6 pb-0">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-brand-pink-50 rounded-bl-[100px] -z-10 group-hover:scale-110 transition-transform" />
-                        <div className="text-sm font-medium text-brand-pink-500 mb-2 uppercase tracking-wide flex items-center gap-1.5">
-                          {pkg.category === "beauty" ? "💄" : "⚡"} {pkg.category === "beauty" ? (ar() ? "تجميل" : "Beauty") : (ar() ? "ليزر" : "Laser")}
-                        </div>
-                        <h3 className="text-lg font-bold text-surface-900 mb-1">{pkg.title}</h3>
-                      </div>
-                    )}
-                    
-                    <div className="p-6 flex-1 flex flex-col">
-                      <div className="text-2xl font-black text-brand-pink-500 mb-4">{pkg.price}</div>
-                      <div className="flex flex-wrap gap-2 mb-6">
-                        {pkg.tags.map(t => <span key={t} className="bg-surface-100 text-surface-600 text-[10px] uppercase font-bold px-2 py-1 rounded-md">{t}</span>)}
-                      </div>
-                      <button className="mt-auto btn-primary w-full shadow-md hover:scale-[1.02] transition-transform" onClick={() => setSelectedPkg(pkg)}>{ar() ? "اشتراك" : "Subscribe"}</button>
+                {(catalogData?.items || []).map((o) => (
+                  <div key={o.id} className="card-elevated p-5 flex flex-col h-full bg-white border border-surface-100">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-brand-pink-500 mb-1">{o.category}</div>
+                    <h3 className="text-lg font-bold text-surface-900 mb-2 leading-snug">{o.name}</h3>
+                    <div className="text-sm text-surface-500 mb-2">
+                      {ar() ? "النوع" : "Type"} {o.type} · {ar() ? "جلسات" : "Sessions"}{" "}
+                      {o.maxSessions != null ? o.maxSessions : ar() ? "غير محدد" : "Unlimited"}
                     </div>
+                    <div className="text-2xl font-black text-brand-pink-600 mb-4">{o.subscriptionPriceKwd} KWD</div>
+                    <button
+                      type="button"
+                      className="mt-auto btn-primary w-full shadow-md"
+                      onClick={async () => {
+                        try {
+                          await apiFetch("/commerce/select-offer", {
+                            method: "POST",
+                            headers: getAuthHeader(),
+                            body: JSON.stringify({ offerId: o.id })
+                          });
+                          await refetchMyOffers();
+                          setSysAlert(ar() ? "تم إنشاء طلب الدفع — راجعي قسم العروض" : "Payment hold created — check My offers");
+                          setTimeout(() => setSysAlert(null), 5000);
+                        } catch (e: unknown) {
+                          setSysAlert(e instanceof Error ? e.message : "Error");
+                          setTimeout(() => setSysAlert(null), 5000);
+                        }
+                      }}
+                    >
+                      {ar() ? "اشتراك" : "Subscribe"}
+                    </button>
                   </div>
                 ))}
+                {!catalogLoading && (catalogData?.items || []).length === 0 && (
+                  <div className="md:col-span-2 text-center text-surface-400 py-16 card-elevated">
+                    {ar() ? "لا توجد عروض متاحة (تحقق من الاتصال أو أضف عروضاً من لوحة المدير)" : "No offers available (check API or add offers in Admin)"}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -821,27 +846,30 @@ export default function CustomerDashboard() {
               <div>
                 <h2 className="text-xl font-bold text-surface-900 mb-4">{ar() ? "سجل الجلسات المحجوزة" : "Sessions History"}</h2>
                 <div className="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
-                  {localBookings.length === 0 ? (
+                  {sessions.length === 0 ? (
                     <div className="p-8 text-center text-surface-400">{t("noData")}</div>
                   ) : (
                     <div className="divide-y divide-surface-100">
-                      {localBookings.map(b => (
+                      {sessions.map((b: any) => {
+                        const clinic = clinicsById.get(b.clinicId);
+                        const clinicName = clinic ? (ar() ? clinic.nameAr : clinic.nameEn) : b.clinicId;
+                        return (
                         <div key={b.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-50 transition-colors">
                           <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-50 text-blue-500 shrink-0">
                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                             </div>
                             <div>
-                              <div className="font-bold text-surface-900 text-sm">{b.treatment || "Session"}</div>
-                              <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold text-surface-700">{b.clinic}</span></div>
+                              <div className="font-bold text-surface-900 text-sm">{ar() ? "جلسة" : "Session"}</div>
+                              <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold text-surface-700">{clinicName}</span></div>
                             </div>
                           </div>
                           <div className="flex sm:flex-col items-center sm:items-end justify-between">
-                            <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{ar() ? "بانتظار التأكيد" : "Pending Confirmation"}</div>
-                            <div className="text-[10px] text-surface-400 mt-1">{new Date(b.createdAt).toLocaleDateString()}</div>
+                            <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{b.status}</div>
+                            <div className="text-[10px] text-surface-400 mt-1">{new Date(b.scheduledAt).toLocaleDateString()}</div>
                           </div>
                         </div>
-                      ))}
+                      )})}
                     </div>
                   )}
                 </div>
@@ -961,6 +989,65 @@ export default function CustomerDashboard() {
               </button>
             </div>
           )}
+
+          {activeTab === "help" && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="card-elevated p-6 bg-white border border-surface-100">
+                <h2 className="text-xl font-bold text-surface-900 mb-1">{ar() ? "شكوى / مساعدة" : "Complaint / Get help"}</h2>
+                <p className="text-sm text-surface-500 mb-6">{ar() ? "افتح تذكرة وسيقوم فريق خدمة العملاء بالمتابعة." : "Open a ticket and Customer Support will follow up."}</p>
+                <div className="grid gap-4">
+                  <select className="select-field" value={complaintForm.category} onChange={(e) => setComplaintForm((s) => ({ ...s, category: e.target.value }))}>
+                    {["service_quality","billing","scheduling","cashback","clinic","other"].map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <input className="input-field" placeholder={ar() ? "الموضوع" : "Subject"} value={complaintForm.subject} onChange={(e) => setComplaintForm((s) => ({ ...s, subject: e.target.value }))} />
+                  <textarea className="input-field min-h-[120px]" placeholder={ar() ? "اشرح المشكلة..." : "Describe the issue..."} value={complaintForm.description} onChange={(e) => setComplaintForm((s) => ({ ...s, description: e.target.value }))} />
+                  <button
+                    className="btn-primary"
+                    onClick={async () => {
+                      try {
+                        await apiFetch("/complaints/me", { method: "POST", headers: getAuthHeader(), body: JSON.stringify(complaintForm) });
+                        setComplaintForm({ category: "other", subject: "", description: "" });
+                        await refetchMyComplaints();
+                        setSysAlert(ar() ? "تم إرسال التذكرة." : "Ticket submitted.");
+                        setTimeout(() => setSysAlert(null), 4000);
+                      } catch (e: any) {
+                        setSysAlert(e instanceof Error ? e.message : "Error");
+                        setTimeout(() => setSysAlert(null), 4000);
+                      }
+                    }}
+                    disabled={!complaintForm.subject.trim() || complaintForm.description.trim().length < 10}
+                  >
+                    {ar() ? "إرسال" : "Submit"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="card-elevated overflow-hidden bg-white border border-surface-100">
+                <div className="p-5 border-b border-surface-100 flex items-center justify-between">
+                  <h3 className="text-base font-bold text-surface-900">{ar() ? "تذاكري" : "My tickets"}</h3>
+                  <button className="text-sm font-semibold text-brand-pink-600 hover:text-brand-pink-700" onClick={() => void refetchMyComplaints()}>
+                    {ar() ? "تحديث" : "Refresh"}
+                  </button>
+                </div>
+                <table className="data-table">
+                  <thead><tr><th>{ar() ? "الموضوع" : "Subject"}</th><th>{ar() ? "الفئة" : "Category"}</th><th>{ar() ? "الحالة" : "Status"}</th><th>{ar() ? "التاريخ" : "Date"}</th></tr></thead>
+                  <tbody>
+                    {(myComplaintsData?.items || []).map((c: any) => (
+                      <tr key={c.id}>
+                        <td className="font-medium">{c.subject}</td>
+                        <td><span className="badge-sage">{c.category}</span></td>
+                        <td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{c.status}</span></td>
+                        <td className="text-xs">{new Date(c.createdAt).toLocaleDateString()}</td>
+                      </tr>
+                    ))}
+                    {(myComplaintsData?.items || []).length === 0 && <tr><td colSpan={4} className="text-center py-8 text-surface-400">{ar() ? "لا توجد تذاكر" : "No tickets"}</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
@@ -970,6 +1057,7 @@ export default function CustomerDashboard() {
           { key: "home", label: t("home"), icon: CustomerIcons.home },
           { key: "offers", label: t("offers"), icon: CustomerIcons.offers },
           { key: "history", label: ar() ? "السجل" : "History", icon: CustomerIcons.wallet },
+          { key: "help", label: ar() ? "مساعدة" : "Help", icon: CustomerIcons.help },
           { key: "profile", label: t("profile"), icon: CustomerIcons.profile },
         ].map(tab => (
           <button
@@ -1219,59 +1307,22 @@ export default function CustomerDashboard() {
                })()}
             </div>
 
-            <button className="btn-primary w-full shadow-md" onClick={() => {
+            <button className="btn-primary w-full shadow-md" onClick={async () => {
                const offer = showBookingModal;
-               let clinicName = "";
-               if (offer.category === "laser" && offer.clinicId) {
-                  clinicName = clinics.find(c => c.id === offer.clinicId)?.nameEn || offer.clinicId;
-               } else {
-                  const clinicSelect = document.getElementById('bookingClinicSelect') as HTMLSelectElement;
-                  clinicName = clinicSelect ? clinics.find(c => c.id === clinicSelect.value)?.nameEn || "Preferred Clinic" : "Preferred Clinic";
-               }
-
-               if (offer.method !== "Standalone") {
-                  const isInstallments = offer.method === "Installments";
-                  let nextStatus = "active";
-                  if (isInstallments && offer.paidInstallments < offer.totalInstallments) {
-                     nextStatus = "pending payment";
-                  }
-                  const updatedOffer = { ...offer, sessionsUsed: (offer.sessionsUsed || 0) + 1, status: nextStatus };
-                  const updatedOffers = localOffers.map(o => o.id === offer.id ? updatedOffer : o);
-                  saveOffers(updatedOffers);
-                  if (nextStatus === "pending payment") {
-                      try {
-                        const pending = JSON.parse(localStorage.getItem('demo_pending_payments_v4') || '[]');
-                        pending.push(updatedOffer);
-                        localStorage.setItem('demo_pending_payments_v4', JSON.stringify(pending));
-                      } catch (e) {}
-                  }
-               } else if (offer.applicableCashbackOfferId) {
-                  // Deduct cashback from the associated offer for standalone booking
-                  const relatedOffer = localOffers.find(o => o.id === offer.applicableCashbackOfferId);
-                  if (relatedOffer && relatedOffer.cashbackBalance > 0) {
-                     const applied = Math.min(relatedOffer.cashbackBalance, offer.finalPrice);
-                     const updatedRelatedOffer = { ...relatedOffer, cashbackBalance: relatedOffer.cashbackBalance - applied };
-                     const updatedOffers = localOffers.map(o => o.id === relatedOffer.id ? updatedRelatedOffer : o);
-                     saveOffers(updatedOffers);
-                  }
-               }
-
                try {
-                  const bookings = JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]');
-                  bookings.push({
-                     id: `book_${Date.now()}`,
-                     userId: auth?.userId || "cust1",
-                     offerId: offer.offerId,
-                     treatment: offer.method === "Standalone" ? "Standalone Session" : offer.treatment || "Package Session",
-                     clinic: clinicName,
-                     createdAt: new Date().toISOString()
-                  });
-                  localStorage.setItem('demo_pending_bookings_v4', JSON.stringify(bookings));
-               } catch (e) {}
-
-               setShowBookingModal(null);
-               setSysAlert(ar() ? "تم إرسال طلب الحجز للعيادة بنجاح!" : "Booking request sent successfully to the clinic!");
-               setTimeout(() => setSysAlert(null), 6000);
+                 await apiFetch("/scheduling/me/request", {
+                   method: "POST",
+                   headers: getAuthHeader(),
+                   body: JSON.stringify({ userOfferId: offer.id })
+                 });
+                 await refetchMySessions();
+                 setShowBookingModal(null);
+                 setSysAlert(ar() ? "تم إرسال طلب الموعد — سيقوم فريق خدمة العملاء بتحديد الوقت." : "Request sent — CS will assign a time.");
+                 setTimeout(() => setSysAlert(null), 6000);
+               } catch (e: any) {
+                 setSysAlert(e instanceof Error ? e.message : "Error");
+                 setTimeout(() => setSysAlert(null), 6000);
+               }
             }}>
                {ar() ? "طلب الموعد الآن" : "Request Appointment Now"}
             </button>

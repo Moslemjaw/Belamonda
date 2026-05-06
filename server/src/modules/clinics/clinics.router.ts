@@ -2,7 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
-import { clinicsStore } from "./clinics.store.js";
+import * as clinicService from "../../services/clinic.service.js";
 
 const ClinicCreateSchema = z.object({
   nameEn: z.string().min(1),
@@ -25,30 +25,43 @@ const ClinicUpdateSchema = ClinicCreateSchema.partial();
 
 export const clinicsRouter = Router();
 
-// Public list (active only)
-clinicsRouter.get("/", (_req, res) => {
-  const items = clinicsStore.list({ activeOnly: true });
-  return res.json({ items });
+clinicsRouter.get("/", async (_req, res, next) => {
+  try {
+    const items = await clinicService.listClinics({ activeOnly: true });
+    return res.json({ items, clinics: items });
+  } catch (e) {
+    next(e);
+  }
 });
 
-// Admin/CS internal list (includes inactive)
-clinicsRouter.get("/admin", authRequired, requireRole(["admin"]), (_req, res) => {
-  const items = clinicsStore.list({ activeOnly: false });
-  return res.json({ items });
+clinicsRouter.get("/admin", authRequired, requireRole(["admin"]), async (_req, res, next) => {
+  try {
+    const items = await clinicService.listClinics({ activeOnly: false });
+    return res.json({ items, clinics: items });
+  } catch (e) {
+    next(e);
+  }
 });
 
-clinicsRouter.post("/admin", authRequired, requireRole(["admin"]), (req, res) => {
-  const parsed = ClinicCreateSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
-  const clinic = clinicsStore.create(parsed.data);
-  return res.status(201).json({ clinic });
+clinicsRouter.post("/admin", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const parsed = ClinicCreateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    const clinic = await clinicService.createClinic(parsed.data);
+    return res.status(201).json({ clinic });
+  } catch (e) {
+    next(e);
+  }
 });
 
-clinicsRouter.patch("/admin/:clinicId", authRequired, requireRole(["admin"]), (req, res) => {
-  const parsed = ClinicUpdateSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
-  const clinic = clinicsStore.update(req.params.clinicId, parsed.data);
-  if (!clinic) return res.status(404).json({ error: "NOT_FOUND" });
-  return res.json({ clinic });
+clinicsRouter.patch("/admin/:clinicId", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const parsed = ClinicUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    const clinic = await clinicService.updateClinic(req.params.clinicId, parsed.data);
+    if (!clinic) return res.status(404).json({ error: "NOT_FOUND" });
+    return res.json({ clinic });
+  } catch (e) {
+    next(e);
+  }
 });
-

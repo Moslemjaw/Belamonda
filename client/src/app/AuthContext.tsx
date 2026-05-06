@@ -1,16 +1,17 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 import type { Role } from "@belamonda/shared";
-import { demoLogin } from "../lib/demoTokens";
+import { passwordLogin } from "../lib/demoTokens";
 
 interface AuthState {
   token: string;
   userId: string;
   role: Role;
+  clinicId?: string;
 }
 
 interface AuthContextType {
   auth: AuthState | null;
-  login: (userId: string, role: Role) => Promise<void>;
+  loginWithPassword: (identifier: string, password: string) => Promise<void>;
   logout: () => void;
   getAuthHeader: () => Record<string, string> | undefined;
 }
@@ -27,9 +28,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  const login = useCallback(async (userId: string, role: Role) => {
-    const token = await demoLogin(userId, role);
-    const state: AuthState = { token, userId, role };
+  const loginWithPassword = useCallback(async (identifier: string, password: string) => {
+    const { accessToken, clinicId, role, userId } = await passwordLogin({ identifier, password });
+    const state: AuthState = { token: accessToken, userId: userId || identifier, role: role as Role, clinicId };
     setAuth(state);
     sessionStorage.setItem("belamonda_auth", JSON.stringify(state));
   }, []);
@@ -45,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [auth?.token]);
 
   return (
-    <AuthContext.Provider value={{ auth, login, logout, getAuthHeader }}>
+    <AuthContext.Provider value={{ auth, loginWithPassword, logout, getAuthHeader }}>
       {children}
     </AuthContext.Provider>
   );

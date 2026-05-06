@@ -17,6 +17,11 @@ import { tasksRouter } from "./modules/tasks/tasks.router.js";
 import { reportingRouter } from "./modules/reporting/reporting.router.js";
 import { complaintsRouter } from "./modules/complaints/complaints.router.js";
 import { productsRouter } from "./modules/products/products.router.js";
+import { publicRouter } from "./modules/public/public.router.js";
+import { categoriesRouter } from "./modules/categories/categories.router.js";
+import { dashboardsRouter } from "./modules/dashboards/dashboards.router.js";
+import { sessionTypesRouter } from "./modules/session-types/sessionTypes.router.js";
+import { usersRouter } from "./modules/users/users.router.js";
 
 export function createApp() {
   const app = express();
@@ -47,6 +52,11 @@ export function createApp() {
   app.use(express.json({ limit: "2mb" }));
 
   app.use("/auth", authRouter);
+  app.use("/public", publicRouter);
+  app.use("/categories", categoriesRouter);
+  app.use("/dashboards", dashboardsRouter);
+  app.use("/session-types", sessionTypesRouter);
+  app.use("/users", usersRouter);
   app.use("/kyc", kycRouter);
   app.use("/clinics", clinicsRouter);
   app.use("/offers", offersRouter);

@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
+import { OffersAdminPanel } from "../../features/admin/OffersAdminPanel";
+import { CategoriesAdminPanel } from "../../features/admin/CategoriesAdminPanel";
 import { useAuth } from "../../app/AuthContext";
 import { useApi, useKycQueue, usePendingPayments, useComplaints, useProducts, useFinanceSnapshot } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { allTreatments, treatmentCategories } from "../../lib/treatments";
-import { OfferTemplate, getOfferTemplates, saveOfferTemplates, upsertOfferTemplate, deleteOfferTemplate, seedDefaultOffers, getSubscriptions } from "../../lib/offerSystem";
 import { sharedClinics } from "../../lib/clinics";
 
 const ar = () => i18n.language === "ar";
@@ -37,202 +38,9 @@ function KpiCard({ label, value, sub, icon, isHighlighted, trend }: { label: str
 
 // ── Sub-pages ──
 function OffersManager() {
-  const { data: clinicsData } = useApi<{ clinics: any[] }>("/clinics/admin");
-  const [offers, setOffers] = useState<OfferTemplate[]>(() => { seedDefaultOffers(); return getOfferTemplates(); });
-  const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  const emptyForm = { nameEn: "", nameAr: "", category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false };
-  const [form, setForm] = useState(emptyForm);
-
-  const refresh = () => setOffers(getOfferTemplates());
-
-  const openCreate = () => { setForm(emptyForm); setEditingId(null); setShowForm(true); };
-  const openEdit = (o: OfferTemplate) => {
-    setForm({ nameEn: o.nameEn, nameAr: o.nameAr, category: o.category, price: String(o.price), validityDays: String(o.validityDays), maxSessions: o.maxSessions ? String(o.maxSessions) : "0", unlimitedSessions: o.maxSessions === null, sessionIntervalDays: String(o.sessionIntervalDays), imageUrl: o.imageUrl, signupCashback: String(o.signupCashback), perSessionCashback: String(o.perSessionCashback), cashbackActivationFee: String(o.cashbackActivationFee), allowFullPayment: o.allowFullPayment, allowInstallments: o.allowInstallments, maxInstallments: String(o.maxInstallments), allowDeposit: o.allowDeposit, depositAmount: String(o.depositAmount), tagsEn: o.tagsEn.join(", "), tagsAr: o.tagsAr.join(", "), isCashbackOnly: o.isCashbackOnly || false });
-    setEditingId(o.id); setShowForm(true);
-  };
-
-  const saveOffer = () => {
-    if (!form.nameEn) return;
-    const offer: OfferTemplate = {
-      id: editingId || `offer_${Date.now()}`, nameEn: form.nameEn, nameAr: form.nameAr || form.nameEn, category: form.category, price: parseFloat(form.price) || 0, validityDays: parseInt(form.validityDays) || 365, maxSessions: form.unlimitedSessions ? null : (parseInt(form.maxSessions) || 6), sessionIntervalDays: parseInt(form.sessionIntervalDays) || 25, imageUrl: form.imageUrl,
-      signupCashback: parseFloat(form.signupCashback) || 0, perSessionCashback: parseFloat(form.perSessionCashback) || 0, cashbackActivationFee: parseFloat(form.cashbackActivationFee) || 0,
-      allowFullPayment: form.allowFullPayment, allowInstallments: form.allowInstallments, maxInstallments: parseInt(form.maxInstallments) || 4, allowDeposit: form.allowDeposit, depositAmount: parseFloat(form.depositAmount) || 0,
-      tagsEn: form.tagsEn.split(",").map(s => s.trim()).filter(Boolean), tagsAr: form.tagsAr.split(",").map(s => s.trim()).filter(Boolean),
-      isCashbackOnly: form.isCashbackOnly,
-      active: true, createdAt: editingId ? (offers.find(o => o.id === editingId)?.createdAt || new Date().toISOString()) : new Date().toISOString()
-    };
-    upsertOfferTemplate(offer); refresh(); setShowForm(false); setEditingId(null);
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => { const file = e.target.files?.[0]; if (file) { const r = new FileReader(); r.onloadend = () => setForm({ ...form, imageUrl: r.result as string }); r.readAsDataURL(file); } };
-  const toggleActive = (o: OfferTemplate) => { upsertOfferTemplate({ ...o, active: !o.active }); refresh(); };
-  const handleDelete = (id: string) => { deleteOfferTemplate(id); refresh(); };
-  const subs = getSubscriptions();
-
-  const F = (label: string, children: React.ReactNode, span?: string) => <div className={span || ""}><label className="text-xs font-medium text-surface-500 mb-1 block">{label}</label>{children}</div>;
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-base font-bold text-surface-900">{ar() ? "إدارة العروض" : "Offer Management"}</h3>
-        <button className="btn-primary btn-sm" onClick={openCreate}>+ {ar() ? "إنشاء عرض" : "Create Offer"}</button>
-      </div>
-
-      {showForm && (
-        <div className="card-elevated p-5 animate-slide-up">
-          <h4 className="text-sm font-bold text-surface-800 mb-4">{editingId ? (ar() ? "تعديل العرض" : "Edit Offer") : (ar() ? "إنشاء عرض جديد" : "Create New Offer")}</h4>
-          <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {F(ar() ? "اسم العرض (EN)" : "Offer Name (EN)", <input className="input-field" value={form.nameEn} onChange={e => setForm({...form, nameEn: e.target.value})} />)}
-            {F(ar() ? "اسم العرض (AR)" : "Offer Name (AR)", <input className="input-field" dir="rtl" value={form.nameAr} onChange={e => setForm({...form, nameAr: e.target.value})} />)}
-            {F(ar() ? "الفئات المشمولة" : "Included Categories", (
-              <div className="border border-surface-200 rounded-lg p-3 max-h-40 overflow-y-auto bg-surface-50 flex flex-wrap gap-2">
-                <label className="flex items-center gap-2 text-sm cursor-pointer hover:bg-white p-2 rounded-lg border border-surface-200 shadow-sm w-[calc(50%-0.25rem)] lg:w-[calc(25%-0.5rem)]">
-                  <input type="checkbox" className="accent-brand-pink-500 w-4 h-4 rounded" checked={form.category === "all"} onChange={e => setForm({...form, category: e.target.checked ? "all" : ""})} />
-                  <span className="font-medium">🌟 {ar() ? "جميع الفئات" : "All Categories"}</span>
-                </label>
-                {treatmentCategories.map(c => (
-                  <label key={c.id} className={`flex items-center gap-2 text-sm cursor-pointer hover:bg-white p-2 rounded-lg border border-surface-200 shadow-sm w-[calc(50%-0.25rem)] lg:w-[calc(25%-0.5rem)] ${form.category === "all" ? "opacity-50 pointer-events-none grayscale" : ""}`}>
-                    <input type="checkbox" className="accent-brand-pink-500 w-4 h-4 rounded" 
-                           checked={form.category !== "all" && form.category.split(',').includes(c.id)}
-                           onChange={e => {
-                              if (form.category === "all") return;
-                              let arr = form.category ? form.category.split(',').filter(Boolean) : [];
-                              if (e.target.checked) arr.push(c.id); else arr = arr.filter(x => x !== c.id);
-                              setForm({...form, category: arr.join(',')});
-                           }} />
-                    <span className="font-medium">{c.icon} {ar() ? c.nameAr : c.nameEn}</span>
-                  </label>
-                ))}
-              </div>
-            ), "md:col-span-3 lg:col-span-4")}
-            {F(ar() ? "السعر (KWD)" : "Price (KWD)", <input className="input-field" type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />)}
-            {F(ar() ? "المدة (أيام)" : "Validity (days)", <input className="input-field" type="number" value={form.validityDays} onChange={e => setForm({...form, validityDays: e.target.value})} />)}
-            {F(ar() ? "الجلسات" : "Max Sessions", <div className="flex items-center gap-2"><input className="input-field flex-1" type="number" value={form.maxSessions} onChange={e => setForm({...form, maxSessions: e.target.value})} disabled={form.unlimitedSessions} /><label className="flex items-center gap-1 text-xs whitespace-nowrap"><input type="checkbox" checked={form.unlimitedSessions} onChange={e => setForm({...form, unlimitedSessions: e.target.checked})} />{ar() ? "غير محدود" : "Unlimited"}</label></div>)}
-            {F(ar() ? "فترة الانتظار (أيام)" : "Interval (days)", <input className="input-field" type="number" value={form.sessionIntervalDays} onChange={e => setForm({...form, sessionIntervalDays: e.target.value})} />)}
-          </div>
-
-          <div className="border-t border-surface-100 pt-4 mt-4">
-            <h5 className="text-sm font-bold text-surface-800 mb-3">{ar() ? "قواعد الكاش باك" : "Cashback Rules"}</h5>
-            <div className="grid gap-4 md:grid-cols-3">
-              {F(ar() ? "كاش باك عند الاشتراك (KWD)" : "Signup Cashback (KWD)", <input className="input-field" type="number" value={form.signupCashback} onChange={e => setForm({...form, signupCashback: e.target.value})} />)}
-              {F(ar() ? "خصم كاش باك لكل جلسة (KWD)" : "Per-Session Cashback (KWD)", <input className="input-field" type="number" value={form.perSessionCashback} onChange={e => setForm({...form, perSessionCashback: e.target.value})} />)}
-              {F(ar() ? "رسوم تفعيل الكاش باك (KWD)" : "Cashback Activation Fee (KWD)", <input className="input-field" type="number" value={form.cashbackActivationFee} onChange={e => setForm({...form, cashbackActivationFee: e.target.value})} />)}
-            </div>
-            <div className="mt-4">
-              <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${form.isCashbackOnly ? 'border-emerald-500 bg-emerald-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
-                <input type="checkbox" checked={form.isCashbackOnly} onChange={e => setForm({...form, isCashbackOnly: e.target.checked})} className="accent-emerald-500 w-4 h-4" />
-                <div>
-                  <span className="font-bold text-sm text-surface-900">{ar() ? "كاش باك فقط (بدون حجز مواعيد)" : "Cashback Only (No Appointment Booking)"}</span>
-                  <p className="text-xs text-surface-500 mt-0.5">{ar() ? "هذا العرض للكاش باك فقط ولا يتطلب حجز جلسات أو مواعيد" : "This offer is for cashback only — no sessions or appointments needed"}</p>
-                </div>
-              </label>
-            </div>
-          </div>
-
-          <div className="border-t border-surface-100 pt-4 mt-4">
-            <h5 className="text-sm font-bold text-surface-800 mb-3">{ar() ? "خيارات الدفع" : "Payment Options"}</h5>
-            <div className="grid gap-4 md:grid-cols-3">
-              <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer ${form.allowFullPayment ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200'}`}><input type="checkbox" checked={form.allowFullPayment} onChange={e => setForm({...form, allowFullPayment: e.target.checked})} /><span className="font-bold text-sm text-surface-900">{ar() ? "دفع كامل" : "Full Payment"}</span></label>
-              <div className={`p-3 rounded-xl border-2 ${form.allowInstallments ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200'}`}>
-                <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={form.allowInstallments} onChange={e => setForm({...form, allowInstallments: e.target.checked})} /><span className="font-bold text-sm text-surface-900">{ar() ? "أقساط" : "Installments"}</span></label>
-                {form.allowInstallments && <input className="input-field mt-2" type="number" placeholder="Max installments" value={form.maxInstallments} onChange={e => setForm({...form, maxInstallments: e.target.value})} />}
-              </div>
-              <div className={`p-3 rounded-xl border-2 ${form.allowDeposit ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200'}`}>
-                <label className="flex items-center gap-3 cursor-pointer"><input type="checkbox" checked={form.allowDeposit} onChange={e => setForm({...form, allowDeposit: e.target.checked})} /><span className="font-bold text-sm text-surface-900">{ar() ? "عربون" : "Deposit"}</span></label>
-                {form.allowDeposit && <input className="input-field mt-2" type="number" placeholder="Deposit KWD" value={form.depositAmount} onChange={e => setForm({...form, depositAmount: e.target.value})} />}
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-surface-100 pt-4 mt-4">
-            <h5 className="text-sm font-bold text-surface-800 mb-3">{ar() ? "علامات العرض" : "Display Tags"}</h5>
-            <div className="grid gap-4 md:grid-cols-2">
-              {F("Tags (EN) — comma separated", <input className="input-field" value={form.tagsEn} onChange={e => setForm({...form, tagsEn: e.target.value})} placeholder="e.g. 1 Year, 500 KWD Cashback" />)}
-              {F("Tags (AR) — comma separated", <input className="input-field" dir="rtl" value={form.tagsAr} onChange={e => setForm({...form, tagsAr: e.target.value})} placeholder="مثال: سنة واحدة, كاش باك 500 دك" />)}
-            </div>
-          </div>
-
-          <div className="border-t border-surface-100 pt-4 mt-4">
-            <label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "صورة العرض" : "Offer Image"}</label>
-            <div className="border-2 border-dashed border-surface-200 rounded-xl p-4 flex items-center justify-center bg-surface-50 relative group hover:border-brand-pink-300 min-h-[100px]">
-              <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-              {form.imageUrl ? <img src={form.imageUrl} alt="" className="h-24 rounded-lg object-cover" /> : <span className="text-sm text-surface-400">{ar() ? "اضغط لرفع صورة" : "Click to upload"}</span>}
-            </div>
-          </div>
-
-          <div className="flex gap-2 mt-4">
-            <button className="btn-primary btn-sm" onClick={saveOffer}>{editingId ? (ar() ? "حفظ التغييرات" : "Save Changes") : (ar() ? "إنشاء" : "Create")}</button>
-            <button className="btn-secondary btn-sm" onClick={() => { setShowForm(false); setEditingId(null); }}>{ar() ? "إلغاء" : "Cancel"}</button>
-          </div>
-        </div>
-      )}
-
-      {/* Offer Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {offers.map(o => {
-          const enrolled = subs.filter(s => s.offerId === o.id).length;
-          const isExpanded = expandedId === o.id;
-          const displayTitle = ar() ? o.nameAr : o.nameEn;
-          const cats = o.category === "all" ? [] : o.category.split(',');
-          const categoryName = o.category === "all" ? (ar() ? "جميع الفئات" : "All Categories") : cats.map(c => {
-            const cDef = treatmentCategories.find(tc => tc.id === c);
-            return cDef ? (ar() ? cDef.nameAr : cDef.nameEn) : c;
-          }).join(' • ');
-          const firstDef = treatmentCategories.find(tc => tc.id === cats[0]);
-          const catIcon = o.category === "all" ? "🌟" : (firstDef?.icon || "✨");
-          return (
-            <div key={o.id} className={`card-elevated p-0 overflow-hidden ${!o.active ? 'opacity-60 grayscale' : ''}`}>
-              {o.imageUrl && <div className="h-32 w-full relative"><img src={o.imageUrl} className="w-full h-full object-cover" alt="" /><div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" /></div>}
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0 pr-4">
-                    <h4 className="font-bold text-surface-900 truncate" title={displayTitle}>{displayTitle}</h4>
-                    <div className="text-xs text-surface-500 mt-0.5 line-clamp-1" title={categoryName}>{catIcon} {categoryName} • {o.validityDays} {ar() ? "يوم" : "days"} • {o.maxSessions === null ? (ar() ? "غير محدود" : "Unlimited") : `${o.maxSessions} sessions`}</div>
-                  </div>
-                  <span className={o.active ? "badge-green shrink-0" : "badge-gray shrink-0"}>{o.active ? (ar() ? "نشط" : "Active") : (ar() ? "متوقف" : "Inactive")}</span>
-                </div>
-                <div className="text-2xl font-black text-brand-pink-600 mb-3">{o.price} <span className="text-sm text-surface-400 font-medium">KWD</span></div>
-                
-                {/* Cashback summary */}
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {o.isCashbackOnly && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">💳 {ar() ? "كاش باك فقط" : "Cashback Only"}</span>}
-                  {o.signupCashback > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">💰 {o.signupCashback} KWD {ar() ? "كاش باك" : "signup CB"}</span>}
-                  {o.perSessionCashback > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700">🔄 {o.perSessionCashback} KWD/{ar() ? "جلسة" : "session"}</span>}
-                  {o.cashbackActivationFee > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700">🔑 +{o.cashbackActivationFee} KWD {ar() ? "تفعيل" : "activation"}</span>}
-                </div>
-
-                <div className="text-xs text-surface-500 mb-3">{enrolled} {ar() ? "مشترك" : "enrolled"} • {o.sessionIntervalDays}d {ar() ? "انتظار" : "interval"}</div>
-
-                {/* Expandable details */}
-                {isExpanded && (
-                  <div className="border-t border-surface-100 pt-3 mt-2 space-y-2 text-xs animate-fade-in">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "دفع كامل" : "Full Pay"}</span><div className="font-bold">{o.allowFullPayment ? "✓" : "✗"}</div></div>
-                      <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "أقساط" : "Installments"}</span><div className="font-bold">{o.allowInstallments ? `✓ (${o.maxInstallments})` : "✗"}</div></div>
-                      <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "عربون" : "Deposit"}</span><div className="font-bold">{o.allowDeposit ? `✓ (${o.depositAmount} KWD)` : "✗"}</div></div>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 pt-1">{(ar() ? o.tagsAr : o.tagsEn).map(t => <span key={t} className="bg-surface-100 text-surface-600 text-[9px] uppercase font-bold px-2 py-0.5 rounded">{t}</span>)}</div>
-                  </div>
-                )}
-
-                <div className="flex gap-2 mt-3 pt-3 border-t border-surface-100">
-                  <button className="text-xs font-bold text-brand-pink-600 bg-brand-pink-50 px-3 py-1.5 rounded-lg hover:bg-brand-pink-100" onClick={() => openEdit(o)}>{ar() ? "تعديل" : "Edit"}</button>
-                  <button className="text-xs font-bold text-surface-500 bg-surface-100 px-3 py-1.5 rounded-lg hover:bg-surface-200" onClick={() => setExpandedId(isExpanded ? null : o.id)}>{isExpanded ? (ar() ? "إخفاء" : "Less") : (ar() ? "تفاصيل" : "Details")}</button>
-                  <button className="text-xs font-bold px-3 py-1.5 rounded-lg ml-auto" onClick={() => toggleActive(o)}>{o.active ? <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">{ar() ? "إيقاف" : "Deactivate"}</span> : <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">{ar() ? "تفعيل" : "Activate"}</span>}</button>
-                  <button className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100" onClick={() => handleDelete(o.id)}>{ar() ? "حذف" : "Delete"}</button>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        {offers.length === 0 && <div className="md:col-span-3 text-center text-surface-400 py-12 card-elevated">{ar() ? "لا توجد عروض" : "No offers yet"}</div>}
-      </div>
-    </div>
-  );
+  return <OffersAdminPanel />;
 }
+
 
 function SessionsManager() {
   const [sessions, setSessions] = useState<any[]>(() => {
@@ -461,7 +269,7 @@ function SessionsManager() {
 }
 
 function ClinicsManager() {
-  const { getAuthHeader, login } = useAuth();
+  const { getAuthHeader, loginWithPassword } = useAuth();
   const { data, refetch } = useApi<{ clinics: any[] }>("/clinics/admin");
   const [showCreate, setShowCreate] = useState(false);
   const [newClinicId, setNewClinicId] = useState<string | null>(null);
@@ -482,8 +290,30 @@ function ClinicsManager() {
 
   const createClinic = async () => {
     try {
-      const res = await apiFetch("/clinics/admin", { method: "POST", headers: getAuthHeader(), body: JSON.stringify({ ...form, active: true }) }) as any;
-      setNewClinicId(form.account || "clinic1"); // Use the requested account name
+      const created = await apiFetch("/clinics/admin", {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({
+          nameEn: form.nameEn,
+          nameAr: form.nameEn,
+          address: form.address,
+          active: true
+        })
+      }) as any;
+
+      // Create clinic staff user linked to the created clinic record.
+      await apiFetch("/auth/admin/create-user", {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({
+          username: form.account,
+          password: form.password,
+          role: "clinicStaff",
+          clinicId: created?.clinic?.id
+        })
+      });
+
+      setNewClinicId(form.account || "clinic1");
       setShowCreate(false);
       
       // Keep password around for display
@@ -564,7 +394,7 @@ function ClinicsManager() {
               </div>
               
               <div className="mt-auto grid grid-cols-2 gap-2">
-                 <button className="btn-primary py-2 text-xs w-full flex items-center justify-center gap-1.5" onClick={() => login(c.account || c.id, "clinic")}>
+                 <button className="btn-primary py-2 text-xs w-full flex items-center justify-center gap-1.5" onClick={() => loginWithPassword(c.account || c.id, "demo12345")}>
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
                     {ar() ? "دخول" : "Login"}
                  </button>
@@ -591,17 +421,17 @@ function TasksManager() {
   const [showCreate, setShowCreate] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const EMPLOYEES_BY_DEPT: Record<string, string[]> = {
-    "CS": ["Sarah", "Ahmed", "Noura"],
-    "Finance": ["Omar", "Fatima"],
-    "Admin": ["Ali", "Laila", "Mubarak"],
-    "Clinics": ["Mona", "Khaled", "Zainab"]
+    cs: ["Sarah", "Ahmed", "Noura"],
+    finance: ["Omar", "Fatima"],
+    admin: ["Ali", "Laila", "Mubarak"],
+    clinic: ["Mona", "Khaled", "Zainab"]
   };
 
   const [form, setForm] = useState({ 
     title: "", 
     description: "", 
     priority: "yellow", 
-    assignedDepartment: "CS",
+    assignedDepartment: "cs",
     assignedPeople: [] as string[],
     dueDate: new Date(Date.now() + 86400000).toISOString() 
   });
@@ -615,15 +445,20 @@ function TasksManager() {
   };
 
   const createTask = async () => {
-    // Construct assigned text for display
-    const assigned = form.assignedPeople.length > 0 
-      ? `${form.assignedDepartment} - ${form.assignedPeople.join(", ")}` 
-      : form.assignedDepartment;
-    
-    await apiFetch("/tasks/admin", { method: "POST", headers: getAuthHeader(), body: JSON.stringify({...form, assignedDepartments: [assigned]}) });
+    await apiFetch("/tasks/admin", {
+      method: "POST",
+      headers: getAuthHeader(),
+      body: JSON.stringify({
+        title: form.title,
+        description: form.description,
+        priority: form.priority,
+        dueDate: form.dueDate,
+        assignedDepartments: [form.assignedDepartment],
+      })
+    });
     setShowCreate(false);
     // reset form
-    setForm({ title: "", description: "", priority: "yellow", assignedDepartment: "CS", assignedPeople: [], dueDate: new Date(Date.now() + 86400000).toISOString() });
+    setForm({ title: "", description: "", priority: "yellow", assignedDepartment: "cs", assignedPeople: [], dueDate: new Date(Date.now() + 86400000).toISOString() });
     refetch();
   };
 
@@ -659,10 +494,10 @@ function TasksManager() {
                 <div>
                   <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "القسم الموجه له" : "Target Department"}</label>
                   <select className="select-field" value={form.assignedDepartment} onChange={e => setForm({ ...form, assignedDepartment: e.target.value, assignedPeople: [] })}>
-                    <option value="CS">{ar() ? "خدمة العملاء (CS)" : "Customer Service (CS)"}</option>
-                    <option value="Finance">{ar() ? "المالية (Finance)" : "Finance"}</option>
-                    <option value="Admin">{ar() ? "الإدارة (Admin)" : "Administration"}</option>
-                    <option value="Clinics">{ar() ? "فريق العيادات (Clinics)" : "Clinics Team"}</option>
+                    <option value="cs">{ar() ? "خدمة العملاء (CS)" : "Customer Service (CS)"}</option>
+                    <option value="finance">{ar() ? "المالية (Finance)" : "Finance"}</option>
+                    <option value="admin">{ar() ? "الإدارة (Admin)" : "Administration"}</option>
+                    <option value="clinic">{ar() ? "فريق العيادات (Clinics)" : "Clinics Team"}</option>
                   </select>
                 </div>
                 <div className="relative">
@@ -693,10 +528,10 @@ function TasksManager() {
                     <>
                       <div className="fixed inset-0 z-0" onClick={() => setIsDropdownOpen(false)} />
                       <div className="absolute z-10 w-full mt-1 bg-white border border-surface-200 rounded-xl shadow-xl max-h-48 overflow-y-auto animate-fade-in py-1">
-                        {(EMPLOYEES_BY_DEPT[form.assignedDepartment] || []).length === 0 ? (
+                        {(EMPLOYEES_BY_DEPT[form.assignedDepartment as keyof typeof EMPLOYEES_BY_DEPT] || []).length === 0 ? (
                            <div className="px-4 py-3 text-sm text-surface-500 text-center">{ar() ? "لا يوجد موظفين" : "No employees found"}</div>
                         ) : (
-                          (EMPLOYEES_BY_DEPT[form.assignedDepartment] || []).map(person => (
+                          (EMPLOYEES_BY_DEPT[form.assignedDepartment as keyof typeof EMPLOYEES_BY_DEPT] || []).map(person => (
                             <label key={person} className="flex items-center px-4 py-2.5 hover:bg-surface-50 cursor-pointer transition-colors border-b border-surface-50 last:border-0 group">
                               <div className={`w-4 h-4 rounded flex items-center justify-center mr-3 transition-colors ${form.assignedPeople.includes(person) ? "bg-brand-pink-500 border-brand-pink-500" : "bg-white border border-surface-300 group-hover:border-brand-pink-300"}`}>
                                 {form.assignedPeople.includes(person) && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
@@ -891,38 +726,44 @@ function AdminSettings() {
 }
 
 function UsersManager() {
-  const { login } = useAuth();
+  const { loginWithPassword } = useAuth();
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<any>({});
-  
-  const [mockUsers, setMockUsers] = useState([
-    { id: "USR-001", name: "Ahmed Al-Fadhli", phone: "+965 99887766", role: "Customer", status: "Verified", kyc: true, balance: "145.000 KWD" },
-    { id: "USR-002", name: "Sarah Al-Salem", phone: "+965 55443322", role: "Customer", status: "Pending KYC", kyc: false, balance: "0.000 KWD" },
-    { id: "USR-003", name: "Noura CustomerService", phone: "CS Dept", role: "CS_Admin", status: "Active", kyc: true, balance: "-" },
-    { id: "USR-004", name: "Dr. Khaled", phone: "+965 66778899", role: "Clinic_Staff", status: "Active", kyc: true, balance: "-" },
-  ]);
-
-  const filtered = mockUsers.filter(u => u.name.toLowerCase().includes(search.toLowerCase()) || u.phone.includes(search));
+  const { getAuthHeader } = useAuth();
+  const { data, refetch } = useApi<{ items: any[] }>(
+    `/users/admin?q=${encodeURIComponent(search)}&role=${encodeURIComponent(roleFilter)}&status=${encodeURIComponent(statusFilter)}`,
+    { deps: [search, roleFilter, statusFilter] }
+  );
+  const filtered = data?.items || [];
 
   const handleLoginAsUser = () => {
-     if (selectedUser) login(selectedUser.id, "customer");
+     if (selectedUser) loginWithPassword(selectedUser.username || selectedUser.email || selectedUser.phone || selectedUser.id, "demo12345");
   };
 
   const handleFreezeToggle = () => {
      if (selectedUser) {
-        const newStatus = selectedUser.status === "Frozen" ? (selectedUser.kyc ? "Verified" : "Active") : "Frozen";
-        const updated = { ...selectedUser, status: newStatus };
-        setSelectedUser(updated);
-        setMockUsers(mockUsers.map(u => u.id === updated.id ? updated : u));
+        const next = !selectedUser.isActive;
+        void apiFetch(`/users/admin/${encodeURIComponent(selectedUser.id)}`, {
+          method: "PATCH",
+          headers: getAuthHeader(),
+          body: JSON.stringify({ isActive: next })
+        }).then(() => void refetch());
+        setSelectedUser({ ...selectedUser, isActive: next });
      }
   };
 
   const handleEditToggle = () => {
      if (isEditing) {
+        void apiFetch(`/users/admin/${encodeURIComponent(editForm.id)}`, {
+          method: "PATCH",
+          headers: getAuthHeader(),
+          body: JSON.stringify({ role: editForm.role, isActive: editForm.isActive })
+        }).then(() => void refetch());
         setSelectedUser(editForm);
-        setMockUsers(mockUsers.map(u => u.id === editForm.id ? editForm : u));
         setIsEditing(false);
      } else {
         setEditForm(selectedUser);
@@ -934,8 +775,23 @@ function UsersManager() {
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "إدارة المستخدمين" : "User Management"}</h3>
+        <div className="flex items-center gap-2 flex-wrap">
+           <select className="select-field" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
+             <option value="all">{ar() ? "كل الأدوار" : "All roles"}</option>
+             <option value="customer">customer</option>
+             <option value="admin">admin</option>
+             <option value="cs">cs</option>
+             <option value="finance">finance</option>
+             <option value="clinicStaff">clinicStaff</option>
+           </select>
+           <select className="select-field" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+             <option value="all">{ar() ? "كل الحالات" : "All status"}</option>
+             <option value="active">{ar() ? "نشط" : "Active"}</option>
+             <option value="disabled">{ar() ? "موقوف" : "Disabled"}</option>
+           </select>
         <div className="w-64">
            <input className="input-field" placeholder={ar() ? "بحث بالاسم أو الهاتف..." : "Search name or phone..."} value={search} onChange={e => setSearch(e.target.value)} />
+        </div>
         </div>
       </div>
       
@@ -947,18 +803,28 @@ function UsersManager() {
           
           <div className="flex items-start gap-4 mb-8">
             <div className="w-16 h-16 rounded-2xl bg-brand-pink-100 flex items-center justify-center text-brand-pink-600 font-bold text-2xl shadow-sm">
-              {selectedUser.name.charAt(0)}
+              {(selectedUser.username || selectedUser.email || selectedUser.phone || selectedUser.id || "U").toString().charAt(0).toUpperCase()}
             </div>
             <div>
               {isEditing ? (
-                 <input className="input-field mb-2 w-64 font-bold text-lg" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
+                 <div className="text-sm text-surface-500">{ar() ? "لا يمكن تعديل المعرفات هنا" : "Identifiers are read-only here"}</div>
               ) : (
-                 <h2 className="text-xl font-bold text-surface-900">{selectedUser.name}</h2>
+                 <h2 className="text-xl font-bold text-surface-900">{selectedUser.username || selectedUser.email || selectedUser.phone || selectedUser.id}</h2>
               )}
-              <div className="text-sm text-surface-500 mt-1">{selectedUser.id} • {isEditing ? <input className="input-field inline-block w-40 text-xs py-1 px-2 h-7" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} /> : selectedUser.phone}</div>
+              <div className="text-sm text-surface-500 mt-1">{selectedUser.id}</div>
               <div className="mt-2 flex gap-2">
-                 <span className={selectedUser.status === 'Frozen' ? 'badge-red' : `badge-${selectedUser.kyc ? 'green' : 'yellow'}`}>{selectedUser.status}</span>
-                 <span className="badge-sage">{selectedUser.role}</span>
+                 <span className={selectedUser.isActive ? "badge-green" : "badge-red"}>{selectedUser.isActive ? (ar() ? "نشط" : "Active") : (ar() ? "موقوف" : "Disabled")}</span>
+                 {isEditing ? (
+                   <select className="select-field" value={editForm.role} onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}>
+                     <option value="customer">customer</option>
+                     <option value="admin">admin</option>
+                     <option value="cs">cs</option>
+                     <option value="finance">finance</option>
+                     <option value="clinicStaff">clinicStaff</option>
+                   </select>
+                 ) : (
+                   <span className="badge-sage">{selectedUser.role}</span>
+                 )}
               </div>
             </div>
           </div>
@@ -968,11 +834,10 @@ function UsersManager() {
                <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
                   <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "نظرة عامة" : "Overview"}</h4>
                   <div className="space-y-4">
-                    <div><div className="text-xs text-surface-500">{ar() ? "الرصيد المتاح" : "Available Balance"}</div>{isEditing ? <input className="input-field mt-1 text-sm font-bold text-brand-pink-600 h-8" value={editForm.balance} onChange={e => setEditForm({...editForm, balance: e.target.value})} /> : <div className="text-xl font-black text-brand-pink-600">{selectedUser.balance}</div>}</div>
-                    <div><div className="text-xs text-surface-500">{ar() ? "الرقم المدني" : "Civil ID"}</div><div className="font-mono text-sm text-surface-900">290123456789</div></div>
-                    <div><div className="text-xs text-surface-500">{ar() ? "تاريخ الميلاد" : "Date of Birth"}</div><div className="text-sm text-surface-900">14 Jan 1990</div></div>
-                    <div><div className="text-xs text-surface-500">{ar() ? "البريد الإلكتروني" : "Email"}</div><div className="text-sm text-surface-900">{selectedUser.name.split(' ')[0].toLowerCase()}@example.com</div></div>
-                    <div className="pt-2 border-t border-surface-100"><div className="text-xs text-surface-500">{ar() ? "تاريخ التسجيل" : "Registered"}</div><div className="text-sm text-surface-900">12 Oct 2025</div></div>
+                    <div><div className="text-xs text-surface-500">{ar() ? "اسم المستخدم" : "Username"}</div><div className="text-sm font-semibold text-surface-900">{selectedUser.username || "—"}</div></div>
+                    <div><div className="text-xs text-surface-500">{ar() ? "الهاتف" : "Phone"}</div><div className="text-sm font-semibold text-surface-900">{selectedUser.phone || "—"}</div></div>
+                    <div><div className="text-xs text-surface-500">{ar() ? "البريد الإلكتروني" : "Email"}</div><div className="text-sm font-semibold text-surface-900">{selectedUser.email || "—"}</div></div>
+                    <div className="pt-2 border-t border-surface-100"><div className="text-xs text-surface-500">{ar() ? "تاريخ الإنشاء" : "Created"}</div><div className="text-sm text-surface-900">{selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : "—"}</div></div>
                   </div>
                </div>
             </div>
@@ -1054,7 +919,7 @@ function UsersManager() {
                 {isEditing ? (ar() ? "حفظ التعديلات" : "Save Details") : (ar() ? "تعديل البيانات" : "Edit Details")}
              </button>
              <button className="btn-secondary text-red-500 hover:bg-red-50 hover:border-red-200 border-surface-200" onClick={handleFreezeToggle}>
-                {selectedUser.status === 'Frozen' ? (ar() ? "إلغاء التجميد" : "Unfreeze Account") : (ar() ? "تجميد الحساب" : "Freeze Account")}
+                {selectedUser.isActive ? (ar() ? "إيقاف الحساب" : "Disable account") : (ar() ? "تفعيل الحساب" : "Enable account")}
              </button>
              {isEditing && (
                 <button className="btn-secondary ml-auto text-surface-500" onClick={() => setIsEditing(false)}>{ar() ? "إلغاء" : "Cancel"}</button>
@@ -1069,12 +934,12 @@ function UsersManager() {
               {filtered.map((u: any) => (
                 <tr key={u.id}>
                   <td className="font-medium flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-brand-pink-50 flex items-center justify-center text-xs font-bold text-brand-pink-600">{u.name.charAt(0)}</div>
-                    {u.name}
+                    <div className="w-8 h-8 rounded-full bg-brand-pink-50 flex items-center justify-center text-xs font-bold text-brand-pink-600">{(u.username || u.email || u.phone || "U").toString().charAt(0).toUpperCase()}</div>
+                    {u.username || u.email || u.phone || u.id}
                   </td>
-                  <td>{u.phone}</td>
+                  <td>{u.phone || u.email || "—"}</td>
                   <td><span className="badge-sage">{u.role}</span></td>
-                  <td><span className={`badge-${u.kyc ? 'green' : 'yellow'}`}>{u.status}</span></td>
+                  <td><span className={u.isActive ? "badge-green" : "badge-red"}>{u.isActive ? (ar() ? "نشط" : "Active") : (ar() ? "موقوف" : "Disabled")}</span></td>
                   <td className="text-right">
                     <button className="text-brand-pink-600 hover:text-brand-pink-800 font-medium text-sm px-4 py-1.5 bg-brand-pink-50 rounded-lg transition-colors hover:bg-brand-pink-100" onClick={() => setSelectedUser(u)}>
                       {ar() ? "إدارة" : "Manage"}
@@ -1104,6 +969,7 @@ export default function AdminDashboard() {
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
     { key: "offers", icon: Icons.offers, label: t("offers") },
+    { key: "categories", icon: Icons.chart, label: ar() ? "الفئات" : "Categories" },
     { key: "standalone", icon: Icons.calendar, label: ar() ? "الجلسات" : "Sessions" },
     { key: "users", icon: Icons.users, label: t("users") },
     { key: "clinics", icon: Icons.clinic, label: t("clinics") },
@@ -1166,6 +1032,7 @@ export default function AdminDashboard() {
           </>
         )}
         {activeNav === "offers" && <OffersManager />}
+        {activeNav === "categories" && <CategoriesAdminPanel />}
         {activeNav === "standalone" && <SessionsManager />}
         {activeNav === "clinics" && <ClinicsManager />}
         {activeNav === "tasks" && <TasksManager />}

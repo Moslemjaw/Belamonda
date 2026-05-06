@@ -1,13 +1,13 @@
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { connectMongo } from "./db/mongo.js";
+import { seedDefaultCategories, seedLocalDemoUsersAndClinics } from "./bootstrap/seedDefaults.js";
 
 async function main() {
-  if (!env.SKIP_MONGO) {
-    await connectMongo();
-  } else {
-    // eslint-disable-next-line no-console
-    console.log("SKIP_MONGO=true: starting API without MongoDB connection");
+  await connectMongo();
+  await seedDefaultCategories();
+  if (env.NODE_ENV !== "production") {
+    await seedLocalDemoUsersAndClinics();
   }
   const app = createApp();
   app.listen(env.PORT, () => {

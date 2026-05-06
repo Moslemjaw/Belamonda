@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { Role } from "@belamonda/shared";
 import { useAuth } from "../app/AuthContext";
@@ -16,23 +17,51 @@ const DEMO_ACCOUNTS: { id: string; role: Role; label: string; labelAr: string; i
 
 export default function LoginPage() {
   const { t } = useTranslation();
-  const { login } = useAuth();
+  const { loginWithPassword } = useAuth();
   const [loading, setLoading] = useState<string | null>(null);
   
   // Auth state
   const [isSignUp, setIsSignUp] = useState(false);
   const [identifier, setIdentifier] = useState("");
-  const [showOtp, setShowOtp] = useState(false);
-  const [otp, setOtp] = useState("");
+  const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   
   const [showDemo, setShowDemo] = useState(false);
 
-  async function handleDemoLogin(id: string, role: Role) {
-    setLoading(id);
+  async function handleSignIn() {
+    setLoading("signin");
     try {
-      await login(id, role);
+      await loginWithPassword(identifier, password);
     } catch (err) {
       console.error("Login failed:", err);
+      alert(err instanceof Error ? err.message : "Login failed");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function handleSignUp() {
+    setLoading("signup");
+    try {
+      // simple local customer signup: username optional, identifier can be phone/email/username
+      // backend will validate presence of at least one identifier field.
+      const isEmail = identifier.includes("@");
+      const isPhone = /^\+?\d[\d\s-]{5,}$/.test(identifier);
+      const payload: any = { password };
+      if (username.trim()) payload.username = username.trim();
+      if (isEmail) payload.email = identifier.trim();
+      else if (isPhone) payload.phone = identifier.trim();
+      else payload.username = (payload.username || identifier.trim());
+
+      const { passwordRegister } = await import("../lib/demoTokens");
+      const r = await passwordRegister(payload);
+      // use token directly by signing in again via password flow for consistent state
+      // (avoid duplicating state logic)
+      await loginWithPassword(identifier || payload.username, password);
+      void r;
+    } catch (err) {
+      console.error("Signup failed:", err);
+      alert(err instanceof Error ? err.message : "Signup failed");
     } finally {
       setLoading(null);
     }
@@ -77,7 +106,10 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center p-8 lg:p-16 bg-surface-50">
         <div className="w-full max-w-md animate-slide-up">
           {/* Language toggle */}
-          <div className="flex justify-end mb-8">
+          <div className="flex justify-end items-center gap-3 mb-8">
+            <Link to="/" className="text-xs font-semibold text-brand-pink-600 hover:text-brand-pink-700">
+              {isAr ? "الرئيسية" : "Home"}
+            </Link>
             <button
               onClick={() => i18n.changeLanguage(isAr ? "en" : "ar")}
               className="btn-ghost text-xs gap-1.5"
@@ -102,19 +134,19 @@ export default function LoginPage() {
           <div className="flex gap-2 mb-6 p-1 bg-surface-200 rounded-xl">
             <button 
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${!isSignUp ? 'bg-white shadow-sm text-surface-900' : 'text-surface-500 hover:text-surface-700'}`}
-              onClick={() => { setIsSignUp(false); setShowOtp(false); setIdentifier(""); }}
+              onClick={() => { setIsSignUp(false); setIdentifier(""); setPassword(""); setUsername(""); }}
             >
               {isAr ? "تسجيل الدخول" : "Sign In"}
             </button>
             <button 
               className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${isSignUp ? 'bg-white shadow-sm text-surface-900' : 'text-surface-500 hover:text-surface-700'}`}
-              onClick={() => { setIsSignUp(true); setShowOtp(false); setIdentifier(""); }}
+              onClick={() => { setIsSignUp(true); setIdentifier(""); setPassword(""); setUsername(""); }}
             >
               {isAr ? "إنشاء حساب" : "Sign Up"}
             </button>
           </div>
 
-          {/* Phone / Email / Username / OTP Form */}
+          {/* Identifier + Password Form */}
           <div className="card-elevated p-6 mb-6">
             <div className="space-y-4">
               {isSignUp && (
@@ -127,6 +159,8 @@ export default function LoginPage() {
                     className="input-field"
                     placeholder="e.g. beauty_lover99"
                     dir="ltr"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                   />
                 </div>
               )}
@@ -149,34 +183,26 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {showOtp && (
-                <div className="animate-slide-up">
-                  <label className="block text-xs font-medium text-surface-600 mb-1.5">
-                    {t("otp")}
-                  </label>
-                  <input
-                    type="text"
-                    className="input-field text-center tracking-[0.5em] text-lg font-mono"
-                    placeholder="• • • • • •"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    dir="ltr"
-                  />
-                </div>
-              )}
+              <div className="animate-slide-up">
+                <label className="block text-xs font-medium text-surface-600 mb-1.5">
+                  {isAr ? "كلمة المرور" : "Password"}
+                </label>
+                <input
+                  type="password"
+                  className="input-field"
+                  placeholder={isAr ? "أدخل كلمة المرور..." : "Enter password..."}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  dir="ltr"
+                />
+              </div>
 
               <button
                 className="btn-primary w-full"
-                onClick={() => {
-                  if (!showOtp) {
-                    setShowOtp(true);
-                  } else {
-                    handleDemoLogin("cust1", "customer");
-                  }
-                }}
+                onClick={() => (isSignUp ? handleSignUp() : handleSignIn())}
+                disabled={!identifier || !password || loading !== null}
               >
-                {showOtp ? (isAr ? "تأكيد" : "Verify") : (isSignUp ? (isAr ? "تسجيل" : "Sign Up") : (isAr ? "متابعة" : "Continue"))}
+                {isSignUp ? (isAr ? "تسجيل" : "Sign Up") : (isAr ? "تسجيل الدخول" : "Sign In")}
               </button>
             </div>
           </div>
@@ -200,7 +226,7 @@ export default function LoginPage() {
                 <button
                   key={acc.id}
                   className="card-elevated flex items-center gap-4 px-5 py-3.5 text-start w-full group"
-                  onClick={() => handleDemoLogin(acc.id, acc.role)}
+                  onClick={() => { setIdentifier(acc.id); setPassword("demo12345"); }}
                   disabled={loading !== null}
                 >
                   <span className="text-xl group-hover:scale-110 transition-transform">

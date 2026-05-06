@@ -2,37 +2,43 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
-import { useApi, useFinanceSnapshot } from "../../hooks/useApi";
+import { useApi, useFinanceSnapshot, usePaymentsLedger, useWallet } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
-import { getFinancialLedger, getCashbackLedger } from "../../lib/offerSystem";
 
 const ar = () => i18n.language === "ar";
 
 function TransactionLedger() {
   const [filter, setFilter] = useState("all");
-  const ledger = getFinancialLedger().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const filtered = filter === "all" ? ledger : ledger.filter(e => e.type === filter);
+  const { data: paymentsData } = usePaymentsLedger();
+  const { data: walletData } = useWallet();
+
+  const ledger = (paymentsData?.items || [])
+    .map((p) => ({
+      id: p.id,
+      type: "payment",
+      userId: p.userId,
+      amount: Number(p.amountKwd),
+      description: `${p.method} • ${p.status}`,
+      createdAt: p.createdAt,
+    }))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const filtered = filter === "all" ? ledger : ledger.filter((e) => e.type === filter);
 
   const typeLabel = (t: string) => {
     const map: Record<string, [string, string, string]> = {
-      offer_purchase: ["Offer Purchase", "شراء عرض", "bg-brand-pink-50 text-brand-pink-700"],
-      installment: ["Installment", "قسط", "bg-blue-50 text-blue-700"],
-      deposit: ["Deposit", "عربون", "bg-purple-50 text-purple-700"],
-      session_payment: ["Session", "جلسة", "bg-emerald-50 text-emerald-700"],
-      cashback_usage: ["Cashback", "كاش باك", "bg-amber-50 text-amber-700"],
-      clinic_change_fee: ["Clinic Change", "تغيير عيادة", "bg-red-50 text-red-700"],
-      cashback_activation: ["CB Activation", "تفعيل كاش باك", "bg-indigo-50 text-indigo-700"],
+      payment: ["Payment", "دفعة", "bg-emerald-50 text-emerald-700"],
     };
     const [en, arL, cls] = map[t] || [t, t, "bg-surface-100 text-surface-600"];
     return <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${cls}`}>{ar() ? arL : en}</span>;
   };
 
   const totals = {
-    revenue: ledger.filter(e => ["offer_purchase","installment","deposit","session_payment","clinic_change_fee","cashback_activation"].includes(e.type)).reduce((s, e) => s + e.amount, 0),
-    cashbackCredited: getCashbackLedger().filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0),
-    cashbackUsed: getCashbackLedger().filter(e => e.amount < 0).reduce((s, e) => s + Math.abs(e.amount), 0),
-    clinicFees: ledger.filter(e => e.type === "clinic_change_fee").reduce((s, e) => s + e.amount, 0),
+    revenue: ledger.reduce((s, e) => s + e.amount, 0),
+    cashbackCredited: (walletData?.txns || []).filter((t) => t.type === "credit").reduce((s, t) => s + Number(t.amount), 0),
+    cashbackUsed: (walletData?.txns || []).filter((t) => t.type === "debit").reduce((s, t) => s + Math.abs(Number(t.amount)), 0),
+    clinicFees: 0,
   };
 
   return (
@@ -52,11 +58,7 @@ function TransactionLedger() {
           <h3 className="text-base font-bold text-surface-900">{ar() ? "سجل المعاملات" : "Transaction Ledger"}</h3>
           <select className="select-field w-48" value={filter} onChange={e => setFilter(e.target.value)}>
             <option value="all">{ar() ? "الكل" : "All"}</option>
-            <option value="offer_purchase">{ar() ? "شراء" : "Purchases"}</option>
-            <option value="installment">{ar() ? "أقساط" : "Installments"}</option>
-            <option value="session_payment">{ar() ? "جلسات" : "Sessions"}</option>
-            <option value="cashback_usage">{ar() ? "كاش باك" : "Cashback"}</option>
-            <option value="clinic_change_fee">{ar() ? "تغيير عيادة" : "Clinic Change"}</option>
+            <option value="payment">{ar() ? "دفعات" : "Payments"}</option>
           </select>
         </div>
         {filtered.length === 0 ? (
@@ -66,10 +68,10 @@ function TransactionLedger() {
             <table className="data-table">
               <thead><tr><th>{ar() ? "التاريخ" : "Date"}</th><th>{ar() ? "العميل" : "User"}</th><th>{ar() ? "النوع" : "Type"}</th><th>{ar() ? "المبلغ" : "Amount"}</th><th>{ar() ? "الوصف" : "Description"}</th></tr></thead>
               <tbody>
-                {filtered.slice(0, 50).map(e => (
+                {filtered.slice(0, 50).map((e) => (
                   <tr key={e.id}>
                     <td className="text-xs text-surface-500">{new Date(e.createdAt).toLocaleDateString()}</td>
-                    <td className="font-medium text-sm">{e.userId}</td>
+                    <td className="font-medium text-sm">{(e as any).userId || "—"}</td>
                     <td>{typeLabel(e.type)}</td>
                     <td className={`font-bold ${e.amount >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{e.amount >= 0 ? '+' : ''}{e.amount.toFixed(3)} KWD</td>
                     <td className="text-xs text-surface-500 max-w-[200px] truncate">{e.description}</td>
@@ -85,9 +87,9 @@ function TransactionLedger() {
 }
 
 function LiabilityTracker({ data }: { data: any }) {
-  const cbLedger = getCashbackLedger();
-  const totalCredited = cbLedger.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0);
-  const totalUsed = cbLedger.filter(e => e.amount < 0).reduce((s, e) => s + Math.abs(e.amount), 0);
+  const { data: walletData } = useWallet();
+  const totalCredited = (walletData?.txns || []).filter((t) => t.type === "credit").reduce((s, t) => s + Number(t.amount), 0);
+  const totalUsed = (walletData?.txns || []).filter((t) => t.type === "debit").reduce((s, t) => s + Math.abs(Number(t.amount)), 0);
   const locked = data?.totalCashbackLocked || totalCredited.toFixed(3);
   const unlocked = data?.totalCashbackUnlocked || (totalCredited - totalUsed).toFixed(3);
   const utilized = data?.totalCashbackUtilized || totalUsed.toFixed(3);
@@ -179,6 +181,7 @@ export default function FinanceDashboard() {
   const { t } = useTranslation();
   const [activeNav, setActiveNav] = useState("home");
   const { data: snapshotData } = useFinanceSnapshot();
+  const { data: paymentsData } = usePaymentsLedger();
   const snapshot = snapshotData?.snapshot;
 
   const navItems = [
@@ -194,6 +197,36 @@ export default function FinanceDashboard() {
       <div className="space-y-6 animate-fade-in">
         {activeNav === "home" && (
           <>
+            <div className="card-elevated p-5 mb-6">
+              <h3 className="text-base font-bold text-surface-900 mb-3">{ar() ? "مدفوعات مسجلة (خادم)" : "Recorded payments (server)"}</h3>
+              {(paymentsData?.items || []).length === 0 ? (
+                <p className="text-sm text-surface-500">{ar() ? "لا توجد مدفوعات بعد" : "No payments yet"}</p>
+              ) : (
+                <div className="overflow-x-auto rounded-xl border border-surface-200">
+                  <table className="data-table text-sm">
+                    <thead>
+                      <tr>
+                        <th>{ar() ? "المستخدم" : "User"}</th>
+                        <th>{ar() ? "المبلغ" : "Amount"}</th>
+                        <th>{ar() ? "الحالة" : "Status"}</th>
+                        <th>{ar() ? "الطريقة" : "Method"}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(paymentsData?.items || []).slice(0, 15).map((p) => (
+                        <tr key={p.id}>
+                          <td className="font-mono text-xs">{p.userId}</td>
+                          <td className="font-bold">{p.amountKwd}</td>
+                          <td>{p.status}</td>
+                          <td>{p.method}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {[
                 { label: ar() ? "إيرادات" : "Revenue", value: snapshot?.totalRevenue || "—", color: "text-emerald-600" },

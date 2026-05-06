@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
-import { useKycQueue, usePendingPayments, useComplaints, useApi } from "../../hooks/useApi";
+import { useKycQueue, usePendingPayments, useComplaints, useApi, useBookingRequests } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { getClinicChangeRequests, saveClinicChangeRequests, addFinancialEntry, upsertSubscription, getSubscriptions, getFinancialLedger } from "../../lib/offerSystem";
@@ -249,33 +249,29 @@ function PaymentQueue({ mockPayments, setMockPayments }: { mockPayments: any[], 
 }
 
 function BookingRequestsQueue() {
-  const [mockBookings, setMockBookings] = useState<any[]>([]);
-
-  useEffect(() => {
-    const sync = () => {
-      try {
-        const stored = localStorage.getItem('demo_pending_bookings_v4');
-        if (stored) setMockBookings(JSON.parse(stored));
-      } catch (e) {}
-    };
-    sync();
-    window.addEventListener('storage', sync);
-    const interval = setInterval(sync, 1000);
-    return () => { window.removeEventListener('storage', sync); clearInterval(interval); };
-  }, []);
-
+  const { getAuthHeader } = useAuth();
+  const { data, refetch } = useBookingRequests("pending");
   const [processing, setProcessing] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [scheduleForm, setScheduleForm] = useState<{ scheduledAt: string; notes: string }>({ scheduledAt: "", notes: "" });
 
-  const confirmBooking = async (bookingId: string) => {
-    setProcessing(bookingId);
+  const schedule = async (requestId: string) => {
+    if (!scheduleForm.scheduledAt) return;
+    setProcessing(requestId);
     try {
-      const updatedPending = mockBookings.filter(b => b.id !== bookingId);
-      setMockBookings(updatedPending);
-      localStorage.setItem('demo_pending_bookings_v4', JSON.stringify(updatedPending));
-      try { await apiFetch("/appointments/cs/confirm", { method: "POST", headers: { 'Authorization': 'dummy' }, body: JSON.stringify({ offerId: bookingId, status: "confirmed" }) }); } catch(e){}
-    } catch (e) {}
-    finally { setProcessing(null); }
+      // datetime-local -> ISO
+      const iso = new Date(scheduleForm.scheduledAt).toISOString();
+      await apiFetch(`/scheduling/cs/requests/${encodeURIComponent(requestId)}/schedule`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ scheduledAt: iso, notes: scheduleForm.notes || undefined })
+      });
+      setScheduleForm({ scheduledAt: "", notes: "" });
+      await refetch();
+      setSelectedBooking(null);
+    } finally {
+      setProcessing(null);
+    }
   };
 
   return (
@@ -283,26 +279,27 @@ function BookingRequestsQueue() {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
         <div className="flex items-center gap-2">
-          <span className="badge-pink">{mockBookings.length} {ar() ? "معلق" : "pending"}</span>
+          <span className="badge-pink">{(data?.items || []).length} {ar() ? "معلق" : "pending"}</span>
         </div>
       </div>
-      {mockBookings.length === 0 ? (
+      {(data?.items || []).length === 0 ? (
         <div className="text-center text-sm text-surface-400 py-8">✅ {ar() ? "لا توجد طلبات حجز معلقة" : "No pending booking requests"}</div>
-      ) : mockBookings.map((b: any) => (
+      ) : (data?.items || []).map((b: any) => (
         <div key={b.id} className="flex items-center gap-4 py-3 border-b border-surface-100 last:border-0">
           <div className="avatar avatar-sm bg-blue-100 text-blue-700">{b.userId?.charAt(0)?.toUpperCase()}</div>
           <div className="flex-1 min-w-0">
             <div className="text-sm font-medium text-surface-800">{b.userId}</div>
-            <div className="text-xs text-surface-400">{b.offerId?.slice(0, 25)}</div>
+            <div className="text-xs text-surface-400">{b.userOfferId?.slice(0, 25)}</div>
             <div className="mt-1 flex gap-1.5 flex-wrap">
-              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-brand-pink-100 text-brand-pink-700">{b.treatment}</span>
-              {b.clinic && <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-600">{b.clinic}</span>}
+              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-600">
+                {ar() ? (b.clinicNameAr || b.clinicId) : (b.clinicNameEn || b.clinicId)}
+              </span>
             </div>
           </div>
           <div className="text-xs text-surface-400 mr-2">{new Date(b.createdAt).toLocaleTimeString()}</div>
           <div className="flex items-center gap-2">
             <button className="bg-surface-100 hover:bg-surface-200 text-surface-600 font-medium px-3 py-1.5 rounded-xl text-xs transition-colors" onClick={() => setSelectedBooking(b)}>{ar() ? "التفاصيل" : "Details"}</button>
-            <button className="btn-primary btn-sm px-4 bg-blue-500 hover:bg-blue-600 border-none" disabled={processing === b.id} onClick={() => confirmBooking(b.id)}>{processing === b.id ? "..." : ar() ? "تأكيد" : "Confirm"}</button>
+            <button className="btn-primary btn-sm px-4 bg-blue-500 hover:bg-blue-600 border-none" onClick={() => setSelectedBooking(b)}>{ar() ? "جدولة" : "Schedule"}</button>
           </div>
         </div>
       ))}
@@ -332,40 +329,53 @@ function BookingRequestsQueue() {
                   </div>
                </div>
 
-               {/* Treatment Details */}
+               {/* Request Details */}
                <div className="bg-surface-50 rounded-2xl p-4 border border-surface-100">
-                  <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-3">{ar() ? "تفاصيل الجلسة" : "Session Details"}</h4>
+                 <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-3">{ar() ? "تفاصيل الطلب" : "Request Details"}</h4>
                   <div className="space-y-2">
                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-surface-500">{ar() ? "نوع العلاج" : "Treatment"}</span>
-                        <span className="font-bold text-surface-900">{selectedBooking.treatment}</span>
+                        <span className="text-surface-500">{ar() ? "العرض/الاشتراك" : "User offer"}</span>
+                        <span className="font-bold text-surface-900">{selectedBooking.userOfferId}</span>
                      </div>
                      <div className="flex justify-between items-center text-sm">
                         <span className="text-surface-500">{ar() ? "العيادة المطلوبة" : "Requested Clinic"}</span>
-                        <span className="font-bold text-brand-pink-600">{selectedBooking.clinic || "N/A"}</span>
+                        <span className="font-bold text-brand-pink-600">{ar() ? (selectedBooking.clinicNameAr || selectedBooking.clinicId) : (selectedBooking.clinicNameEn || selectedBooking.clinicId)}</span>
                      </div>
                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-surface-500">{ar() ? "العرض المرتبط" : "Associated Offer"}</span>
-                        <span className="font-bold text-surface-900">{selectedBooking.offerId}</span>
+                        <span className="text-surface-500">{ar() ? "موعد مفضل" : "Preferred time"}</span>
+                        <span className="font-bold text-surface-900">{selectedBooking.preferredAt ? new Date(selectedBooking.preferredAt).toLocaleString() : (ar() ? "غير محدد" : "—")}</span>
                      </div>
                   </div>
                </div>
 
-               {/* Action Section */}
-               <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100 text-sm text-blue-800">
-                  <div className="flex items-start gap-2">
-                     <svg className="w-5 h-5 shrink-0 mt-0.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                     <p>{ar() ? "الرجاء التأكد من توافر الموعد مع العيادة قبل تأكيد هذا الطلب في النظام." : "Please ensure availability with the clinic before confirming this request in the system."}</p>
-                  </div>
+               <div className="bg-white rounded-2xl p-4 border border-surface-200">
+                 <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-3">{ar() ? "تحديد الموعد" : "Assign date & time"}</h4>
+                 <div className="grid gap-3">
+                   <input
+                     className="input-field"
+                     type="datetime-local"
+                     value={scheduleForm.scheduledAt}
+                     onChange={(e) => setScheduleForm((s) => ({ ...s, scheduledAt: e.target.value }))}
+                   />
+                   <input
+                     className="input-field"
+                     placeholder={ar() ? "ملاحظات (اختياري)" : "Notes (optional)"}
+                     value={scheduleForm.notes}
+                     onChange={(e) => setScheduleForm((s) => ({ ...s, notes: e.target.value }))}
+                   />
+                 </div>
                </div>
              </div>
 
              <div className="mt-8 flex gap-3">
                 <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors" onClick={() => setSelectedBooking(null)}>{ar() ? "إغلاق" : "Close"}</button>
-                <button className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm" disabled={processing === selectedBooking.id} onClick={() => {
-                   confirmBooking(selectedBooking.id);
-                   setSelectedBooking(null);
-                }}>{processing === selectedBooking.id ? "..." : ar() ? "تأكيد الحجز" : "Confirm Booking"}</button>
+                <button
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm"
+                  disabled={processing === selectedBooking.id || !scheduleForm.scheduledAt}
+                  onClick={() => void schedule(selectedBooking.id)}
+                >
+                  {processing === selectedBooking.id ? "..." : ar() ? "تأكيد الموعد" : "Schedule"}
+                </button>
              </div>
            </div>
         </div>, document.body
@@ -755,7 +765,7 @@ function CustomerLookup() {
   );
 }
 function CustomersManager() {
-  const { login } = useAuth();
+  const { loginWithPassword } = useAuth();
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [search, setSearch] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -779,7 +789,7 @@ function CustomersManager() {
   );
 
   const handleLoginAsUser = () => {
-     if (selectedUser) login(selectedUser.id, "customer");
+     if (selectedUser) loginWithPassword(selectedUser.id, "demo12345");
   };
 
   const handleFreezeToggle = () => {

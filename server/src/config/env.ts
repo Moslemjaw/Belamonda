@@ -6,10 +6,6 @@ dotenv.config();
 const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().default(8080),
-  SKIP_MONGO: z
-    .enum(["true", "false"])
-    .optional()
-    .transform((v) => v === "true"),
   MONGODB_URI: z.string().min(1),
   JWT_SECRET: z.string().min(32),
   // Comma-separated list of allowed origins (recommended). If omitted, falls back to CLIENT_ORIGIN.
