@@ -6,10 +6,20 @@ import * as offerService from "../../services/offer.service.js";
 import * as clinicService from "../../services/clinic.service.js";
 import * as userOfferService from "../../services/userOffer.service.js";
 import { notifyOfferPendingPayment } from "../notifications/notifications.service.js";
+import mongoose from "mongoose";
+import { OfferModel } from "../../models/offer.model.js";
+import { ClinicModel } from "../../models/clinic.model.js";
 
 const SelectOfferSchema = z.object({
-  offerId: z.string().min(1)
+  offerId: z.string().min(1),
+  paymentOption: z.enum(["full", "installments", "deposit"]).optional(),
+  installments: z.number().int().min(1).optional()
 });
+
+function toKwd3(n: number): string {
+  const v = Math.max(0, n);
+  return v.toFixed(3);
+}
 
 function isWithinWindow(offer: { startDate?: string; endDate?: string }, now: Date) {
   const s = offer.startDate ? new Date(offer.startDate) : null;
@@ -44,10 +54,32 @@ commerceRouter.post("/select-offer", authRequired, async (req, res, next) => {
       if (reserved >= offer.enrollmentCap) return res.status(409).json({ error: "ENROLLMENT_CAP_REACHED" });
     }
 
+    const payOpt = parsed.data.paymentOption ?? "full";
+    const allowFull = (offer as any).allowFullPayment !== false;
+    const allowInst = (offer as any).allowInstallments === true;
+    const allowDep = (offer as any).allowDeposit === true;
+    const maxInst = Number((offer as any).maxInstallments ?? 1);
+    const depositAmount = Number((offer as any).depositAmountKwd ?? "0.000");
+    const price = Number(offer.subscriptionPriceKwd);
+
+    if (payOpt === "full" && !allowFull) return res.status(400).json({ error: "PAYMENT_OPTION_NOT_ALLOWED" });
+    if (payOpt === "installments" && !allowInst) return res.status(400).json({ error: "PAYMENT_OPTION_NOT_ALLOWED" });
+    if (payOpt === "deposit" && !allowDep) return res.status(400).json({ error: "PAYMENT_OPTION_NOT_ALLOWED" });
+
+    let amountKwd = offer.subscriptionPriceKwd;
+    if (payOpt === "installments") {
+      const inst = Math.min(maxInst, Math.max(1, parsed.data.installments ?? maxInst));
+      amountKwd = toKwd3(price / inst);
+    } else if (payOpt === "deposit") {
+      amountKwd = toKwd3(depositAmount);
+    }
+
     const userOffer = await userOfferService.createPending({
       userId: req.auth!.userId,
       offerId: offer.id,
-      clinicId: offer.clinicId
+      clinicId: offer.clinicId,
+      paymentMethod: payOpt,
+      paymentAmountKwd: amountKwd
     });
     notifyOfferPendingPayment(req.auth!.userId, userOffer.id, offer.subscriptionPriceKwd);
     return res.status(201).json({ userOffer });
@@ -59,7 +91,32 @@ commerceRouter.post("/select-offer", authRequired, async (req, res, next) => {
 commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
   try {
     const items = await userOfferService.listUserOffersByUser(req.auth!.userId);
-    return res.json({ items });
+
+    const offerIds = Array.from(new Set(items.map((i) => i.offerId).filter((id) => mongoose.isValidObjectId(id))));
+    const clinicIds = Array.from(new Set(items.map((i) => i.clinicId).filter((id) => mongoose.isValidObjectId(id))));
+
+    const offers = offerIds.length
+      ? await OfferModel.find({ _id: { $in: offerIds.map((id) => new mongoose.Types.ObjectId(id)) } })
+          .select("_id name")
+          .lean()
+      : [];
+    const clinics = clinicIds.length
+      ? await ClinicModel.find({ _id: { $in: clinicIds.map((id) => new mongoose.Types.ObjectId(id)) } })
+          .select("_id nameEn nameAr")
+          .lean()
+      : [];
+
+    const offerById = new Map(offers.map((o: any) => [String(o._id), o]));
+    const clinicById = new Map(clinics.map((c: any) => [String(c._id), c]));
+
+    const enriched = items.map((i: any) => ({
+      ...i,
+      offerName: offerById.get(String(i.offerId))?.name,
+      clinicNameEn: clinicById.get(String(i.clinicId))?.nameEn,
+      clinicNameAr: clinicById.get(String(i.clinicId))?.nameAr
+    }));
+
+    return res.json({ items: enriched });
   } catch (e) {
     next(e);
   }

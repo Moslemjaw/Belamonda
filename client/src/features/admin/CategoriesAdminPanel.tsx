@@ -13,8 +13,14 @@ export function CategoriesAdminPanel() {
   const { getAuthHeader } = useAuth();
   const { data, loading, error, refetch } = useApi<{ items: Cat[] }>("/categories/admin");
   const { data: offersPayload } = useApi<{ items: ApiOfferRow[] }>("/offers/admin");
+  const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ nameEn: "", nameAr: "", slug: "", sortOrder: 0 });
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { data: relationsData } = useApi<{ offers: Array<{ id: string; name: string; clinicId: string; active: boolean; subscriptionPriceKwd: string }>; sessionTypes: Array<{ id: string; slug: string; nameEn: string; nameAr: string; isActive: boolean }> }>(
+    activeCategoryId ? `/categories/admin/${encodeURIComponent(activeCategoryId)}/relations` : null,
+    { deps: [activeCategoryId] }
+  );
 
   const items = data?.items ?? [];
   const offers = offersPayload?.items ?? [];
@@ -94,28 +100,44 @@ export function CategoriesAdminPanel() {
               : "Same categories are used for filters and offer classification."}
           </div>
         </div>
-        <div className="text-xs text-surface-500">
-          {ar() ? "العروض المرتبطة تظهر تحت كل فئة." : "Linked offers are listed under each category."}
-        </div>
+        <button type="button" className="btn-primary btn-sm" onClick={() => setShowCreate((s) => !s)}>
+          {showCreate ? (ar() ? "إغلاق" : "Close") : ar() ? "+ فئة جديدة" : "+ New category"}
+        </button>
       </div>
       {loading && <div className="text-sm text-surface-500">Loading…</div>}
       {error && <div className="text-sm text-red-600">{error}</div>}
 
-      <div className="card-elevated p-5 grid gap-3 md:grid-cols-4">
-        <input className="input-field" placeholder="slug" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
-        <input className="input-field" placeholder="Name EN" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} />
-        <input className="input-field" placeholder="Name AR" value={form.nameAr} onChange={(e) => setForm({ ...form, nameAr: e.target.value })} />
-        <input
-          type="number"
-          className="input-field"
-          placeholder="Sort"
-          value={form.sortOrder}
-          onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
-        />
-        <button type="button" className="btn-primary btn-sm md:col-span-4" disabled={saving} onClick={() => void create()}>
-          {ar() ? "إضافة" : "Add category"}
-        </button>
-      </div>
+      {showCreate && (
+        <div className="card-elevated p-5 space-y-4">
+          <div className="font-bold text-surface-900">{ar() ? "فئة جديدة" : "New category"}</div>
+          <div className="grid gap-3 md:grid-cols-4">
+            <label className="block">
+              <span className="text-xs font-medium text-surface-500">Slug</span>
+              <input className="input-field mt-1" placeholder="laser" value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} />
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-surface-500">Name EN</span>
+              <input className="input-field mt-1" placeholder="Laser Services" value={form.nameEn} onChange={(e) => setForm({ ...form, nameEn: e.target.value })} />
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-surface-500">Name AR</span>
+              <input className="input-field mt-1" placeholder="خدمات الليزر" value={form.nameAr} onChange={(e) => setForm({ ...form, nameAr: e.target.value })} />
+            </label>
+            <label className="block">
+              <span className="text-xs font-medium text-surface-500">{ar() ? "الترتيب" : "Sort order"}</span>
+              <input
+                type="number"
+                className="input-field mt-1"
+                value={form.sortOrder}
+                onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })}
+              />
+            </label>
+          </div>
+          <button type="button" className="btn-primary btn-sm" disabled={saving} onClick={() => void create()}>
+            {saving ? "…" : ar() ? "حفظ" : "Save"}
+          </button>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-surface-200">
         <table className="data-table">
@@ -144,6 +166,9 @@ export function CategoriesAdminPanel() {
                   {(offersByCategoryId.get(c.id)?.length ?? 0)}
                 </td>
                 <td>
+                  <button type="button" className="text-xs font-bold text-brand-pink-600 mr-3" onClick={() => setActiveCategoryId((prev) => prev === c.id ? null : c.id)}>
+                    {activeCategoryId === c.id ? (ar() ? "إخفاء" : "Hide") : (ar() ? "عرض" : "View")}
+                  </button>
                   <button type="button" className="text-xs text-red-600 font-bold" onClick={() => void remove(c.id)}>
                     Delete
                   </button>
@@ -154,58 +179,61 @@ export function CategoriesAdminPanel() {
         </table>
       </div>
 
-      <div className="space-y-3">
-        {items
-          .slice()
-          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-          .map((c) => {
-            const linked = offersByCategoryId.get(c.id) ?? [];
-            return (
-              <div key={c.id} className="card-elevated p-5 bg-white border border-surface-100">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div>
-                    <div className="text-xs font-bold text-surface-400 uppercase tracking-wider">{c.slug}</div>
-                    <div className="font-bold text-surface-900">{ar() ? c.nameAr : c.nameEn}</div>
-                  </div>
-                  <span className="badge-sage">{linked.length} {ar() ? "عرض" : "offers"}</span>
-                </div>
-                {linked.length === 0 ? (
-                  <div className="text-sm text-surface-400 mt-4">{ar() ? "لا توجد عروض تحت هذه الفئة." : "No offers under this category yet."}</div>
+      {activeCategoryId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="absolute inset-0 bg-black/40" onClick={() => setActiveCategoryId(null)} />
+          <div className="relative w-full max-w-3xl card-elevated p-6 bg-white max-h-[85vh] overflow-auto">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h4 className="font-bold text-surface-900">{ar() ? "علاقات الفئة" : "Category Relations"}</h4>
+                <div className="text-xs text-surface-500 mt-1">{ar() ? "العروض + أنواع العلاج المرتبطة بهذه الفئة." : "Offers + treatment types linked to this category."}</div>
+              </div>
+              <button type="button" className="btn-secondary btn-sm" onClick={() => setActiveCategoryId(null)}>
+                {ar() ? "إغلاق" : "Close"}
+              </button>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <div>
+                <div className="text-sm font-semibold text-surface-700 mb-2">{ar() ? "العروض المرتبطة" : "Linked Offers"}</div>
+                {(relationsData?.offers || []).length === 0 ? (
+                  <div className="text-sm text-surface-400">{ar() ? "لا توجد عروض مرتبطة." : "No linked offers."}</div>
                 ) : (
-                  <div className="mt-4 overflow-hidden rounded-xl border border-surface-200">
-                    <table className="data-table">
-                      <thead>
-                        <tr>
-                          <th>{ar() ? "الاسم" : "Name"}</th>
-                          <th>{ar() ? "العيادة" : "Clinic"}</th>
-                          <th>{ar() ? "السعر" : "Price"}</th>
-                          <th>{ar() ? "مفعل" : "Active"}</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {linked.slice(0, 10).map((o) => (
-                          <tr key={o.id}>
-                            <td className="font-medium">{o.name}</td>
-                            <td className="text-xs text-surface-500">{o.clinicId}</td>
-                            <td className="font-bold">{o.subscriptionPriceKwd} KWD</td>
-                            <td>
-                              <span className={o.active ? "badge-green" : "badge-red"}>{o.active ? "on" : "off"}</span>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    {linked.length > 10 && (
-                      <div className="px-4 py-3 text-xs text-surface-500 bg-surface-50 border-t border-surface-200">
-                        {ar() ? "تم عرض 10 فقط." : "Showing first 10 only."}
+                  <div className="space-y-2">
+                    {(relationsData?.offers || []).map((o) => (
+                      <div key={o.id} className="flex items-center justify-between bg-surface-50 border border-surface-200 rounded-lg px-3 py-2">
+                        <div className="font-medium text-surface-800">{o.name}</div>
+                        <div className="text-xs text-surface-500">{o.subscriptionPriceKwd} KWD</div>
                       </div>
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
-            );
-          })}
-      </div>
+
+              <div>
+                <div className="text-sm font-semibold text-surface-700 mb-2">{ar() ? "أنواع العلاج المرتبطة" : "Linked Treatment Types"}</div>
+                {(relationsData?.sessionTypes || []).length === 0 ? (
+                  <div className="text-sm text-surface-400">{ar() ? "لا توجد أنواع علاج مرتبطة." : "No linked treatment types."}</div>
+                ) : (
+                  <div className="space-y-2">
+                    {(relationsData?.sessionTypes || []).map((s) => (
+                      <div key={s.id} className="flex items-center justify-between bg-surface-50 border border-surface-200 rounded-lg px-3 py-2">
+                        <div className="font-medium text-surface-800">{ar() ? s.nameAr : s.nameEn}</div>
+                        <div className={s.isActive ? "badge-green" : "badge-red"}>{s.isActive ? "on" : "off"}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -14,6 +14,17 @@ const OfferBaseFields = z.object({
   clinicId: z.string().min(1),
   subscriptionPriceKwd: KwdString,
   validityDays: z.number().int().positive(),
+  imageUrl: z.string().url().optional(),
+  isCashbackOnly: z.boolean().optional(),
+  signupCashbackKwd: KwdString.optional(),
+  cashbackActivationFeeKwd: KwdString.optional(),
+  tagsEn: z.array(z.string().min(1)).optional(),
+  tagsAr: z.array(z.string().min(1)).optional(),
+  allowFullPayment: z.boolean().optional(),
+  allowInstallments: z.boolean().optional(),
+  maxInstallments: z.number().int().min(1).optional(),
+  allowDeposit: z.boolean().optional(),
+  depositAmountKwd: KwdString.optional(),
   cashbackPerSessionKwd: KwdString.default("0.000"),
   sessionIntervalDays: z.number().int().min(0).default(0),
   maxSessions: z.number().int().positive().optional(),
@@ -80,8 +91,11 @@ offersRouter.post("/admin", authRequired, requireRole(["admin"]), async (req, re
   try {
     const parsed = OfferCreateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
-    if (!parsed.data.category && !(parsed.data.categoryIds && parsed.data.categoryIds.length)) {
-      return res.status(400).json({ error: "VALIDATION_ERROR", details: { formErrors: [], fieldErrors: { category: ["category or categoryIds required"] } } });
+    if (!(parsed.data.categoryIds && parsed.data.categoryIds.length)) {
+      return res.status(400).json({
+        error: "VALIDATION_ERROR",
+        details: { formErrors: [], fieldErrors: { categoryIds: ["Select at least one category"] } }
+      });
     }
 
     const clinic = await clinicService.getClinic(parsed.data.clinicId);
@@ -89,7 +103,7 @@ offersRouter.post("/admin", authRequired, requireRole(["admin"]), async (req, re
 
     const offer = await offerService.createOffer({
       ...parsed.data,
-      category: parsed.data.category,
+      category: parsed.data.category, // kept for backwards-compat / primary slug
       categoryIds: parsed.data.categoryIds
     });
     return res.status(201).json({ offer });

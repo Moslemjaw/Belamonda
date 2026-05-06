@@ -1,6 +1,8 @@
 import type { OfferCategory, OfferType } from "@belamonda/shared";
 import mongoose, { Schema } from "mongoose";
 
+const KwdString = { type: String, match: /^\d+(\.\d{3})$/ } as const;
+
 const OfferSchema = new Schema(
   {
     name: { type: String, required: true, trim: true },
@@ -11,6 +13,22 @@ const OfferSchema = new Schema(
     clinicId: { type: Schema.Types.ObjectId, ref: "Clinic", required: true },
     subscriptionPriceKwd: { type: String, required: true, match: /^\d+(\.\d{3})$/ },
     validityDays: { type: Number, required: true, min: 1 },
+    // ── Old offerSystem fields (DB-backed) ──────────────────────────
+    imageUrl: { type: String },
+    isCashbackOnly: { type: Boolean, default: false },
+    signupCashbackKwd: { ...KwdString, default: "0.000" },
+    cashbackActivationFeeKwd: { ...KwdString, default: "0.000" },
+    tagsEn: { type: [String], default: [] },
+    tagsAr: { type: [String], default: [] },
+
+    // Payment options
+    allowFullPayment: { type: Boolean, default: true },
+    allowInstallments: { type: Boolean, default: false },
+    maxInstallments: { type: Number, default: 1, min: 1 },
+    allowDeposit: { type: Boolean, default: false },
+    depositAmountKwd: { ...KwdString, default: "0.000" },
+
+    // Scheduling + per-session cashback
     cashbackPerSessionKwd: { type: String, default: "0.000", match: /^\d+(\.\d{3})$/ },
     sessionIntervalDays: { type: Number, default: 0, min: 0 },
     maxSessions: { type: Number, min: 1 },

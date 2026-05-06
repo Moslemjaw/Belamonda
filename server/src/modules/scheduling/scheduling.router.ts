@@ -11,6 +11,7 @@ import { findPaymentByUserOffer } from "../../services/payment.service.js";
 import mongoose from "mongoose";
 import { BookingRequestModel } from "../../models/bookingRequest.model.js";
 import { ClinicModel } from "../../models/clinic.model.js";
+import { OfferModel } from "../../models/offer.model.js";
 
 const RequestSchema = z.object({
   userOfferId: z.string().min(1),
@@ -142,6 +143,82 @@ schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "admin"]),
     next(e);
   }
 });
+
+// Clinic: view pending booking requests for its clinic
+schedulingRouter.get(
+  "/clinic/:clinicId/requests",
+  authRequired,
+  requireRole(["clinicStaff", "admin", "cs"]),
+  async (req, res, next) => {
+    try {
+      const clinicId = req.params.clinicId;
+      if (!mongoose.isValidObjectId(clinicId)) return res.status(400).json({ error: "INVALID_CLINIC_ID" });
+      const rows = await BookingRequestModel.find({ clinicId, status: "pending" }).sort({ createdAt: -1 }).limit(200).lean();
+      const offerIds = Array.from(new Set(rows.map((r: any) => String(r.offerId))));
+      const offers = offerIds.length
+        ? await OfferModel.find({ _id: { $in: offerIds.map((id) => new mongoose.Types.ObjectId(id)) } })
+            .select("_id name")
+            .lean()
+        : [];
+      const offerById = new Map(offers.map((o: any) => [String(o._id), o]));
+      const items = rows.map((r: any) => ({
+        id: String(r._id),
+        userId: r.userId,
+        userOfferId: String(r.userOfferId),
+        offerId: String(r.offerId),
+        offerName: offerById.get(String(r.offerId))?.name,
+        clinicId: String(r.clinicId),
+        preferredAt: r.preferredAt ? new Date(r.preferredAt).toISOString() : undefined,
+        notes: r.notes,
+        createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : undefined
+      }));
+      return res.json({ items });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+// Clinic: schedule its own pending request
+schedulingRouter.post(
+  "/clinic/requests/:requestId/schedule",
+  authRequired,
+  requireRole(["clinicStaff", "admin"]),
+  async (req, res, next) => {
+    try {
+      if (!mongoose.isValidObjectId(req.params.requestId)) return res.status(400).json({ error: "INVALID_ID" });
+      const parsed = z
+        .object({ scheduledAt: z.string().datetime(), notes: z.string().optional() })
+        .safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+
+      const request = await BookingRequestModel.findById(req.params.requestId);
+      if (!request) return res.status(404).json({ error: "NOT_FOUND" });
+      if (request.status !== "pending") return res.status(409).json({ error: "NOT_PENDING" });
+
+      const uo = await userOfferService.getUserOffer(String(request.userOfferId));
+      if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
+
+      const session = await bookingSessionService.createSession({
+        userOfferId: uo.id,
+        userId: uo.userId,
+        offerId: uo.offerId,
+        clinicId: uo.clinicId,
+        scheduledAt: parsed.data.scheduledAt,
+        scheduledBy: req.auth!.userId,
+        notes: parsed.data.notes ?? request.notes,
+        paymentId: uo.paymentId
+      });
+      request.status = "scheduled";
+      request.scheduledSessionId = new mongoose.Types.ObjectId(session.id);
+      await request.save();
+      notifyBookingConfirmed(uo.userId, session.id, session.scheduledAt);
+      return res.status(201).json({ session, request: { id: String(request._id), status: request.status } });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
 
 // CS: schedule a request (creates BookingSession and marks request as scheduled)
 schedulingRouter.post("/cs/requests/:requestId/schedule", authRequired, requireRole(["cs", "admin"]), async (req, res, next) => {

@@ -22,6 +22,8 @@ import { categoriesRouter } from "./modules/categories/categories.router.js";
 import { dashboardsRouter } from "./modules/dashboards/dashboards.router.js";
 import { sessionTypesRouter } from "./modules/session-types/sessionTypes.router.js";
 import { usersRouter } from "./modules/users/users.router.js";
+import { uploadsRouter } from "./modules/uploads/uploads.router.js";
+import path from "path";
 
 export function createApp() {
   const app = express();
@@ -50,6 +52,10 @@ export function createApp() {
     })
   );
   app.use(express.json({ limit: "2mb" }));
+
+  // Local uploads (admin image upload). In production replace with S3/Cloudflare R2.
+  app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+  app.use("/uploads-api", uploadsRouter);
 
   app.use("/auth", authRouter);
   app.use("/public", publicRouter);

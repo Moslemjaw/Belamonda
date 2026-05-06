@@ -111,6 +111,17 @@ export async function createOffer(input: {
   clinicId: string;
   subscriptionPriceKwd: string;
   validityDays: number;
+  imageUrl?: string;
+  isCashbackOnly?: boolean;
+  signupCashbackKwd?: string;
+  cashbackActivationFeeKwd?: string;
+  tagsEn?: string[];
+  tagsAr?: string[];
+  allowFullPayment?: boolean;
+  allowInstallments?: boolean;
+  maxInstallments?: number;
+  allowDeposit?: boolean;
+  depositAmountKwd?: string;
   cashbackPerSessionKwd?: string;
   sessionIntervalDays?: number;
   maxSessions?: number;
@@ -144,6 +155,17 @@ export async function createOffer(input: {
     clinicId: new mongoose.Types.ObjectId(input.clinicId),
     subscriptionPriceKwd: input.subscriptionPriceKwd,
     validityDays: input.validityDays,
+    imageUrl: input.imageUrl,
+    isCashbackOnly: input.isCashbackOnly ?? false,
+    signupCashbackKwd: input.signupCashbackKwd ?? "0.000",
+    cashbackActivationFeeKwd: input.cashbackActivationFeeKwd ?? "0.000",
+    tagsEn: input.tagsEn ?? [],
+    tagsAr: input.tagsAr ?? [],
+    allowFullPayment: input.allowFullPayment ?? true,
+    allowInstallments: input.allowInstallments ?? false,
+    maxInstallments: input.maxInstallments ?? 1,
+    allowDeposit: input.allowDeposit ?? false,
+    depositAmountKwd: input.depositAmountKwd ?? "0.000",
     cashbackPerSessionKwd: input.cashbackPerSessionKwd ?? "0.000",
     sessionIntervalDays: input.sessionIntervalDays ?? 0,
     maxSessions: input.maxSessions,

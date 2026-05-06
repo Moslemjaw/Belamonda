@@ -2,6 +2,9 @@ import { Router } from "express";
 import { z } from "zod";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
+import mongoose from "mongoose";
+import { OfferModel } from "../../models/offer.model.js";
+import { SessionTypeModel } from "../../models/sessionType.model.js";
 import {
   createCategory,
   deleteCategory,
@@ -36,6 +39,38 @@ categoriesRouter.get("/admin", authRequired, requireRole(["admin"]), async (_req
   try {
     const items = await listCategoriesAdmin();
     return res.json({ items });
+  } catch (e) {
+    next(e);
+  }
+});
+
+categoriesRouter.get("/admin/:id/relations", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
+    const categoryId = new mongoose.Types.ObjectId(req.params.id);
+    const offersRaw = await OfferModel.find({
+      $or: [{ categoryIds: categoryId }, { category: undefined }]
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+    const offers = offersRaw
+      .filter((o: any) => (o.categoryIds || []).some((id: any) => String(id) === String(categoryId)))
+      .map((o: any) => ({
+        id: String(o._id),
+        name: o.name,
+        clinicId: String(o.clinicId),
+        active: !!o.active,
+        subscriptionPriceKwd: o.subscriptionPriceKwd
+      }));
+    const sessionTypesRaw = await SessionTypeModel.find({ categoryId }).sort({ nameEn: 1 }).lean();
+    const sessionTypes = sessionTypesRaw.map((s: any) => ({
+      id: String(s._id),
+      slug: s.slug,
+      nameEn: s.nameEn,
+      nameAr: s.nameAr,
+      isActive: !!s.isActive
+    }));
+    return res.json({ offers, sessionTypes });
   } catch (e) {
     next(e);
   }

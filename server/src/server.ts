@@ -1,14 +1,16 @@
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { connectMongo } from "./db/mongo.js";
-import { seedDefaultCategories, seedLocalDemoUsersAndClinics } from "./bootstrap/seedDefaults.js";
+import { seedDefaultCategories, seedDefaultOffers, seedDefaultSessionTypes, seedLocalDemoUsersAndClinics } from "./bootstrap/seedDefaults.js";
 
 async function main() {
   await connectMongo();
-  await seedDefaultCategories();
   if (env.NODE_ENV !== "production") {
     await seedLocalDemoUsersAndClinics();
   }
+  await seedDefaultCategories();
+  await seedDefaultSessionTypes();
+  await seedDefaultOffers();
   const app = createApp();
   app.listen(env.PORT, () => {
     // eslint-disable-next-line no-console

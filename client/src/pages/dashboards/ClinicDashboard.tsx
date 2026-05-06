@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
-import { useClinicSchedule } from "../../hooks/useApi";
+import { useClinicSchedule, useClinicRequests } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
 import { sharedClinics } from "../../lib/clinics";
 import i18n from "../../app/i18n";
@@ -120,6 +120,7 @@ export default function ClinicDashboard() {
     contactEmail: `contact@${CLINIC_ID}.com`
   });
   const { data, loading, refetch } = useClinicSchedule(CLINIC_ID);
+  const { data: requestsData, refetch: refetchRequests } = useClinicRequests(CLINIC_ID);
 
   useEffect(() => {
     const t = window.setInterval(() => {
@@ -129,6 +130,7 @@ export default function ClinicDashboard() {
   }, [refetch]);
 
   const sessions = data?.items || [];
+  const requests = requestsData?.items || [];
   const scheduled = sessions.filter(s => s.status === "scheduled");
   const completed = sessions.filter(s => s.status === "completed");
   const noShows = sessions.filter(s => s.status === "no_show");
@@ -146,6 +148,7 @@ export default function ClinicDashboard() {
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
     { key: "schedule", icon: Icons.calendar, label: t("schedule") },
+    { key: "requests", icon: Icons.clipboard, label: ar() ? "طلبات الحجز" : "Booking Requests" },
     { key: "performance", icon: Icons.chart, label: ar() ? "الأداء" : "Performance" },
     { key: "settings", icon: Icons.settings, label: t("settings") },
   ];
@@ -186,6 +189,51 @@ export default function ClinicDashboard() {
               )}
             </div>
           </>
+        )}
+
+        {activeNav === "requests" && (
+          <div className="space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
+              <button className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg" onClick={refetchRequests}>
+                ↻ {ar() ? "تحديث" : "Refresh"}
+              </button>
+            </div>
+            {requests.length === 0 ? (
+              <div className="card-elevated p-10 text-center text-surface-500">
+                {ar() ? "لا توجد طلبات حجز حالياً." : "No booking requests right now."}
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {requests.map((r) => (
+                  <div key={r.id} className="card-elevated p-5 bg-white border border-surface-100">
+                    <div className="text-xs text-surface-500">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</div>
+                    <div className="font-bold text-surface-900 mt-1">{r.offerName || r.offerId}</div>
+                    <div className="text-sm text-surface-600 mt-1">{ar() ? "العميل:" : "Customer:"} {r.userId}</div>
+                    <div className="text-xs text-surface-500 mt-1">
+                      {ar() ? "موعد مفضل:" : "Preferred:"} {r.preferredAt ? new Date(r.preferredAt).toLocaleString() : (ar() ? "—" : "—")}
+                    </div>
+                    <button
+                      className="btn-primary btn-sm mt-4"
+                      onClick={async () => {
+                        const when = prompt(ar() ? "ادخل الموعد (ISO)" : "Enter scheduledAt (ISO)");
+                        if (!when) return;
+                        await apiFetch(`/scheduling/clinic/requests/${encodeURIComponent(r.id)}/schedule`, {
+                          method: "POST",
+                          headers: getAuthHeader(),
+                          body: JSON.stringify({ scheduledAt: when })
+                        });
+                        await refetchRequests();
+                        await refetch();
+                      }}
+                    >
+                      {ar() ? "تحديد موعد" : "Schedule"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {activeNav === "performance" && (

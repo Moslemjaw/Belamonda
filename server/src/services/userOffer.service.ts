@@ -9,7 +9,7 @@ export async function expireStalePendingPayments(): Promise<void> {
   );
 }
 
-export async function createPending(input: { userId: string; offerId: string; clinicId: string }) {
+export async function createPending(input: { userId: string; offerId: string; clinicId: string; paymentMethod?: string; paymentAmountKwd?: string }) {
   await expireStalePendingPayments();
   const pendingExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
   const doc = await UserOfferModel.create({
@@ -18,7 +18,9 @@ export async function createPending(input: { userId: string; offerId: string; cl
     clinicId: new mongoose.Types.ObjectId(input.clinicId),
     status: "pending_payment",
     pendingExpiresAt,
-    sessionsUsed: 0
+    sessionsUsed: 0,
+    paymentMethod: input.paymentMethod,
+    paymentAmountKwd: input.paymentAmountKwd
   });
   return serializeUserOffer(doc.toObject() as any);
 }

@@ -253,6 +253,7 @@ export default function CustomerDashboard() {
   const { data: myComplaintsData, refetch: refetchMyComplaints } = useMyComplaints();
   const { data: notifData } = useNotifications();
   const { data: clinicsPublic } = useApi<{ items: Array<{ id: string; nameEn: string; nameAr: string }> }>("/clinics");
+  const { data: categoriesData } = useApi<{ items: Array<{ id: string; slug: string; nameEn: string; nameAr: string }> }>("/categories");
   const clinicsById = new Map((clinicsPublic?.items || []).map((c) => [c.id, c]));
 
   const catalogPath =
@@ -525,12 +526,21 @@ export default function CustomerDashboard() {
                     </div>
                   ) : (
                     <div className="grid gap-4 md:grid-cols-2">
-                      {activeOffers.map(o => (
+                      {activeOffers.map(o => {
+                        const canRequest = o.status === "active" || o.status === "ACTIVE";
+                        const title = o.offerName || o.offerId || "Package";
+                        const clinicLabel =
+                          o.clinicNameEn || o.clinicNameAr || clinicsById.get(o.clinicId)?.nameEn || o.clinicId;
+                        return (
                         <div key={o.id} className={`card-elevated p-5 border-l-4 ${o.status === 'pending payment' ? 'border-l-amber-400' : 'border-l-brand-pink-400'}`}>
                           <div className="flex justify-between items-start">
                           <div>
-                            <h4 className="font-bold text-surface-900 text-lg">{o.offerId || "Special Package"}</h4>
-                            <p className="text-xs text-surface-400 mt-1">Status: <span className={`font-bold uppercase ${o.status === 'pending payment' ? 'text-amber-500' : 'text-emerald-600'}`}>{o.status}</span></p>
+                            <h4 className="font-bold text-surface-900 text-lg">{title}</h4>
+                            <p className="text-xs text-surface-400 mt-1">
+                              {ar() ? "الحالة:" : "Status:"}{" "}
+                              <span className={`font-bold uppercase ${o.status === 'pending payment' ? 'text-amber-500' : 'text-emerald-600'}`}>{o.status}</span>
+                            </p>
+                            <p className="text-xs text-surface-500 mt-1">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold">{clinicLabel}</span></p>
                             {o.method === "Installments" && (
                                <p className="text-[10px] text-brand-pink-500 font-bold mt-1 uppercase">Paid: {o.paidInstallments} / {o.totalInstallments}</p>
                             )}
@@ -569,18 +579,19 @@ export default function CustomerDashboard() {
                           </div>
                         ) : (
                         <button 
-                          className={`mt-4 w-full font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 ${o.status === 'pending payment' ? 'bg-surface-100 text-surface-400 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`} 
-                          onClick={() => setShowBookingModal(o)}
-                          disabled={o.status === 'pending payment'}
+                          className={`mt-4 w-full font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 ${!canRequest ? 'bg-surface-100 text-surface-400 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`} 
+                          onClick={() => canRequest && setShowBookingModal(o)}
+                          disabled={!canRequest}
                         >
                           {o.status === 'pending payment' && (
                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                           )}
-                          {ar() ? "حجز موعد" : "Book Appointment"}
+                          {!canRequest ? (ar() ? "بانتظار تفعيل الدفع" : "Awaiting payment activation") : (ar() ? "حجز موعد" : "Book Appointment")}
                         </button>
                         )}
                       </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 )})()}
               </div>
@@ -748,10 +759,10 @@ export default function CustomerDashboard() {
                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
                   {[
                     { id: "all", label: ar() ? "الكل" : "All" },
-                    { id: "beauty", label: ar() ? "تجميل" : "Beauty" },
-                    { id: "skincare", label: ar() ? "عناية البشرة" : "Skincare" },
-                    { id: "laser", label: ar() ? "ليزر" : "Laser" },
-                    { id: "other", label: ar() ? "أخرى" : "Other" }
+                    ...((categoriesData?.items || []).map((c) => ({
+                      id: c.slug,
+                      label: ar() ? c.nameAr : c.nameEn
+                    })))
                   ].map((f) => (
                     <button
                       key={f.id}
@@ -769,7 +780,7 @@ export default function CustomerDashboard() {
               {catalogError && <div className="text-sm text-red-600 py-4">{catalogError}</div>}
 
               <div className="grid gap-4 mt-2 md:grid-cols-2">
-                {(catalogData?.items || []).map((o) => (
+                {(catalogData?.items || []).map((o: any) => (
                   <div key={o.id} className="card-elevated p-5 flex flex-col h-full bg-white border border-surface-100">
                     <div className="text-[10px] font-bold uppercase tracking-wide text-brand-pink-500 mb-1">{o.category}</div>
                     <h3 className="text-lg font-bold text-surface-900 mb-2 leading-snug">{o.name}</h3>
@@ -778,6 +789,15 @@ export default function CustomerDashboard() {
                       {o.maxSessions != null ? o.maxSessions : ar() ? "غير محدد" : "Unlimited"}
                     </div>
                     <div className="text-2xl font-black text-brand-pink-600 mb-4">{o.subscriptionPriceKwd} KWD</div>
+                    {Array.isArray(o.tagsEn) && o.tagsEn.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-3">
+                        {(ar() ? (o.tagsAr || []) : (o.tagsEn || [])).slice(0, 3).map((t: string) => (
+                          <span key={t} className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-surface-100 text-surface-700">
+                            {t}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     <button
                       type="button"
                       className="mt-auto btn-primary w-full shadow-md"
@@ -786,7 +806,11 @@ export default function CustomerDashboard() {
                           await apiFetch("/commerce/select-offer", {
                             method: "POST",
                             headers: getAuthHeader(),
-                            body: JSON.stringify({ offerId: o.id })
+                            body: JSON.stringify({
+                              offerId: o.id,
+                              paymentOption: o.allowDeposit ? "deposit" : o.allowInstallments ? "installments" : "full",
+                              installments: o.allowInstallments ? Math.max(1, Number(o.maxInstallments || 1)) : undefined
+                            })
                           });
                           await refetchMyOffers();
                           setSysAlert(ar() ? "تم إنشاء طلب الدفع — راجعي قسم العروض" : "Payment hold created — check My offers");

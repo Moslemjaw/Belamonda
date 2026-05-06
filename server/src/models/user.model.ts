@@ -3,9 +3,9 @@ import mongoose, { Schema } from "mongoose";
 
 const UserSchema = new Schema(
   {
-    username: { type: String, trim: true, lowercase: true, index: true, sparse: true },
-    email: { type: String, trim: true, lowercase: true, index: true, sparse: true },
-    phone: { type: String, trim: true, index: true, sparse: true },
+    username: { type: String, trim: true, lowercase: true, sparse: true },
+    email: { type: String, trim: true, lowercase: true, sparse: true },
+    phone: { type: String, trim: true, sparse: true },
     passwordHash: { type: String, required: true },
     role: {
       type: String,

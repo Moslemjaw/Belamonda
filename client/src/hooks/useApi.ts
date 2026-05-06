@@ -87,6 +87,9 @@ export function useMyOffers() {
     items: Array<{
       id: string; offerId: string; clinicId: string; status: string;
       sessionsUsed: number; activatedAt?: string; expiresAt?: string;
+      offerName?: string;
+      clinicNameEn?: string;
+      clinicNameAr?: string;
     }>;
   }>("/commerce/me/offers");
 }
@@ -207,6 +210,22 @@ export function useClinicSchedule(clinicId: string) {
   }>(`/scheduling/clinic/${clinicId}/schedule?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
     deps: [clinicId]
   });
+}
+
+export function useClinicRequests(clinicId: string) {
+  return useApi<{
+    items: Array<{
+      id: string;
+      userId: string;
+      userOfferId: string;
+      offerId: string;
+      offerName?: string;
+      clinicId: string;
+      preferredAt?: string;
+      notes?: string;
+      createdAt?: string;
+    }>;
+  }>(`/scheduling/clinic/${encodeURIComponent(clinicId)}/requests`, { deps: [clinicId] });
 }
 
 export function useBookingRequests(status: "pending" | "scheduled" | "cancelled" | "all" = "pending") {

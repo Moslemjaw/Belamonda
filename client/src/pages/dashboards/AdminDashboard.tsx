@@ -3,11 +3,11 @@ import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { OffersAdminPanel } from "../../features/admin/OffersAdminPanel";
 import { CategoriesAdminPanel } from "../../features/admin/CategoriesAdminPanel";
+import { TreatmentTypesAdminPanel } from "../../features/admin/TreatmentTypesAdminPanel";
 import { useAuth } from "../../app/AuthContext";
 import { useApi, useKycQueue, usePendingPayments, useComplaints, useProducts, useFinanceSnapshot } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
-import { allTreatments, treatmentCategories } from "../../lib/treatments";
 import { sharedClinics } from "../../lib/clinics";
 
 const ar = () => i18n.language === "ar";
@@ -50,43 +50,32 @@ function SessionsManager() {
         const parsed = JSON.parse(stored);
         if (parsed && parsed.length > 0) return parsed;
       }
-      const defaults = allTreatments.map(t => {
-        const cat = treatmentCategories.find(c => c.id === t.category);
-        return {
-          id: `sess_${t.id}`,
-          title: ar() ? t.nameAr : t.nameEn,
-          icon: cat?.icon || "✨",
-          categoryId: t.category,
-          treatmentId: t.id,
-          clinicId: "clinic_qibla",
-          price: t.category === "injectables" ? 150 : t.category === "laser" ? 60 : 90,
-          cashbackDeduction: t.category === "injectables" ? 50 : 20
-        };
-      });
-      localStorage.setItem('demo_standalone_sessions_v6', JSON.stringify(defaults));
-      return defaults;
+      return [];
     } catch(e) { return []; }
   });
   const [showCreate, setShowCreate] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [sessionFilter, setSessionFilter] = useState("all");
-  const [form, setForm] = useState({ categoryId: "injectables", treatmentId: "", clinicId: "", price: "19", cashbackDeduction: "0" });
+  const [form, setForm] = useState({ categoryId: "", treatmentId: "", clinicId: "", price: "19", cashbackDeduction: "0" });
   
   const { data: clinicsData } = useApi<{ clinics: any[] }>("/clinics/admin");
+  const { data: categoriesData } = useApi<{ items: Array<{ id: string; slug: string; nameEn: string; nameAr: string }> }>("/categories");
+  const { data: treatmentTypesData } = useApi<{ items: Array<{ id: string; slug: string; nameEn: string; nameAr: string; isActive: boolean }> }>("/session-types/admin");
+  const categories = categoriesData?.items || [];
+  const treatmentTypes = (treatmentTypesData?.items || []).filter((t) => t.isActive !== false);
 
-  const availableTreatments = allTreatments.filter(t => t.category === form.categoryId);
+  const availableTreatments = treatmentTypes;
 
   const saveSession = () => {
      if (!form.clinicId || !form.treatmentId) return;
-     const treatment = allTreatments.find(t => t.id === form.treatmentId);
-     const category = treatmentCategories.find(c => c.id === form.categoryId);
+     const treatment = treatmentTypes.find(t => t.id === form.treatmentId);
+     const category = categories.find(c => c.id === form.categoryId || c.slug === form.categoryId);
      if (!treatment || !category) return;
 
      const newSession = { 
         id: editingSessionId || `sess_${Date.now()}`, 
-        title: ar() ? treatment.nameAr : treatment.nameEn, 
-        icon: category.icon, 
-        categoryId: form.categoryId,
+        title: ar() ? treatment.nameAr : treatment.nameEn,
+        categoryId: category.id,
         treatmentId: form.treatmentId,
         clinicId: form.clinicId, 
         price: parseFloat(form.price) || 0,
@@ -135,7 +124,7 @@ function SessionsManager() {
     const existing = sessions.find((s: any) => s.treatmentId === treatmentId);
     if (!existing) return;
     setForm({
-      categoryId: existing.categoryId || "injectables",
+      categoryId: existing.categoryId || categories[0]?.id || "",
       treatmentId: existing.treatmentId,
       clinicId: "",
       price: "19",
@@ -149,7 +138,7 @@ function SessionsManager() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "إدارة الجلسات المنفردة" : "Standalone Sessions"}</h3>
-        <button className="btn-primary btn-sm" onClick={() => { setShowCreate(!showCreate); setEditingSessionId(null); setForm({ categoryId: "injectables", treatmentId: "", clinicId: "", price: "19", cashbackDeduction: "0" }); }}>+ {ar() ? "إضافة جلسة جديدة" : "Add New Session"}</button>
+        <button className="btn-primary btn-sm" onClick={() => { setShowCreate(!showCreate); setEditingSessionId(null); setForm({ categoryId: categories[0]?.id || "", treatmentId: "", clinicId: "", price: "19", cashbackDeduction: "0" }); }}>+ {ar() ? "إضافة جلسة جديدة" : "Add New Session"}</button>
       </div>
 
       {showCreate && (
@@ -160,11 +149,11 @@ function SessionsManager() {
                  <label className="text-xs font-medium text-surface-500">{ar() ? "الفئة" : "Category"}</label>
                  <select className="select-field mt-1" value={form.categoryId} onChange={e => {
                     const catId = e.target.value;
-                    const firstTreatment = allTreatments.find(t => t.category === catId);
+                    const firstTreatment = treatmentTypes[0];
                     setForm({ ...form, categoryId: catId, treatmentId: firstTreatment?.id || "" });
                  }}>
-                    {treatmentCategories.map(c => (
-                      <option key={c.id} value={c.id}>{c.icon} {ar() ? c.nameAr : c.nameEn}</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>
                     ))}
                  </select>
               </div>
@@ -207,15 +196,14 @@ function SessionsManager() {
 
       <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-4">
         {[
-          { id: "all", icon: "✨", label: ar() ? "الكل" : "All" },
-          ...treatmentCategories.map(c => ({ id: c.id, icon: c.icon, label: ar() ? c.nameAr : c.nameEn }))
+          { id: "all", label: ar() ? "الكل" : "All" },
+          ...categories.map(c => ({ id: c.id, label: ar() ? c.nameAr : c.nameEn }))
         ].map(f => (
           <button
             key={f.id}
             onClick={() => setSessionFilter(f.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-xs font-bold transition-all ${sessionFilter === f.id ? "bg-surface-900 text-white shadow-md" : "bg-white text-surface-600 border border-surface-200 hover:bg-surface-100"}`}
           >
-            <span>{f.icon}</span>
             <span>{f.label}</span>
           </button>
         ))}
@@ -227,8 +215,8 @@ function SessionsManager() {
         )}
         {Object.entries(grouped).filter(([_, items]) => sessionFilter === "all" || items[0].categoryId === sessionFilter).map(([tid, items]: [string, any[]]) => {
           const first = items[0];
-          const tDef = allTreatments.find(t => t.id === tid);
-          const cDef = treatmentCategories.find(c => c.id === first.categoryId);
+          const tDef = treatmentTypes.find(t => t.id === tid);
+          const cDef = categories.find(c => c.id === first.categoryId || c.slug === first.categoryId);
           const treatmentName = tDef ? (ar() ? tDef.nameAr : tDef.nameEn) : first.title;
           const categoryName = cDef ? (ar() ? cDef.nameAr : cDef.nameEn) : first.categoryId;
           return (
@@ -236,7 +224,7 @@ function SessionsManager() {
               <div className="bg-surface-50 px-5 py-3 border-b border-surface-100 flex items-center justify-between">
                 <div>
                   <div className="font-bold text-surface-900 flex items-center gap-2">
-                    <span className="text-lg">{first.icon}</span> {treatmentName}
+                    {treatmentName}
                   </div>
                   <div className="text-xs text-surface-500 mt-0.5">{categoryName} • {items.length} {ar() ? "عيادة" : items.length === 1 ? "clinic" : "clinics"}</div>
                 </div>
@@ -970,6 +958,7 @@ export default function AdminDashboard() {
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
     { key: "offers", icon: Icons.offers, label: t("offers") },
     { key: "categories", icon: Icons.chart, label: ar() ? "الفئات" : "Categories" },
+    { key: "treatmentTypes", icon: Icons.offers, label: ar() ? "أنواع العلاج" : "Treatment Types" },
     { key: "standalone", icon: Icons.calendar, label: ar() ? "الجلسات" : "Sessions" },
     { key: "users", icon: Icons.users, label: t("users") },
     { key: "clinics", icon: Icons.clinic, label: t("clinics") },
@@ -1033,6 +1022,7 @@ export default function AdminDashboard() {
         )}
         {activeNav === "offers" && <OffersManager />}
         {activeNav === "categories" && <CategoriesAdminPanel />}
+        {activeNav === "treatmentTypes" && <TreatmentTypesAdminPanel />}
         {activeNav === "standalone" && <SessionsManager />}
         {activeNav === "clinics" && <ClinicsManager />}
         {activeNav === "tasks" && <TasksManager />}
