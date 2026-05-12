@@ -642,22 +642,29 @@ export default function CustomerDashboard() {
   const standaloneSessions = standaloneOfferingsData?.items || [];
 
   const dynamicTreatments = standaloneSessions.reduce((acc: any[], s: any) => {
+    const priceKwd = parseFloat(s.priceKwd) || 0;
+    const cashbackKwd = parseFloat(s.cashbackDeductionKwd) || 0;
     let existing = acc.find((x: any) => x.id === s.sessionTypeId);
     if (!existing) {
-       existing = {
-           id: s.sessionTypeId,
-           nameEn: s.nameEn,
-           nameAr: s.nameAr,
-           category: s.categorySlug,
-           priceKwd: parseFloat(s.priceKwd) || 0,
-           cashbackKwd: parseFloat(s.cashbackDeductionKwd) || 0,
-           discountPct: 0,
-           clinicIds: []
-       };
-       acc.push(existing);
+      existing = {
+        id: s.sessionTypeId,
+        nameEn: s.nameEn,
+        nameAr: s.nameAr,
+        category: s.categorySlug,
+        priceKwd,
+        cashbackKwd,
+        discountPct: 0,
+        clinicIds: [] as string[],
+        /** Each clinic can charge a different price for the same session type */
+        offeringsByClinic: {} as Record<string, { priceKwd: number; cashbackKwd: number }>
+      };
+      acc.push(existing);
     }
-    if (s.clinicId && !existing.clinicIds.includes(s.clinicId)) {
-       existing.clinicIds.push(s.clinicId);
+    if (s.clinicId) {
+      if (!existing.clinicIds.includes(s.clinicId)) {
+        existing.clinicIds.push(s.clinicId);
+      }
+      existing.offeringsByClinic[s.clinicId] = { priceKwd, cashbackKwd };
     }
     return acc;
   }, []);
@@ -703,6 +710,8 @@ export default function CustomerDashboard() {
   const [bookFirstSession, setBookFirstSession] = useState(true);
   const [selectedFirstSession, setSelectedFirstSession] = useState<string>("");
   const [selectedFirstClinic, setSelectedFirstClinic] = useState<string>("");
+  /** Preferred clinic per session type on "Book a Session" cards (drives per-clinic price) */
+  const [sessionClinicByTreatmentId, setSessionClinicByTreatmentId] = useState<Record<string, string>>({});
   const [walletActionLoading, setWalletActionLoading] = useState<"apple" | "google" | null>(null);
 
   const [complaintForm, setComplaintForm] = useState({ category: "other", subject: "", description: "" });
@@ -1020,7 +1029,7 @@ export default function CustomerDashboard() {
   }
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-surface-50 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] lg:pb-0 flex flex-col lg:flex-row">
+    <div className="min-h-screen min-h-[100dvh] bg-surface-50 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] lg:pb-0 flex flex-col lg:flex-row overflow-x-hidden">
       
       {/* Mobile Header */}
       <header className="lg:hidden bg-white/90 backdrop-blur-md px-4 pb-3.5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] flex items-center justify-between sticky top-0 z-30 border-b border-surface-100/80 supports-[backdrop-filter]:bg-white/75">
@@ -1057,7 +1066,7 @@ export default function CustomerDashboard() {
       </header>
 
       {/* Desktop Sidebar (Optional, but kept minimal to feel like an app menu) */}
-      <aside className="hidden lg:flex w-64 bg-white border-r border-surface-200 flex-col sticky top-0 h-screen z-30">
+      <aside className="hidden lg:flex w-64 shrink-0 bg-white border-r border-surface-200 flex-col sticky top-0 h-screen z-30 overflow-y-auto">
         <div className="p-6 pb-2 border-b border-surface-100 flex items-center gap-3">
           <BelamondaIcon size={32} />
           <span className="text-xl font-bold text-surface-900 tracking-tight">Belamonda</span>
@@ -1099,8 +1108,8 @@ export default function CustomerDashboard() {
         </div>
       </aside>
 
-      {/* Main App Content */}
-      <main className="flex-1 w-full max-w-2xl mx-auto lg:max-w-none animate-fade-in relative">
+      {/* Main App Content — min-w-0 prevents flex overflow; inner max-width keeps lines readable on ultrawide */}
+      <main className="flex-1 min-w-0 w-full max-w-2xl mx-auto sm:max-w-3xl lg:max-w-none animate-fade-in relative">
 
         {/* ── Desktop unified hero header ── */}
         {(() => {
@@ -1114,7 +1123,7 @@ export default function CustomerDashboard() {
         return (
         <div className="hidden lg:block relative overflow-hidden">
           {/* gradient background that spans greeting + any status banner */}
-          <div className={`relative ${kycStatus === "unverified" ? "bg-brand-gradient" : kycStatus === "pending" ? "bg-gradient-to-r from-blue-500 to-blue-400" : "bg-gradient-to-br from-brand-pink-50 via-white to-brand-sage-50"} px-8 pt-6 pb-0 border-b border-surface-100`}>
+          <div className={`relative ${kycStatus === "unverified" ? "bg-brand-gradient" : kycStatus === "pending" ? "bg-gradient-to-r from-blue-500 to-blue-400" : "bg-gradient-to-br from-brand-pink-50 via-white to-brand-sage-50"} px-4 sm:px-8 lg:px-10 pt-6 pb-0 border-b border-surface-100`}>
             {/* subtle bokeh blobs */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <div className={`absolute -top-12 -right-12 w-64 h-64 rounded-full blur-3xl ${isLight ? "bg-brand-pink-200/40" : "bg-white/10"}`} />
@@ -1150,8 +1159,8 @@ export default function CustomerDashboard() {
 
             {/* status message row inside the gradient zone */}
             {kycStatus === "unverified" && (
-              <div className="relative z-10 flex items-center justify-between gap-4 bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-4 mb-0 border border-white/20">
-                <div className="flex items-center gap-3">
+              <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-4 mb-0 border border-white/20">
+                <div className="flex items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
                     <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                   </div>
@@ -1160,7 +1169,7 @@ export default function CustomerDashboard() {
                     <div className="text-white/75 text-xs mt-0.5">{ar() ? "أكملي التوثيق لتفعيل الدفع وشراء الباقات والكاش باك." : "Complete verification to enable payments, packages, and cashback."}</div>
                   </div>
                 </div>
-                <button className="shrink-0 bg-white text-brand-pink-600 font-bold px-5 py-2 rounded-xl text-sm shadow-sm hover:scale-105 transition-transform whitespace-nowrap" onClick={() => setActiveTab("profile")}>
+                <button className="shrink-0 w-full sm:w-auto bg-white text-brand-pink-600 font-bold px-5 py-2.5 rounded-xl text-sm shadow-sm hover:scale-[1.02] transition-transform whitespace-nowrap text-center" onClick={() => setActiveTab("profile")}>
                   {ar() ? "تحديث الآن" : "Update Profile"}
                 </button>
               </div>
@@ -1211,7 +1220,7 @@ export default function CustomerDashboard() {
                   </button>
                 ))}
               </div>
-              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 pt-4">
+              <div className="grid gap-5 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 pt-4">
                 {filtered.map((o: any) => {
                   const isFeatured = o.id === featuredId && filtered.length > 1;
                   const sessions = o.sessionCount || o.maxSessions;
@@ -1382,7 +1391,7 @@ export default function CustomerDashboard() {
                       </button>
                     </div>
                   ) : (
-                    <div className="grid gap-5 md:grid-cols-2">
+                    <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
                       {activeOffers.map(o => {
                         const isCashback = o.isCashbackOnly || o.membershipType === "cashback";
                         const isPending = o.status === 'pending payment';
@@ -1556,8 +1565,8 @@ export default function CustomerDashboard() {
 
               {/* ── Book a Session ── */}
               <div className="mt-10">
-                 <div className="flex items-start gap-4 mb-6">
-                    <div className="w-12 h-12 rounded-2xl bg-brand-pink-50 flex items-center justify-center text-brand-pink-500 shrink-0">
+                 <div className="flex flex-col min-[380px]:flex-row items-start gap-3 sm:gap-4 mb-6">
+                    <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-brand-pink-50 flex items-center justify-center text-brand-pink-500 shrink-0">
                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                     </div>
                     <div>
@@ -1566,11 +1575,16 @@ export default function CustomerDashboard() {
                     </div>
                  </div>
 
-                 {/* Session Categories Filter */}
-                 <div className="flex gap-2 overflow-x-auto no-scrollbar pb-4 mb-4">
+                 {/* Session Categories Filter — horizontal scroll on small screens, wrap from md */}
+                 <div className="relative -mx-1 px-1 sm:mx-0 sm:px-0 mb-4">
+                    <div
+                      className="flex gap-2 overflow-x-auto overflow-y-hidden no-scrollbar pb-2 sm:flex-wrap sm:overflow-visible sm:pb-0 touch-pan-x overscroll-x-contain"
+                      style={{ WebkitOverflowScrolling: "touch" }}
+                    >
                     <button
+                      type="button"
                       onClick={() => setSessionFilter("all")}
-                      className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap font-medium transition-all ${sessionFilter === "all" ? "bg-surface-900 text-white shadow-md scale-105" : "bg-surface-50 text-surface-600 border border-surface-200 hover:bg-surface-100"}`}
+                      className={`snap-start shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-full text-xs sm:text-sm whitespace-nowrap sm:whitespace-normal font-medium transition-all ${sessionFilter === "all" ? "bg-surface-900 text-white shadow-md" : "bg-surface-50 text-surface-600 border border-surface-200 hover:bg-surface-100"}`}
                     >
                       {ar() ? "الكل" : "All"}
                     </button>
@@ -1578,19 +1592,21 @@ export default function CustomerDashboard() {
                       const icon = getCategoryIcon(cat.slug);
                       return (
                         <button
+                          type="button"
                           key={cat.slug}
                           onClick={() => setSessionFilter(cat.slug)}
-                          className={`flex items-center gap-2 px-4 py-2.5 rounded-full whitespace-nowrap font-medium transition-all ${sessionFilter === cat.slug ? "bg-brand-pink-500 text-white shadow-md scale-105" : "bg-surface-50 text-surface-600 border border-surface-200 hover:bg-surface-100"}`}
+                          className={`snap-start shrink-0 flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-full text-xs sm:text-sm whitespace-nowrap sm:whitespace-normal font-medium transition-all ${sessionFilter === cat.slug ? "bg-brand-pink-500 text-white shadow-md" : "bg-surface-50 text-surface-600 border border-surface-200 hover:bg-surface-100"}`}
                         >
-                          <span>{icon}</span>
-                          <span>{ar() ? cat.nameAr : cat.nameEn}</span>
+                          <span className="shrink-0">{icon}</span>
+                          <span className="max-w-[10rem] sm:max-w-none truncate sm:overflow-visible sm:text-balance">{ar() ? cat.nameAr : cat.nameEn}</span>
                         </button>
                       );
                     })}
+                    </div>
                  </div>
 
-                 {/* Sessions Grid */}
-                 <div className="grid gap-5 md:grid-cols-2">
+                 {/* Sessions Grid — 1 col phone, 2 tablet/desktop, 3 wide */}
+                 <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
                     {dynamicTreatments.filter((t: any) => sessionFilter === "all" || t.category === sessionFilter).map((t: any) => {
                        const activeOffers = offers.filter(o => o.status === 'active');
                        // Any active membership that covers this session category counts.
@@ -1602,22 +1618,32 @@ export default function CustomerDashboard() {
                           return false;
                        });
                        const hasMembership = !!applicableCashbackOffer;
+                       const availableClinics = t.clinicIds.map((id: string) => clinicsById.get(id) || (clinicsPublic?.items || []).find(c => c.id === id) || { id, nameEn: id, nameAr: id });
+                       const offeringsBy = (t.offeringsByClinic || {}) as Record<string, { priceKwd: number; cashbackKwd: number }>;
+                       const defaultClinicId = availableClinics[0]?.id ?? "";
+                       const storedClinic = sessionClinicByTreatmentId[t.id];
+                       const selectedClinicForCard =
+                         storedClinic && availableClinics.some((cl: any) => cl.id === storedClinic)
+                           ? storedClinic
+                           : defaultClinicId;
+                       const clinicOffering = selectedClinicForCard ? offeringsBy[selectedClinicForCard] : undefined;
+                       const basePrice = clinicOffering?.priceKwd ?? t.priceKwd;
+                       const baseCashbackKwd = clinicOffering?.cashbackKwd ?? t.cashbackKwd;
                        const actualDiscountPct = hasMembership ? t.discountPct : 0;
                        // Per-session cashback: prefer the session-specific override, then the offer's general rate.
                        const offerCashbackPerSession = parseFloat((applicableCashbackOffer as any)?.cashbackPerSessionKwd || "0");
-                       const actualCashbackKwd = hasMembership ? (t.cashbackKwd || offerCashbackPerSession) : 0;
+                       const actualCashbackKwd = hasMembership ? (baseCashbackKwd || offerCashbackPerSession) : 0;
 
-                       const discountAmt = actualDiscountPct > 0 ? +(t.priceKwd * actualDiscountPct / 100).toFixed(3) : 0;
-                       const priceAfterDiscount = +(t.priceKwd - discountAmt).toFixed(3);
+                       const discountAmt = actualDiscountPct > 0 ? +(basePrice * actualDiscountPct / 100).toFixed(3) : 0;
+                       const priceAfterDiscount = +(basePrice - discountAmt).toFixed(3);
                        // Effective price shown to member = pay priceAfterDiscount, earn cashback back
                        const effectivePrice = hasMembership && actualCashbackKwd > 0
                          ? +(priceAfterDiscount - actualCashbackKwd).toFixed(3)
                          : priceAfterDiscount;
                        const finalPrice = priceAfterDiscount;
-                       const availableClinics = t.clinicIds.map((id: string) => clinicsById.get(id) || (clinicsPublic?.items || []).find(c => c.id === id) || { id, nameEn: id, nameAr: id });
                        
                        const savingsKwd = hasMembership && actualCashbackKwd > 0 ? actualCashbackKwd : 0;
-                       const savingsPct = t.priceKwd > 0 && savingsKwd > 0 ? Math.round((savingsKwd / t.priceKwd) * 100) : 0;
+                       const savingsPct = basePrice > 0 && savingsKwd > 0 ? Math.round((savingsKwd / basePrice) * 100) : 0;
                        return (
                        <div key={t.id} className={`relative rounded-3xl overflow-hidden flex flex-col transition-all duration-300 group border ${hasMembership ? 'bg-white border-brand-pink-200 shadow-md hover:shadow-xl hover:border-brand-pink-400 hover:-translate-y-1' : 'bg-white border-surface-200 shadow-sm hover:shadow-lg hover:border-surface-300 hover:-translate-y-0.5'}`}>
 
@@ -1632,7 +1658,7 @@ export default function CustomerDashboard() {
                             </div>
                           )}
 
-                          <div className="p-6 flex flex-col flex-1">
+                          <div className="p-4 sm:p-6 flex flex-col flex-1 min-w-0">
                             {/* Corner accent blob */}
                             <div className={`absolute top-0 end-0 w-28 h-28 ${hasMembership ? 'bg-brand-pink-100/50' : 'bg-surface-50'} rounded-bl-[80px] pointer-events-none group-hover:scale-110 transition-transform duration-500 origin-top-right -z-0`} />
 
@@ -1648,7 +1674,7 @@ export default function CustomerDashboard() {
                               </div>
 
                               {/* Title */}
-                              <h3 className="text-lg font-black text-surface-900 leading-snug mb-4 tracking-tight">
+                              <h3 className="text-base sm:text-lg font-black text-surface-900 leading-snug mb-3 sm:mb-4 tracking-tight break-words">
                                 {ar() ? t.nameAr : t.nameEn}
                               </h3>
 
@@ -1656,8 +1682,18 @@ export default function CustomerDashboard() {
                               <div className="mb-5">
                                 {availableClinics.length > 0 ? (
                                   <div className="relative">
-                                    <select className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer pe-10 ${hasMembership ? 'bg-brand-pink-50/50 border-brand-pink-200 text-surface-700 focus:ring-brand-pink-400' : 'bg-surface-50 border-surface-200 text-surface-700 focus:ring-surface-900'}`}>
-                                      {availableClinics.map((cl: any) => <option key={cl.id} value={cl.id}>{ar() ? cl.nameAr : cl.nameEn}</option>)}
+                                    <select
+                                      className={`w-full border rounded-2xl px-4 py-3 text-sm font-medium focus:outline-none focus:ring-2 transition-all appearance-none cursor-pointer pe-10 ${hasMembership ? 'bg-brand-pink-50/50 border-brand-pink-200 text-surface-700 focus:ring-brand-pink-400' : 'bg-surface-50 border-surface-200 text-surface-700 focus:ring-surface-900'}`}
+                                      value={selectedClinicForCard}
+                                      onChange={(e) =>
+                                        setSessionClinicByTreatmentId((prev) => ({ ...prev, [t.id]: e.target.value }))
+                                      }
+                                    >
+                                      {availableClinics.map((cl: any) => (
+                                        <option key={cl.id} value={cl.id}>
+                                          {ar() ? cl.nameAr : cl.nameEn}
+                                        </option>
+                                      ))}
                                     </select>
                                     <div className="absolute end-4 top-1/2 -translate-y-1/2 pointer-events-none text-surface-400">
                                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
@@ -1682,7 +1718,7 @@ export default function CustomerDashboard() {
                                     {/* Rows */}
                                     <div className="flex justify-between items-center">
                                       <span className="text-xs text-surface-500 font-medium">{ar() ? "السعر الأصلي" : "Original price"}</span>
-                                      <span className="text-sm font-medium text-surface-400 line-through">{t.priceKwd.toFixed(3)} KWD</span>
+                                      <span className="text-sm font-medium text-surface-400 line-through">{basePrice.toFixed(3)} KWD</span>
                                     </div>
                                     <div className="flex justify-between items-center">
                                       <div className="flex items-center gap-1.5">
@@ -1706,22 +1742,22 @@ export default function CustomerDashboard() {
                                   </div>
                                 ) : null}
 
-                                {/* Price + CTA row */}
-                                <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                    <div className="flex items-baseline gap-1.5">
-                                      <span className={`text-3xl font-black leading-none tracking-tight ${hasMembership && actualCashbackKwd > 0 ? 'text-brand-pink-600' : 'text-surface-900'}`}>
+                                {/* Price + CTA row — stack on very narrow viewports */}
+                                <div className="flex flex-col gap-3 min-[400px]:flex-row min-[400px]:items-end min-[400px]:justify-between min-[400px]:gap-3">
+                                  <div className="min-w-0">
+                                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                                      <span className={`text-2xl sm:text-3xl font-black leading-none tracking-tight ${hasMembership && actualCashbackKwd > 0 ? 'text-brand-pink-600' : 'text-surface-900'}`}>
                                         {(hasMembership && actualCashbackKwd > 0 ? Math.max(0, effectivePrice) : finalPrice).toFixed(3)}
                                       </span>
                                       <span className="text-[11px] font-black text-surface-400 uppercase">KWD</span>
                                     </div>
                                     {hasMembership && actualCashbackKwd > 0 && (
-                                      <div className="text-[10px] text-surface-400 mt-0.5">{ar() ? `بدلاً من ${t.priceKwd.toFixed(3)}` : `vs ${t.priceKwd.toFixed(3)} standard`}</div>
+                                      <div className="text-[10px] text-surface-400 mt-0.5">{ar() ? `بدلاً من ${basePrice.toFixed(3)}` : `vs ${basePrice.toFixed(3)} standard`}</div>
                                     )}
                                   </div>
 
                                   <button
-                                    className={`px-5 py-3 rounded-2xl text-sm font-black transition-all duration-200 flex items-center gap-2 shrink-0 ${availableClinics.length > 0 ? hasMembership ? 'bg-brand-gradient text-white shadow-glow hover:opacity-90 hover:-translate-y-0.5' : 'bg-surface-900 text-white shadow-md hover:bg-surface-800 hover:shadow-lg hover:-translate-y-0.5' : 'bg-surface-100 text-surface-400 cursor-not-allowed'}`}
+                                    className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center justify-center gap-2 shrink-0 w-full min-[400px]:w-auto ${availableClinics.length > 0 ? hasMembership ? 'bg-brand-gradient text-white shadow-glow hover:opacity-90 hover:-translate-y-0.5' : 'bg-surface-900 text-white shadow-md hover:bg-surface-800 hover:shadow-lg hover:-translate-y-0.5' : 'bg-surface-100 text-surface-400 cursor-not-allowed'}`}
                                     disabled={availableClinics.length === 0}
                                     onClick={() => {
                                       if (applicableCashbackOffer) {
@@ -1739,14 +1775,17 @@ export default function CustomerDashboard() {
                                         offerId: ar() ? t.nameAr : t.nameEn,
                                         offerName: ar() ? t.nameAr : t.nameEn,
                                         treatmentName: ar() ? t.nameAr : t.nameEn,
+                                        treatmentId: t.id,
                                         treatmentCategory: t.category,
                                         status: "active",
                                         method: applicableCashbackOffer ? "Membership" : "Standalone",
-                                        priceKwd: t.priceKwd,
+                                        priceKwd: basePrice,
                                         discountPct: actualDiscountPct,
                                         cashbackKwd: actualCashbackKwd,
                                         finalPrice,
-                                        applicableCashbackOfferId: applicableCashbackOffer ? applicableCashbackOffer.id : null
+                                        applicableCashbackOfferId: applicableCashbackOffer ? applicableCashbackOffer.id : null,
+                                        clinicId: selectedClinicForCard || undefined,
+                                        standaloneClinicIds: t.clinicIds?.length ? [...t.clinicIds] : undefined
                                       };
                                       setShowBookingModal(bookingPayload);
                                     }}
@@ -2940,7 +2979,13 @@ export default function CustomerDashboard() {
                   {(() => {
                      const baseOffer = homeCatalogData?.items?.find((o: any) => o.id === showBookingModal.offerId) || showBookingModal;
                      const renderClinicOptions = () => {
-                        return (clinicsPublic?.items || []).map((c: any) => {
+                        const allowed = showBookingModal.standaloneClinicIds;
+                        const pool =
+                           Array.isArray(allowed) && allowed.length > 0
+                              ? (clinicsPublic?.items || []).filter((c: any) => allowed.includes(c.id))
+                              : (clinicsPublic?.items || []);
+                        const clinicOptionsPool = pool.length > 0 ? pool : (clinicsPublic?.items || []);
+                        return clinicOptionsPool.map((c: any) => {
                            const override = baseOffer?.clinicOverrides?.find((b: any) => b.clinicId === c.id);
                            const feeText = override && parseFloat(override.sessionPriceKwd) > 0 
                               ? (ar() ? ` (+${override.sessionPriceKwd} د.ك للجلسة)` : ` (+${override.sessionPriceKwd} KWD/session)`) 
@@ -2953,7 +2998,12 @@ export default function CustomerDashboard() {
                            {renderClinicOptions()}
                         </select>
                      ) : (
-                        <select className="select-field w-full bg-surface-50" id="bookingClinicSelect">
+                        <select
+                           className="select-field w-full bg-surface-50"
+                           id="bookingClinicSelect"
+                           key={`bc-${String(showBookingModal.id)}-${String(showBookingModal.clinicId ?? "")}`}
+                           defaultValue={showBookingModal.clinicId || ""}
+                        >
                            {renderClinicOptions()}
                         </select>
                      );
@@ -3030,6 +3080,12 @@ export default function CustomerDashboard() {
                    matchedStandalone?.bookingMode ||
                    (offer as any).bookingMode ||
                    "clinic_handles";
+                 const standalonePriceKwd =
+                   matchedStandalone?.priceKwd != null && matchedStandalone.priceKwd !== ""
+                     ? String(matchedStandalone.priceKwd)
+                     : Number.isFinite(Number(offer.priceKwd))
+                       ? Number(offer.priceKwd).toFixed(3)
+                       : String(offer.priceKwd ?? "0.000");
 
                  await apiFetch("/scheduling/me/request", {
                    method: "POST",
@@ -3040,7 +3096,7 @@ export default function CustomerDashboard() {
                       isStandalone: isStandaloneBooking,
                       schedulingMode: isStandaloneBooking ? resolvedSchedulingMode : undefined,
                       standaloneName: isStandaloneBooking ? (offer.offerName || offer.offerId || offer.treatmentName) : undefined,
-                      standalonePrice: isStandaloneBooking ? (offer.priceKwd || "0.000") : undefined
+                      standalonePrice: isStandaloneBooking ? standalonePriceKwd : undefined
                    })
                  });
                  await refetchMySessions();

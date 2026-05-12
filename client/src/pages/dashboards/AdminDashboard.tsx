@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
@@ -753,6 +753,20 @@ function SessionsManager() {
     return n.toFixed(3);
   };
 
+  const resolveClinicName = (clinicId: string | undefined) => {
+    if (!clinicId) return "—";
+    const id = String(clinicId);
+    const apiHit = (clinicsData?.clinics || []).find((c: any) => String(c.id ?? c._id) === id);
+    if (apiHit) {
+      return ar() ? (apiHit.nameAr || apiHit.nameEn || id) : (apiHit.nameEn || apiHit.nameAr || id);
+    }
+    const sharedHit = sharedClinics.find((c) => c.id === id);
+    if (sharedHit) {
+      return ar() ? (sharedHit.nameAr || sharedHit.nameEn) : (sharedHit.nameEn || sharedHit.nameAr);
+    }
+    return id;
+  };
+
   const saveSession = async () => {
      if (!form.clinicId || !form.treatmentId) return;
      try {
@@ -967,7 +981,9 @@ function SessionsManager() {
                 <tbody>
                   {items.map((s: any) => (
                     <tr key={s.id}>
-                      <td className="text-surface-700 font-medium">{s.clinicId}</td>
+                      <td className="text-surface-700 font-medium">
+                        <span title={s.clinicId}>{resolveClinicName(s.clinicId)}</span>
+                      </td>
                       <td className="text-brand-pink-600 font-bold">{s.priceKwd || "0.000"} KWD</td>
                       <td className="text-blue-600 font-bold">{s.cashbackDeductionKwd || "0.000"} KWD</td>
                       <td>
@@ -1362,8 +1378,7 @@ function SettingsToggle({ checked, onChange, color = "brand-pink" }: { checked: 
 }
 
 function AdminSettings() {
-  const { token } = useAuth();
-  const apiHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+  const { getAuthHeader } = useAuth();
 
   // ── Profile state ──────────────────────────────────────────────────────
   const [profileLoading, setProfileLoading] = useState(true);
@@ -1376,20 +1391,35 @@ function AdminSettings() {
   const [username, setUsername] = useState("");
 
   useEffect(() => {
-    fetch("/api/users/me", { headers: apiHeaders })
-      .then(r => r.json())
-      .then(d => {
+    let cancelled = false;
+    setProfileLoading(true);
+    void (async () => {
+      try {
+        const d = (await apiFetch("/users/me", { headers: getAuthHeader() })) as {
+          user?: { fullName?: string; email?: string; phone?: string; username?: string };
+        };
+        if (cancelled) return;
         if (d.user) {
           setFullName(d.user.fullName ?? "");
           setEmail(d.user.email ?? "");
           setPhone(d.user.phone ?? "");
           setUsername(d.user.username ?? "");
         }
-      })
-      .catch(() => {})
-      .finally(() => setProfileLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      } catch (e) {
+        if (!cancelled) {
+          setProfileMsg({
+            type: "err",
+            text: e instanceof Error ? e.message : ar() ? "تعذر تحميل الملف" : "Could not load profile"
+          });
+        }
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getAuthHeader]);
 
   const saveProfile = async () => {
     setProfileSaving(true);
@@ -1397,13 +1427,15 @@ function AdminSettings() {
     try {
       const body: Record<string, string> = { fullName, email, phone, username };
       if (newPassword.trim()) body.newPassword = newPassword.trim();
-      const r = await fetch("/api/users/me", { method: "PATCH", headers: apiHeaders, body: JSON.stringify(body) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "Failed");
+      await apiFetch("/users/me", {
+        method: "PATCH",
+        headers: getAuthHeader(),
+        body: JSON.stringify(body)
+      });
       setNewPassword("");
       setProfileMsg({ type: "ok", text: ar() ? "تم حفظ الملف الشخصي" : "Profile saved successfully" });
-    } catch (e: any) {
-      setProfileMsg({ type: "err", text: e.message });
+    } catch (e: unknown) {
+      setProfileMsg({ type: "err", text: e instanceof Error ? e.message : "Error" });
     } finally {
       setProfileSaving(false);
     }
@@ -1421,9 +1453,21 @@ function AdminSettings() {
   const [force2FA, setForce2FA] = useState(false);
 
   useEffect(() => {
-    fetch("/api/settings/system", { headers: apiHeaders })
-      .then(r => r.json())
-      .then(d => {
+    let cancelled = false;
+    setSysLoading(true);
+    void (async () => {
+      try {
+        const d = (await apiFetch("/settings/system", { headers: getAuthHeader() })) as {
+          settings?: {
+            maintenanceMode?: boolean;
+            allowNewSignups?: boolean;
+            defaultLanguage?: string;
+            requireInstallmentPayment?: boolean;
+            sessionTimeoutHours?: number;
+            force2FAForAdmins?: boolean;
+          };
+        };
+        if (cancelled) return;
         if (d.settings) {
           const s = d.settings;
           setMaintenanceMode(!!s.maintenanceMode);
@@ -1433,25 +1477,39 @@ function AdminSettings() {
           setSessionTimeoutHours(Number(s.sessionTimeoutHours) || 24);
           setForce2FA(!!s.force2FAForAdmins);
         }
-      })
-      .catch(() => {})
-      .finally(() => setSysLoading(false));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      } catch {
+        /* keep defaults */
+      } finally {
+        if (!cancelled) setSysLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getAuthHeader]);
 
   const saveSettings = async () => {
     setSysSaving(true);
     setSysMsg(null);
     try {
-      const body = { maintenanceMode, allowNewSignups, defaultLanguage, requireInstallmentPayment, sessionTimeoutHours, force2FAForAdmins: force2FA };
-      const r = await fetch("/api/settings/system", { method: "PUT", headers: apiHeaders, body: JSON.stringify(body) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error ?? "Failed");
+      const body = {
+        maintenanceMode,
+        allowNewSignups,
+        defaultLanguage,
+        requireInstallmentPayment,
+        sessionTimeoutHours,
+        force2FAForAdmins: force2FA
+      };
+      await apiFetch("/settings/system", {
+        method: "PUT",
+        headers: getAuthHeader(),
+        body: JSON.stringify(body)
+      });
       // also persist installment flag locally for client-side guards
       localStorage.setItem("bel_require_installment_booking_v1", String(requireInstallmentPayment));
       setSysMsg({ type: "ok", text: ar() ? "تم حفظ الإعدادات" : "Settings saved successfully" });
-    } catch (e: any) {
-      setSysMsg({ type: "err", text: e.message });
+    } catch (e: unknown) {
+      setSysMsg({ type: "err", text: e instanceof Error ? e.message : "Error" });
     } finally {
       setSysSaving(false);
     }
@@ -2664,8 +2722,8 @@ function AuditLogViewer() {
               </thead>
               <tbody className="divide-y divide-surface-100">
                 {items.map((log: any) => (
-                  <>
-                    <tr key={log.id} className={`hover:bg-surface-50/50 transition-colors ${expandedId === log.id ? "bg-surface-50" : ""}`}>
+                  <Fragment key={log.id}>
+                    <tr className={`hover:bg-surface-50/50 transition-colors ${expandedId === log.id ? "bg-surface-50" : ""}`}>
                       <td className="text-xs text-surface-500 whitespace-nowrap">
                         <div>{new Date(log.createdAt).toLocaleDateString()}</div>
                         <div className="text-[10px] text-surface-400">{new Date(log.createdAt).toLocaleTimeString()}</div>
@@ -2725,7 +2783,7 @@ function AuditLogViewer() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 ))}
                 {items.length === 0 && (
                   <tr>
@@ -3297,6 +3355,7 @@ export default function AdminDashboard() {
         {activeNav === "share" && <ShareLinkPage />}
         {activeNav === "notices" && <NoticesAdminPanel />}
         {activeNav === "notifications_settings" && <NotificationSettingsPanel />}
+        {activeNav === "audit" && <AuditLogViewer />}
         {activeNav === "settings" && <AdminSettings />}
       </div>
     </DashboardShell>
