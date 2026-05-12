@@ -2657,6 +2657,7 @@ type NoticeItem = {
   message: string;
   messageAr?: string;
   isActive: boolean;
+  clinicId?: { _id: string; nameEn: string; nameAr: string } | null;
   createdAt: string;
 };
 
@@ -2664,9 +2665,11 @@ function NoticesAdminPanel() {
   const { getAuthHeader } = useAuth();
   const [items, setItems] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ message: "", messageAr: "", isActive: false });
+  const [form, setForm] = useState({ message: "", messageAr: "", isActive: false, clinicId: "" });
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const { data: clinicsData } = useApi<{ items: any[] }>("/clinics/admin");
+  const clinics = clinicsData?.items ?? [];
 
   const load = () => {
     setLoading(true);
@@ -2680,24 +2683,35 @@ function NoticesAdminPanel() {
 
   const startEdit = (n: NoticeItem) => {
     setEditId(n._id);
-    setForm({ message: n.message, messageAr: n.messageAr ?? "", isActive: n.isActive });
+    setForm({
+      message: n.message,
+      messageAr: n.messageAr ?? "",
+      isActive: n.isActive,
+      clinicId: n.clinicId?._id ?? "",
+    });
   };
 
-  const cancelEdit = () => { setEditId(null); setForm({ message: "", messageAr: "", isActive: false }); };
+  const cancelEdit = () => { setEditId(null); setForm({ message: "", messageAr: "", isActive: false, clinicId: "" }); };
 
   const save = async () => {
     if (!form.message.trim()) return;
     setSaving(true);
     try {
+      const payload = {
+        message: form.message,
+        messageAr: form.messageAr,
+        isActive: form.isActive,
+        clinicId: form.clinicId || null,
+      };
       if (editId) {
         await apiFetch(`/notices/admin/${editId}`, {
           method: "PUT", headers: { ...getAuthHeader(), "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
       } else {
         await apiFetch("/notices/admin", {
           method: "POST", headers: { ...getAuthHeader(), "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
       }
       cancelEdit();
@@ -2732,17 +2746,28 @@ function NoticesAdminPanel() {
         <h2 className="text-2xl font-bold text-surface-900">{ar() ? "إشعارات العيادات" : "Clinic Notices"}</h2>
         <p className="text-sm text-surface-500 mt-1">
           {ar()
-            ? "أنشئ إشعاراً يظهر كشريط متحرك في أعلى شاشة لوحة العيادة."
-            : "Create a notice that displays as a scrolling banner at the top of the clinic dashboard."}
+            ? "أنشئ إشعاراً يظهر كشريط متحرك في أعلى شاشة لوحة العيادة. يمكنك توجيهه لعيادة محددة أو لجميع العيادات."
+            : "Create a notice that displays as a scrolling banner at the top of the clinic dashboard. Target a specific clinic or send it to all."}
         </p>
       </div>
 
       {/* Live preview */}
       {activeNotice && (
         <div className="rounded-xl overflow-hidden border border-brand-pink-200 shadow-sm">
-          <div className="px-4 py-2 bg-brand-pink-50 border-b border-brand-pink-100 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-brand-pink-500 animate-pulse" />
-            <span className="text-xs font-bold text-brand-pink-700">{ar() ? "معاينة الشريط المباشر" : "Live Banner Preview"}</span>
+          <div className="px-4 py-2 bg-brand-pink-50 border-b border-brand-pink-100 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-brand-pink-500 animate-pulse" />
+              <span className="text-xs font-bold text-brand-pink-700">{ar() ? "معاينة الشريط المباشر" : "Live Banner Preview"}</span>
+            </div>
+            {activeNotice.clinicId ? (
+              <span className="text-[10px] font-bold text-brand-pink-600 bg-brand-pink-100 px-2 py-0.5 rounded-full">
+                {activeNotice.clinicId.nameEn}
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold text-surface-500 bg-surface-100 px-2 py-0.5 rounded-full">
+                {ar() ? "جميع العيادات" : "All Clinics"}
+              </span>
+            )}
           </div>
           <div className="bg-gradient-to-r from-brand-pink-600 via-brand-pink-500 to-brand-pink-600 text-white overflow-hidden" style={{ minHeight: "36px" }}>
             <div className="flex items-center h-9 overflow-hidden">
@@ -2791,6 +2816,27 @@ function NoticesAdminPanel() {
               dir="rtl"
             />
           </div>
+          {/* Clinic selector */}
+          <div>
+            <label className="block text-xs font-bold text-surface-700 mb-1.5">
+              {ar() ? "استهداف العيادة" : "Target Clinic"}
+            </label>
+            <select
+              value={form.clinicId}
+              onChange={e => setForm(f => ({ ...f, clinicId: e.target.value }))}
+              className="select-field w-full text-sm"
+            >
+              <option value="">{ar() ? "جميع العيادات (بث عام)" : "All Clinics (broadcast)"}</option>
+              {clinics.map((c: any) => (
+                <option key={c.id} value={c.id}>{c.nameEn}{c.nameAr ? ` — ${c.nameAr}` : ""}</option>
+              ))}
+            </select>
+            <p className="text-[11px] text-surface-400 mt-1">
+              {ar()
+                ? "اختر عيادة محددة لعرض الإشعار لها فقط، أو اتركه فارغاً لإرساله لجميع العيادات."
+                : "Pick a specific clinic to show only them this notice, or leave blank to broadcast to all clinics."}
+            </p>
+          </div>
           <label className="flex items-center gap-3 cursor-pointer select-none">
             <div className="relative">
               <input type="checkbox" className="sr-only" checked={form.isActive}
@@ -2799,7 +2845,7 @@ function NoticesAdminPanel() {
               <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${form.isActive ? "translate-x-4" : ""}`} />
             </div>
             <span className="text-sm font-medium text-surface-800">
-              {ar() ? "تفعيل الآن (سيُلغي تفعيل أي إشعار آخر)" : "Activate now (will deactivate any other active notice)"}
+              {ar() ? "تفعيل الآن (سيُلغي تفعيل أي إشعار آخر في نفس النطاق)" : "Activate now (will deactivate any other active notice in the same scope)"}
             </span>
           </label>
         </div>
@@ -2853,6 +2899,16 @@ function NoticesAdminPanel() {
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-brand-pink-100 text-brand-pink-700 text-[10px] font-bold uppercase tracking-wide">
                         <span className="w-1.5 h-1.5 rounded-full bg-brand-pink-500 animate-pulse" />
                         {ar() ? "نشط" : "Active"}
+                      </span>
+                    )}
+                    {n.clinicId ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[10px] font-bold">
+                        <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                        {n.clinicId.nameEn}
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-surface-100 text-surface-500 text-[10px] font-bold">
+                        {ar() ? "جميع العيادات" : "All Clinics"}
                       </span>
                     )}
                     <span className="text-[10px] text-surface-400">{new Date(n.createdAt).toLocaleDateString()}</span>

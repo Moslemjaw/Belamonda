@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { apiFetch } from "../lib/api";
+import { useAuth } from "../app/AuthContext";
 import i18n from "../app/i18n";
 
 const ar = () => i18n.language === "ar";
@@ -12,13 +13,14 @@ type Notice = {
 };
 
 export default function NoticeBanner() {
+  const { getAuthHeader } = useAuth();
   const [notice, setNotice] = useState<Notice | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [paused, setPaused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchNotice = () => {
-    apiFetch("/notices/active")
+    apiFetch("/notices/active", { headers: getAuthHeader() })
       .then((res: any) => setNotice(res.notice ?? null))
       .catch(() => {});
   };
@@ -27,6 +29,7 @@ export default function NoticeBanner() {
     fetchNotice();
     intervalRef.current = setInterval(fetchNotice, 60_000);
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!notice || dismissed) return null;
