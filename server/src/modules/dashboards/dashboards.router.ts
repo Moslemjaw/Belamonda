@@ -48,7 +48,9 @@ dashboardsRouter.get("/finance/summary", authRequired, requireRole(["finance", "
     const users = new Set<string>();
     for (const p of pendingQueue) users.add(p.userId);
     const recentSample = await listPaymentsAdmin({ limit: 100, page: 1 });
-    for (const p of recentSample.items) users.add(p.userId);
+    for (const p of recentSample.items) {
+      if (p.userId) users.add(p.userId);
+    }
 
     function fmt(mils: number) {
       const a = Math.floor(Math.abs(mils) / 1000);

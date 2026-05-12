@@ -1,3 +1,5 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
@@ -30,6 +32,44 @@ import { referralRouter } from "./modules/referral/referral.router.js";
 import { auditRouter } from "./modules/audit/audit.router.js";
 import { noticesRouter } from "./modules/notices/notices.router.js";
 import { settingsRouter } from "./modules/settings/settings.router.js";
+
+/** First path segment for routes registered on this app — avoids SPA fallback stealing API/Socket.IO traffic. */
+const RESERVED_FIRST_SEGMENTS = new Set([
+  "uploads",
+  "chat",
+  "auth",
+  "public",
+  "categories",
+  "dashboards",
+  "session-types",
+  "users",
+  "kyc",
+  "clinics",
+  "offers",
+  "commerce",
+  "checkout",
+  "payments",
+  "scheduling",
+  "wallet",
+  "notifications",
+  "tasks",
+  "reporting",
+  "complaints",
+  "products",
+  "eforms",
+  "referral",
+  "audit",
+  "notices",
+  "settings",
+  "health",
+  "me",
+  "socket.io"
+]);
+
+function firstPathSegment(urlPath: string): string | undefined {
+  const parts = urlPath.split("/").filter(Boolean);
+  return parts[0];
+}
 
 export function createApp() {
   const app = express();
@@ -107,6 +147,17 @@ export function createApp() {
   app.get("/me", authRequired, (req, res) => {
     res.json({ userId: req.auth!.userId, role: req.auth!.role });
   });
+
+  // Same-origin SPA (Render / single-service deploy): `dist` is next to `server/dist` after build.
+  if (env.NODE_ENV === "production") {
+    const clientDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../client/dist");
+    app.use(express.static(clientDist, { index: false, maxAge: "1h" }));
+    app.get("*", (req, res, next) => {
+      const seg = firstPathSegment(req.path);
+      if (seg && RESERVED_FIRST_SEGMENTS.has(seg)) return next();
+      res.sendFile(path.join(clientDist, "index.html"), (err) => next(err));
+    });
+  }
 
   app.use(errorHandler);
 
