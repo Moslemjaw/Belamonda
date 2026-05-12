@@ -1206,7 +1206,7 @@ function ReliefTab({ from, to }: { from: string; to: string }) {
 
 function ProfileTab() {
   const { getAuthHeader, user: ctxUser } = useAuth();
-  const { data: meData, loading } = useApi<any>("/users/me");
+  const { data: meData, loading, refetch: refetchMe } = useApi<any>("/users/me");
 
   const me = meData?.user ?? meData ?? ctxUser;
 
@@ -1215,12 +1215,46 @@ function ProfileTab() {
     clinicStaff: "Clinic Staff", customer: "Customer",
   };
 
-  const fieldRow = (label: string, value: React.ReactNode) => (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3 border-b border-surface-100 last:border-0">
-      <span className="text-xs uppercase tracking-wider text-surface-400 font-bold w-36 shrink-0">{label}</span>
-      <span className="text-sm font-medium text-surface-800">{value}</span>
-    </div>
-  );
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [form, setForm] = useState({ fullName: "", email: "", phone: "", username: "", newPassword: "" });
+
+  useEffect(() => {
+    if (me) {
+      setForm({
+        fullName: me.fullName || me.name || [me.firstName, me.lastName].filter(Boolean).join(" ") || "",
+        email: me.email || "",
+        phone: me.phone || "",
+        username: me.username || "",
+        newPassword: "",
+      });
+    }
+  }, [me]);
+
+  const saveProfile = async () => {
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      const body: Record<string, string> = {
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        username: form.username,
+      };
+      if (form.newPassword.trim()) body.newPassword = form.newPassword.trim();
+      await apiFetch("/users/me", { method: "PATCH", headers: getAuthHeader(), body: JSON.stringify(body) });
+      setIsEditing(false);
+      setForm(f => ({ ...f, newPassword: "" }));
+      setSaveMsg({ type: "ok", text: ar() ? "تم حفظ الملف الشخصي" : "Profile saved successfully" });
+      refetchMe();
+      setTimeout(() => setSaveMsg(null), 4000);
+    } catch (e: any) {
+      setSaveMsg({ type: "err", text: e.message || (ar() ? "فشل الحفظ" : "Save failed") });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   if (loading && !me) {
     return (
@@ -1228,8 +1262,8 @@ function ProfileTab() {
     );
   }
 
-  const initials = ((me?.firstName?.[0] ?? "") + (me?.lastName?.[0] ?? "")).toUpperCase() ||
-    (me?.name?.[0] ?? me?.email?.[0] ?? "F").toUpperCase();
+  const displayName = form.fullName || form.username || me?.email || "—";
+  const initials = displayName.charAt(0).toUpperCase();
 
   return (
     <div className="space-y-5 animate-fade-in max-w-2xl">
@@ -1239,12 +1273,8 @@ function ProfileTab() {
         <div className="w-16 h-16 rounded-2xl bg-brand-pink-100 flex items-center justify-center text-2xl font-black text-brand-pink-600 shrink-0">
           {initials}
         </div>
-        <div className="min-w-0">
-          <div className="text-xl font-black text-surface-900 truncate">
-            {me?.firstName && me?.lastName
-              ? `${me.firstName} ${me.lastName}`
-              : me?.name || me?.email || "—"}
-          </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-xl font-black text-surface-900 truncate">{displayName}</div>
           <div className="text-xs text-surface-400 mt-0.5">{me?.email}</div>
           <span className="mt-1.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-pink-50 text-brand-pink-700">
             {roleLabel[me?.role] ?? me?.role ?? "Finance"}
@@ -1254,26 +1284,63 @@ function ProfileTab() {
 
       {/* Account details */}
       <div className="card-elevated p-5">
-        <h4 className="font-bold text-surface-900 text-sm mb-1">{ar() ? "بيانات الحساب" : "Account Details"}</h4>
-        <p className="text-xs text-surface-400 mb-4">{ar() ? "معلومات حسابك الشخصي في النظام" : "Your personal account information in the system"}</p>
-        <div>
-          {fieldRow(ar() ? "البريد الإلكتروني" : "Email", me?.email || "—")}
-          {me?.phone && fieldRow(ar() ? "الهاتف" : "Phone", me.phone)}
-          {(me?.firstName || me?.lastName) && fieldRow(ar() ? "الاسم الكامل" : "Full Name",
-            [me?.firstName, me?.lastName].filter(Boolean).join(" "))}
-          {me?.role && fieldRow(ar() ? "الدور" : "Role",
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-pink-50 text-brand-pink-700">
-              {roleLabel[me.role] ?? me.role}
-            </span>
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          <div>
+            <h4 className="font-bold text-surface-900 text-sm">{ar() ? "بيانات الحساب" : "Account Details"}</h4>
+            <p className="text-xs text-surface-400 mt-0.5">{ar() ? "معلومات حسابك الشخصي في النظام" : "Your personal account information in the system"}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {saveMsg && (
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${saveMsg.type === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+                {saveMsg.text}
+              </span>
+            )}
+            {!isEditing ? (
+              <button onClick={() => { setIsEditing(true); setSaveMsg(null); }} className="btn-secondary btn-sm text-xs">{ar() ? "تعديل" : "Edit Profile"}</button>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={() => { setIsEditing(false); setSaveMsg(null); }} className="btn-secondary btn-sm text-xs">{ar() ? "إلغاء" : "Cancel"}</button>
+                <button onClick={saveProfile} disabled={saving} className="btn-primary btn-sm text-xs">
+                  {saving ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "حفظ" : "Save")}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3 border-b border-surface-100">
+            <span className="text-xs uppercase tracking-wider text-surface-400 font-bold w-36 shrink-0">{ar() ? "اسم المستخدم" : "Username"}</span>
+            {isEditing ? <input className="input-field text-sm py-1.5 flex-1" value={form.username} onChange={e => setForm({ ...form, username: e.target.value })} dir="ltr" /> : <span className="text-sm font-medium text-surface-800 font-mono">{me?.username || "—"}</span>}
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3 border-b border-surface-100">
+            <span className="text-xs uppercase tracking-wider text-surface-400 font-bold w-36 shrink-0">{ar() ? "الاسم الكامل" : "Full Name"}</span>
+            {isEditing ? <input className="input-field text-sm py-1.5 flex-1" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} /> : <span className="text-sm font-medium text-surface-800">{form.fullName || "—"}</span>}
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3 border-b border-surface-100">
+            <span className="text-xs uppercase tracking-wider text-surface-400 font-bold w-36 shrink-0">{ar() ? "البريد الإلكتروني" : "Email"}</span>
+            {isEditing ? <input type="email" className="input-field text-sm py-1.5 flex-1" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} dir="ltr" /> : <span className="text-sm font-medium text-surface-800">{me?.email || "—"}</span>}
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3 border-b border-surface-100">
+            <span className="text-xs uppercase tracking-wider text-surface-400 font-bold w-36 shrink-0">{ar() ? "الهاتف" : "Phone"}</span>
+            {isEditing ? <input className="input-field text-sm py-1.5 flex-1" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} dir="ltr" /> : <span className="text-sm font-medium text-surface-800">{me?.phone || "—"}</span>}
+          </div>
+          {isEditing && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3 border-b border-surface-100">
+              <span className="text-xs uppercase tracking-wider text-surface-400 font-bold w-36 shrink-0">{ar() ? "كلمة مرور جديدة" : "New Password"}</span>
+              <input type="password" className="input-field text-sm py-1.5 flex-1" placeholder="leave blank to keep current" value={form.newPassword} onChange={e => setForm({ ...form, newPassword: e.target.value })} dir="ltr" />
+            </div>
           )}
-          {me?.referralCode && fieldRow(ar() ? "رمز الإحالة" : "Referral Code",
-            <span className="font-mono text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg font-bold">{me.referralCode}</span>
+          {me?.role && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3 border-b border-surface-100">
+              <span className="text-xs uppercase tracking-wider text-surface-400 font-bold w-36 shrink-0">{ar() ? "الدور" : "Role"}</span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-pink-50 text-brand-pink-700">{roleLabel[me.role] ?? me.role}</span>
+            </div>
           )}
-          {me?.createdAt && fieldRow(ar() ? "تاريخ الانضمام" : "Member Since",
-            new Date(me.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
-          )}
-          {me?.lastLoginAt && fieldRow(ar() ? "آخر تسجيل دخول" : "Last Login",
-            new Date(me.lastLoginAt).toLocaleString()
+          {me?.createdAt && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3">
+              <span className="text-xs uppercase tracking-wider text-surface-400 font-bold w-36 shrink-0">{ar() ? "تاريخ الانضمام" : "Member Since"}</span>
+              <span className="text-sm font-medium text-surface-800">{new Date(me.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</span>
+            </div>
           )}
         </div>
       </div>

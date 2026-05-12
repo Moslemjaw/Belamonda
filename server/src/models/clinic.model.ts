@@ -9,6 +9,9 @@ const ClinicSchema = new Schema(
     lat: { type: Number },
     lng: { type: Number },
     phone: { type: String, trim: true },
+    contactName: { type: String, trim: true },
+    contactPhone: { type: String, trim: true },
+    contactEmail: { type: String, trim: true },
     categoryTags: { type: [String], default: [] },
     operatingHours: {
       open: { type: String, match: /^\d{2}:\d{2}$/ },

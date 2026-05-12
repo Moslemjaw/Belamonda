@@ -38,6 +38,9 @@ export async function updateClinic(
     lat?: number;
     lng?: number;
     phone?: string;
+    contactName?: string;
+    contactPhone?: string;
+    contactEmail?: string;
     categoryTags?: string[];
     operatingHours?: { open: string; close: string };
     active?: boolean;

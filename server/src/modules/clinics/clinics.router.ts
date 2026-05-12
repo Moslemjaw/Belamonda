@@ -106,6 +106,32 @@ clinicsRouter.delete("/admin/:clinicId", authRequired, requireRole(["admin"]), a
   }
 });
 
+// Clinic staff self-update — lets a clinicStaff user update their own clinic.
+// Must be registered BEFORE the public /:clinicId GET to avoid shadowing.
+const ClinicSelfUpdateSchema = z.object({
+  nameEn: z.string().min(1).optional(),
+  nameAr: z.string().optional(),
+  address: z.string().optional(),
+  phone: z.string().optional(),
+  contactName: z.string().optional(),
+  contactPhone: z.string().optional(),
+  contactEmail: z.string().email().optional().or(z.literal("")),
+});
+
+clinicsRouter.patch("/me", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res, next) => {
+  try {
+    const clinicId = req.auth!.clinicId?.toString();
+    if (!clinicId) return res.status(400).json({ error: "NO_CLINIC_LINKED" });
+    const parsed = ClinicSelfUpdateSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    const clinic = await clinicService.updateClinic(clinicId, parsed.data);
+    if (!clinic) return res.status(404).json({ error: "NOT_FOUND" });
+    return res.json({ clinic });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Public single-clinic lookup (used by checkout for branch confirmation).
 // Registered last so it doesn't shadow `/admin` and `/admin/:clinicId`.
 clinicsRouter.get("/:clinicId", async (req, res, next) => {

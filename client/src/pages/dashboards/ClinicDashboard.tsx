@@ -818,6 +818,8 @@ export default function ClinicDashboard() {
   const { auth, getAuthHeader } = useAuth();
   const [activeNav, setActiveNav] = useState("home");
   const [isEditingSettings, setIsEditingSettings] = useState(false);
+  const [clinicSaving, setClinicSaving] = useState(false);
+  const [clinicSaveMsg, setClinicSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [chatConvId, setChatConvId] = useState<string | undefined>(undefined);
   // Clinic staff accounts are linked to a clinicId from backend auth.
   // Fall back to the old demo clinic ids only if missing.
@@ -872,6 +874,35 @@ export default function ClinicDashboard() {
       });
       refetch();
     } catch (e: any) { alert(e.message); }
+  };
+
+  const saveClinicSettings = async () => {
+    setClinicSaving(true);
+    setClinicSaveMsg(null);
+    try {
+      const res: any = await apiFetch("/clinics/me", {
+        method: "PATCH",
+        headers: getAuthHeader(),
+        body: JSON.stringify({
+          nameEn: settingsForm.nameEn,
+          nameAr: settingsForm.nameAr,
+          address: settingsForm.address,
+          contactName: settingsForm.contactName,
+          contactPhone: settingsForm.contactPhone,
+          contactEmail: settingsForm.contactEmail,
+        }),
+      });
+      if (res.clinic) {
+        setClinicData({ nameEn: res.clinic.nameEn, nameAr: res.clinic.nameAr });
+      }
+      setIsEditingSettings(false);
+      setClinicSaveMsg({ type: "ok", text: ar() ? "تم الحفظ بنجاح!" : "Saved successfully!" });
+      setTimeout(() => setClinicSaveMsg(null), 4000);
+    } catch (e: any) {
+      setClinicSaveMsg({ type: "err", text: e.message || (ar() ? "فشل الحفظ" : "Save failed") });
+    } finally {
+      setClinicSaving(false);
+    }
   };
 
   const markPaidFromSchedule = async (bookingRequestId: string) => {
@@ -989,13 +1020,25 @@ export default function ClinicDashboard() {
             </div>
 
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-3 flex-wrap">
                 <h3 className="text-lg font-bold text-surface-900">{ar() ? "إعدادات العيادة" : "Clinic Settings"}</h3>
-                {!isEditingSettings ? (
-                  <button onClick={() => setIsEditingSettings(true)} className="btn-secondary btn-sm bg-white shadow-sm border border-surface-200">{ar() ? "تعديل البيانات" : "Edit Details"}</button>
-                ) : (
-                  <button onClick={() => { setIsEditingSettings(false); alert(ar() ? "تم الحفظ بنجاح!" : "Saved successfully!"); }} className="btn-primary btn-sm">{ar() ? "حفظ التعديلات" : "Save Changes"}</button>
-                )}
+                <div className="flex items-center gap-2">
+                  {clinicSaveMsg && (
+                    <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${clinicSaveMsg.type === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+                      {clinicSaveMsg.text}
+                    </span>
+                  )}
+                  {!isEditingSettings ? (
+                    <button onClick={() => { setIsEditingSettings(true); setClinicSaveMsg(null); }} className="btn-secondary btn-sm bg-white shadow-sm border border-surface-200">{ar() ? "تعديل البيانات" : "Edit Details"}</button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button onClick={() => { setIsEditingSettings(false); setClinicSaveMsg(null); }} className="btn-secondary btn-sm">{ar() ? "إلغاء" : "Cancel"}</button>
+                      <button onClick={saveClinicSettings} disabled={clinicSaving} className="btn-primary btn-sm">
+                        {clinicSaving ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "حفظ التعديلات" : "Save Changes")}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid gap-6 md:grid-cols-2">

@@ -1466,50 +1466,92 @@ function CustomersManager() {
 }
 
 function CsSettings() {
-  const [loading, setLoading] = useState(false);
-  const saveSettings = () => {
-    setLoading(true);
-    setTimeout(() => setLoading(false), 800);
+  const { getAuthHeader } = useAuth();
+  const { data: meData, loading: meLoading, refetch: refetchMe } = useApi<{ user: { fullName?: string; email?: string; phone?: string; username?: string } }>("/users/me");
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [form, setForm] = useState({ fullName: "", email: "", phone: "", username: "", newPassword: "" });
+
+  useEffect(() => {
+    const u = meData?.user;
+    if (u) {
+      setForm(f => ({
+        ...f,
+        fullName: u.fullName || "",
+        email: u.email || "",
+        phone: u.phone || "",
+        username: u.username || "",
+      }));
+    }
+  }, [meData]);
+
+  const saveProfile = async () => {
+    setSaving(true);
+    setSaveMsg(null);
+    try {
+      const body: Record<string, string> = {
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        username: form.username,
+      };
+      if (form.newPassword.trim()) body.newPassword = form.newPassword.trim();
+      await apiFetch("/users/me", { method: "PATCH", headers: getAuthHeader(), body: JSON.stringify(body) });
+      setForm(f => ({ ...f, newPassword: "" }));
+      setSaveMsg({ type: "ok", text: ar() ? "تم حفظ الملف الشخصي" : "Profile saved successfully" });
+      refetchMe();
+      setTimeout(() => setSaveMsg(null), 4000);
+    } catch (e: any) {
+      setSaveMsg({ type: "err", text: e.message || (ar() ? "فشل الحفظ" : "Save failed") });
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const initials = (form.fullName || form.username || "CS").charAt(0).toUpperCase();
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-bold text-surface-900">{ar() ? "إعدادات النظام" : "System Settings"}</h3>
-        <button onClick={saveSettings} className="btn-primary btn-sm">{loading ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "حفظ التغييرات" : "Save Changes")}</button>
-      </div>
-
       <div className="card-elevated p-6 bg-gradient-to-r from-brand-pink-50 to-white">
-        <h4 className="font-bold text-surface-900 mb-5 flex items-center gap-2">
-          <svg className="w-5 h-5 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          {ar() ? "الملف الشخصي للموظف" : "Agent Profile"}
-        </h4>
+        <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
+          <h4 className="font-bold text-surface-900 flex items-center gap-2">
+            <svg className="w-5 h-5 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            {ar() ? "الملف الشخصي للموظف" : "Agent Profile"}
+          </h4>
+          <div className="flex items-center gap-2">
+            {saveMsg && (
+              <span className={`text-xs font-medium px-2.5 py-1 rounded-lg ${saveMsg.type === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+                {saveMsg.text}
+              </span>
+            )}
+            <button onClick={saveProfile} disabled={saving || meLoading} className="btn-primary btn-sm">
+              {saving ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "حفظ التغييرات" : "Save Changes")}
+            </button>
+          </div>
+        </div>
         <div className="flex flex-col md:flex-row gap-6 items-start">
           <div className="shrink-0 flex flex-col items-center gap-3">
-             <div className="w-24 h-24 rounded-full bg-brand-pink-100 flex items-center justify-center text-3xl font-black text-brand-pink-600 border-4 border-white shadow-sm relative group">
-                N
-                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                   <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                </div>
-             </div>
-             <div className="text-[10px] font-bold text-brand-pink-600 bg-brand-pink-100 px-3 py-1 rounded-full uppercase tracking-wide">Customer Service</div>
+            <div className="w-24 h-24 rounded-full bg-brand-pink-100 flex items-center justify-center text-3xl font-black text-brand-pink-600 border-4 border-white shadow-sm">
+              {initials}
+            </div>
+            <div className="text-[10px] font-bold text-brand-pink-600 bg-brand-pink-100 px-3 py-1 rounded-full uppercase tracking-wide">Customer Service</div>
           </div>
           <div className="flex-1 grid gap-4 md:grid-cols-2 w-full">
             <div>
               <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "الاسم الكامل" : "Full Name"}</label>
-              <input type="text" className="input-field bg-white" defaultValue="Noura CustomerService" />
+              <input type="text" className="input-field bg-white" value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} placeholder={meLoading ? (ar() ? "جاري التحميل..." : "Loading...") : ""} />
             </div>
             <div>
               <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "البريد الإلكتروني" : "Email Address"}</label>
-              <input type="email" className="input-field bg-white" defaultValue="noura.cs@belamonda.com" />
+              <input type="email" className="input-field bg-white" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} dir="ltr" />
             </div>
             <div>
               <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "رقم الهاتف" : "Phone Number"}</label>
-              <input type="text" className="input-field bg-white" defaultValue="+965 22334455" />
+              <input type="text" className="input-field bg-white" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} dir="ltr" />
             </div>
             <div>
               <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "كلمة المرور الجديدة" : "New Password"}</label>
-              <input type="password" className="input-field bg-white" placeholder="********" />
+              <input type="password" className="input-field bg-white" placeholder={ar() ? "اتركه فارغاً للإبقاء على الحالي" : "Leave blank to keep current"} value={form.newPassword} onChange={e => setForm({ ...form, newPassword: e.target.value })} />
             </div>
           </div>
         </div>
