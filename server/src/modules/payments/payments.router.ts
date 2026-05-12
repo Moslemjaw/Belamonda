@@ -150,6 +150,17 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin"]), a
     if (!updated) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
     if (typeof updated === "object" && "error" in updated) return res.status(409).json({ error: updated.error });
 
+    const { logAuditAction } = await import("../../services/audit.service.js");
+    await logAuditAction({
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role as any,
+      actionType: "confirm_payment",
+      targetEntityType: "Payment",
+      targetEntityId: payment.id,
+      afterState: { amountKwd: parsed.data.amountKwd, method: parsed.data.method, status: "completed" },
+      metadata: { userId: uo.userId, offerId: uo.offerId, userOfferId: uo.id },
+    });
+
     await userOfferService.applyOfferMembershipToUserOffer(updated.id, uo.offerId);
     const refreshedUo = await userOfferService.getUserOffer(updated.id);
 

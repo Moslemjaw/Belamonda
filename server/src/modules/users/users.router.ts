@@ -447,6 +447,10 @@ usersRouter.patch("/admin/:id", authRequired, requireRole(["admin"]), async (req
       .safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
 
+    const before = await UserModel.findById(req.params.id)
+      .select("_id username email phone role clinicId isActive").lean<UserLean>();
+    if (!before) return res.status(404).json({ error: "NOT_FOUND" });
+
     const patch: UserPatch = {};
     if (parsed.data.role) patch.role = parsed.data.role;
     if (parsed.data.isActive != null) patch.isActive = parsed.data.isActive;
@@ -458,6 +462,25 @@ usersRouter.patch("/admin/:id", authRequired, requireRole(["admin"]), async (req
       .select("_id username email phone role clinicId isActive")
       .lean<UserLean>();
     if (!doc) return res.status(404).json({ error: "NOT_FOUND" });
+
+    // Determine action type
+    let actionType = "update_user";
+    if (parsed.data.isActive === false) actionType = "freeze_user";
+    else if (parsed.data.isActive === true) actionType = "unfreeze_user";
+    else if (parsed.data.role) actionType = "change_user_role";
+
+    const { logAuditAction } = await import("../../services/audit.service.js");
+    await logAuditAction({
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role as any,
+      actionType,
+      targetEntityType: "User",
+      targetEntityId: req.params.id,
+      beforeState: { role: before.role, isActive: before.isActive !== false },
+      afterState:  { role: doc.role,    isActive: doc.isActive !== false },
+      metadata: { username: doc.username ?? "" },
+    });
+
     return res.json({
       user: {
         id: String(doc._id),

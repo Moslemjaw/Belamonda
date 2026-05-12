@@ -63,6 +63,16 @@ kycRouter.post("/cs/:submissionId/approve", authRequired, requireRole(["cs", "ad
     const updated = await kycStore.approveSubmission(req.params.submissionId, req.auth!.userId);
     if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
     notifyKycApproved(updated.userId);
+    const { logAuditAction } = await import("../../services/audit.service.js");
+    await logAuditAction({
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role as any,
+      actionType: "approve_kyc",
+      targetEntityType: "KycSubmission",
+      targetEntityId: req.params.submissionId,
+      afterState: { status: "approved" },
+      metadata: { userId: updated.userId },
+    });
     return res.json({ submission: updated });
   } catch (e) {
     next(e);
@@ -78,6 +88,16 @@ kycRouter.post("/cs/:submissionId/reject", authRequired, requireRole(["cs", "adm
     const updated = await kycStore.rejectSubmission(req.params.submissionId, req.auth!.userId, parsed.data.reason);
     if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
     notifyKycRejected(updated.userId, parsed.data.reason);
+    const { logAuditAction } = await import("../../services/audit.service.js");
+    await logAuditAction({
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role as any,
+      actionType: "reject_kyc",
+      targetEntityType: "KycSubmission",
+      targetEntityId: req.params.submissionId,
+      afterState: { status: "rejected" },
+      metadata: { userId: updated.userId, reason: parsed.data.reason },
+    });
     return res.json({ submission: updated });
   } catch (e) {
     next(e);
