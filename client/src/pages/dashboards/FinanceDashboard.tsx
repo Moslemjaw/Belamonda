@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ResponsiveContainer,
@@ -20,6 +20,7 @@ import {
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
 import {
+  useApi,
   useFinanceSnapshot,
   usePaymentsBreakdown,
   useFinanceTimeseries,
@@ -1066,6 +1067,246 @@ function ClinicsTab({ from, to }: { from: string; to: string }) {
 }
 
 // ===========================================================================
+// RELIEF TAB — refund tracking
+// ===========================================================================
+
+function ReliefTab({ from, to }: { from: string; to: string }) {
+  const [filterMethod, setFilterMethod] = useState("");
+  const { data, loading } = usePaymentsBreakdown({ status: "refunded", method: filterMethod || undefined, from, to });
+
+  const items = data?.items ?? [];
+  const totalRefundedMils = items.reduce((s, p) => s + parseKwd(p.amountKwd), 0);
+  const avgRefund = items.length > 0 ? totalRefundedMils / items.length : 0;
+
+  // Breakdown by method
+  const byMethod: Record<string, { count: number; total: number }> = {};
+  items.forEach(p => {
+    if (!byMethod[p.method]) byMethod[p.method] = { count: 0, total: 0 };
+    byMethod[p.method].count++;
+    byMethod[p.method].total += parseKwd(p.amountKwd);
+  });
+
+  const byMethodSorted = Object.entries(byMethod).sort((a, b) => b[1].total - a[1].total);
+
+  return (
+    <div className="space-y-5 animate-fade-in">
+
+      {/* KPI row */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <KpiCard
+          label={ar() ? "إجمالي المستردّ" : "Total Refunded"}
+          value={`${fmt(totalRefundedMils)} KWD`}
+          color="text-rose-600"
+          icon="↩️"
+        />
+        <KpiCard
+          label={ar() ? "عدد الاستردادات" : "Refund Count"}
+          value={String(items.length)}
+          color="text-red-600"
+          icon="🔄"
+        />
+        <KpiCard
+          label={ar() ? "متوسط الاسترداد" : "Avg Refund"}
+          value={`${fmt(avgRefund)} KWD`}
+          color="text-amber-600"
+          icon="📊"
+        />
+        <KpiCard
+          label={ar() ? "طرق مختلفة" : "Methods Used"}
+          value={String(byMethodSorted.length)}
+          color="text-indigo-600"
+          icon="💳"
+        />
+      </div>
+
+      {/* Method breakdown cards */}
+      {byMethodSorted.length > 0 && (
+        <div className="card-elevated p-5">
+          <h3 className="text-sm font-bold text-surface-900 mb-4">{ar() ? "الاستردادات حسب طريقة الدفع" : "Refunds by Payment Method"}</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {byMethodSorted.map(([method, v]) => (
+              <div key={method} className="rounded-xl border border-surface-100 bg-surface-50 p-4 flex flex-col gap-1">
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full self-start border ${METHOD_COLORS[method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>
+                  {METHOD_LABELS[method] ?? method}
+                </span>
+                <div className="text-lg font-black text-rose-600 mt-1">{fmt(v.total)} <span className="text-xs font-medium text-surface-400">KWD</span></div>
+                <div className="text-xs text-surface-500">{v.count} {ar() ? "استرداد" : v.count === 1 ? "refund" : "refunds"}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Refunds table */}
+      <div className="card-elevated p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <h3 className="text-sm font-bold text-surface-900">
+            {ar() ? "سجل الاستردادات" : "Refunds Ledger"}
+            <span className="ml-2 text-xs font-medium text-surface-400">({items.length})</span>
+          </h3>
+          <select className="select-field text-xs py-1.5 h-auto w-full sm:w-40" value={filterMethod} onChange={e => setFilterMethod(e.target.value)}>
+            <option value="">{ar() ? "كل الطرق" : "All Methods"}</option>
+            {Object.entries(METHOD_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+
+        {loading && items.length === 0 ? (
+          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>
+        ) : items.length === 0 ? (
+          <div className="py-14 text-center">
+            <div className="w-12 h-12 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">✅</div>
+            <div className="text-sm font-bold text-surface-700">{ar() ? "لا توجد استردادات في هذه الفترة" : "No refunds in this period"}</div>
+            <div className="text-xs text-surface-400 mt-1">{ar() ? "هذا مؤشر ممتاز للجودة" : "That's a great quality indicator"}</div>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-surface-200">
+            <table className="data-table text-xs">
+              <thead>
+                <tr className="bg-rose-50">
+                  <th>{ar() ? "المستخدم" : "User"}</th>
+                  <th>{ar() ? "العرض" : "Offer"}</th>
+                  <th>{ar() ? "العيادة" : "Clinic"}</th>
+                  <th>{ar() ? "الطريقة" : "Method"}</th>
+                  <th>{ar() ? "النوع" : "Type"}</th>
+                  <th className="text-right">{ar() ? "المبلغ المسترد" : "Refunded Amount"}</th>
+                  <th>{ar() ? "التاريخ" : "Date"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((p: EnrichedPaymentItem) => (
+                  <tr key={p.id} className="hover:bg-rose-50/30">
+                    <td className="font-mono text-[10px] text-surface-500 max-w-[80px] truncate">{p.userId}</td>
+                    <td className="max-w-[140px]">
+                      <div className="font-medium text-surface-800 truncate">{p.offerName || "—"}</div>
+                      {p.membershipType && <div className="text-[10px] text-surface-400 capitalize">{p.membershipType}</div>}
+                    </td>
+                    <td className="text-surface-600">{p.clinicNameEn || "—"}</td>
+                    <td>
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${METHOD_COLORS[p.method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>
+                        {METHOD_LABELS[p.method] ?? p.method}
+                      </span>
+                    </td>
+                    <td className="text-surface-600">{PURPOSE_LABELS[p.purpose ?? ""] ?? (p.purpose || "—")}</td>
+                    <td className="text-right font-black text-rose-600">{p.amountKwd} KWD</td>
+                    <td className="text-surface-500 whitespace-nowrap">{new Date(p.createdAt).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// PROFILE TAB — finance staff own account
+// ===========================================================================
+
+function ProfileTab() {
+  const { getAuthHeader, user: ctxUser } = useAuth();
+  const { data: meData, loading } = useApi<any>("/users/me");
+
+  const me = meData?.user ?? meData ?? ctxUser;
+
+  const roleLabel: Record<string, string> = {
+    admin: "Administrator", finance: "Finance Staff",
+    clinicStaff: "Clinic Staff", customer: "Customer",
+  };
+
+  const fieldRow = (label: string, value: React.ReactNode) => (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3 border-b border-surface-100 last:border-0">
+      <span className="text-xs uppercase tracking-wider text-surface-400 font-bold w-36 shrink-0">{label}</span>
+      <span className="text-sm font-medium text-surface-800">{value}</span>
+    </div>
+  );
+
+  if (loading && !me) {
+    return (
+      <div className="py-20 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading profile..."}</div>
+    );
+  }
+
+  const initials = ((me?.firstName?.[0] ?? "") + (me?.lastName?.[0] ?? "")).toUpperCase() ||
+    (me?.name?.[0] ?? me?.email?.[0] ?? "F").toUpperCase();
+
+  return (
+    <div className="space-y-5 animate-fade-in max-w-2xl">
+
+      {/* Avatar + name card */}
+      <div className="card-elevated p-6 flex items-center gap-5">
+        <div className="w-16 h-16 rounded-2xl bg-brand-pink-100 flex items-center justify-center text-2xl font-black text-brand-pink-600 shrink-0">
+          {initials}
+        </div>
+        <div className="min-w-0">
+          <div className="text-xl font-black text-surface-900 truncate">
+            {me?.firstName && me?.lastName
+              ? `${me.firstName} ${me.lastName}`
+              : me?.name || me?.email || "—"}
+          </div>
+          <div className="text-xs text-surface-400 mt-0.5">{me?.email}</div>
+          <span className="mt-1.5 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-pink-50 text-brand-pink-700">
+            {roleLabel[me?.role] ?? me?.role ?? "Finance"}
+          </span>
+        </div>
+      </div>
+
+      {/* Account details */}
+      <div className="card-elevated p-5">
+        <h4 className="font-bold text-surface-900 text-sm mb-1">{ar() ? "بيانات الحساب" : "Account Details"}</h4>
+        <p className="text-xs text-surface-400 mb-4">{ar() ? "معلومات حسابك الشخصي في النظام" : "Your personal account information in the system"}</p>
+        <div>
+          {fieldRow(ar() ? "البريد الإلكتروني" : "Email", me?.email || "—")}
+          {me?.phone && fieldRow(ar() ? "الهاتف" : "Phone", me.phone)}
+          {(me?.firstName || me?.lastName) && fieldRow(ar() ? "الاسم الكامل" : "Full Name",
+            [me?.firstName, me?.lastName].filter(Boolean).join(" "))}
+          {me?.role && fieldRow(ar() ? "الدور" : "Role",
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-brand-pink-50 text-brand-pink-700">
+              {roleLabel[me.role] ?? me.role}
+            </span>
+          )}
+          {me?.referralCode && fieldRow(ar() ? "رمز الإحالة" : "Referral Code",
+            <span className="font-mono text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg font-bold">{me.referralCode}</span>
+          )}
+          {me?.createdAt && fieldRow(ar() ? "تاريخ الانضمام" : "Member Since",
+            new Date(me.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })
+          )}
+          {me?.lastLoginAt && fieldRow(ar() ? "آخر تسجيل دخول" : "Last Login",
+            new Date(me.lastLoginAt).toLocaleString()
+          )}
+        </div>
+      </div>
+
+      {/* Access rights */}
+      <div className="card-elevated p-5">
+        <h4 className="font-bold text-surface-900 text-sm mb-1">{ar() ? "صلاحيات الوصول" : "Access Rights"}</h4>
+        <p className="text-xs text-surface-400 mb-4">{ar() ? "الأقسام والبيانات التي يمكنك الاطلاع عليها" : "Dashboard sections and data you have access to"}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {[
+            { label: ar() ? "نظرة عامة على الإيرادات" : "Revenue Overview", ok: true },
+            { label: ar() ? "سجل المدفوعات" : "Payments Ledger", ok: true },
+            { label: ar() ? "تتبع الأقساط" : "Installments Tracking", ok: true },
+            { label: ar() ? "بيانات العملاء" : "Customer Data", ok: true },
+            { label: ar() ? "تحليلات الأداء" : "Performance Analytics", ok: true },
+            { label: ar() ? "تقارير العيادات" : "Clinic Reports", ok: true },
+            { label: ar() ? "تصدير التقارير" : "Export Reports", ok: true },
+            { label: ar() ? "القيود اليدوية" : "Manual Entries", ok: true },
+            { label: ar() ? "الاستردادات" : "Refunds (Relief)", ok: true },
+            { label: ar() ? "إدارة النظام" : "System Administration", ok: me?.role === "admin" },
+          ].map(item => (
+            <div key={item.label} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-xs font-medium ${item.ok ? "border-emerald-100 bg-emerald-50 text-emerald-800" : "border-surface-100 bg-surface-50 text-surface-400"}`}>
+              <span className={`w-2 h-2 rounded-full shrink-0 ${item.ok ? "bg-emerald-500" : "bg-surface-300"}`} />
+              {item.label}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
 // MANUAL ENTRIES TAB
 // ===========================================================================
 
@@ -1424,6 +1665,8 @@ export default function FinanceDashboard() {
     { key: "clinics", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>, label: ar() ? "العيادات" : "Clinics" },
     { key: "reports", icon: Icons.report, label: t("reports") },
     { key: "manual", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, label: ar() ? "قيود يدوية" : "Manual Entries" },
+    { key: "relief", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>, label: ar() ? "الاستردادات" : "Relief" },
+    { key: "profile", icon: Icons.profile, label: ar() ? "ملفي" : "Profile" },
   ];
 
   return (
@@ -1435,7 +1678,7 @@ export default function FinanceDashboard() {
       subtitle={ar() ? "الإيرادات، الأرباح، والتحليلات" : "Revenue, Profit & Analytics"}
     >
       <div className="space-y-5 animate-fade-in">
-        {activeNav !== "manual" && (
+        {activeNav !== "manual" && activeNav !== "profile" && (
           <FilterBar
             period={period}
             onPeriodChange={handlePeriodChange}
@@ -1453,6 +1696,8 @@ export default function FinanceDashboard() {
         {activeNav === "clinics" && <ClinicsTab from={from} to={to} />}
         {activeNav === "reports" && <ReportsTab from={from} to={to} />}
         {activeNav === "manual" && <ManualEntriesTab />}
+        {activeNav === "relief" && <ReliefTab from={from} to={to} />}
+        {activeNav === "profile" && <ProfileTab />}
       </div>
     </DashboardShell>
   );
