@@ -809,6 +809,185 @@ function ClinicReportsTab({ clinicId: _clinicId }: { clinicId: string }) {
           {ar() ? `جاري عرض بيانات من ${from} إلى ${to}` : `Showing data from ${from} to ${to}`}
         </div>
       </div>
+
+      {/* ── Data Table ── */}
+      <ClinicReportTable data={data} loading={loading} from={from} to={to} />
+    </div>
+  );
+}
+
+const SESSION_STATUS_STYLE: Record<string, string> = {
+  completed: "bg-emerald-50 text-emerald-700",
+  scheduled: "bg-blue-50 text-blue-700",
+  no_show:   "bg-red-50 text-red-600",
+  cancelled: "bg-surface-100 text-surface-500",
+};
+
+function ClinicReportTable({ data, loading, from, to }: {
+  data: { sessions?: any[]; invoices?: any[] } | null;
+  loading: boolean;
+  from: string;
+  to: string;
+}) {
+  const [tab, setTab] = useState<"sessions" | "invoices">("sessions");
+  const [search, setSearch] = useState("");
+
+  const sessions = data?.sessions ?? [];
+  const invoices = data?.invoices ?? [];
+
+  const fmtDate = (iso: string) =>
+    iso ? new Date(iso).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  const fmtTime = (iso: string) =>
+    iso ? new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "";
+
+  const filteredSessions = sessions.filter(s =>
+    !search || s.customerName?.toLowerCase().includes(search.toLowerCase()) ||
+    s.customerPhone?.includes(search) || s.status?.includes(search.toLowerCase())
+  );
+  const filteredInvoices = invoices.filter(inv =>
+    !search || inv.customerName?.toLowerCase().includes(search.toLowerCase()) ||
+    inv.customerPhone?.includes(search) || inv.status?.includes(search.toLowerCase())
+  );
+
+  const downloadTableCsv = () => {
+    let csv = "";
+    if (tab === "sessions") {
+      csv = ["Customer,Phone,Date,Time,Status,Cashback (KWD),Notes"]
+        .concat(filteredSessions.map(s =>
+          [s.customerName, s.customerPhone || "", fmtDate(s.scheduledAt), fmtTime(s.scheduledAt),
+           s.status, s.cashbackUnlockedKwd || "0", (s.notes || "").replace(/,/g, " ")].join(",")
+        )).join("\n");
+    } else {
+      csv = ["Customer,Phone,Date,Membership,Price (KWD),Cashback Deducted (KWD),Invoice Status,Payment Status"]
+        .concat(filteredInvoices.map(inv =>
+          [inv.customerName, inv.customerPhone || "", fmtDate(inv.createdAt),
+           inv.membershipType || "", inv.sessionPriceKwd || "0", inv.cashbackDeductedKwd || "0",
+           inv.status, inv.clinicPaymentStatus].join(",")
+        )).join("\n");
+    }
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${tab}-${from}-to-${to}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="card-elevated border border-surface-200 shadow-sm rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-5 py-4 border-b border-surface-100 bg-surface-50/60">
+        <div className="flex items-center gap-1 bg-white border border-surface-200 rounded-xl p-1 shadow-sm">
+          {(["sessions", "invoices"] as const).map(t => (
+            <button key={t} onClick={() => { setTab(t); setSearch(""); }}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${tab === t ? "bg-brand-pink-500 text-white shadow-sm" : "text-surface-500 hover:text-surface-900"}`}>
+              {t === "sessions"
+                ? `${ar() ? "الجلسات" : "Sessions"} (${sessions.length})`
+                : `${ar() ? "الفواتير" : "Invoices"} (${invoices.length})`}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            className="input-field text-xs py-1.5 px-3 w-44"
+            placeholder={ar() ? "بحث..." : "Search..."}
+            value={search} onChange={e => setSearch(e.target.value)}
+          />
+          <button onClick={downloadTableCsv}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-100 hover:bg-surface-200 text-surface-700 text-xs font-bold border border-surface-200 transition-colors whitespace-nowrap">
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            {ar() ? "تنزيل CSV" : "Download CSV"}
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <div className="py-16 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>
+      ) : tab === "sessions" ? (
+        filteredSessions.length === 0 ? (
+          <div className="py-16 text-center text-sm text-surface-400">{ar() ? "لا توجد جلسات في هذه الفترة" : "No sessions found for this period"}</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-surface-50 border-b border-surface-100">
+                  {["#", ar() ? "العميل" : "Customer", ar() ? "الهاتف" : "Phone", ar() ? "التاريخ" : "Date", ar() ? "الوقت" : "Time", ar() ? "الحالة" : "Status", ar() ? "الكاشباك (KWD)" : "Cashback (KWD)"].map(h => (
+                    <th key={h} className="text-left text-[10px] font-bold uppercase tracking-wider text-surface-400 px-4 py-3 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-50">
+                {filteredSessions.map((s, i) => (
+                  <tr key={s.id} className="hover:bg-surface-50/60 transition-colors">
+                    <td className="px-4 py-3 text-xs text-surface-400 font-mono">{i + 1}</td>
+                    <td className="px-4 py-3 font-semibold text-surface-900 whitespace-nowrap">{s.customerName || "—"}</td>
+                    <td className="px-4 py-3 text-surface-600 font-mono text-xs" dir="ltr">{s.customerPhone || "—"}</td>
+                    <td className="px-4 py-3 text-surface-700 whitespace-nowrap">{fmtDate(s.scheduledAt)}</td>
+                    <td className="px-4 py-3 text-surface-500">{fmtTime(s.scheduledAt)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${SESSION_STATUS_STYLE[s.status] ?? "bg-surface-100 text-surface-500"}`}>
+                        {s.status?.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-emerald-700 font-bold">{s.cashbackUnlockedKwd ? `${s.cashbackUnlockedKwd} KWD` : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      ) : (
+        filteredInvoices.length === 0 ? (
+          <div className="py-16 text-center text-sm text-surface-400">{ar() ? "لا توجد فواتير في هذه الفترة" : "No invoices found for this period"}</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="bg-surface-50 border-b border-surface-100">
+                  {["#", ar() ? "العميل" : "Customer", ar() ? "الهاتف" : "Phone", ar() ? "التاريخ" : "Date", ar() ? "العضوية" : "Membership", ar() ? "السعر (KWD)" : "Price (KWD)", ar() ? "الكاشباك (KWD)" : "Cashback (KWD)", ar() ? "حالة الفاتورة" : "Invoice", ar() ? "حالة الدفع" : "Payment"].map(h => (
+                    <th key={h} className="text-left text-[10px] font-bold uppercase tracking-wider text-surface-400 px-4 py-3 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-50">
+                {filteredInvoices.map((inv, i) => (
+                  <tr key={inv.id} className="hover:bg-surface-50/60 transition-colors">
+                    <td className="px-4 py-3 text-xs text-surface-400 font-mono">{i + 1}</td>
+                    <td className="px-4 py-3 font-semibold text-surface-900 whitespace-nowrap">{inv.customerName || "—"}</td>
+                    <td className="px-4 py-3 text-surface-600 font-mono text-xs" dir="ltr">{inv.customerPhone || "—"}</td>
+                    <td className="px-4 py-3 text-surface-700 whitespace-nowrap">{fmtDate(inv.createdAt)}</td>
+                    <td className="px-4 py-3 text-surface-600 text-xs">{inv.membershipType || "—"}</td>
+                    <td className="px-4 py-3 font-bold text-surface-900">{inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}</td>
+                    <td className="px-4 py-3 text-emerald-700 font-bold">{inv.cashbackDeductedKwd ? `${inv.cashbackDeductedKwd} KWD` : "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${SESSION_STATUS_STYLE[inv.status] ?? "bg-surface-100 text-surface-500"}`}>
+                        {inv.status?.replace("_", " ")}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${inv.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                        {inv.clinicPaymentStatus}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {/* Footer count */}
+      {!loading && (
+        <div className="px-5 py-3 border-t border-surface-100 bg-surface-50/40 text-xs text-surface-400">
+          {tab === "sessions"
+            ? `${filteredSessions.length} ${ar() ? "جلسة" : "session(s)"}`
+            : `${filteredInvoices.length} ${ar() ? "فاتورة" : "invoice(s)"}`}
+          {search && ` ${ar() ? "— نتائج البحث" : "— filtered"}`}
+        </div>
+      )}
     </div>
   );
 }
