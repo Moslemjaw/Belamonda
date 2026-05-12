@@ -962,7 +962,7 @@ function SessionsManager() {
 }
 
 function ClinicsManager() {
-  const { getAuthHeader, impersonateClinic, login } = useAuth();
+  const { getAuthHeader, impersonateClinic, impersonateUser, login } = useAuth();
   const { data, refetch } = useApi<{ clinics: any[] }>("/clinics/admin");
   const [showCreate, setShowCreate] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -2206,7 +2206,7 @@ function UsersManager() {
             setSelectedUser(updated);
             setUsers(users.map(u => u.id === updated.id ? updated : u));
           }}
-          onLoginAs={() => login(selectedUser.id, "customer")}
+          onLoginAs={() => void impersonateUser(selectedUser.id).catch(e => alert(e.message))}
         />
       ) : (
         <div className="card-elevated overflow-hidden">

@@ -16,6 +16,7 @@ interface AuthContextType {
   loginWithPassword: (identifier: string, password: string) => Promise<void>;
   registerCustomer: (input: { username?: string; email?: string; phone?: string; fullName?: string; gender?: "female" | "male" | "other"; password: string; referralCode?: string }) => Promise<void>;
   impersonateClinic: (clinicId: string) => Promise<void>;
+  impersonateUser: (userId: string) => Promise<void>;
   logout: () => void;
   getAuthHeader: () => Record<string, string> | undefined;
 }
@@ -98,8 +99,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
   }, [getAuthHeader]);
 
+  const impersonateUser = useCallback(async (userId: string) => {
+    const authHeader = getAuthHeader();
+    if (!authHeader) throw new Error("Not logged in");
+
+    const res = await fetch(`${API_BASE_URL}/auth/admin/impersonate-user`, {
+      method: "POST",
+      headers: { ...authHeader, "Content-Type": "application/json" },
+      body: JSON.stringify({ userId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Failed to impersonate user");
+
+    const state: AuthState = {
+      token: data.accessToken,
+      userId: data.userId,
+      role: data.role as Role,
+      clinicId: data.clinicId,
+    };
+    setAuth(state);
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
+  }, [getAuthHeader]);
+
   return (
-    <AuthContext.Provider value={{ auth, login, loginWithPassword, registerCustomer, impersonateClinic, logout, getAuthHeader }}>
+    <AuthContext.Provider value={{ auth, login, loginWithPassword, registerCustomer, impersonateClinic, impersonateUser, logout, getAuthHeader }}>
       {children}
     </AuthContext.Provider>
   );

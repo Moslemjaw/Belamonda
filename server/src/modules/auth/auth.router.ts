@@ -77,6 +77,29 @@ authRouter.post("/admin/create-user", authRequired, requireRole(["admin"]), asyn
   }
 });
 
+const ImpersonateUserSchema = z.object({
+  userId: z.string().min(1)
+});
+
+authRouter.post("/admin/impersonate-user", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const parsed = ImpersonateUserSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+
+    const { UserModel } = await import("../../models/user.model.js");
+    const user = await (UserModel as any).findById(parsed.data.userId).select("role clinicId").lean() as any;
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    const role = (user.role ?? "customer") as string;
+    const clinicId: string | undefined = user.clinicId;
+    const token = signAccessToken({ sub: parsed.data.userId, role: role as any, clinicId });
+
+    return res.json({ accessToken: token, role, userId: parsed.data.userId, clinicId });
+  } catch (e) {
+    next(e);
+  }
+});
+
 const ImpersonateSchema = z.object({
   clinicId: z.string().min(1)
 });
