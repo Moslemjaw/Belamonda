@@ -15,7 +15,6 @@ import { SessionTypesAdminPanel } from "../../features/admin/SessionTypesAdminPa
 import ChatWidget from "../../components/ChatWidget";
 import AdminBookingsMonitor from "../../components/AdminBookingsMonitor";
 import ShareLinkPage from "../../components/ShareLinkPage";
-import { ReferralLeaderboardWidget } from "../../components/ReferralActivityWidget";
 import NotificationSettingsPanel from "../../features/admin/NotificationSettingsPanel";
 import QRCodeCanvas from "../../components/QRCodeCanvas";
 
@@ -3071,6 +3070,9 @@ export default function AdminDashboard() {
   const { data: productsData } = useProducts();
   const { data: offersData } = useApi<{ items: any[] }>("/offers/admin");
   const { data: financeData } = useFinanceSnapshot();
+  const { data: complaintsData } = useComplaints();
+  const { data: reservationsData } = useAdminReservations();
+  const { data: recentAuditData } = useApi<{ items: any[] }>("/audit?limit=6&page=1");
   const fs = financeData?.snapshot;
 
   const navItems = [
@@ -3097,56 +3099,179 @@ export default function AdminDashboard() {
     <DashboardShell navItems={navItems} activeKey={activeNav} onNavigate={setActiveNav} title={ar() ? "لوحة المدير" : "Admin Dashboard"} subtitle={ar() ? "نظرة عامة كاملة" : "Full system overview"}>
       <div className="space-y-8 animate-fade-in">
         {activeNav === "home" && (
-          <>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-              <KpiCard icon={Icons.chart} label={ar() ? "إيرادات الشهر" : "Monthly Revenue"} value={fs?.totalRevenue || "0"} sub="KWD" isHighlighted trend="+12.5%" />
-              <KpiCard accent="amber" icon={Icons.shield} label={ar() ? "تحققات معلقة" : "Pending KYC"} value={(kycData?.items || []).length} sub={ar() ? "تتطلب مراجعة" : "requires review"} />
-              <KpiCard accent="blue" icon={Icons.cash} label={ar() ? "مدفوعات معلقة" : "Pending Payments"} value={(paymentsData?.items || []).length} sub={ar() ? "بانتظار التسوية" : "awaiting settlement"} />
-              <KpiCard accent="violet" icon={Icons.offers} label={ar() ? "المنتجات" : "Products"} value={(productsData?.products || []).length} sub={ar() ? "في الكتالوج" : "active in catalog"} />
+          <div className="space-y-8 animate-fade-in">
+
+            {/* ── KPI Cards ── */}
+            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <KpiCard icon={Icons.chart} label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={fs?.totalRevenue || "0.000"} sub="KWD" isHighlighted />
+              <KpiCard accent="blue" icon={Icons.cash} label={ar() ? "مدفوعات معلقة" : "Pending Payments"} value={(paymentsData?.items || []).length} sub={`${fs?.pendingPaymentsKwd || "0.000"} KWD`} />
+              <KpiCard accent="amber" icon={Icons.shield} label={ar() ? "تحققات KYC معلقة" : "Pending KYC"} value={(kycData?.items || []).length} sub={ar() ? "بانتظار المراجعة" : "awaiting review"} />
+              <KpiCard accent="rose" icon={Icons.complaint} label={ar() ? "شكاوى مفتوحة" : "Open Complaints"} value={(complaintsData?.items || []).filter((c: any) => c.status === "open").length} sub={ar() ? "تتطلب متابعة" : "require follow-up"} />
+              <KpiCard accent="emerald" icon={Icons.clinic} label={ar() ? "العروض النشطة" : "Active Offers"} value={(offersData?.items || []).filter((o: any) => o.isActive !== false).length} sub={ar() ? "في الكتالوج" : "in catalog"} />
+              <KpiCard accent="violet" icon={Icons.calendar} label={ar() ? "حجوزات العربون" : "Reservations"} value={(reservationsData?.items || []).length} sub={ar() ? "نشطة" : "active"} />
             </div>
 
-            {/* Financial Overview Bento */}
-            <div className="mb-8">
-              <h3 className="text-lg font-bold text-surface-900 mb-5">{ar() ? "نظرة مالية شاملة" : "Financial Overview"}</h3>
-              <div className="grid gap-6 md:grid-cols-3">
-                <div className="card-elevated p-6 bg-white flex flex-col justify-center border-l-4 border-l-surface-300">
-                   <div className="text-sm font-bold text-surface-500 mb-1">{ar() ? "إجمالي الكاش باك المقفل" : "Total Cashback Locked"}</div>
-                   <div className="text-3xl font-black text-surface-900">{fs?.totalCashbackLocked || "0"} <span className="text-lg text-surface-400 font-medium">KWD</span></div>
-                   <div className="mt-4 w-full bg-surface-100 rounded-full h-2 overflow-hidden"><div className="bg-surface-400 h-full rounded-full w-[75%]"></div></div>
-                </div>
-                <div className="card-elevated p-6 bg-white flex flex-col justify-center border-l-4 border-l-brand-pink-400 shadow-md">
-                   <div className="text-sm font-bold text-brand-pink-500 mb-1">{ar() ? "الكاش باك المتاح للمستخدمين" : "Total Cashback Unlocked"}</div>
-                   <div className="text-3xl font-black text-brand-pink-600">{fs?.totalCashbackUnlocked || "0"} <span className="text-lg text-brand-pink-400 font-medium">KWD</span></div>
-                   <div className="mt-4 w-full bg-brand-pink-50 rounded-full h-2 overflow-hidden"><div className="bg-brand-pink-500 h-full rounded-full w-[50%]"></div></div>
-                </div>
-                <div className="card-elevated p-6 bg-white flex flex-col justify-center border-l-4 border-l-emerald-400">
-                   <div className="text-sm font-bold text-surface-500 mb-1">{ar() ? "إجمالي الكاش باك المستخدم" : "Total Cashback Utilized"}</div>
-                   <div className="text-3xl font-black text-emerald-600">{fs?.totalCashbackUtilized || "0"} <span className="text-lg text-emerald-400 font-medium">KWD</span></div>
-                   <div className="mt-4 w-full bg-emerald-50 rounded-full h-2 overflow-hidden"><div className="bg-emerald-500 h-full rounded-full w-[25%]"></div></div>
-                </div>
-              </div>
-            </div>
-
-            <ReferralLeaderboardWidget />
-
-            {/* Products catalog */}
+            {/* ── Financial Snapshot ── */}
             <div>
-              <h3 className="text-lg font-bold text-surface-900 mb-5">{ar() ? "كتالوج المنتجات" : "Product Catalog"}</h3>
-              <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {(productsData?.products || []).map((p: any) => (
-                  <div key={p.code} className="card-elevated p-4">
-                    <div className="text-sm font-bold text-surface-900">{ar() ? p.nameAr : p.nameEn}</div>
-                    <div className="text-xs text-surface-400 mt-1">{p.durationMonths} {ar() ? "شهر" : "months"} • {p.cashbackModel}</div>
-                    <div className="mt-2 flex gap-1.5 flex-wrap">
-                      {parseFloat(p.fixedCashbackKwd) > 0 && <span className="badge-pink">{p.fixedCashbackKwd} CB</span>}
-                      {parseFloat(p.perSessionCashbackKwd) > 0 && <span className="badge-sage">{p.perSessionCashbackKwd}/s</span>}
-                      {parseFloat(p.perSessionPriceKwd) > 0 && <span className="badge-blue">{p.perSessionPriceKwd}/use</span>}
-                    </div>
+              <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "النظرة المالية" : "Financial Snapshot"}</h3>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                {[
+                  { label: ar() ? "الإيرادات" : "Revenue", value: fs?.totalRevenue || "0.000", color: "text-surface-900", border: "border-l-surface-400" },
+                  { label: ar() ? "معلقة" : "Pending", value: fs?.pendingPaymentsKwd || "0.000", color: "text-blue-600", border: "border-l-blue-400" },
+                  { label: ar() ? "كاش باك مقفل" : "CB Locked", value: fs?.totalCashbackLocked || "0.000", color: "text-amber-600", border: "border-l-amber-400" },
+                  { label: ar() ? "كاش باك متاح" : "CB Unlocked", value: fs?.totalCashbackUnlocked || "0.000", color: "text-brand-pink-600", border: "border-l-brand-pink-400" },
+                  { label: ar() ? "كاش باك مُستخدم" : "CB Utilized", value: fs?.totalCashbackUtilized || "0.000", color: "text-emerald-600", border: "border-l-emerald-400" },
+                  { label: ar() ? "جلسات اليوم" : "Sessions Today", value: fs?.sessionsToday ?? 0, color: "text-violet-600", border: "border-l-violet-400" },
+                ].map(({ label, value, color, border }) => (
+                  <div key={label} className={`card-elevated bg-white p-4 border-l-4 ${border} flex flex-col gap-1`}>
+                    <div className="text-xs font-bold text-surface-500 uppercase tracking-wide">{label}</div>
+                    <div className={`text-2xl font-black ${color}`}>{value}</div>
                   </div>
                 ))}
               </div>
             </div>
-          </>
+
+            {/* ── Needs Attention ── */}
+            <div>
+              <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "يحتاج إلى اهتمام" : "Needs Attention"}</h3>
+              <div className="grid gap-5 lg:grid-cols-3">
+
+                {/* Pending KYC */}
+                <div className="card-elevated bg-white rounded-xl overflow-hidden">
+                  <div className="px-5 py-3.5 bg-amber-50 border-b border-amber-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                      <span className="text-sm font-bold text-amber-800">{ar() ? "تحققات KYC معلقة" : "Pending KYC"}</span>
+                    </div>
+                    <span className="text-xs font-black bg-amber-500 text-white px-2 py-0.5 rounded-full">{(kycData?.items || []).length}</span>
+                  </div>
+                  <div className="divide-y divide-surface-100">
+                    {(kycData?.items || []).slice(0, 5).map((k: any) => (
+                      <div key={k.id} className="px-5 py-3 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-surface-700 font-mono">{k.civilIdNumber}</div>
+                          <div className="text-[10px] text-surface-400 mt-0.5">{new Date(k.createdAt).toLocaleDateString()}</div>
+                        </div>
+                        <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase">Pending</span>
+                      </div>
+                    ))}
+                    {(kycData?.items || []).length === 0 && (
+                      <div className="px-5 py-6 text-center text-xs text-surface-400">{ar() ? "لا توجد تحققات معلقة" : "No pending KYC submissions"}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Pending Payments */}
+                <div className="card-elevated bg-white rounded-xl overflow-hidden">
+                  <div className="px-5 py-3.5 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                      <span className="text-sm font-bold text-blue-800">{ar() ? "مدفوعات معلقة" : "Pending Payments"}</span>
+                    </div>
+                    <span className="text-xs font-black bg-blue-500 text-white px-2 py-0.5 rounded-full">{(paymentsData?.items || []).length}</span>
+                  </div>
+                  <div className="divide-y divide-surface-100">
+                    {(paymentsData?.items || []).slice(0, 5).map((p: any) => (
+                      <div key={p.id} className="px-5 py-3 flex items-center justify-between">
+                        <div>
+                          <div className="text-xs font-bold text-surface-700 font-mono">{p.id.slice(-8)}</div>
+                          <div className="text-[10px] text-surface-400 mt-0.5">{new Date(p.createdAt).toLocaleDateString()}</div>
+                        </div>
+                        <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase">Pending</span>
+                      </div>
+                    ))}
+                    {(paymentsData?.items || []).length === 0 && (
+                      <div className="px-5 py-6 text-center text-xs text-surface-400">{ar() ? "لا توجد مدفوعات معلقة" : "No pending payments"}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Open Complaints */}
+                <div className="card-elevated bg-white rounded-xl overflow-hidden">
+                  <div className="px-5 py-3.5 bg-rose-50 border-b border-rose-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                      <span className="text-sm font-bold text-rose-800">{ar() ? "شكاوى مفتوحة" : "Open Complaints"}</span>
+                    </div>
+                    <span className="text-xs font-black bg-rose-500 text-white px-2 py-0.5 rounded-full">
+                      {(complaintsData?.items || []).filter((c: any) => c.status === "open").length}
+                    </span>
+                  </div>
+                  <div className="divide-y divide-surface-100">
+                    {(complaintsData?.items || []).filter((c: any) => c.status === "open").slice(0, 5).map((c: any) => (
+                      <div key={c.id} className="px-5 py-3">
+                        <div className="text-xs font-bold text-surface-700 truncate">{c.subject}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-surface-400">{new Date(c.createdAt).toLocaleDateString()}</span>
+                          <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full">{c.category}</span>
+                        </div>
+                      </div>
+                    ))}
+                    {(complaintsData?.items || []).filter((c: any) => c.status === "open").length === 0 && (
+                      <div className="px-5 py-6 text-center text-xs text-surface-400">{ar() ? "لا توجد شكاوى مفتوحة" : "No open complaints"}</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Quick Navigation ── */}
+            <div>
+              <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "اختصارات التنقل" : "Quick Navigation"}</h3>
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+                {([
+                  { key: "offers",     icon: Icons.offers,    label: ar() ? "العضويات"  : "Memberships",  color: "text-brand-pink-600 bg-brand-pink-50 hover:bg-brand-pink-100" },
+                  { key: "users",      icon: Icons.users,     label: ar() ? "المستخدمون" : "Users",         color: "text-blue-600 bg-blue-50 hover:bg-blue-100" },
+                  { key: "clinics",    icon: Icons.clinic,    label: ar() ? "العيادات"   : "Clinics",       color: "text-emerald-600 bg-emerald-50 hover:bg-emerald-100" },
+                  { key: "complaints", icon: Icons.complaint, label: ar() ? "الشكاوى"    : "Complaints",    color: "text-rose-600 bg-rose-50 hover:bg-rose-100" },
+                  { key: "bookings",   icon: Icons.calendar,  label: ar() ? "الحجوزات"   : "Bookings",      color: "text-violet-600 bg-violet-50 hover:bg-violet-100" },
+                  { key: "eforms",     icon: Icons.report,    label: ar() ? "النماذج"    : "E-Forms",       color: "text-amber-600 bg-amber-50 hover:bg-amber-100" },
+                  { key: "notices",    icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>, label: ar() ? "إشعارات" : "Notices", color: "text-teal-600 bg-teal-50 hover:bg-teal-100" },
+                  { key: "audit",      icon: Icons.clipboard, label: ar() ? "التدقيق"   : "Audit Logs",    color: "text-surface-600 bg-surface-100 hover:bg-surface-200" },
+                ] as Array<{ key: string; icon: React.ReactNode; label: string; color: string }>).map(({ key, icon, label, color }) => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveNav(key)}
+                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border border-transparent transition-all duration-150 font-semibold text-xs ${color}`}
+                  >
+                    <span className="h-6 w-6">{icon}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Recent Activity (Audit Log) ── */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-bold text-surface-900">{ar() ? "النشاط الأخير" : "Recent Activity"}</h3>
+                <button onClick={() => setActiveNav("audit")} className="text-xs font-bold text-brand-pink-600 hover:text-brand-pink-800">
+                  {ar() ? "عرض الكل ←" : "View all →"}
+                </button>
+              </div>
+              <div className="card-elevated bg-white rounded-xl overflow-hidden divide-y divide-surface-100">
+                {(recentAuditData?.items || []).length === 0 && (
+                  <div className="py-8 text-center text-sm text-surface-400">{ar() ? "لا توجد أنشطة مسجلة بعد." : "No activity recorded yet."}</div>
+                )}
+                {(recentAuditData?.items || []).map((log: any) => (
+                  <div key={log.id} className="px-5 py-3.5 flex items-center gap-4">
+                    <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-black uppercase ${AUDIT_ROLE_COLORS[log.actorRole] ?? "bg-surface-100 text-surface-500"}`}>
+                      {log.actorRole?.slice(0, 2)}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-surface-900">{ACTION_LABELS[log.actionType] ?? log.actionType.replace(/_/g, " ")}</span>
+                        <span className="text-[10px] text-surface-400">{log.targetEntityType}</span>
+                      </div>
+                      {log.metadata?.username && <div className="text-[10px] text-surface-500 mt-0.5">@{log.metadata.username}</div>}
+                    </div>
+                    <div className="text-[10px] text-surface-400 whitespace-nowrap shrink-0">{new Date(log.createdAt).toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
         )}
         {activeNav === "offers" && <OffersManager />}
         {activeNav === "categories" && <CategoriesAdminPanel />}
