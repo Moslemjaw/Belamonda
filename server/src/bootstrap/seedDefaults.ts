@@ -12,16 +12,7 @@ const DEFAULT_CATEGORIES: Array<{
   nameEn: string;
   nameAr: string;
   sortOrder: number;
-}> = [
-  { slug: "all", nameEn: "All", nameAr: "الكل", sortOrder: 0 },
-  { slug: "laser", nameEn: "Laser Services", nameAr: "خدمات الليزر", sortOrder: 1 },
-  { slug: "injectables", nameEn: "Injectables", nameAr: "الحقن", sortOrder: 2 },
-  { slug: "skincare", nameEn: "Skin Care", nameAr: "العناية بالبشرة", sortOrder: 3 },
-  { slug: "beauty", nameEn: "Beauty Enhancements", nameAr: "التحسينات التجميلية", sortOrder: 4 },
-  { slug: "body", nameEn: "Body & Slimming", nameAr: "الجسم والتخسيس", sortOrder: 5 },
-  { slug: "dental", nameEn: "Dental Services", nameAr: "خدمات الأسنان", sortOrder: 6 },
-  { slug: "medical", nameEn: "Medical & Meditation", nameAr: "الطب والتأمل", sortOrder: 7 }
-];
+}> = [];
 
 export async function seedDefaultCategories(): Promise<void> {
   for (const c of DEFAULT_CATEGORIES) {
@@ -112,70 +103,6 @@ const DEFAULT_SESSION_TYPES: Array<{
   priceKwd: string;
   cashbackDeductionKwd: string;
 }> = [
-  { slug: "filler-italian", nameEn: "Filler (Italian)", nameAr: "فيلر إيطالي", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "filler-princess", nameEn: "Filler (Princess)", nameAr: "فيلر برنسس", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "filler-tosyal", nameEn: "Filler (Tosyal)", nameAr: "فيلر توسيال", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "cheek-filler-texas-jawline-contouring", nameEn: "Cheek Filler & Texas (Jawline Contouring)", nameAr: "فيلر الخدود وتكساس", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "body-filler-10-ml", nameEn: "Body Filler (10 ml)", nameAr: "فيلر للجسم (10 مل)", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "filler-dissolving", nameEn: "Filler Dissolving", nameAr: "تذويب الفيلر", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "botox-one-area", nameEn: "Botox (One Area)", nameAr: "بوتوكس (منطقة واحدة)", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "botox-full-face", nameEn: "Botox (Full Face)", nameAr: "بوتوكس (كامل الوجه)", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "botox-hyperhidrosis", nameEn: "Botox (Hyperhidrosis / Sweating)", nameAr: "بوتوكس (فرط التعرق)", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "baby-face-injection", nameEn: "Baby Face Injection", nameAr: "إبرة بيبي فيس", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "asala-injection-olidia", nameEn: "Asala Injection (Olidia)", nameAr: "إبرة أصالة (أوليديا)", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "glow-injection", nameEn: "Glow Injection", nameAr: "إبرة النضارة (جلو)", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "amber-injection", nameEn: "Amber Injection", nameAr: "إبرة العنبر", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "salmon-injection", nameEn: "Salmon Injection", nameAr: "إبرة السلمون", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "filter-injection", nameEn: "Filter Injection", nameAr: "إبرة الفلتر", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "under-eye-brightening-injections", nameEn: "Under-Eye Brightening Injections", nameAr: "إبر تفتيح تحت العين", categorySlug: "injectables", priceKwd: "150.000", cashbackDeductionKwd: "50.000" },
-  { slug: "hydrafacial", nameEn: "Hydrafacial", nameAr: "هايدرا فيشل", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "deep-facial-cleansing", nameEn: "Deep Facial Cleansing", nameAr: "تنظيف بشره عميق", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "dermaplaning", nameEn: "Dermaplaning", nameAr: "ديرما بلانينج", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "facial-bleaching-face", nameEn: "Facial Bleaching (Face)", nameAr: "تشقير الوجه", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "facial-bleaching-eyebrows", nameEn: "Facial Bleaching (Eyebrows)", nameAr: "تشقير الحواجب", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "green-peel-facial-peeling", nameEn: "Green Peel (Facial Peeling)", nameAr: "التقشير الأخضر", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "carbon-treatment-pigmentation", nameEn: "Carbon Treatment (Pigmentation)", nameAr: "التقشير الكربوني", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "dermapen-microneedling", nameEn: "Dermapen (Microneedling)", nameAr: "ديرمابن", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "led-therapy", nameEn: "LED Therapy", nameAr: "علاج الإضاءة LED", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "onda-device-double-chin", nameEn: "ONDA Device (Double Chin)", nameAr: "جهاز أوندا (اللغلوغ)", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "exosome-therapy", nameEn: "Exosome Therapy", nameAr: "علاج الإكسوسوم", categorySlug: "skincare", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "face-plasma-prp", nameEn: "Face Plasma (PRP)", nameAr: "بلازما الوجه", categorySlug: "beauty", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "hair-plasma-prp", nameEn: "Hair Plasma (PRP)", nameAr: "بلازما الشعر", categorySlug: "beauty", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "plasma-dermapen-combo", nameEn: "Plasma + Dermapen Combo", nameAr: "بلازما + ديرمابن", categorySlug: "beauty", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "hair-mesotherapy-biotin", nameEn: "Hair Mesotherapy (Biotin)", nameAr: "ميزوثيرابي للشعر (بيوتين)", categorySlug: "beauty", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "lip-tinting", nameEn: "Lip Tinting", nameAr: "توريد الشفايف", categorySlug: "beauty", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "lip-blushing", nameEn: "Lip Blushing", nameAr: "كونتور الشفايف", categorySlug: "beauty", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "under-eye-treatments", nameEn: "Under-Eye Treatments", nameAr: "تجميل تحت العين", categorySlug: "beauty", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "body-whitening", nameEn: "Body Whitening", nameAr: "تبييض الجسم", categorySlug: "body", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "body-peeling-elbows-knees", nameEn: "Body Peeling (Elbows & Knees)", nameAr: "تقشير الجسم (الكوع والركبة)", categorySlug: "body", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "body-sculpting-tightening-sessions", nameEn: "Body Sculpting / Tightening Sessions", nameAr: "نحت وشد الجسم", categorySlug: "body", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "body-slimming-fat-reduction", nameEn: "Body Slimming / Fat Reduction", nameAr: "تخسيس الجسم", categorySlug: "body", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "stretch-mark-treatment", nameEn: "Stretch Mark Treatment", nameAr: "علاج علامات التمدد", categorySlug: "body", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "skin-repair-treatment-cracks", nameEn: "Skin Repair Treatment (Cracks)", nameAr: "إصلاح تشققات الجلد", categorySlug: "body", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "double-chin-fat-dissolving", nameEn: "Double Chin Fat Dissolving", nameAr: "إذابة دهون اللغلوغ", categorySlug: "body", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "facial-slimming", nameEn: "Facial Slimming", nameAr: "تنحيف الوجه", categorySlug: "body", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "fat-dissolving-injections-packages", nameEn: "Fat Dissolving Injections (Packages)", nameAr: "إبر إذابة الدهون", categorySlug: "body", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "fractional-laser", nameEn: "Fractional Laser", nameAr: "فراكشنال ليزر", categorySlug: "laser", priceKwd: "60.000", cashbackDeductionKwd: "20.000" },
-  { slug: "pico-laser", nameEn: "Pico Laser", nameAr: "بيكو ليزر", categorySlug: "laser", priceKwd: "60.000", cashbackDeductionKwd: "20.000" },
-  { slug: "tattoo-removal-body-eyebrow", nameEn: "Tattoo Removal (Body & Eyebrow)", nameAr: "إزالة التاتو (الجسم والحواجب)", categorySlug: "laser", priceKwd: "60.000", cashbackDeductionKwd: "20.000" },
-  { slug: "skin-tags-removal", nameEn: "Skin Tags Removal", nameAr: "إزالة الزوائد الجلدية", categorySlug: "laser", priceKwd: "60.000", cashbackDeductionKwd: "20.000" },
-  { slug: "white-hair-removal", nameEn: "White Hair Removal", nameAr: "إزالة الشعر الأبيض", categorySlug: "laser", priceKwd: "60.000", cashbackDeductionKwd: "20.000" },
-  { slug: "full-body-laser-hair-removal", nameEn: "Full Body Laser Hair Removal", nameAr: "ليزر إزالة الشعر كامل الجسم", categorySlug: "laser", priceKwd: "60.000", cashbackDeductionKwd: "20.000" },
-  { slug: "consultation", nameEn: "Consultation", nameAr: "استشارة", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "x-ray", nameEn: "X-Ray", nameAr: "أشعة", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "teeth-cleaning", nameEn: "Teeth Cleaning", nameAr: "تنظيف الأسنان", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "gum-cleaning", nameEn: "Gum Cleaning", nameAr: "تنظيف اللثة", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "fillings", nameEn: "Fillings", nameAr: "حشوات", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "root-canal-all-types", nameEn: "Root Canal (All Types)", nameAr: "علاج عصب", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "tooth-extraction-simple", nameEn: "Tooth Extraction (Simple)", nameAr: "خلع الأسنان (بسيط)", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "tooth-extraction-surgical", nameEn: "Tooth Extraction (Surgical)", nameAr: "خلع الأسنان (جراحي)", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "teeth-whitening", nameEn: "Teeth Whitening", nameAr: "تبييض الأسنان", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "polishing", nameEn: "Polishing", nameAr: "تلميع", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "crowns", nameEn: "Crowns", nameAr: "تلبيسات الأسنان", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "veneers", nameEn: "Veneers", nameAr: "فينير الأسنان", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "hollywood-smile", nameEn: "Hollywood Smile", nameAr: "ابتسامة هوليود", categorySlug: "dental", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "glutathione-drip", nameEn: "Glutathione Drip", nameAr: "إبرة الجلوتاثيون", categorySlug: "medical", priceKwd: "90.000", cashbackDeductionKwd: "20.000" },
-  { slug: "physiotherapy-sessions", nameEn: "Physiotherapy Sessions", nameAr: "جلسات علاج طبيعي", categorySlug: "medical", priceKwd: "90.000", cashbackDeductionKwd: "20.000" }
 ];
 
 const STALE_SESSION_TYPE_SLUGS = [
