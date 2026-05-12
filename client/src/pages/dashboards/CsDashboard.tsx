@@ -1126,337 +1126,386 @@ function CustomerLookup() {
   );
 }
 function CustomersManager() {
-  const { data: clinicsData } = useApi<{ items: any[] }>("/clinics");
-  const { loginWithPassword } = useAuth();
-  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const { getAuthHeader } = useAuth();
   const [search, setSearch] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
-  const [editForm, setEditForm] = useState<any>({});
-  
+  const [users, setUsers] = useState<any[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [showGrantModal, setShowGrantModal] = useState(false);
   const [grantType, setGrantType] = useState<"offer" | "session">("session");
   const [grantItem, setGrantItem] = useState("");
   const [grantAmount, setGrantAmount] = useState("");
   const [grantSessions, setGrantSessions] = useState("");
-  
-  const [mockUsers, setMockUsers] = useState([
-    { id: "USR-001", name: "Ahmed Al-Fadhli", phone: "+965 99887766", role: "Customer", status: "Verified", kyc: true, balance: "145.000 KWD" },
-    { id: "USR-002", name: "Sarah Al-Salem", phone: "+965 55443322", role: "Customer", status: "Pending KYC", kyc: false, balance: "0.000 KWD" },
-    { id: "USR-003", name: "Fatima Khalid", phone: "+965 11223344", role: "Customer", status: "Frozen", kyc: true, balance: "20.000 KWD" }
-  ]);
+  const [freezing, setFreezing] = useState(false);
 
-  const filtered = mockUsers.filter(u => 
-    u.role === "Customer" && 
-    (u.name.toLowerCase().includes(search.toLowerCase()) || u.phone.includes(search))
+  const loadUsers = () => {
+    setUsersLoading(true);
+    apiFetch("/users/admin?role=customer", { headers: getAuthHeader() })
+      .then((res: any) => setUsers(res.items ?? []))
+      .catch(() => {})
+      .finally(() => setUsersLoading(false));
+  };
+
+  useEffect(() => { loadUsers(); }, []);
+
+  const handleManage = async (u: any) => {
+    setSelectedUser(u);
+    setProfile(null);
+    setProfileLoading(true);
+    try {
+      const data: any = await apiFetch(`/users/admin/${u.id}/profile`, { headers: getAuthHeader() });
+      setProfile(data);
+    } catch {}
+    finally { setProfileLoading(false); }
+  };
+
+  const handleFreeze = async () => {
+    if (!selectedUser) return;
+    setFreezing(true);
+    try {
+      await apiFetch(`/users/admin/${selectedUser.id}`, {
+        method: "PATCH",
+        headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !selectedUser.isActive }),
+      });
+      const updated = { ...selectedUser, isActive: !selectedUser.isActive };
+      setSelectedUser(updated);
+      setUsers(users.map(u => u.id === updated.id ? updated : u));
+    } catch (e: any) { alert(e.message); }
+    finally { setFreezing(false); }
+  };
+
+  const getDisplayName = (u: any) => u.fullName || u.username || "—";
+  const getStatus = (u: any, p?: any) => {
+    if (!u.isActive) return "Frozen";
+    const kycStatus = p?.kyc?.status;
+    if (kycStatus === "approved") return "Verified";
+    if (kycStatus === "pending") return "Pending KYC";
+    if (kycStatus === "rejected") return "KYC Rejected";
+    return "Active";
+  };
+  const getStatusBadge = (status: string) => {
+    if (status === "Verified") return "badge-green";
+    if (status === "Frozen") return "badge-red";
+    if (status === "Pending KYC") return "badge-yellow";
+    return "badge-sage";
+  };
+
+  const filtered = users.filter(u =>
+    getDisplayName(u).toLowerCase().includes(search.toLowerCase()) ||
+    (u.phone || "").includes(search) ||
+    (u.email || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleLoginAsUser = () => {
-     if (selectedUser) loginWithPassword(selectedUser.id, "demo12345");
-  };
-
-  const handleFreezeToggle = () => {
-     if (selectedUser) {
-        const newStatus = selectedUser.status === "Frozen" ? (selectedUser.kyc ? "Verified" : "Active") : "Frozen";
-        const updated = { ...selectedUser, status: newStatus };
-        setSelectedUser(updated);
-        setMockUsers(mockUsers.map(u => u.id === updated.id ? updated : u));
-     }
-  };
-
-  const handleEditToggle = () => {
-     if (isEditing) {
-        setSelectedUser(editForm);
-        setMockUsers(mockUsers.map(u => u.id === editForm.id ? editForm : u));
-        setIsEditing(false);
-     } else {
-        setEditForm(selectedUser);
-        setIsEditing(true);
-     }
-  };
+  const userStatus = selectedUser ? getStatus(selectedUser, profile) : "";
 
   return (
     <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "العملاء (المرضى)" : "Customers (Patients)"}</h3>
         <div className="w-64">
-           <input className="input-field" placeholder={ar() ? "بحث بالاسم أو الهاتف..." : "Search name or phone..."} value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="input-field" placeholder={ar() ? "بحث بالاسم أو الهاتف..." : "Search name or phone..."} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
-      
+
       {selectedUser ? (
         <div className="card-elevated p-6 animate-slide-up relative bg-surface-50">
-          <button className="absolute top-6 right-6 text-surface-400 hover:text-surface-900 bg-white hover:bg-surface-200 border border-surface-200 p-2 rounded-full transition-colors shadow-sm" onClick={() => { setSelectedUser(null); setIsEditing(false); }}>
-             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          <button className="absolute top-6 right-6 text-surface-400 hover:text-surface-900 bg-white hover:bg-surface-200 border border-surface-200 p-2 rounded-full transition-colors shadow-sm"
+            onClick={() => { setSelectedUser(null); setProfile(null); }}>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
-          
+
           <div className="flex items-start gap-4 mb-8">
             <div className="w-16 h-16 rounded-2xl bg-brand-pink-100 flex items-center justify-center text-brand-pink-600 font-bold text-2xl shadow-sm">
-              {selectedUser.name.charAt(0)}
+              {getDisplayName(selectedUser).charAt(0).toUpperCase()}
             </div>
             <div>
-              {isEditing ? (
-                 <input className="input-field mb-2 w-64 font-bold text-lg" value={editForm.name} onChange={e => setEditForm({...editForm, name: e.target.value})} />
-              ) : (
-                 <h2 className="text-xl font-bold text-surface-900">{selectedUser.name}</h2>
-              )}
-              <div className="text-sm text-surface-500 mt-1">{selectedUser.id} • {isEditing ? <input className="input-field inline-block w-40 text-xs py-1 px-2 h-7" value={editForm.phone} onChange={e => setEditForm({...editForm, phone: e.target.value})} /> : selectedUser.phone}</div>
-              <div className="mt-2 flex gap-2">
-                 <span className={selectedUser.status === 'Frozen' ? 'badge-red' : `badge-${selectedUser.kyc ? 'green' : 'yellow'}`}>{selectedUser.status}</span>
-                 <span className="badge-sage">{selectedUser.role}</span>
+              <h2 className="text-xl font-bold text-surface-900">{getDisplayName(selectedUser)}</h2>
+              <div className="text-sm text-surface-500 mt-1">@{selectedUser.username} • {selectedUser.phone || "—"}</div>
+              <div className="mt-2 flex gap-2 flex-wrap">
+                <span className={getStatusBadge(userStatus)}>{userStatus}</span>
+                <span className="badge-sage">Customer</span>
+                {selectedUser.email && <span className="text-xs text-surface-400">{selectedUser.email}</span>}
               </div>
             </div>
           </div>
-          
+
+          {profileLoading ? (
+            <div className="py-12 text-center text-sm text-surface-400 animate-pulse">{ar() ? "جاري تحميل الملف الشخصي..." : "Loading profile..."}</div>
+          ) : (
           <div className="grid gap-6 lg:grid-cols-3 mb-8">
             <div className="lg:col-span-1 space-y-6">
-               <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                  <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "نظرة عامة" : "Overview"}</h4>
-                  <div className="space-y-4">
-                    <div><div className="text-xs text-surface-500">{ar() ? "الرصيد المتاح" : "Available Balance"}</div>{isEditing ? <input className="input-field mt-1 text-sm font-bold text-brand-pink-600 h-8" value={editForm.balance} onChange={e => setEditForm({...editForm, balance: e.target.value})} /> : <div className="text-xl font-black text-brand-pink-600">{selectedUser.balance}</div>}</div>
-                    <div><div className="text-xs text-surface-500">{ar() ? "الرقم المدني" : "Civil ID"}</div><div className="font-mono text-sm text-surface-900">290123456789</div></div>
-                    <div><div className="text-xs text-surface-500">{ar() ? "تاريخ الميلاد" : "Date of Birth"}</div><div className="text-sm text-surface-900">14 Jan 1990</div></div>
-                    <div><div className="text-xs text-surface-500">{ar() ? "البريد الإلكتروني" : "Email"}</div><div className="text-sm text-surface-900">{selectedUser.name.split(' ')[0].toLowerCase()}@example.com</div></div>
-                    <div className="pt-2 border-t border-surface-100"><div className="text-xs text-surface-500">{ar() ? "تاريخ التسجيل" : "Registered"}</div><div className="text-sm text-surface-900">12 Oct 2025</div></div>
+              <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
+                <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "نظرة عامة" : "Overview"}</h4>
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-xs text-surface-500">{ar() ? "الرصيد المتاح" : "Available Balance"}</div>
+                    <div className="text-xl font-black text-brand-pink-600">
+                      {profile?.wallet ? `${Number(profile.wallet.unlockedKwd ?? 0).toFixed(3)} KWD` : "—"}
+                    </div>
+                    {profile?.wallet?.lockedKwd > 0 && (
+                      <div className="text-xs text-surface-400 mt-0.5">{Number(profile.wallet.lockedKwd).toFixed(3)} KWD {ar() ? "مقفل" : "locked"}</div>
+                    )}
                   </div>
-               </div>
+                  <div>
+                    <div className="text-xs text-surface-500">{ar() ? "الرقم المدني" : "Civil ID"}</div>
+                    <div className="font-mono text-sm text-surface-900">{profile?.kyc?.civilIdNumberMasked || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-surface-500">{ar() ? "حالة KYC" : "KYC Status"}</div>
+                    <div className="text-sm text-surface-900 capitalize">{profile?.kyc?.status ?? "Not submitted"}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-surface-500">{ar() ? "البريد الإلكتروني" : "Email"}</div>
+                    <div className="text-sm text-surface-900">{selectedUser.email || "—"}</div>
+                  </div>
+                  <div className="pt-2 border-t border-surface-100">
+                    <div className="text-xs text-surface-500">{ar() ? "تاريخ التسجيل" : "Registered"}</div>
+                    <div className="text-sm text-surface-900">{selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : "—"}</div>
+                  </div>
+                  {profile?.wallet?.txns?.length > 0 && (
+                    <div className="pt-2 border-t border-surface-100">
+                      <div className="text-xs text-surface-500 mb-2">{ar() ? "آخر حركات المحفظة" : "Recent Wallet Txns"}</div>
+                      <div className="space-y-1.5">
+                        {profile.wallet.txns.slice(0, 4).map((t: any) => (
+                          <div key={t.id} className="flex justify-between items-center text-xs">
+                            <span className="text-surface-500 capitalize">{t.type?.replace(/_/g, ' ')}</span>
+                            <span className={`font-bold ${t.amountKwd >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                              {t.amountKwd >= 0 ? '+' : ''}{Number(t.amountKwd).toFixed(3)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-            
+
             <div className="lg:col-span-2 space-y-6">
-               {/* Active Offers - DYNAMIC */}
-               {(() => {
-                  const userOffers = (() => { try { return JSON.parse(localStorage.getItem('demo_offers_v4') || '[]'); } catch { return []; } })();
-                  const activeOffers = userOffers.filter((o: any) => !(o.maxSessions && o.sessionsUsed >= o.maxSessions));
-                  return (
-                  <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                     <h4 className="font-bold text-surface-900 mb-4 flex items-center justify-between pb-2 border-b border-surface-100">
-                        {ar() ? "الاشتراكات والعروض" : "Memberships & Offers"}
-                        <span className="badge-pink text-xs">{activeOffers.length} {ar() ? "نشط" : "Active"}</span>
-                     </h4>
-                     {activeOffers.length === 0 ? (
-                        <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد اشتراكات" : "No active memberships"}</div>
-                     ) : (
-                     <div className="grid gap-3 sm:grid-cols-2">
-                        {activeOffers.map((o: any) => {
-                           const sessionsLeft = o.maxSessions ? o.maxSessions - (o.sessionsUsed || 0) : null;
-                           const clinicName = o.clinicId ? (treatmentClinics.find(c => c.id === o.clinicId)?.nameEn || clinicsData?.items?.find(c => c.id === o.clinicId)?.nameEn || o.clinicId) : null;
-                           return (
-                           <div key={o.id} className="bg-surface-50 p-4 rounded-xl border border-surface-200 shadow-sm flex flex-col">
-                              <div className="text-sm font-bold text-surface-900">{o.offerName || o.offerId}</div>
-                              <div className="text-xs text-surface-500 mt-1 mb-1">{o.amount} • {o.method || "N/A"}</div>
-                              {clinicName && <div className="text-[10px] text-brand-pink-600 font-medium mb-2">📍 {clinicName}</div>}
-                              <div className="mt-auto pt-3 border-t border-surface-100 flex justify-between items-center">
-                                 <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${o.status === 'active' ? 'text-emerald-600 bg-emerald-50' : o.status === 'pending payment' ? 'text-amber-600 bg-amber-50' : 'text-surface-600 bg-surface-100'}`}>
-                                    {o.method === 'Installments' ? `${o.paidInstallments || 0}/${o.totalInstallments} Paid` : o.status}
-                                 </span>
-                                 {sessionsLeft !== null && <span className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">{sessionsLeft} {ar() ? "جلسة متبقية" : "Sessions Left"}</span>}
-                              </div>
-                              {o.method === 'Installments' && (
-                                 <div className="mt-1.5 flex gap-0.5">{[...Array(o.totalInstallments || 1)].map((_: any, i: number) => <div key={i} className={`h-1 w-6 rounded-full ${i < (o.paidInstallments || 0) ? 'bg-emerald-500' : 'bg-surface-200'}`} />)}</div>
-                              )}
-                           </div>
-                           );
-                        })}
-                     </div>
-                     )}
+              {/* Memberships */}
+              <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
+                <h4 className="font-bold text-surface-900 mb-4 flex items-center justify-between pb-2 border-b border-surface-100">
+                  {ar() ? "الاشتراكات والعروض" : "Memberships & Offers"}
+                  <span className="badge-pink text-xs">{(profile?.memberships ?? []).length}</span>
+                </h4>
+                {!(profile?.memberships?.length) ? (
+                  <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد اشتراكات" : "No memberships"}</div>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {profile.memberships.map((m: any) => {
+                      const sessionsLeft = m.maxSessions != null ? m.maxSessions - (m.sessionsUsed ?? 0) : null;
+                      return (
+                        <div key={m.id} className="bg-surface-50 p-4 rounded-xl border border-surface-200 shadow-sm flex flex-col">
+                          <div className="text-sm font-bold text-surface-900">{m.offerName}</div>
+                          <div className="text-xs text-surface-500 mt-1 mb-1">
+                            {m.paymentAmountKwd != null ? `${Number(m.paymentAmountKwd).toFixed(3)} KWD` : "—"} • {m.purchaseMode || "—"}
+                          </div>
+                          <div className="mt-auto pt-3 border-t border-surface-100 flex justify-between items-center">
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${
+                              m.status === 'active' ? 'text-emerald-600 bg-emerald-50' :
+                              m.status === 'pending_payment' ? 'text-amber-600 bg-amber-50' :
+                              'text-surface-600 bg-surface-100'
+                            }`}>
+                              {m.purchaseMode === 'installments' ? `${m.installmentsPaid ?? 0}/${m.installmentCount ?? 0} Paid` : m.status}
+                            </span>
+                            {sessionsLeft !== null && (
+                              <span className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">
+                                {sessionsLeft} {ar() ? "متبقية" : "left"}
+                              </span>
+                            )}
+                          </div>
+                          {m.purchaseMode === 'installments' && m.installmentCount > 0 && (
+                            <div className="mt-1.5 flex gap-0.5">
+                              {[...Array(m.installmentCount)].map((_: any, i: number) => (
+                                <div key={i} className={`h-1 w-6 rounded-full ${i < (m.installmentsPaid ?? 0) ? 'bg-emerald-500' : 'bg-surface-200'}`} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  );
-               })()}
+                )}
+              </div>
 
-               {/* Appointments & Payments - DYNAMIC */}
-               <div className="grid gap-6 md:grid-cols-2">
-                  {(() => {
-                     const bookings = (() => { try { return JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]'); } catch { return []; } })();
-                     return (
-                     <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                        <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المواعيد" : "Appointments"}</h4>
-                        {bookings.length === 0 ? (
-                           <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد مواعيد" : "No appointments yet"}</div>
-                        ) : (
-                        <div className="space-y-3">
-                           {bookings.slice(0, 5).map((b: any) => (
-                              <div key={b.id} className="bg-white p-3 rounded-lg border-l-4 border-l-blue-500 border border-surface-200 shadow-sm">
-                                 <div className="text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">{b.userId} • {new Date(b.createdAt).toLocaleDateString()}</div>
-                                 <div className="text-sm font-bold text-surface-900">{b.offerName || b.offerId}</div>
-                                 {b.clinic && <div className="text-xs text-surface-500">📍 {b.clinic}</div>}
-                              </div>
-                           ))}
+              {/* Sessions & Payments */}
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
+                  <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "الجلسات" : "Sessions"}</h4>
+                  {!(profile?.sessions?.length) ? (
+                    <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد جلسات" : "No sessions yet"}</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {profile.sessions.slice(0, 6).map((s: any) => (
+                        <div key={s.id} className={`p-2.5 rounded-lg border text-xs flex justify-between items-center ${
+                          s.status === 'completed' ? 'border-emerald-100 bg-emerald-50' :
+                          s.status === 'scheduled' ? 'border-blue-100 bg-blue-50' :
+                          'border-surface-100 bg-surface-50'
+                        }`}>
+                          <span className="font-medium text-surface-700 capitalize">{s.status?.replace(/_/g, ' ')}</span>
+                          <span className="text-surface-400">{s.requestedAt ? new Date(s.requestedAt).toLocaleDateString() : "—"}</span>
                         </div>
-                        )}
-                     </div>
-                     );
-                  })()}
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-                  {(() => {
-                     const ledger = getFinancialLedger().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                     return (
-                     <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                        <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المدفوعات الأخيرة" : "Recent Payments"}</h4>
-                        {ledger.length === 0 ? (
-                           <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد مدفوعات" : "No payments yet"}</div>
-                        ) : (
-                        <div className="space-y-3">
-                           {ledger.slice(0, 5).map((e: any) => (
-                              <div key={e.id} className="flex items-center justify-between bg-white p-3 rounded-lg border border-surface-200 shadow-sm">
-                                 <div>
-                                    <div className="text-sm font-bold text-surface-900">{e.description?.slice(0, 30)}</div>
-                                    <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400">{e.userId} • {e.type?.replace(/_/g, ' ')}</div>
-                                 </div>
-                                 <div className={`text-sm font-black ${e.amount >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{e.amount >= 0 ? '+' : ''}{e.amount.toFixed(3)} KWD</div>
-                              </div>
-                           ))}
+                <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
+                  <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المدفوعات الأخيرة" : "Recent Payments"}</h4>
+                  {!(profile?.payments?.length) ? (
+                    <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد مدفوعات" : "No payments yet"}</div>
+                  ) : (
+                    <div className="space-y-2">
+                      {profile.payments.slice(0, 6).map((p: any) => (
+                        <div key={p.id} className="flex items-center justify-between p-2.5 rounded-lg border border-surface-100 bg-white text-xs">
+                          <div>
+                            <div className="font-bold text-surface-900">{p.offerName}</div>
+                            <div className="text-surface-400 capitalize">{p.method} • {p.status}</div>
+                          </div>
+                          <div className="font-black text-surface-900">{Number(p.amountKwd).toFixed(3)}</div>
                         </div>
-                        )}
-                     </div>
-                     );
-                  })()}
-               </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-          
+          )}
+
           <div className="border-t border-surface-200 pt-6 flex gap-3 flex-wrap">
-             <button className="btn-primary flex items-center gap-2" onClick={handleLoginAsUser}>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
-                {ar() ? "دخول كـ مستخدم" : "Login As User"}
-             </button>
-             <button className="btn-primary flex items-center gap-2 bg-purple-500 hover:bg-purple-600 border-none shadow-sm" onClick={() => setShowGrantModal(true)}>
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                {ar() ? "منح عرض / جلسة" : "Grant Offer / Session"}
-             </button>
-             <button className="btn-secondary" onClick={handleEditToggle}>
-                {isEditing ? (ar() ? "حفظ التعديلات" : "Save Details") : (ar() ? "تعديل البيانات" : "Edit Details")}
-             </button>
-             <button className="btn-secondary text-red-500 hover:bg-red-50 hover:border-red-200 border-surface-200" onClick={handleFreezeToggle}>
-                {selectedUser.status === 'Frozen' ? (ar() ? "إلغاء التجميد" : "Unfreeze Account") : (ar() ? "تجميد الحساب" : "Freeze Account")}
-             </button>
-             {isEditing && (
-                <button className="btn-secondary ml-auto text-surface-500" onClick={() => setIsEditing(false)}>{ar() ? "إلغاء" : "Cancel"}</button>
-             )}
+            <button className="btn-primary flex items-center gap-2 bg-purple-500 hover:bg-purple-600 border-none shadow-sm" onClick={() => setShowGrantModal(true)}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              {ar() ? "منح عرض / جلسة" : "Grant Offer / Session"}
+            </button>
+            <button className="btn-secondary text-red-500 hover:bg-red-50 hover:border-red-200 border-surface-200 flex items-center gap-2"
+              onClick={handleFreeze} disabled={freezing}>
+              {freezing ? "..." : selectedUser.isActive
+                ? (ar() ? "تجميد الحساب" : "Freeze Account")
+                : (ar() ? "إلغاء التجميد" : "Unfreeze Account")}
+            </button>
           </div>
 
           {/* Grant Modal */}
           {showGrantModal && createPortal(
-             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-               <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-slide-up relative">
-                 <button className="absolute top-5 right-5 text-surface-400 hover:text-surface-900 transition-colors" onClick={() => setShowGrantModal(false)}>
-                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                 </button>
-                 <h3 className="text-xl font-bold text-surface-900 mb-6 flex items-center gap-2">
-                    <svg className="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4M12 20V4" /></svg>
-                    {ar() ? "منح عرض أو جلسة" : "Grant Offer / Session"}
-                 </h3>
-
-                 <div className="space-y-4">
-                   <div>
-                     <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "نوع المنحة" : "Grant Type"}</label>
-                     <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                           <input type="radio" checked={grantType === "session"} onChange={() => setGrantType("session")} className="text-purple-500 focus:ring-purple-400" />
-                           <span className="text-sm font-medium">{ar() ? "جلسة مجانية" : "Free Session"}</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                           <input type="radio" checked={grantType === "offer"} onChange={() => setGrantType("offer")} className="text-purple-500 focus:ring-purple-400" />
-                           <span className="text-sm font-medium">{ar() ? "باقة / عرض" : "Package / Offer"}</span>
-                        </label>
-                     </div>
-                   </div>
-
-                   {grantType === "session" ? (
-                     <div>
-                        <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اختر الجلسة" : "Select Session"}</label>
-                        <select className="select-field w-full" value={grantItem} onChange={e => setGrantItem(e.target.value)}>
-                           <option value="">-- {ar() ? "اختر الجلسة" : "Select"} --</option>
-                           {allTreatments.map(t => <option key={t.id} value={t.nameEn}>{ar() ? t.nameAr : t.nameEn}</option>)}
-                        </select>
-                     </div>
-                   ) : (
-                     <>
-                        <div>
-                           <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اسم الباقة / العرض" : "Offer / Package Name"}</label>
-                           <input type="text" className="input-field" placeholder={ar() ? "مثال: باقة الليزر الذهبية" : "e.g. Golden Laser Package"} value={grantItem} onChange={e => setGrantItem(e.target.value)} />
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-slide-up relative">
+                <button className="absolute top-5 right-5 text-surface-400 hover:text-surface-900 transition-colors" onClick={() => setShowGrantModal(false)}>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <h3 className="text-xl font-bold text-surface-900 mb-6 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4M12 20V4" /></svg>
+                  {ar() ? "منح عرض أو جلسة" : "Grant Offer / Session"}
+                </h3>
+                <p className="text-sm text-surface-500 -mt-3 mb-5">{getDisplayName(selectedUser)}</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "نوع المنحة" : "Grant Type"}</label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" checked={grantType === "session"} onChange={() => setGrantType("session")} className="text-purple-500 focus:ring-purple-400" />
+                        <span className="text-sm font-medium">{ar() ? "جلسة مجانية" : "Free Session"}</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" checked={grantType === "offer"} onChange={() => setGrantType("offer")} className="text-purple-500 focus:ring-purple-400" />
+                        <span className="text-sm font-medium">{ar() ? "باقة / عرض" : "Package / Offer"}</span>
+                      </label>
+                    </div>
+                  </div>
+                  {grantType === "session" ? (
+                    <div>
+                      <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اختر الجلسة" : "Select Session"}</label>
+                      <select className="select-field w-full" value={grantItem} onChange={e => setGrantItem(e.target.value)}>
+                        <option value="">-- {ar() ? "اختر الجلسة" : "Select"} --</option>
+                        {allTreatments.map(t => <option key={t.id} value={t.nameEn}>{ar() ? t.nameAr : t.nameEn}</option>)}
+                      </select>
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اسم الباقة / العرض" : "Offer / Package Name"}</label>
+                        <input type="text" className="input-field" placeholder={ar() ? "مثال: باقة الليزر الذهبية" : "e.g. Golden Laser Package"} value={grantItem} onChange={e => setGrantItem(e.target.value)} />
+                      </div>
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "عدد الجلسات" : "No. of Sessions"}</label>
+                          <input type="number" className="input-field" placeholder="0" value={grantSessions} onChange={e => setGrantSessions(e.target.value)} />
                         </div>
-                        <div className="flex gap-4">
-                           <div className="flex-1">
-                              <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "عدد الجلسات" : "No. of Sessions"}</label>
-                              <input type="number" className="input-field" placeholder="0" value={grantSessions} onChange={e => setGrantSessions(e.target.value)} />
-                           </div>
-                           <div className="flex-1">
-                              <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "القيمة (اختياري)" : "Value (Optional)"}</label>
-                              <input type="text" className="input-field" placeholder="0.000" value={grantAmount} onChange={e => setGrantAmount(e.target.value)} />
-                           </div>
+                        <div className="flex-1">
+                          <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "القيمة (اختياري)" : "Value (Optional)"}</label>
+                          <input type="text" className="input-field" placeholder="0.000" value={grantAmount} onChange={e => setGrantAmount(e.target.value)} />
                         </div>
-                     </>
-                   )}
-                 </div>
-
-                 <div className="mt-8 flex gap-3">
-                    <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors" onClick={() => setShowGrantModal(false)}>{ar() ? "إلغاء" : "Cancel"}</button>
-                    <button className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm" disabled={!grantItem} onClick={() => {
-                       // Save the granted item
-                       try {
-                          const offers = JSON.parse(localStorage.getItem('demo_offers_v4') || '[]');
-                          const newGrant = {
-                             id: "grant_" + Date.now(),
-                             userId: selectedUser.id,
-                             offerId: grantType === "session" ? `Free Session: ${grantItem}` : grantItem,
-                             amount: grantAmount || "0 KWD",
-                             status: "active",
-                             method: "Admin Granted",
-                             totalInstallments: 1,
-                             paidInstallments: 1,
-                             sessionsUsed: 0,
-                             maxSessions: grantType === "session" ? 1 : (parseInt(grantSessions) || null),
-                             category: grantType === "session" ? "granted_session" : "granted_offer",
-                             createdAt: new Date().toISOString()
-                          };
-                          offers.push(newGrant);
-                          localStorage.setItem('demo_offers_v4', JSON.stringify(offers));
-                          
-                          // If session, automatically put in bookings queue
-                          if (grantType === "session") {
-                             const bookings = JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]');
-                             bookings.push({
-                                id: `book_${Date.now()}`,
-                                userId: selectedUser.id,
-                                offerId: `Free Session: ${grantItem}`,
-                                treatment: grantItem,
-                                clinic: "Preferred Clinic",
-                                createdAt: new Date().toISOString()
-                             });
-                             localStorage.setItem('demo_pending_bookings_v4', JSON.stringify(bookings));
-                          }
-                       } catch(e) {}
-                       setShowGrantModal(false);
-                       setGrantItem("");
-                       setGrantSessions("");
-                       setGrantAmount("");
-                    }}>{ar() ? "منح وتأكيد" : "Grant & Confirm"}</button>
-                 </div>
-               </div>
-             </div>, document.body
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="mt-8 flex gap-3">
+                  <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors" onClick={() => setShowGrantModal(false)}>{ar() ? "إلغاء" : "Cancel"}</button>
+                  <button className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm" disabled={!grantItem}
+                    onClick={() => {
+                      setShowGrantModal(false);
+                      setGrantItem(""); setGrantSessions(""); setGrantAmount("");
+                    }}>
+                    {ar() ? "منح وتأكيد" : "Grant & Confirm"}
+                  </button>
+                </div>
+              </div>
+            </div>, document.body
           )}
         </div>
       ) : (
         <div className="card-elevated overflow-hidden">
           <table className="data-table">
-            <thead><tr><th>{ar() ? "الاسم" : "Name"}</th><th>{ar() ? "الرقم" : "Phone/Contact"}</th><th>{ar() ? "الصلاحية" : "Role"}</th><th>{ar() ? "الحالة" : "Status"}</th><th></th></tr></thead>
+            <thead>
+              <tr>
+                <th>{ar() ? "الاسم" : "Name"}</th>
+                <th>{ar() ? "الرقم" : "Phone/Contact"}</th>
+                <th>{ar() ? "الصلاحية" : "Role"}</th>
+                <th>{ar() ? "الحالة" : "Status"}</th>
+                <th></th>
+              </tr>
+            </thead>
             <tbody>
-              {filtered.map((u: any) => (
-                <tr key={u.id}>
-                  <td className="font-medium flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-brand-pink-50 flex items-center justify-center text-xs font-bold text-brand-pink-600">{u.name.charAt(0)}</div>
-                    {u.name}
-                  </td>
-                  <td>{u.phone}</td>
-                  <td><span className="badge-sage">{u.role}</span></td>
-                  <td><span className={u.status === 'Frozen' ? 'badge-red' : `badge-${u.kyc ? 'green' : 'yellow'}`}>{u.status}</span></td>
-                  <td className="text-right">
-                    <button className="text-brand-pink-600 hover:text-brand-pink-800 font-medium text-sm px-4 py-1.5 bg-brand-pink-50 rounded-lg transition-colors hover:bg-brand-pink-100" onClick={() => setSelectedUser(u)}>
-                      {ar() ? "إدارة" : "Manage"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></div><div className="empty-state-title">{ar() ? "لا يوجد عملاء" : "No customers found"}</div><div className="empty-state-sub">{ar() ? "جربي تعديل الفلاتر أو البحث." : "Try adjusting your filters or search."}</div></div></td></tr>}
+              {usersLoading ? (
+                <tr><td colSpan={5} className="py-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</td></tr>
+              ) : filtered.map((u: any) => {
+                const name = getDisplayName(u);
+                const status = getStatus(u);
+                return (
+                  <tr key={u.id}>
+                    <td className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-brand-pink-50 flex items-center justify-center text-xs font-bold text-brand-pink-600 flex-shrink-0">
+                          {name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div>{name}</div>
+                          {u.email && <div className="text-xs text-surface-400">{u.email}</div>}
+                        </div>
+                      </div>
+                    </td>
+                    <td>{u.phone || "—"}</td>
+                    <td><span className="badge-sage">Customer</span></td>
+                    <td><span className={getStatusBadge(status)}>{status}</span></td>
+                    <td className="text-right">
+                      <button className="text-brand-pink-600 hover:text-brand-pink-800 font-medium text-sm px-4 py-1.5 bg-brand-pink-50 rounded-lg transition-colors hover:bg-brand-pink-100"
+                        onClick={() => handleManage(u)}>
+                        {ar() ? "إدارة" : "Manage"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {!usersLoading && filtered.length === 0 && (
+                <tr><td colSpan={5}><div className="empty-state">
+                  <div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></div>
+                  <div className="empty-state-title">{ar() ? "لا يوجد عملاء" : "No customers found"}</div>
+                  <div className="empty-state-sub">{ar() ? "جربي تعديل الفلاتر أو البحث." : "Try adjusting your filters or search."}</div>
+                </div></td></tr>
+              )}
             </tbody>
           </table>
         </div>
