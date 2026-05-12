@@ -1320,118 +1320,231 @@ function ComplaintsView() {
   );
 }
 
-function AdminSettings() {
-  const [loading, setLoading] = useState(false);
-  const [requireInstallmentPayment, setRequireInstallmentPayment] = useState(() => {
-    try { return localStorage.getItem('bel_require_installment_booking_v1') === 'true'; } catch { return false; }
-  });
+function SettingsToggle({ checked, onChange, color = "brand-pink" }: { checked: boolean; onChange: (v: boolean) => void; color?: string }) {
+  const bg = color === "red" ? "peer-checked:bg-red-500" : "peer-checked:bg-brand-pink-500";
+  return (
+    <label className="relative inline-flex items-center cursor-pointer">
+      <input type="checkbox" className="sr-only peer" checked={checked} onChange={e => onChange(e.target.checked)} />
+      <div className={`w-11 h-6 bg-surface-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${bg}`}></div>
+    </label>
+  );
+}
 
-  const save = () => {
-    setLoading(true);
-    localStorage.setItem('bel_require_installment_booking_v1', String(requireInstallmentPayment));
-    setTimeout(() => setLoading(false), 800);
+function AdminSettings() {
+  const { token } = useAuth();
+  const apiHeaders = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+  // ── Profile state ──────────────────────────────────────────────────────
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMsg, setProfileMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [username, setUsername] = useState("");
+
+  useEffect(() => {
+    fetch("/api/users/me", { headers: apiHeaders })
+      .then(r => r.json())
+      .then(d => {
+        if (d.user) {
+          setFullName(d.user.fullName ?? "");
+          setEmail(d.user.email ?? "");
+          setPhone(d.user.phone ?? "");
+          setUsername(d.user.username ?? "");
+        }
+      })
+      .catch(() => {})
+      .finally(() => setProfileLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveProfile = async () => {
+    setProfileSaving(true);
+    setProfileMsg(null);
+    try {
+      const body: Record<string, string> = { fullName, email, phone, username };
+      if (newPassword.trim()) body.newPassword = newPassword.trim();
+      const r = await fetch("/api/users/me", { method: "PATCH", headers: apiHeaders, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed");
+      setNewPassword("");
+      setProfileMsg({ type: "ok", text: ar() ? "تم حفظ الملف الشخصي" : "Profile saved successfully" });
+    } catch (e: any) {
+      setProfileMsg({ type: "err", text: e.message });
+    } finally {
+      setProfileSaving(false);
+    }
   };
+
+  // ── System settings state ──────────────────────────────────────────────
+  const [sysLoading, setSysLoading] = useState(true);
+  const [sysSaving, setSysSaving] = useState(false);
+  const [sysMsg, setSysMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+  const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [allowNewSignups, setAllowNewSignups] = useState(true);
+  const [defaultLanguage, setDefaultLanguage] = useState("en");
+  const [requireInstallmentPayment, setRequireInstallmentPayment] = useState(false);
+  const [sessionTimeoutHours, setSessionTimeoutHours] = useState(24);
+  const [force2FA, setForce2FA] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/settings/system", { headers: apiHeaders })
+      .then(r => r.json())
+      .then(d => {
+        if (d.settings) {
+          const s = d.settings;
+          setMaintenanceMode(!!s.maintenanceMode);
+          setAllowNewSignups(s.allowNewSignups !== false);
+          setDefaultLanguage(s.defaultLanguage ?? "en");
+          setRequireInstallmentPayment(!!s.requireInstallmentPayment);
+          setSessionTimeoutHours(Number(s.sessionTimeoutHours) || 24);
+          setForce2FA(!!s.force2FAForAdmins);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setSysLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveSettings = async () => {
+    setSysSaving(true);
+    setSysMsg(null);
+    try {
+      const body = { maintenanceMode, allowNewSignups, defaultLanguage, requireInstallmentPayment, sessionTimeoutHours, force2FAForAdmins: force2FA };
+      const r = await fetch("/api/settings/system", { method: "PUT", headers: apiHeaders, body: JSON.stringify(body) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error ?? "Failed");
+      // also persist installment flag locally for client-side guards
+      localStorage.setItem("bel_require_installment_booking_v1", String(requireInstallmentPayment));
+      setSysMsg({ type: "ok", text: ar() ? "تم حفظ الإعدادات" : "Settings saved successfully" });
+    } catch (e: any) {
+      setSysMsg({ type: "err", text: e.message });
+    } finally {
+      setSysSaving(false);
+    }
+  };
+
+  const initials = (fullName || username || "A").slice(0, 1).toUpperCase();
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-bold text-surface-900">{ar() ? "إعدادات النظام" : "System Settings"}</h3>
-        <button onClick={save} className="btn-primary btn-sm">{loading ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "حفظ التغييرات" : "Save Changes")}</button>
-      </div>
 
+      {/* ── Administrator Profile ── */}
       <div className="card-elevated p-6 bg-gradient-to-r from-brand-pink-50 to-white">
-        <h4 className="font-bold text-surface-900 mb-5 flex items-center gap-2">
-          <svg className="w-5 h-5 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          {ar() ? "الملف الشخصي للمسؤول" : "Administrator Profile"}
-        </h4>
-        <div className="flex flex-col md:flex-row gap-6 items-start">
-          <div className="shrink-0 flex flex-col items-center gap-3">
-             <div className="w-24 h-24 rounded-full bg-brand-pink-100 flex items-center justify-center text-3xl font-black text-brand-pink-600 border-4 border-white shadow-sm relative group">
-                A
-                <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
-                   <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                </div>
-             </div>
-             <div className="text-[10px] font-bold text-brand-pink-600 bg-brand-pink-100 px-3 py-1 rounded-full uppercase tracking-wide">Super Admin</div>
-          </div>
-          <div className="flex-1 grid gap-4 md:grid-cols-2 w-full">
-            <div>
-              <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "الاسم الكامل" : "Full Name"}</label>
-              <input type="text" className="input-field bg-white" defaultValue="admin1" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "البريد الإلكتروني" : "Email Address"}</label>
-              <input type="email" className="input-field bg-white" defaultValue="admin@belamonda.com" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "رقم الهاتف" : "Phone Number"}</label>
-              <input type="text" className="input-field bg-white" defaultValue="+965 12345678" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "كلمة المرور الجديدة" : "New Password"}</label>
-              <input type="password" className="input-field bg-white" placeholder="********" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="card-elevated p-6">
-          <h4 className="font-bold text-surface-900 mb-5 flex items-center gap-2">
-            <svg className="w-5 h-5 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            {ar() ? "إعدادات عامة" : "General Configuration"}
+        <div className="flex items-center justify-between mb-5">
+          <h4 className="font-bold text-surface-900 flex items-center gap-2">
+            <svg className="w-5 h-5 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            {ar() ? "الملف الشخصي للمسؤول" : "Administrator Profile"}
           </h4>
-          <div className="space-y-5">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-surface-700">{ar() ? "وضع الصيانة" : "Maintenance Mode"}</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" />
-                <div className="w-11 h-6 bg-surface-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-500"></div>
-              </label>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-surface-700">{ar() ? "السماح بالتسجيل الجديد" : "Allow New Signups"}</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" defaultChecked />
-                <div className="w-11 h-6 bg-surface-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-pink-500"></div>
-              </label>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "لغة النظام الافتراضية" : "Default System Language"}</label>
-              <select className="select-field"><option>English (EN)</option><option>Arabic (AR)</option></select>
-            </div>
-            <div className="flex items-center justify-between mt-4 pt-4 border-t border-surface-100">
-              <div>
-                <span className="text-sm font-medium text-surface-700 block">{ar() ? "إلزام دفع القسط المستحق قبل حجز موعد" : "Require Installment Payment Before Booking"}</span>
-                <span className="text-[10px] text-surface-400">{ar() ? "يمنع المستخدم من حجز مواعيد إذا كان هناك أقساط غير مدفوعة للباقة" : "Prevents users from booking sessions if they have unpaid installments"}</span>
+          <button onClick={saveProfile} disabled={profileSaving || profileLoading} className="btn-primary btn-sm">
+            {profileSaving ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "حفظ الملف" : "Save Profile")}
+          </button>
+        </div>
+        {profileMsg && (
+          <div className={`text-xs mb-4 px-3 py-2 rounded-lg ${profileMsg.type === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{profileMsg.text}</div>
+        )}
+        {profileLoading ? (
+          <div className="h-24 flex items-center justify-center text-surface-400 text-sm">{ar() ? "جاري التحميل..." : "Loading..."}</div>
+        ) : (
+          <div className="flex flex-col md:flex-row gap-6 items-start">
+            <div className="shrink-0 flex flex-col items-center gap-3">
+              <div className="w-24 h-24 rounded-full bg-brand-pink-100 flex items-center justify-center text-3xl font-black text-brand-pink-600 border-4 border-white shadow-sm">
+                {initials}
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" checked={requireInstallmentPayment} onChange={e => setRequireInstallmentPayment(e.target.checked)} />
-                <div className="w-11 h-6 bg-surface-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-pink-500"></div>
-              </label>
+              <div className="text-[10px] font-bold text-brand-pink-600 bg-brand-pink-100 px-3 py-1 rounded-full uppercase tracking-wide">Super Admin</div>
+            </div>
+            <div className="flex-1 grid gap-4 md:grid-cols-2 w-full">
+              <div>
+                <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "الاسم الكامل" : "Full Name"}</label>
+                <input type="text" className="input-field bg-white" value={fullName} onChange={e => setFullName(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "اسم المستخدم" : "Username"}</label>
+                <input type="text" className="input-field bg-white" value={username} onChange={e => setUsername(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "البريد الإلكتروني" : "Email Address"}</label>
+                <input type="email" className="input-field bg-white" value={email} onChange={e => setEmail(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "رقم الهاتف" : "Phone Number"}</label>
+                <input type="text" className="input-field bg-white" value={phone} onChange={e => setPhone(e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "كلمة المرور الجديدة (اتركها فارغة للإبقاء على الحالية)" : "New Password (leave blank to keep current)"}</label>
+                <input type="password" className="input-field bg-white" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="••••••••" />
+              </div>
             </div>
           </div>
-        </div>
-
-        <div className="card-elevated p-6">
-          <h4 className="font-bold text-surface-900 mb-5 flex items-center gap-2">
-            <svg className="w-5 h-5 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-            {ar() ? "الأمان والوصول" : "Security & Access"}
-          </h4>
-          <div className="space-y-5">
-            <div>
-              <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "صلاحية الجلسة (ساعات)" : "Session Timeout (Hours)"}</label>
-              <input type="number" className="input-field" defaultValue={24} />
-            </div>
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-sm font-medium text-surface-700">{ar() ? "المصادقة الثنائية للمشرفين" : "Force 2FA for Admins"}</span>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" className="sr-only peer" defaultChecked />
-                <div className="w-11 h-6 bg-surface-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-surface-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-pink-500"></div>
-              </label>
-            </div>
-          </div>
-        </div>
+        )}
       </div>
+
+      {/* ── System Settings ── */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-bold text-surface-900">{ar() ? "إعدادات النظام" : "System Settings"}</h3>
+        <button onClick={saveSettings} disabled={sysSaving || sysLoading} className="btn-primary btn-sm">
+          {sysSaving ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "حفظ الإعدادات" : "Save Settings")}
+        </button>
+      </div>
+      {sysMsg && (
+        <div className={`text-xs px-3 py-2 rounded-lg ${sysMsg.type === "ok" ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{sysMsg.text}</div>
+      )}
+
+      {sysLoading ? (
+        <div className="h-24 flex items-center justify-center text-surface-400 text-sm">{ar() ? "جاري التحميل..." : "Loading settings..."}</div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="card-elevated p-6">
+            <h4 className="font-bold text-surface-900 mb-5 flex items-center gap-2">
+              <svg className="w-5 h-5 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              {ar() ? "إعدادات عامة" : "General Configuration"}
+            </h4>
+            <div className="space-y-5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-surface-700">{ar() ? "وضع الصيانة" : "Maintenance Mode"}</span>
+                <SettingsToggle checked={maintenanceMode} onChange={setMaintenanceMode} color="red" />
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-surface-700">{ar() ? "السماح بالتسجيل الجديد" : "Allow New Signups"}</span>
+                <SettingsToggle checked={allowNewSignups} onChange={setAllowNewSignups} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "لغة النظام الافتراضية" : "Default System Language"}</label>
+                <select className="select-field" value={defaultLanguage} onChange={e => setDefaultLanguage(e.target.value)}>
+                  <option value="en">English (EN)</option>
+                  <option value="ar">Arabic (AR)</option>
+                </select>
+              </div>
+              <div className="flex items-start justify-between pt-4 border-t border-surface-100 gap-3">
+                <div>
+                  <span className="text-sm font-medium text-surface-700 block">{ar() ? "إلزام دفع القسط المستحق قبل حجز موعد" : "Require Installment Payment Before Booking"}</span>
+                  <span className="text-[10px] text-surface-400">{ar() ? "يمنع المستخدم من حجز مواعيد إذا كان هناك أقساط غير مدفوعة للباقة" : "Prevents users from booking sessions if they have unpaid installments"}</span>
+                </div>
+                <SettingsToggle checked={requireInstallmentPayment} onChange={setRequireInstallmentPayment} />
+              </div>
+            </div>
+          </div>
+
+          <div className="card-elevated p-6">
+            <h4 className="font-bold text-surface-900 mb-5 flex items-center gap-2">
+              <svg className="w-5 h-5 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
+              {ar() ? "الأمان والوصول" : "Security & Access"}
+            </h4>
+            <div className="space-y-5">
+              <div>
+                <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "صلاحية الجلسة (ساعات)" : "Session Timeout (Hours)"}</label>
+                <input type="number" min={1} max={168} className="input-field" value={sessionTimeoutHours} onChange={e => setSessionTimeoutHours(Number(e.target.value))} />
+              </div>
+              <div className="flex items-center justify-between pt-2">
+                <span className="text-sm font-medium text-surface-700">{ar() ? "المصادقة الثنائية للمشرفين" : "Force 2FA for Admins"}</span>
+                <SettingsToggle checked={force2FA} onChange={setForce2FA} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2090,7 +2203,7 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 function UsersManager() {
-  const { auth, login, getAuthHeader } = useAuth();
+  const { auth, login, getAuthHeader, impersonateUser } = useAuth();
   const canExport = auth?.role === "admin" || auth?.role === "finance";
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [search, setSearch] = useState("");

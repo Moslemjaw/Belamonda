@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import mongoose from "mongoose";
 import * as XLSX from "xlsx";
+import bcrypt from "bcryptjs";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { UserModel } from "../../models/user.model.js";
@@ -403,6 +404,7 @@ usersRouter.patch("/me", authRequired, async (req, res, next) => {
         fullName: z.string().optional().or(z.literal("")),
         email: z.string().email().optional().or(z.literal("")),
         phone: z.string().optional().or(z.literal("")),
+        newPassword: z.string().min(6).optional().or(z.literal("")),
       })
       .safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
@@ -412,6 +414,7 @@ usersRouter.patch("/me", authRequired, async (req, res, next) => {
     if (parsed.data.fullName !== undefined) patch.fullName = parsed.data.fullName;
     if (parsed.data.email !== undefined) patch.email = parsed.data.email;
     if (parsed.data.phone !== undefined) patch.phone = parsed.data.phone;
+    if (parsed.data.newPassword) patch.passwordHash = await bcrypt.hash(parsed.data.newPassword, 10);
 
     const doc = await UserModel.findByIdAndUpdate(req.auth!.userId, patch, { new: true })
       .select("_id username email phone fullName")

@@ -29,6 +29,7 @@ import { eformsRouter } from "./modules/eforms/eforms.router.js";
 import { referralRouter } from "./modules/referral/referral.router.js";
 import { auditRouter } from "./modules/audit/audit.router.js";
 import { noticesRouter } from "./modules/notices/notices.router.js";
+import { settingsRouter } from "./modules/settings/settings.router.js";
 
 export function createApp() {
   const app = express();
@@ -97,6 +98,7 @@ export function createApp() {
   app.use("/referral", referralRouter);
   app.use("/audit", auditRouter);
   app.use("/notices", noticesRouter);
+  app.use("/settings", settingsRouter);
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, service: "belamonda-api" });
