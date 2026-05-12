@@ -951,180 +951,6 @@ function SchedulingTool() {
   );
 }
 
-function CustomerLookup() {
-  const [search, setSearch] = useState("");
-  const [result, setResult] = useState<any>(null);
-  const [hasSearched, setHasSearched] = useState(false);
-
-  const mockUsers = [
-    { id: "USR-001", name: "Ahmed Al-Fadhli", username: "ahmedf", email: "ahmed@example.com", phone: "+965 99887766", role: "Customer", status: "Verified", balance: "145.000 KWD", dob: "14 Jan 1990", civilId: "290123456789" },
-    { id: "USR-002", name: "Sarah Al-Salem", username: "sarah_s", email: "sarah.s@domain.com", phone: "+965 55443322", role: "Customer", status: "Pending KYC", balance: "0.000 KWD", dob: "22 May 1995", civilId: "295052212345" },
-    { id: "USR-003", name: "Fatima Khalid", username: "fatimak", email: "f.khalid@mail.com", phone: "+965 11223344", role: "Customer", status: "Frozen", balance: "20.000 KWD", dob: "05 Dec 1988", civilId: "288120598765" }
-  ];
-
-  const handleLookup = () => {
-    if (!search.trim()) {
-       setResult(null);
-       setHasSearched(false);
-       return;
-    }
-    const lowerQuery = search.toLowerCase();
-    const found = mockUsers.find(u => 
-       u.id.toLowerCase().includes(lowerQuery) ||
-       u.name.toLowerCase().includes(lowerQuery) ||
-       u.username.toLowerCase().includes(lowerQuery) ||
-       u.email.toLowerCase().includes(lowerQuery) ||
-       u.phone.toLowerCase().includes(lowerQuery)
-    );
-    setResult(found || null);
-    setHasSearched(true);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="card-elevated p-6 animate-fade-in">
-        <h3 className="text-lg font-bold text-surface-900 mb-2">{ar() ? "بحث العملاء الشامل" : "Comprehensive Customer Lookup"}</h3>
-        <p className="text-sm text-surface-500 mb-6">{ar() ? "ابحث بواسطة: المعرف، الاسم، اسم المستخدم، البريد، أو الهاتف" : "Search by: ID, Name, Username, Email, or Phone Number"}</p>
-        
-        <div className="flex gap-3">
-          <div className="relative flex-1">
-             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                <svg className="w-5 h-5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-             </div>
-             <input 
-               className="input-field pl-11 py-3 w-full bg-surface-50 border-surface-200 focus:bg-white" 
-               placeholder={ar() ? "أدخل كلمة البحث هنا..." : "Enter search term here..."} 
-               value={search} 
-               onChange={e => { setSearch(e.target.value); setHasSearched(false); }} 
-               onKeyDown={e => e.key === 'Enter' && handleLookup()}
-             />
-          </div>
-          <button className="btn-primary px-8" onClick={handleLookup}>{ar() ? "بحث" : "Search"}</button>
-        </div>
-      </div>
-
-      {hasSearched && !result && (
-         <div className="card-elevated p-12 flex flex-col items-center justify-center text-center animate-fade-in">
-            <div className="w-16 h-16 bg-surface-100 text-surface-400 rounded-full flex items-center justify-center mb-4">
-               <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-            </div>
-            <h4 className="text-lg font-bold text-surface-900 mb-1">{ar() ? "لم يتم العثور على نتائج" : "No results found"}</h4>
-            <p className="text-surface-500 max-w-sm">{ar() ? "يرجى التحقق من صحة البيانات المدخلة والمحاولة مرة أخرى." : "Please check your search term and try again. Ensure there are no typos."}</p>
-         </div>
-      )}
-
-      {result && (
-        <div className="card-elevated p-6 animate-slide-up relative bg-surface-50">
-          <div className="flex items-start gap-4 mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-brand-pink-100 flex items-center justify-center text-brand-pink-600 font-bold text-2xl shadow-sm">
-              {result.name.charAt(0)}
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-surface-900">{result.name} <span className="text-base text-surface-400 font-normal">(@{result.username})</span></h2>
-              <div className="text-sm text-surface-500 mt-1">{result.id} • {result.phone}</div>
-              <div className="mt-2 flex gap-2">
-                 <span className={result.status === 'Frozen' ? 'badge-red' : result.status === 'Verified' ? 'badge-green' : 'badge-yellow'}>{result.status}</span>
-                 <span className="badge-sage">{result.role}</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="grid gap-6 lg:grid-cols-3 mb-4">
-            <div className="lg:col-span-1 space-y-6">
-               <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                  <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "نظرة عامة" : "Overview"}</h4>
-                  <div className="space-y-4">
-                    <div><div className="text-xs text-surface-500">{ar() ? "الرصيد المتاح" : "Available Balance"}</div><div className="text-xl font-black text-brand-pink-600">{result.balance}</div></div>
-                    <div><div className="text-xs text-surface-500">{ar() ? "الرقم المدني" : "Civil ID"}</div><div className="font-mono text-sm text-surface-900">{result.civilId}</div></div>
-                    <div><div className="text-xs text-surface-500">{ar() ? "تاريخ الميلاد" : "Date of Birth"}</div><div className="text-sm text-surface-900">{result.dob}</div></div>
-                    <div><div className="text-xs text-surface-500">{ar() ? "البريد الإلكتروني" : "Email"}</div><div className="text-sm text-surface-900">{result.email}</div></div>
-                  </div>
-               </div>
-            </div>
-            
-            <div className="lg:col-span-2 space-y-6">
-               <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                  <h4 className="font-bold text-surface-900 mb-4 flex items-center justify-between pb-2 border-b border-surface-100">
-                     {ar() ? "الاشتراكات والعروض" : "Memberships & Offers"}
-                  </h4>
-                  {(() => {
-                     const userOffers = (() => { try { return JSON.parse(localStorage.getItem('demo_offers_v4') || '[]'); } catch { return []; } })();
-                     const activeOffers = userOffers.filter((o: any) => !(o.maxSessions && o.sessionsUsed >= o.maxSessions));
-                     return activeOffers.length === 0 ? (
-                        <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد اشتراكات" : "No memberships"}</div>
-                     ) : (
-                     <div className="grid gap-3 sm:grid-cols-2">
-                        {activeOffers.map((o: any) => (
-                           <div key={o.id} className="bg-surface-50 p-4 rounded-xl border border-surface-200 shadow-sm flex flex-col">
-                              <div className="text-sm font-bold text-surface-900">{o.offerName || o.offerId}</div>
-                              <div className="text-xs text-surface-500 mt-1 mb-3">{o.amount} • {o.method || "N/A"}</div>
-                              <div className="mt-auto pt-3 border-t border-surface-100 flex justify-between items-center">
-                                 <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${o.status === 'active' ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'}`}>
-                                    {o.method === 'Installments' ? `${o.paidInstallments || 0}/${o.totalInstallments} Paid` : o.status}
-                                 </span>
-                                 {o.maxSessions && <span className="text-[10px] font-bold text-surface-400">{o.maxSessions - (o.sessionsUsed || 0)} Left</span>}
-                              </div>
-                           </div>
-                        ))}
-                     </div>
-                     );
-                  })()}
-               </div>
-
-               <div className="grid gap-6 md:grid-cols-2">
-                  {(() => {
-                     const bookings = (() => { try { return JSON.parse(localStorage.getItem('demo_pending_bookings_v4') || '[]'); } catch { return []; } })();
-                     return (
-                     <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                        <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المواعيد" : "Appointments"}</h4>
-                        {bookings.length === 0 ? (
-                           <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا مواعيد" : "No appointments"}</div>
-                        ) : (
-                        <div className="space-y-3">
-                           {bookings.slice(0, 3).map((b: any) => (
-                              <div key={b.id} className="bg-surface-50 p-3 rounded-lg border-l-4 border-l-blue-500 border border-surface-200 shadow-sm">
-                                 <div className="text-[10px] font-bold text-blue-600 mb-1 uppercase tracking-wider">{b.userId} • {new Date(b.createdAt).toLocaleDateString()}</div>
-                                 <div className="text-sm font-bold text-surface-900">{b.offerName || b.offerId}</div>
-                                 {b.clinic && <div className="text-xs text-surface-500">📍 {b.clinic}</div>}
-                              </div>
-                           ))}
-                        </div>
-                        )}
-                     </div>
-                     );
-                  })()}
-
-                  {(() => {
-                     const ledger = getFinancialLedger().sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-                     return (
-                     <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                        <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المدفوعات" : "Payments"}</h4>
-                        {ledger.length === 0 ? (
-                           <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا مدفوعات" : "No payments"}</div>
-                        ) : (
-                        <div className="space-y-3">
-                           {ledger.slice(0, 3).map((e: any) => (
-                              <div key={e.id} className="flex items-center justify-between bg-surface-50 p-3 rounded-lg border border-surface-200 shadow-sm">
-                                 <div>
-                                    <div className="text-sm font-bold text-surface-900">{e.description?.slice(0, 25)}</div>
-                                    <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400">{e.type?.replace(/_/g, ' ')}</div>
-                                 </div>
-                                 <div className={`text-sm font-black ${e.amount >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>{e.amount >= 0 ? '+' : ''}{e.amount.toFixed(3)} KWD</div>
-                              </div>
-                           ))}
-                        </div>
-                        )}
-                     </div>
-                     );
-                  })()}
-               </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 function CustomersManager() {
   const { getAuthHeader } = useAuth();
   const [search, setSearch] = useState("");
@@ -1790,7 +1616,6 @@ export default function CsDashboard() {
     { key: "clinic_changes", icon: Icons.clinic, label: ar() ? "تغيير العيادة" : "Clinic Changes" },
     { key: "scheduling", icon: Icons.calendar, label: t("schedule") },
     { key: "chat", icon: Icons.clipboard, label: ar() ? "محادثات الحجوزات" : "Booking Chat" },
-    { key: "lookup", icon: Icons.search, label: ar() ? "بحث العملاء" : "Customer Lookup" },
     { key: "complaints", icon: Icons.complaint, label: t("complaints") },
     { key: "profile", icon: Icons.profile, label: ar() ? "الملف الشخصي" : "Profile & Settings" },
   ];
@@ -1872,7 +1697,6 @@ export default function CsDashboard() {
             <ChatWidget showBookingActions />
           </div>
         )}
-        {activeNav === "lookup" && <CustomerLookup />}
         {activeNav === "complaints" && (
           <div className="card-elevated overflow-hidden">
             <div className="p-5"><h3 className="text-base font-bold text-surface-900">{ar() ? "الشكاوى" : "Complaints"}</h3></div>
