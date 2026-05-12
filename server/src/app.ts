@@ -46,10 +46,10 @@ export function createApp() {
 
         if (env.NODE_ENV !== "production") {
           // Allow any localhost port (Vite dev server)
-          if (/^https?:\/\/localhost:\d+$/.test(origin)) return cb(null, true);
-          // Allow Replit dev proxy domains
-          if (/\.replit\.dev$/.test(origin)) return cb(null, true);
-          if (/\.pike\.replit\.dev$/.test(origin)) return cb(null, true);
+          if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return cb(null, true);
+          // Allow Replit dev proxy domains (with or without port)
+          if (/\.replit\.dev(:\d+)?$/.test(origin)) return cb(null, true);
+          if (/\.pike\.replit\.dev(:\d+)?$/.test(origin)) return cb(null, true);
         }
 
         if (allowedOrigins.includes(origin)) return cb(null, true);
