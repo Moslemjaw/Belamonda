@@ -430,6 +430,53 @@ commerceRouter.post("/cs/clinic-change-requests/:id/reject", authRequired, requi
   }
 });
 
+commerceRouter.post("/admin/grant-membership", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const schema = z.object({
+      userId: z.string().min(1),
+      offerId: z.string().min(1),
+      clinicId: z.string().min(1),
+      sessionsUsed: z.number().int().min(0).default(0),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
+
+    const { userId, offerId, clinicId, sessionsUsed } = parsed.data;
+
+    if (!mongoose.isValidObjectId(offerId) || !mongoose.isValidObjectId(clinicId))
+      return res.status(400).json({ error: "INVALID_ID" });
+
+    const [user, offer, clinic] = await Promise.all([
+      UserModel.findById(userId).lean(),
+      OfferModel.findById(offerId).lean() as Promise<InstanceType<typeof OfferModel> | null>,
+      ClinicModel.findById(clinicId).lean(),
+    ]);
+
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    if (!offer) return res.status(404).json({ error: "OFFER_NOT_FOUND" });
+    if (!clinic) return res.status(404).json({ error: "CLINIC_NOT_FOUND" });
+
+    const now = new Date();
+    const validityDays = (offer as any).validityDays ?? 365;
+    const expiresAt = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
+
+    const uo = await UserOfferModel.create({
+      userId: String(userId),
+      offerId: new mongoose.Types.ObjectId(offerId),
+      clinicId: new mongoose.Types.ObjectId(clinicId),
+      status: "active",
+      purchaseMode: "full",
+      sessionsUsed,
+      activatedAt: now,
+      expiresAt,
+    });
+
+    return res.status(201).json({ ok: true, id: String(uo._id) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 commerceRouter.get("/admin/user-offers", authRequired, requireRole(["admin", "cs"]), async (req, res, next) => {
   try {
     const items = await userOfferService.listAllUserOffers();

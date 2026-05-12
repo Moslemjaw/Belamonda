@@ -1475,6 +1475,49 @@ function UserProfilePanel({
   const [cashError, setCashError] = useState<string | null>(null);
   const [sessionAdjustingId, setSessionAdjustingId] = useState<string | null>(null);
 
+  const [grantOfferId, setGrantOfferId] = useState("");
+  const [grantClinicId, setGrantClinicId] = useState("");
+  const [grantSessions, setGrantSessions] = useState(0);
+  const [grantSaving, setGrantSaving] = useState(false);
+  const [grantError, setGrantError] = useState<string | null>(null);
+  const [allOffers, setAllOffers] = useState<any[]>([]);
+  const [allClinics, setAllClinics] = useState<any[]>([]);
+  const [grantSuccess, setGrantSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    apiFetch("/offers/admin", { headers: getAuthHeader() })
+      .then((d: any) => setAllOffers(d.items ?? []))
+      .catch(() => {});
+    apiFetch("/clinics", { headers: getAuthHeader() })
+      .then((d: any) => setAllClinics(Array.isArray(d) ? d : (d.items ?? [])))
+      .catch(() => {});
+  }, [isAdmin]);
+
+  const handleGrantMembership = async () => {
+    if (!grantOfferId || !grantClinicId) { setGrantError("Select an offer and a clinic"); return; }
+    setGrantSaving(true);
+    setGrantError(null);
+    setGrantSuccess(false);
+    try {
+      await apiFetch("/commerce/admin/grant-membership", {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ userId: user.id, offerId: grantOfferId, clinicId: grantClinicId, sessionsUsed: grantSessions }),
+      });
+      setGrantSuccess(true);
+      setGrantOfferId("");
+      setGrantClinicId("");
+      setGrantSessions(0);
+      const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
+      setProfile(d);
+    } catch (e: any) {
+      setGrantError(e.message);
+    } finally {
+      setGrantSaving(false);
+    }
+  };
+
   useEffect(() => {
     setProfileLoading(true);
     setProfileError(null);
@@ -1623,13 +1666,21 @@ function UserProfilePanel({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-lg font-bold text-surface-900">{user.name}</h2>
+            <h2 className="text-lg font-bold text-surface-900">{user.fullName || user.username || user.phone || "—"}</h2>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[user.role] ?? "bg-surface-100 text-surface-600"}`}>{user.role}</span>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${user.kyc ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
               {user.kyc ? (ar() ? "نشط" : "Active") : (ar() ? "معطّل" : "Disabled")}
             </span>
           </div>
-          <div className="text-xs text-surface-400 mt-0.5 font-mono">{user.id} • {user.phone}</div>
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+            {user.fullName && user.username && (
+              <span className="text-xs text-surface-400">@{user.username}</span>
+            )}
+            {user.phone && user.phone !== "—" && (
+              <span className="text-xs text-surface-400">{user.phone}</span>
+            )}
+            <span className="text-xs text-surface-300 font-mono">{user.id}</span>
+          </div>
           {user.referredByUsername && (
             <div className="text-xs text-brand-pink-500 mt-1">↩ {ar() ? "أُحيل بواسطة" : "Referred by"} @{user.referredByUsername}</div>
           )}
@@ -1737,44 +1788,103 @@ function UserProfilePanel({
             {/* ── MEMBERSHIPS ── */}
             {tab === "memberships" && (
               <div className="space-y-3">
-                {profile.memberships?.length === 0 && <div className="text-sm text-surface-400 text-center py-8">{ar() ? "لا توجد عضويات" : "No memberships"}</div>}
-                {profile.memberships?.map((m: any) => (
-                  <div key={m.id} className="bg-white rounded-xl border border-surface-100 p-4">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div>
-                        <div className="font-bold text-surface-900 text-sm">{ar() && m.offerNameAr ? m.offerNameAr : m.offerName}</div>
-                        <div className="text-xs text-surface-400 font-mono mt-0.5">{m.id}</div>
+                {/* Grant Membership (admin only) */}
+                {isAdmin && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                    <div className="text-xs font-bold text-emerald-800 uppercase mb-3">{ar() ? "منح عضوية" : "Grant Membership"}</div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <select
+                        className="input-field"
+                        value={grantOfferId}
+                        onChange={e => setGrantOfferId(e.target.value)}
+                      >
+                        <option value="">{ar() ? "— اختر العرض —" : "— Select Offer —"}</option>
+                        {allOffers.map((o: any) => (
+                          <option key={o.id ?? o._id} value={o.id ?? o._id}>{o.name}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="input-field"
+                        value={grantClinicId}
+                        onChange={e => setGrantClinicId(e.target.value)}
+                      >
+                        <option value="">{ar() ? "— اختر العيادة —" : "— Select Clinic —"}</option>
+                        {allClinics.map((c: any) => (
+                          <option key={c.id ?? c._id} value={c.id ?? c._id}>{c.nameEn ?? c.name}</option>
+                        ))}
+                      </select>
+                      <div className="flex items-center gap-2">
+                        <label className="text-xs text-surface-600 whitespace-nowrap">{ar() ? "جلسات مستخدمة مبدئية" : "Initial Sessions Used"}</label>
+                        <input
+                          type="number"
+                          min="0"
+                          className="input-field w-20"
+                          value={grantSessions}
+                          onChange={e => setGrantSessions(Number(e.target.value))}
+                        />
                       </div>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${statusBadge(m.status)}`}>{m.status}</span>
+                      <button
+                        className="btn-primary disabled:opacity-50"
+                        disabled={grantSaving || !grantOfferId || !grantClinicId}
+                        onClick={() => void handleGrantMembership()}
+                      >
+                        {grantSaving ? "…" : (ar() ? "منح العضوية" : "Grant Membership")}
+                      </button>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mt-3">
-                      <div><span className="text-surface-400">{ar() ? "نوع الشراء" : "Mode"}</span><div className="font-bold mt-0.5">{m.purchaseMode ?? "—"}</div></div>
-                      <div>
-                        <span className="text-surface-400">{ar() ? "جلسات مستخدمة" : "Sessions Used"}</span>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <button
-                            className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-red-100 hover:text-red-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
-                            disabled={sessionAdjustingId !== null || m.sessionsUsed <= 0}
-                            onClick={() => handleAdjustSessions(m.id, -1)}
-                            title={ar() ? "تقليل" : "Decrement"}
-                          >−</button>
-                          <span className="font-bold">{m.sessionsUsed}</span>
-                          <button
-                            className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-emerald-100 hover:text-emerald-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
-                            disabled={sessionAdjustingId !== null}
-                            onClick={() => handleAdjustSessions(m.id, +1)}
-                            title={ar() ? "زيادة" : "Increment"}
-                          >+</button>
-                        </div>
-                      </div>
-                      <div><span className="text-surface-400">{ar() ? "الأقساط المدفوعة" : "Installments Paid"}</span><div className="font-bold mt-0.5">{m.installmentsPaid}/{m.installmentCount ?? "—"}</div></div>
-                      <div><span className="text-surface-400">{ar() ? "المبلغ (د.ك)" : "Amount (KWD)"}</span><div className="font-bold mt-0.5">{m.paymentAmountKwd ?? "—"}</div></div>
-                      <div><span className="text-surface-400">{ar() ? "التفعيل" : "Activated"}</span><div className="font-bold mt-0.5">{fmt(m.activatedAt)}</div></div>
-                      <div><span className="text-surface-400">{ar() ? "الانتهاء" : "Expires"}</span><div className="font-bold mt-0.5">{fmt(m.expiresAt)}</div></div>
-                      <div><span className="text-surface-400">{ar() ? "تاريخ الإنشاء" : "Created"}</span><div className="font-bold mt-0.5">{fmt(m.createdAt)}</div></div>
-                    </div>
+                    {grantError && <div className="text-xs text-red-600 mt-2">{grantError}</div>}
+                    {grantSuccess && <div className="text-xs text-emerald-700 mt-2 font-medium">✓ {ar() ? "تم منح العضوية بنجاح" : "Membership granted successfully"}</div>}
                   </div>
-                ))}
+                )}
+
+                {profile.memberships?.length === 0 && <div className="text-sm text-surface-400 text-center py-8">{ar() ? "لا توجد عضويات" : "No memberships"}</div>}
+                {profile.memberships?.map((m: any) => {
+                  const sessionsLeft = m.maxSessions != null ? m.maxSessions - m.sessionsUsed : null;
+                  return (
+                    <div key={m.id} className="bg-white rounded-xl border border-surface-100 p-4">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                          <div className="font-bold text-surface-900 text-sm">{ar() && m.offerNameAr ? m.offerNameAr : m.offerName}</div>
+                          <div className="text-xs text-surface-400 font-mono mt-0.5">{m.id}</div>
+                        </div>
+                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${statusBadge(m.status)}`}>{m.status}</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mt-3">
+                        <div><span className="text-surface-400">{ar() ? "نوع الشراء" : "Mode"}</span><div className="font-bold mt-0.5">{m.purchaseMode ?? "—"}</div></div>
+                        <div>
+                          <span className="text-surface-400">{ar() ? "جلسات مستخدمة" : "Sessions Used"}</span>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <button
+                              className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-red-100 hover:text-red-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
+                              disabled={sessionAdjustingId !== null || m.sessionsUsed <= 0}
+                              onClick={() => handleAdjustSessions(m.id, -1)}
+                              title={ar() ? "تقليل" : "Decrement"}
+                            >−</button>
+                            <span className="font-bold">{m.sessionsUsed}</span>
+                            <button
+                              className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-emerald-100 hover:text-emerald-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
+                              disabled={sessionAdjustingId !== null}
+                              onClick={() => handleAdjustSessions(m.id, +1)}
+                              title={ar() ? "زيادة" : "Increment"}
+                            >+</button>
+                          </div>
+                        </div>
+                        {m.maxSessions != null && (
+                          <div>
+                            <span className="text-surface-400">{ar() ? "جلسات متبقية" : "Sessions Left"}</span>
+                            <div className={`font-bold mt-0.5 ${sessionsLeft != null && sessionsLeft <= 0 ? "text-red-600" : "text-emerald-600"}`}>
+                              {sessionsLeft != null ? sessionsLeft : "—"} / {m.maxSessions}
+                            </div>
+                          </div>
+                        )}
+                        <div><span className="text-surface-400">{ar() ? "الأقساط المدفوعة" : "Installments Paid"}</span><div className="font-bold mt-0.5">{m.installmentsPaid}/{m.installmentCount ?? "—"}</div></div>
+                        <div><span className="text-surface-400">{ar() ? "المبلغ (د.ك)" : "Amount (KWD)"}</span><div className="font-bold mt-0.5">{m.paymentAmountKwd ?? "—"}</div></div>
+                        <div><span className="text-surface-400">{ar() ? "التفعيل" : "Activated"}</span><div className="font-bold mt-0.5">{fmt(m.activatedAt)}</div></div>
+                        <div><span className="text-surface-400">{ar() ? "الانتهاء" : "Expires"}</span><div className="font-bold mt-0.5">{fmt(m.expiresAt)}</div></div>
+                        <div><span className="text-surface-400">{ar() ? "تاريخ الإنشاء" : "Created"}</span><div className="font-bold mt-0.5">{fmt(m.createdAt)}</div></div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -1991,7 +2101,8 @@ function UsersManager() {
   const loadUsers = () => {
     interface AdminUserItem {
       id: string;
-      username: string;
+      username?: string;
+      fullName?: string;
       phone?: string;
       role: string;
       isActive: boolean;
@@ -2002,7 +2113,9 @@ function UsersManager() {
       .then((d) => {
         setUsers(((d as AdminUsersResponse).items || []).map((u) => ({
           id: u.id,
-          name: u.username,
+          fullName: u.fullName,
+          username: u.username,
+          name: u.fullName || u.username || u.phone || "—",
           phone: u.phone || "—",
           role: u.role,
           status: u.isActive ? "Active" : "Disabled",
@@ -2113,9 +2226,14 @@ function UsersManager() {
                   <td className="font-medium">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-brand-pink-50 flex items-center justify-center text-xs font-bold text-brand-pink-600">
-                        {(u.name ?? u.username ?? "?").charAt(0).toUpperCase()}
+                        {(u.name ?? "?").charAt(0).toUpperCase()}
                       </div>
-                      {u.name ?? u.username}
+                      <div>
+                        <div>{u.fullName || u.username || u.phone}</div>
+                        {u.fullName && u.username && (
+                          <div className="text-[11px] text-surface-400">@{u.username}</div>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td>{u.phone}</td>

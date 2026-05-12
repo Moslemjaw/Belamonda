@@ -16,6 +16,7 @@ export const usersRouter = Router();
 interface UserLean {
   _id: mongoose.Types.ObjectId;
   username?: string;
+  fullName?: string;
   email?: string;
   phone?: string;
   role?: string;
@@ -52,6 +53,7 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
     if (q) {
       filter.$or = [
         { username: { $regex: q, $options: "i" } },
+        { fullName: { $regex: q, $options: "i" } },
         { email: { $regex: q, $options: "i" } },
         { phone: { $regex: q, $options: "i" } }
       ];
@@ -74,6 +76,7 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
     const items = rows.map((u) => ({
       id: String(u._id),
       username: u.username,
+      fullName: u.fullName,
       email: u.email,
       phone: u.phone,
       role: u.role,
@@ -110,16 +113,17 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
     // Enrich memberships with offer names
     const offerIds = [...new Set(memberships.map((m: any) => String(m.offerId)).filter(Boolean))];
     const offers = offerIds.length
-      ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr").lean<{ _id: mongoose.Types.ObjectId; name: string; nameAr?: string }[]>()
+      ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr maxSessions").lean<{ _id: mongoose.Types.ObjectId; name: string; nameAr?: string; maxSessions?: number }[]>()
       : [];
-    const offerMap: Record<string, { name: string; nameAr?: string }> = {};
-    offers.forEach((o) => { offerMap[String(o._id)] = { name: o.name, nameAr: o.nameAr }; });
+    const offerMap: Record<string, { name: string; nameAr?: string; maxSessions?: number }> = {};
+    offers.forEach((o) => { offerMap[String(o._id)] = { name: o.name, nameAr: o.nameAr, maxSessions: o.maxSessions }; });
 
     const membershipItems = memberships.map((m: any) => ({
       id: String(m._id),
       offerId: String(m.offerId),
       offerName: offerMap[String(m.offerId)]?.name ?? "—",
       offerNameAr: offerMap[String(m.offerId)]?.nameAr,
+      maxSessions: offerMap[String(m.offerId)]?.maxSessions,
       clinicId: m.clinicId ? String(m.clinicId) : undefined,
       status: m.status,
       purchaseMode: m.purchaseMode,
