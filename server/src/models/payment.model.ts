@@ -2,9 +2,9 @@ import mongoose, { Schema } from "mongoose";
 
 const PaymentSchema = new Schema(
   {
-    userId: { type: String, required: true, index: true },
-    offerId: { type: Schema.Types.ObjectId, ref: "Offer", required: true },
-    userOfferId: { type: Schema.Types.ObjectId, ref: "UserOffer", required: true },
+    userId: { type: String, index: true },
+    offerId: { type: Schema.Types.ObjectId, ref: "Offer" },
+    userOfferId: { type: Schema.Types.ObjectId, ref: "UserOffer" },
     bookingId: { type: Schema.Types.ObjectId, ref: "BookingSession" },
     bookingRequestId: { type: String },
     amountKwd: { type: String, required: true, match: /^\d+(\.\d{3})$/ },
@@ -24,12 +24,13 @@ const PaymentSchema = new Schema(
         "deposit",
         "deposit_balance",
         "enrollment_enet",
-        "session_payment"
+        "session_payment",
+        "manual_entry"
       ],
       default: "enrollment_full",
       index: true
     },
-    provider: { type: String, enum: ["mock", "enet", "cs"], default: "cs" },
+    provider: { type: String, enum: ["mock", "enet", "cs", "manual"], default: "cs" },
     providerRef: { type: String },
     installmentNumber: { type: Number, min: 1 },
     failureReason: { type: String },
@@ -42,7 +43,11 @@ const PaymentSchema = new Schema(
     proofRef: { type: String },
     confirmedBy: { type: String },
     confirmedAt: { type: Date },
-    customerWalletBalanceAfterKwd: { type: String }
+    customerWalletBalanceAfterKwd: { type: String },
+    isManual: { type: Boolean, default: false, index: true },
+    manualLabel: { type: String },
+    notes: { type: String },
+    createdByUserId: { type: String },
   },
   { timestamps: true }
 );

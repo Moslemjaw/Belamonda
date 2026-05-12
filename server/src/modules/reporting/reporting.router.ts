@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { z } from "zod";
+import mongoose from "mongoose";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { reportingStore } from "./reporting.store.js";
+import { PaymentModel } from "../../models/payment.model.js";
 import {
   computeFinanceSnapshot,
   computePaymentsBreakdown,
@@ -209,6 +211,90 @@ reportingRouter.get("/finance/clinic-export", authRequired, requireRole(FINANCE_
     res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.csv"`);
     return res.send(csv);
   } catch (e) { next(e); }
+});
+
+// ===========================================================================
+// MANUAL PAYMENT ENTRIES — finance backup entries
+// ===========================================================================
+
+const ManualPaymentSchema = z.object({
+  amountKwd: z.string().regex(/^\d+(\.\d{1,3})?$/, "Invalid amount"),
+  method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "other"]),
+  purpose: z.enum(["enrollment_full", "installment", "deposit", "deposit_balance", "enrollment_enet", "session_payment", "manual_entry"]).default("manual_entry"),
+  status: z.enum(["completed", "pending", "failed", "refunded"]).default("completed"),
+  manualLabel: z.string().max(200).optional(),
+  notes: z.string().max(1000).optional(),
+  providerRef: z.string().max(200).optional(),
+  userId: z.string().optional(),
+  paymentDate: z.string().datetime().optional(),
+});
+
+reportingRouter.post("/finance/manual-payment", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const parsed = ManualPaymentSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    const d = parsed.data;
+
+    // Normalise to 3 decimal places
+    const amountKwd = parseFloat(d.amountKwd).toFixed(3);
+
+    const doc = await PaymentModel.create({
+      amountKwd,
+      grossAmountKwd: amountKwd,
+      cashbackAppliedKwd: "0.000",
+      method: d.method,
+      purpose: d.purpose,
+      status: d.status,
+      provider: "manual",
+      isManual: true,
+      manualLabel: d.manualLabel || undefined,
+      notes: d.notes || undefined,
+      providerRef: d.providerRef || undefined,
+      userId: d.userId || "manual",
+      createdByUserId: req.auth!.userId,
+      confirmedBy: req.auth!.userId,
+      confirmedAt: new Date(),
+      ...(d.paymentDate ? { createdAt: new Date(d.paymentDate) } : {}),
+    });
+
+    return res.status(201).json({ payment: { id: doc._id.toString(), amountKwd: doc.amountKwd, method: doc.method, status: doc.status, isManual: true, createdAt: doc.createdAt } });
+  } catch (e) {
+    next(e);
+  }
+});
+
+reportingRouter.get("/finance/manual-payments", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const limit = Math.min(500, Number(str(req.query.limit)) || 200);
+    const docs = await PaymentModel.find({ isManual: true }).sort({ createdAt: -1 }).limit(limit).lean();
+    const items = docs.map((d: any) => ({
+      id: d._id.toString(),
+      amountKwd: d.amountKwd,
+      method: d.method,
+      purpose: d.purpose,
+      status: d.status,
+      manualLabel: d.manualLabel,
+      notes: d.notes,
+      providerRef: d.providerRef,
+      userId: d.userId,
+      createdByUserId: d.createdByUserId,
+      createdAt: d.createdAt,
+    }));
+    return res.json({ items });
+  } catch (e) {
+    next(e);
+  }
+});
+
+reportingRouter.delete("/finance/manual-payment/:id", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
+    const doc = await PaymentModel.findOneAndDelete({ _id: req.params.id, isManual: true });
+    if (!doc) return res.status(404).json({ error: "NOT_FOUND" });
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
 });
 
 // ===========================================================================
