@@ -20,6 +20,7 @@ interface DashboardShellProps {
   subtitle?: string;
   children: ReactNode;
   headerActions?: ReactNode;
+  banner?: ReactNode;
 }
 
 type NotifRecord = {
@@ -161,6 +162,7 @@ export default function DashboardShell({
   subtitle,
   children,
   headerActions,
+  banner,
 }: DashboardShellProps) {
   const { t } = useTranslation();
   const { auth, logout, getAuthHeader } = useAuth();
@@ -379,6 +381,9 @@ export default function DashboardShell({
             ))}
           </div>
         </div>
+
+        {/* Sticky notice banner (optional) */}
+        {banner && <div className="flex-shrink-0">{banner}</div>}
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto overscroll-y-contain px-3 py-3 sm:p-4 lg:p-8 bg-surface-50 pb-[env(safe-area-inset-bottom,0px)]">

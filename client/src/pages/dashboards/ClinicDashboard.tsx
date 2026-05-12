@@ -9,6 +9,7 @@ import i18n from "../../app/i18n";
 import ChatWidget from "../../components/ChatWidget";
 import ShareLinkPage from "../../components/ShareLinkPage";
 import { ReferralActivityWidget } from "../../components/ReferralActivityWidget";
+import NoticeBanner from "../../components/NoticeBanner";
 
 const ar = () => i18n.language === "ar";
 
@@ -897,7 +898,7 @@ export default function ClinicDashboard() {
   ];
 
   return (
-    <DashboardShell navItems={navItems} activeKey={activeNav} onNavigate={setActiveNav} title={ar() ? "لوحة العيادة" : "Clinic Dashboard"} subtitle={ar() ? `${clinicData.nameAr} — جدول اليوم` : `${clinicData.nameEn} — Today's Schedule`}>
+    <DashboardShell navItems={navItems} activeKey={activeNav} onNavigate={setActiveNav} title={ar() ? "لوحة العيادة" : "Clinic Dashboard"} subtitle={ar() ? `${clinicData.nameAr} — جدول اليوم` : `${clinicData.nameEn} — Today's Schedule`} banner={<NoticeBanner />}>
       <div className="space-y-6 animate-fade-in">
         {activeNav === "home" && (
           <>
