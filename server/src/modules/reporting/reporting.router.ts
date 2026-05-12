@@ -13,6 +13,10 @@ import {
   computeInstallmentsAnalytics,
   exportFinanceCsv,
   exportFinanceXlsx,
+  computeClinicSummaries,
+  computeClinicDetail,
+  exportClinicReportCsv,
+  exportClinicReportXlsx,
 } from "./analytics.service.js";
 
 const CreateReportSchema = z.object({
@@ -163,4 +167,92 @@ reportingRouter.get("/finance/reports/:id", authRequired, requireRole(FINANCE_RO
     return res.status(403).json({ error: "FORBIDDEN" });
   }
   return res.json({ report: r });
+});
+
+// ===========================================================================
+// CLINIC SUMMARIES — all clinics (Finance view)
+// ===========================================================================
+
+reportingRouter.get("/finance/by-clinic", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const data = await computeClinicSummaries({ from: str(req.query.from), to: str(req.query.to) });
+    return res.json(data);
+  } catch (e) { next(e); }
+});
+
+reportingRouter.get("/finance/clinic-detail", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const clinicId = str(req.query.clinicId);
+    if (!clinicId) return res.status(400).json({ error: "clinicId required" });
+    const data = await computeClinicDetail(clinicId, { from: str(req.query.from), to: str(req.query.to) });
+    return res.json(data);
+  } catch (e) { next(e); }
+});
+
+reportingRouter.get("/finance/clinic-export", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const clinicId = str(req.query.clinicId);
+    if (!clinicId) return res.status(400).json({ error: "clinicId required" });
+    const format = (str(req.query.format) || "csv").toLowerCase();
+    const filters = { from: str(req.query.from), to: str(req.query.to) };
+    const clinicDetail = await computeClinicDetail(clinicId, filters);
+    const clinicSlug = (clinicDetail.clinic?.nameEn ?? clinicId).replace(/\s+/g, "-").toLowerCase();
+    const dateStr = new Date().toISOString().slice(0, 10);
+    if (format === "xlsx") {
+      const xlsx = await exportClinicReportXlsx(clinicId, filters);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.xlsx"`);
+      return res.send(xlsx);
+    }
+    const csv = await exportClinicReportCsv(clinicId, filters);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.csv"`);
+    return res.send(csv);
+  } catch (e) { next(e); }
+});
+
+// ===========================================================================
+// CLINIC STAFF — own clinic detail + export (uses req.auth.clinicId)
+// ===========================================================================
+
+const CLINIC_ROLES: ("clinicStaff" | "admin")[] = ["clinicStaff", "admin"];
+
+reportingRouter.get("/clinic/summary", authRequired, requireRole(CLINIC_ROLES), async (req, res, next) => {
+  try {
+    const clinicId = req.auth!.clinicId ?? str(req.query.clinicId);
+    if (!clinicId) return res.status(400).json({ error: "No clinic associated with this account" });
+    const data = await computeClinicDetail(clinicId, { from: str(req.query.from), to: str(req.query.to) });
+    return res.json(data);
+  } catch (e) { next(e); }
+});
+
+reportingRouter.get("/clinic/invoices", authRequired, requireRole(CLINIC_ROLES), async (req, res, next) => {
+  try {
+    const clinicId = req.auth!.clinicId ?? str(req.query.clinicId);
+    if (!clinicId) return res.status(400).json({ error: "No clinic associated with this account" });
+    const data = await computeClinicDetail(clinicId, { from: str(req.query.from), to: str(req.query.to) });
+    return res.json({ invoices: data.invoices, summary: data.summary, clinic: data.clinic });
+  } catch (e) { next(e); }
+});
+
+reportingRouter.get("/clinic/export", authRequired, requireRole(CLINIC_ROLES), async (req, res, next) => {
+  try {
+    const clinicId = req.auth!.clinicId ?? str(req.query.clinicId);
+    if (!clinicId) return res.status(400).json({ error: "No clinic associated with this account" });
+    const format = (str(req.query.format) || "csv").toLowerCase();
+    const filters = { from: str(req.query.from), to: str(req.query.to) };
+    const clinicDetail = await computeClinicDetail(clinicId, filters);
+    const clinicSlug = (clinicDetail.clinic?.nameEn ?? clinicId).replace(/\s+/g, "-").toLowerCase();
+    const dateStr = new Date().toISOString().slice(0, 10);
+    if (format === "xlsx") {
+      const xlsx = await exportClinicReportXlsx(clinicId, filters);
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.xlsx"`);
+      return res.send(xlsx);
+    }
+    const csv = await exportClinicReportCsv(clinicId, filters);
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.csv"`);
+    return res.send(csv);
+  } catch (e) { next(e); }
 });

@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
-import { useClinicSchedule } from "../../hooks/useApi";
-import { apiFetch } from "../../lib/api";
+import { useClinicSchedule, useMyClinicReport } from "../../hooks/useApi";
+import { apiFetch, API_BASE_URL } from "../../lib/api";
 import { sharedClinics } from "../../lib/clinics";
 import i18n from "../../app/i18n";
 import ChatWidget from "../../components/ChatWidget";
@@ -574,6 +574,244 @@ function BookingRequestsPanel({ onOpenChat }: { onOpenChat: (convId: string) => 
   );
 }
 
+// ===========================================================================
+// PERFORMANCE TAB
+// ===========================================================================
+function ClinicPerformanceTab({ sessions, completed, noShows, scheduled }: {
+  clinicId: string;
+  sessions: any[];
+  completed: any[];
+  noShows: any[];
+  scheduled: any[];
+}) {
+  const completionRate = sessions.length > 0 ? ((completed.length / sessions.length) * 100).toFixed(1) : "0";
+  const noShowRate = sessions.length > 0 ? ((noShows.length / sessions.length) * 100).toFixed(1) : "0";
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <h3 className="text-xl font-bold text-surface-900">{ar() ? "أداء العيادة" : "Clinic Performance"}</h3>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+        <KpiCard icon={Icons.calendar} label={ar() ? "جلسات مكتملة" : "Completed"} value={completed.length}
+          iconBg="bg-emerald-50" iconText="text-emerald-600" iconBorder="border-emerald-100" />
+        <KpiCard icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+          label={ar() ? "معدل الإكمال" : "Completion Rate"} value={`${completionRate}%`}
+          iconBg="bg-blue-50" iconText="text-blue-600" iconBorder="border-blue-100" />
+        <KpiCard icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
+          label={ar() ? "نسبة عدم الحضور" : "No-Show Rate"} value={`${noShowRate}%`}
+          iconBg="bg-red-50" iconText="text-red-500" iconBorder="border-red-100" />
+        <KpiCard icon={Icons.calendar} label={ar() ? "جلسات قادمة" : "Upcoming"} value={scheduled.length} />
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-5">
+        <div className="card-elevated p-6 border border-surface-200 shadow-sm">
+          <h4 className="text-sm font-bold text-surface-900 mb-4">{ar() ? "توزيع الجلسات" : "Session Breakdown"}</h4>
+          <div className="space-y-3">
+            {[
+              { label: ar() ? "مكتملة" : "Completed", count: completed.length, color: "bg-emerald-500", total: sessions.length },
+              { label: ar() ? "مجدولة" : "Upcoming", count: scheduled.length, color: "bg-blue-400", total: sessions.length },
+              { label: ar() ? "لم يحضر" : "No-Show", count: noShows.length, color: "bg-red-400", total: sessions.length },
+            ].map(row => (
+              <div key={row.label}>
+                <div className="flex justify-between text-xs mb-1">
+                  <span className="text-surface-600 font-medium">{row.label}</span>
+                  <span className="font-bold text-surface-900">{row.count} <span className="text-surface-400 font-normal">/ {row.total}</span></span>
+                </div>
+                <div className="h-2 bg-surface-100 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-700 ${row.color}`}
+                    style={{ width: row.total > 0 ? `${(row.count / row.total) * 100}%` : "0%" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="card-elevated p-6 border border-surface-200 shadow-sm">
+          <h4 className="text-sm font-bold text-surface-900 mb-4">{ar() ? "نشاط الإحالات" : "Referral Activity"}</h4>
+          <ReferralActivityWidget />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// INVOICES TAB
+// ===========================================================================
+function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
+  const [from, setFrom] = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const { data, loading } = useMyClinicReport({ from, to });
+
+  const invoices = data?.invoices ?? [];
+  const s = data?.summary;
+
+  return (
+    <div className="space-y-5 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h3 className="text-xl font-bold text-surface-900">{ar() ? "الفواتير" : "Invoices"}</h3>
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-xs text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
+          <label className="text-xs text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
+        </div>
+      </div>
+
+      {s && (
+        <div className="grid gap-3 sm:grid-cols-4">
+          {[
+            { label: ar() ? "إجمالي الفواتير" : "Total Invoices", value: s.totalInvoices, color: "text-surface-900" },
+            { label: ar() ? "مدفوعة" : "Paid", value: s.paidInvoices, color: "text-emerald-700" },
+            { label: ar() ? "معلقة" : "Pending", value: s.pendingInvoices, color: "text-amber-700" },
+            { label: ar() ? "الإيرادات المدفوعة" : "Paid Revenue", value: `${s.paidRevenueKwd} KWD`, color: "text-emerald-700" },
+          ].map(k => (
+            <div key={k.label} className="card-elevated border border-surface-200 p-4 shadow-sm rounded-xl">
+              <div className="text-[10px] uppercase tracking-wider text-surface-500 font-bold mb-1">{k.label}</div>
+              <div className={`text-2xl font-black ${k.color}`}>{k.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="card-elevated border border-surface-200 shadow-sm overflow-hidden rounded-xl">
+        {loading ? (
+          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>
+        ) : invoices.length === 0 ? (
+          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "لا توجد فواتير في هذه الفترة" : "No invoices in this period"}</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="data-table text-sm">
+              <thead>
+                <tr className="bg-surface-50">
+                  <th>{ar() ? "التاريخ" : "Date"}</th>
+                  <th>{ar() ? "العميل" : "Customer"}</th>
+                  <th>{ar() ? "نوع العضوية" : "Membership Type"}</th>
+                  <th className="text-right">{ar() ? "سعر الجلسة" : "Session Price"}</th>
+                  <th>{ar() ? "دفعة العيادة" : "Clinic Payment"}</th>
+                  <th>{ar() ? "حالة الفاتورة" : "Invoice Status"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {invoices.map(inv => (
+                  <tr key={inv.id}>
+                    <td className="text-surface-500 whitespace-nowrap">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <div className="font-medium text-surface-900">{inv.customerName}</div>
+                      {inv.customerPhone && <div className="text-xs text-surface-400">{inv.customerPhone}</div>}
+                    </td>
+                    <td className="capitalize text-surface-600">{inv.membershipType ?? "—"}</td>
+                    <td className="text-right font-bold text-surface-900">
+                      {inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}
+                    </td>
+                    <td>
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${inv.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                        {inv.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع" : "Paid") : (ar() ? "معلق" : "Pending")}
+                      </span>
+                    </td>
+                    <td className="text-surface-500 capitalize">{inv.status.replace(/_/g, " ")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// REPORTS TAB
+// ===========================================================================
+function ClinicReportsTab({ clinicId: _clinicId }: { clinicId: string }) {
+  const { getAuthHeader } = useAuth();
+  const [from, setFrom] = useState(() => {
+    const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const { data, loading } = useMyClinicReport({ from, to });
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const download = async (format: "csv" | "xlsx") => {
+    setDownloading(format);
+    try {
+      const params = new URLSearchParams({ from, to, format });
+      const res = await fetch(`${API_BASE_URL}/reporting/clinic/export?${params.toString()}`, {
+        headers: { ...(getAuthHeader() ?? {}) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `clinic-report-${from}-to-${to}.${format}`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) { alert(e.message); }
+    finally { setDownloading(null); }
+  };
+
+  const s = data?.summary;
+
+  return (
+    <div className="space-y-5 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h3 className="text-xl font-bold text-surface-900">{ar() ? "التقارير" : "Reports"}</h3>
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-xs text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
+          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
+          <label className="text-xs text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
+          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
+        </div>
+      </div>
+
+      {s && (
+        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {[
+            { label: ar() ? "إجمالي الجلسات" : "Total Sessions", value: s.totalSessions },
+            { label: ar() ? "مكتملة" : "Completed", value: s.completedSessions, color: "text-emerald-700" },
+            { label: ar() ? "لم يحضر" : "No-Show", value: s.noShowSessions, color: "text-red-700" },
+            { label: ar() ? "مجدولة" : "Scheduled", value: s.scheduledSessions, color: "text-blue-700" },
+            { label: ar() ? "فواتير مدفوعة" : "Paid Invoices", value: `${s.paidInvoices}/${s.totalInvoices}` },
+            { label: ar() ? "إيرادات مدفوعة" : "Paid Revenue", value: `${s.paidRevenueKwd} KWD`, color: "text-emerald-700" },
+          ].map(k => (
+            <div key={k.label} className="card-elevated border border-surface-200 p-4 shadow-sm rounded-xl">
+              <div className="text-[10px] uppercase tracking-wider text-surface-500 font-bold mb-1">{k.label}</div>
+              <div className={`text-xl font-black ${k.color ?? "text-surface-900"}`}>{k.value}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="card-elevated border border-surface-200 shadow-sm rounded-xl p-6 space-y-5">
+        <div>
+          <h4 className="text-sm font-bold text-surface-900 mb-1">{ar() ? "تصدير التقرير الكامل" : "Export Full Report"}</h4>
+          <p className="text-xs text-surface-500">{ar() ? "يتضمن جميع الجلسات والفواتير للفترة المحددة" : "Includes all sessions and invoices for the selected date range"}</p>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <button onClick={() => download("csv")} disabled={downloading !== null || loading}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-surface-100 text-surface-800 hover:bg-surface-200 text-sm font-bold border border-surface-200 disabled:opacity-50 transition-colors">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            {downloading === "csv" ? (ar() ? "جاري التحميل..." : "Downloading...") : "CSV"}
+          </button>
+          <button onClick={() => download("xlsx")} disabled={downloading !== null || loading}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-bold disabled:opacity-50 transition-colors shadow-sm">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            {downloading === "xlsx" ? (ar() ? "جاري التحميل..." : "Downloading...") : "Excel (XLSX)"}
+          </button>
+        </div>
+        <div className="text-xs text-surface-400 flex items-center gap-1.5 pt-1">
+          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          {ar() ? `جاري عرض بيانات من ${from} إلى ${to}` : `Showing data from ${from} to ${to}`}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ClinicDashboard() {
   const { t } = useTranslation();
   const { auth, getAuthHeader } = useAuth();
@@ -653,6 +891,8 @@ export default function ClinicDashboard() {
     { key: "requests", icon: Icons.clipboard, label: ar() ? "طلبات الحجز" : "Booking Requests" },
     { key: "chat", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>, label: ar() ? "محادثات الحجوزات" : "Booking Chat" },
     { key: "performance", icon: Icons.chart, label: ar() ? "الأداء" : "Performance" },
+    { key: "invoices", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>, label: ar() ? "الفواتير" : "Invoices" },
+    { key: "reports", icon: Icons.report, label: ar() ? "التقارير" : "Reports" },
     { key: "profile", icon: Icons.profile, label: ar() ? "الملف الشخصي" : "Profile & Settings" },
   ];
 
@@ -729,24 +969,15 @@ export default function ClinicDashboard() {
           </div>
         )}
         {activeNav === "performance" && (
-          <div className="space-y-6 animate-fade-in">
-            <h3 className="text-xl font-bold text-surface-900">{ar() ? "أداء العيادة" : "Clinic Performance"}</h3>
-            <ReferralActivityWidget />
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-               <KpiCard icon={Icons.calendar} label={ar() ? "جلسات مكتملة" : "Completed"} value={completed.length} iconBg="bg-emerald-50" iconText="text-emerald-600" iconBorder="border-emerald-100" />
-               <KpiCard icon={Icons.calendar} label={ar() ? "نسبة عدم الحضور" : "No-Show Rate"} value={`${sessions.length > 0 ? ((noShows.length / sessions.length) * 100).toFixed(1) : "0"}%`} iconBg="bg-red-50" iconText="text-red-500" iconBorder="border-red-100" />
-               <KpiCard icon={Icons.chart} label={ar() ? "معدل الإكمال" : "Completion Rate"} value={`${sessions.length > 0 ? ((completed.length / sessions.length) * 100).toFixed(1) : "0"}%`} iconBg="bg-blue-50" iconText="text-blue-600" iconBorder="border-blue-100" />
-               <KpiCard icon={Icons.calendar} label={ar() ? "قادمة" : "Upcoming"} value={scheduled.length} />
-            </div>
-            
-            <div className="card-elevated p-8 min-h-[300px] flex flex-col items-center justify-center border border-surface-200">
-               <div className="w-16 h-16 bg-surface-100 rounded-full flex items-center justify-center text-surface-400 mb-4">
-                  <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-               </div>
-               <h3 className="text-lg font-bold text-surface-900">{ar() ? "الرسوم البيانية المتقدمة قريباً" : "Advanced Charts Coming Soon"}</h3>
-               <p className="text-surface-500 mt-1 max-w-sm text-center">{ar() ? "سنقوم بتوفير تحليلات مفصلة للإيرادات والمواعيد قريباً." : "Detailed analytics for revenue and appointments will be available here soon."}</p>
-            </div>
-          </div>
+          <ClinicPerformanceTab clinicId={CLINIC_ID} sessions={sessions} completed={completed} noShows={noShows} scheduled={scheduled} />
+        )}
+
+        {activeNav === "invoices" && (
+          <ClinicInvoicesTab clinicId={CLINIC_ID} />
+        )}
+
+        {activeNav === "reports" && (
+          <ClinicReportsTab clinicId={CLINIC_ID} />
         )}
 
         {activeNav === "profile" && (

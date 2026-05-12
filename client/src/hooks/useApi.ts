@@ -484,3 +484,67 @@ export function useClinicChangeRequestsCs() {
     }>;
   }>("/commerce/cs/clinic-change-requests");
 }
+
+// ── Clinic summaries (Finance view — all clinics) ───────────────────────────
+
+export type ClinicSummaryItem = {
+  clinicId: string;
+  clinicNameEn: string;
+  clinicNameAr: string;
+  isActive: boolean;
+  totalSessions: number;
+  completedSessions: number;
+  noShowSessions: number;
+  scheduledSessions: number;
+  revenueKwd: string;
+  paymentsCount: number;
+  activeMemberships: number;
+  totalInvoices: number;
+  paidInvoices: number;
+};
+
+export function useClinicSummaries(filters: { from?: string; to?: string } = {}) {
+  const p = new URLSearchParams();
+  if (filters.from) p.set("from", filters.from);
+  if (filters.to) p.set("to", filters.to);
+  const q = p.toString() ? `?${p.toString()}` : "";
+  return useApi<{ items: ClinicSummaryItem[] }>(`/reporting/finance/by-clinic${q}`, {
+    deps: [filters.from, filters.to],
+  });
+}
+
+export type ClinicDetailSession = {
+  id: string; userId: string; customerName: string; customerPhone?: string | null;
+  scheduledAt: string; status: string; notes?: string | null; cashbackUnlockedKwd?: string | null;
+};
+export type ClinicDetailInvoice = {
+  id: string; userId: string; customerName: string; customerPhone?: string | null;
+  status: string; sessionPriceKwd?: string | null; cashbackDeductedKwd?: string | null;
+  clinicPaymentStatus: string; membershipType?: string | null; createdAt: string; confirmedAt?: string | null;
+};
+export type ClinicDetailSummary = {
+  totalSessions: number; completedSessions: number; noShowSessions: number; scheduledSessions: number;
+  totalInvoices: number; paidInvoices: number; pendingInvoices: number;
+  sessionRevenueKwd: string; paidRevenueKwd: string; pendingRevenueKwd: string;
+};
+
+export function useClinicDetail(clinicId: string | null, filters: { from?: string; to?: string } = {}) {
+  const p = new URLSearchParams();
+  if (clinicId) p.set("clinicId", clinicId);
+  if (filters.from) p.set("from", filters.from);
+  if (filters.to) p.set("to", filters.to);
+  const path = clinicId ? `/reporting/finance/clinic-detail?${p.toString()}` : null;
+  return useApi<{ clinic: { nameEn: string; nameAr: string } | null; summary: ClinicDetailSummary; sessions: ClinicDetailSession[]; invoices: ClinicDetailInvoice[] }>(path, {
+    deps: [clinicId, filters.from, filters.to],
+  });
+}
+
+export function useMyClinicReport(filters: { from?: string; to?: string } = {}) {
+  const p = new URLSearchParams();
+  if (filters.from) p.set("from", filters.from);
+  if (filters.to) p.set("to", filters.to);
+  const q = p.toString() ? `?${p.toString()}` : "";
+  return useApi<{ clinic: { nameEn: string; nameAr: string } | null; summary: ClinicDetailSummary; sessions: ClinicDetailSession[]; invoices: ClinicDetailInvoice[] }>(`/reporting/clinic/summary${q}`, {
+    deps: [filters.from, filters.to],
+  });
+}

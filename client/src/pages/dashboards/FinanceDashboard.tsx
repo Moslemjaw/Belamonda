@@ -27,6 +27,8 @@ import {
   useRevenueByUser,
   useRevenueByReferral,
   useFinanceInstallments,
+  useClinicSummaries,
+  useClinicDetail,
   type EnrichedPaymentItem,
 } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL } from "../../lib/api";
@@ -851,6 +853,218 @@ function ReportsTab({ from, to }: { from: string; to: string }) {
 }
 
 // ===========================================================================
+// CLINICS TAB — per-clinic numbers, sessions, invoices, downloadable report
+// ===========================================================================
+
+function ClinicRowDetail({ clinicId, from, to }: { clinicId: string; from: string; to: string }) {
+  const { getAuthHeader } = useAuth();
+  const { data, loading } = useClinicDetail(clinicId, { from, to });
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const download = async (format: "csv" | "xlsx") => {
+    setDownloading(format);
+    try {
+      const params = new URLSearchParams({ clinicId, from, to, format });
+      const res = await fetch(`${API_BASE_URL}/reporting/finance/clinic-export?${params.toString()}`, {
+        headers: { ...(getAuthHeader() ?? {}) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const name = data?.clinic?.nameEn ?? clinicId;
+      a.download = `clinic-${name.replace(/\s+/g, "-").toLowerCase()}-${new Date().toISOString().slice(0, 10)}.${format}`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) { alert(e.message); }
+    finally { setDownloading(null); }
+  };
+
+  if (loading) return <div className="py-6 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>;
+  if (!data) return null;
+  const s = data.summary;
+
+  return (
+    <div className="px-6 py-5 bg-surface-50 border-t border-surface-200 space-y-4 animate-fade-in">
+      <div className="grid gap-3 sm:grid-cols-5">
+        {[
+          { label: ar() ? "جلسات مكتملة" : "Completed", value: s.completedSessions, color: "text-emerald-700" },
+          { label: ar() ? "مجدولة" : "Scheduled", value: s.scheduledSessions, color: "text-blue-700" },
+          { label: ar() ? "لم يحضر" : "No-Show", value: s.noShowSessions, color: "text-red-700" },
+          { label: ar() ? "فواتير مدفوعة" : "Paid Invoices", value: `${s.paidInvoices}/${s.totalInvoices}`, color: "text-brand-pink-700" },
+          { label: ar() ? "إيرادات الجلسات" : "Session Revenue", value: `${s.sessionRevenueKwd} KWD`, color: "text-emerald-700" },
+        ].map(k => (
+          <div key={k.label} className="bg-white rounded-xl p-3 border border-surface-200 shadow-sm">
+            <div className="text-[10px] uppercase tracking-wider text-surface-500 font-bold mb-1">{k.label}</div>
+            <div className={`text-lg font-black ${k.color}`}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {data.invoices.length > 0 && (
+        <div className="overflow-x-auto rounded-xl border border-surface-200 bg-white shadow-sm">
+          <table className="data-table text-xs">
+            <thead>
+              <tr className="bg-surface-50">
+                <th>{ar() ? "التاريخ" : "Date"}</th>
+                <th>{ar() ? "العميل" : "Customer"}</th>
+                <th>{ar() ? "النوع" : "Type"}</th>
+                <th className="text-right">{ar() ? "سعر الجلسة" : "Session Price"}</th>
+                <th>{ar() ? "دفعة العيادة" : "Clinic Payment"}</th>
+                <th>{ar() ? "الحالة" : "Status"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.invoices.slice(0, 8).map(inv => (
+                <tr key={inv.id}>
+                  <td className="text-surface-500">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                  <td className="font-medium">{inv.customerName}</td>
+                  <td className="text-surface-500 capitalize">{inv.membershipType ?? "—"}</td>
+                  <td className="text-right font-bold text-surface-900">{inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}</td>
+                  <td>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${inv.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                      {inv.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع" : "Paid") : (ar() ? "معلق" : "Pending")}
+                    </span>
+                  </td>
+                  <td className="text-surface-500">{inv.status.replace(/_/g, " ")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {data.invoices.length > 8 && (
+            <div className="text-center py-2 text-xs text-surface-400 border-t border-surface-100">
+              +{data.invoices.length - 8} {ar() ? "المزيد — حمّل التقرير للقائمة الكاملة" : "more — download report for full list"}
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-1">
+        <span className="text-xs text-surface-500 font-medium">{ar() ? "تحميل التقرير الكامل:" : "Download full report:"}</span>
+        <button onClick={() => download("csv")} disabled={downloading !== null}
+          className="px-3 py-1.5 rounded-lg bg-surface-100 text-surface-700 hover:bg-surface-200 text-xs font-bold border border-surface-200 disabled:opacity-50">
+          {downloading === "csv" ? "..." : "CSV"}
+        </button>
+        <button onClick={() => download("xlsx")} disabled={downloading !== null}
+          className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold disabled:opacity-50">
+          {downloading === "xlsx" ? "..." : "XLSX"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ClinicsTab({ from, to }: { from: string; to: string }) {
+  const { data, loading } = useClinicSummaries({ from, to });
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  const items = (data?.items ?? []).filter(c =>
+    !search ||
+    c.clinicNameEn.toLowerCase().includes(search.toLowerCase()) ||
+    c.clinicNameAr.includes(search)
+  );
+
+  const totalSessions = (data?.items ?? []).reduce((s, c) => s + c.totalSessions, 0);
+  const totalCompleted = (data?.items ?? []).reduce((s, c) => s + c.completedSessions, 0);
+  const totalMemberships = (data?.items ?? []).reduce((s, c) => s + c.activeMemberships, 0);
+  const totalRevenue = (data?.items ?? []).reduce((s, c) => s + parseKwd(c.revenueKwd), 0);
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-4">
+        <KpiCard label={ar() ? "إجمالي العيادات" : "Total Clinics"} value={String(data?.items.length ?? 0)} color="text-indigo-600" icon="🏥" />
+        <KpiCard label={ar() ? "إجمالي الجلسات" : "Total Sessions"} value={String(totalSessions)} color="text-blue-600" icon="📅" />
+        <KpiCard label={ar() ? "جلسات مكتملة" : "Completed"} value={String(totalCompleted)} color="text-emerald-600" icon="✅" />
+        <KpiCard label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={`${fmt(totalRevenue)} KWD`} color="text-brand-pink-600" icon="💰" />
+      </div>
+
+      <div className="card-elevated border border-surface-200 shadow-sm overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 gap-3 border-b border-surface-100">
+          <div>
+            <h3 className="text-base font-bold text-surface-900">{ar() ? "جميع العيادات" : "All Clinics"} <span className="text-xs text-surface-400 font-medium">({items.length})</span></h3>
+            <p className="text-xs text-surface-500 mt-0.5">{ar() ? "انقر على صف لعرض التفاصيل والفواتير والتقرير" : "Click a row to view details, invoices & report"}</p>
+          </div>
+          <div className="relative">
+            <input type="text" placeholder={ar() ? "ابحث عن عيادة..." : "Search clinic..."}
+              className="input-field pl-9 text-sm w-full sm:w-56"
+              value={search} onChange={e => setSearch(e.target.value)} />
+            <svg className="w-4 h-4 absolute left-3 top-2.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+        </div>
+
+        {loading && items.length === 0 ? (
+          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>
+        ) : items.length === 0 ? (
+          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "لا توجد عيادات" : "No clinics found"}</div>
+        ) : (
+          <div>
+            <div className="hidden sm:grid grid-cols-[2.2fr_1fr_1fr_1.1fr_1fr_1fr_28px] gap-4 px-6 py-3 bg-surface-50 border-b border-surface-100 text-[10px] uppercase tracking-wider font-bold text-surface-500">
+              <div>{ar() ? "العيادة" : "Clinic"}</div>
+              <div className="text-center">{ar() ? "الجلسات" : "Sessions"}</div>
+              <div className="text-center">{ar() ? "مكتملة" : "Completed"}</div>
+              <div className="text-right">{ar() ? "الإيرادات" : "Revenue"}</div>
+              <div className="text-center">{ar() ? "عضويات" : "Memberships"}</div>
+              <div className="text-center">{ar() ? "فواتير" : "Invoices"}</div>
+              <div />
+            </div>
+
+            {items.map(c => (
+              <div key={c.clinicId}>
+                <div
+                  className={`grid grid-cols-[1fr_auto] sm:grid-cols-[2.2fr_1fr_1fr_1.1fr_1fr_1fr_28px] gap-4 px-6 py-4 border-b border-surface-100 hover:bg-surface-50 transition-colors cursor-pointer items-center ${expandedId === c.clinicId ? "bg-brand-pink-50/20" : ""}`}
+                  onClick={() => setExpandedId(expandedId === c.clinicId ? null : c.clinicId)}
+                >
+                  <div>
+                    <div className="font-bold text-surface-900 text-sm">{ar() ? (c.clinicNameAr || c.clinicNameEn) : c.clinicNameEn}</div>
+                    {c.clinicNameAr && !ar() && <div className="text-xs text-surface-400 mt-0.5">{c.clinicNameAr}</div>}
+                    <div className="sm:hidden text-xs text-surface-500 mt-1 flex gap-3 flex-wrap">
+                      <span>{c.completedSessions}/{c.totalSessions} sessions</span>
+                      <span className="text-emerald-700 font-bold">{c.revenueKwd} KWD</span>
+                    </div>
+                  </div>
+                  <div className="hidden sm:block text-center">
+                    <span className="font-bold text-surface-900">{c.totalSessions}</span>
+                    <div className="text-[10px] text-surface-400">{c.scheduledSessions} upcoming</div>
+                  </div>
+                  <div className="hidden sm:block text-center">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold">{c.completedSessions}</span>
+                    {c.noShowSessions > 0 && <div className="text-[10px] text-red-400 mt-0.5">{c.noShowSessions} no-show</div>}
+                  </div>
+                  <div className="hidden sm:block text-right">
+                    <span className="font-bold text-emerald-700">{c.revenueKwd}</span>
+                    <div className="text-[10px] text-surface-400">KWD</div>
+                  </div>
+                  <div className="hidden sm:block text-center">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-brand-pink-50 text-brand-pink-700 text-xs font-bold">{c.activeMemberships}</span>
+                  </div>
+                  <div className="hidden sm:block text-center">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${c.paidInvoices === c.totalInvoices && c.totalInvoices > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                      {c.paidInvoices}/{c.totalInvoices}
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    <svg className={`w-4 h-4 text-surface-400 transition-transform duration-200 ${expandedId === c.clinicId ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                </div>
+                {expandedId === c.clinicId && (
+                  <ClinicRowDetail clinicId={c.clinicId} from={from} to={to} />
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
 // MAIN DASHBOARD
 // ===========================================================================
 
@@ -875,6 +1089,7 @@ export default function FinanceDashboard() {
     { key: "installments", icon: Icons.calendar, label: ar() ? "الأقساط" : "Installments" },
     { key: "customers", icon: Icons.profile, label: ar() ? "العملاء" : "Customers" },
     { key: "analytics", icon: Icons.chart, label: ar() ? "تحليلات" : "Analytics" },
+    { key: "clinics", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>, label: ar() ? "العيادات" : "Clinics" },
     { key: "reports", icon: Icons.report, label: t("reports") },
   ];
 
@@ -900,6 +1115,7 @@ export default function FinanceDashboard() {
         {activeNav === "installments" && <InstallmentsTab from={from} to={to} />}
         {activeNav === "customers" && <CustomersTab from={from} to={to} />}
         {activeNav === "analytics" && <AnalyticsTab from={from} to={to} />}
+        {activeNav === "clinics" && <ClinicsTab from={from} to={to} />}
         {activeNav === "reports" && <ReportsTab from={from} to={to} />}
       </div>
     </DashboardShell>

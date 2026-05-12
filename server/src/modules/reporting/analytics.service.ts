@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import * as clinicService from "../../services/clinic.service.js";
 import * as offerService from "../../services/offer.service.js";
 import * as userOfferService from "../../services/userOffer.service.js";
@@ -6,6 +7,7 @@ import { PaymentModel } from "../../models/payment.model.js";
 import { OfferModel } from "../../models/offer.model.js";
 import { ClinicModel } from "../../models/clinic.model.js";
 import { BookingRequestModel } from "../../models/bookingRequest.model.js";
+import { BookingSessionModel } from "../../models/bookingSession.model.js";
 import { UserOfferModel } from "../../models/userOffer.model.js";
 import { UserModel } from "../../models/user.model.js";
 import { serializePayment } from "../../utils/serialize.js";
@@ -850,4 +852,341 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
 
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.isBuffer(buf) ? buf : Buffer.from(buf as ArrayBuffer);
+}
+
+// ===========================================================================
+// CLINIC SUMMARIES — all clinics with session + revenue stats (Finance view)
+// ===========================================================================
+
+export async function computeClinicSummaries(filters: { from?: string; to?: string } = {}) {
+  const dateFilter = buildDateFilter(filters.from, filters.to);
+
+  const clinics = await ClinicModel.find({}).select("nameEn nameAr isActive").lean();
+
+  // Sessions per clinic (BookingSessionModel, clinicId is ObjectId → convert to string)
+  const sessionMatchStage: Record<string, unknown> = {};
+  if (dateFilter) sessionMatchStage.createdAt = dateFilter;
+  const sessionAgg = await BookingSessionModel.aggregate([
+    ...(Object.keys(sessionMatchStage).length ? [{ $match: sessionMatchStage }] : []),
+    {
+      $group: {
+        _id: { $toString: "$clinicId" },
+        total: { $sum: 1 },
+        completed: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } },
+        noShow: { $sum: { $cond: [{ $eq: ["$status", "no_show"] }, 1, 0] } },
+        scheduled: { $sum: { $cond: [{ $eq: ["$status", "scheduled"] }, 1, 0] } },
+      },
+    },
+  ]);
+  const sessionMap = new Map<string, { total: number; completed: number; noShow: number; scheduled: number }>();
+  for (const s of sessionAgg) sessionMap.set(s._id, { total: s.total, completed: s.completed, noShow: s.noShow, scheduled: s.scheduled });
+
+  // Revenue per clinic from payments breakdown
+  const breakdown = await computePaymentsBreakdown({ from: filters.from, to: filters.to, limit: 500 });
+  const revenueMap = new Map<string, { count: number; mils: number }>();
+  for (const c of breakdown.byClinics) revenueMap.set(c.clinicId, { count: c.count, mils: parseKwd(c.totalKwd) });
+
+  // Active memberships per clinic (clinicId may be ObjectId or String)
+  const membershipAgg = await UserOfferModel.aggregate([
+    { $match: { status: "active" } },
+    { $group: { _id: { $toString: "$clinicId" }, count: { $sum: 1 } } },
+  ]).catch(() => []);
+  const membershipMap = new Map<string, number>();
+  for (const m of membershipAgg) membershipMap.set(m._id, m.count);
+
+  // Invoices (booking requests) per clinic
+  const brMatchStage: Record<string, unknown> = {};
+  if (dateFilter) brMatchStage.createdAt = dateFilter;
+  const invoiceAgg = await BookingRequestModel.aggregate([
+    ...(Object.keys(brMatchStage).length ? [{ $match: brMatchStage }] : []),
+    {
+      $group: {
+        _id: "$clinicId",
+        totalInvoices: { $sum: 1 },
+        paidInvoices: { $sum: { $cond: [{ $eq: ["$clinicPaymentStatus", "paid"] }, 1, 0] } },
+      },
+    },
+  ]);
+  const invoiceMap = new Map<string, { total: number; paid: number }>();
+  for (const i of invoiceAgg) invoiceMap.set(i._id, { total: i.totalInvoices, paid: i.paidInvoices });
+
+  const items = (clinics as any[]).map((c) => {
+    const cid = c._id.toString();
+    const sess = sessionMap.get(cid) ?? { total: 0, completed: 0, noShow: 0, scheduled: 0 };
+    const rev = revenueMap.get(cid) ?? { count: 0, mils: 0 };
+    const inv = invoiceMap.get(cid) ?? { total: 0, paid: 0 };
+    return {
+      clinicId: cid,
+      clinicNameEn: c.nameEn ?? "",
+      clinicNameAr: c.nameAr ?? "",
+      isActive: c.isActive ?? true,
+      totalSessions: sess.total,
+      completedSessions: sess.completed,
+      noShowSessions: sess.noShow,
+      scheduledSessions: sess.scheduled,
+      revenueKwd: fmtKwd(rev.mils),
+      paymentsCount: rev.count,
+      activeMemberships: membershipMap.get(cid) ?? 0,
+      totalInvoices: inv.total,
+      paidInvoices: inv.paid,
+    };
+  }).sort((a, b) => parseKwd(b.revenueKwd) - parseKwd(a.revenueKwd));
+
+  return { items };
+}
+
+// ===========================================================================
+// CLINIC DETAIL — sessions + invoices for a single clinic
+// ===========================================================================
+
+export async function computeClinicDetail(clinicId: string, filters: { from?: string; to?: string } = {}) {
+  const dateFilter = buildDateFilter(filters.from, filters.to);
+
+  const clinic = await ClinicModel.findById(clinicId).select("nameEn nameAr").lean().catch(() => null);
+
+  // Sessions
+  const sessionQ: Record<string, unknown> = {
+    clinicId: mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId,
+  };
+  if (dateFilter) sessionQ.createdAt = dateFilter;
+  const sessions = await BookingSessionModel.find(sessionQ).sort({ scheduledAt: -1 }).limit(300).lean();
+
+  // Booking requests (invoices)
+  const brQ: Record<string, unknown> = { clinicId };
+  if (dateFilter) brQ.createdAt = dateFilter;
+  const bookingReqs = await BookingRequestModel.find(brQ).sort({ createdAt: -1 }).limit(300).lean();
+
+  // Enrich with user names
+  const allUserIds = [
+    ...new Set([
+      ...(sessions as any[]).map((s) => s.userId),
+      ...(bookingReqs as any[]).map((b) => b.userId),
+    ]),
+  ].filter(Boolean);
+  const isOid = (s: string) => /^[a-f0-9]{24}$/i.test(s);
+  const userDocs = await UserModel.find({
+    $or: [
+      { _id: { $in: allUserIds.filter(isOid) } },
+      { username: { $in: allUserIds } },
+    ],
+  }).select("username displayName phone fullName").lean().catch(() => []);
+  const userMap = new Map<string, any>();
+  for (const u of userDocs as any[]) {
+    userMap.set(u._id.toString(), u);
+    if (u.username) userMap.set(u.username, u);
+  }
+
+  const resolveUser = (userId: string) => {
+    const u = userMap.get(userId);
+    return {
+      customerName: u?.fullName ?? u?.displayName ?? u?.username ?? userId,
+      customerPhone: u?.phone ?? null,
+    };
+  };
+
+  // Revenue from session prices
+  let sessionRevenueMils = 0;
+  let paidRevenueMils = 0;
+  for (const br of bookingReqs as any[]) {
+    if (br.sessionPriceKwd) {
+      sessionRevenueMils += parseKwd(br.sessionPriceKwd);
+      if (br.clinicPaymentStatus === "paid") paidRevenueMils += parseKwd(br.sessionPriceKwd);
+    }
+  }
+
+  const completed = (sessions as any[]).filter((s) => s.status === "completed").length;
+  const noShow = (sessions as any[]).filter((s) => s.status === "no_show").length;
+  const scheduled = (sessions as any[]).filter((s) => s.status === "scheduled").length;
+
+  return {
+    clinic: clinic ? { nameEn: (clinic as any).nameEn ?? "", nameAr: (clinic as any).nameAr ?? "" } : null,
+    summary: {
+      totalSessions: sessions.length,
+      completedSessions: completed,
+      noShowSessions: noShow,
+      scheduledSessions: scheduled,
+      totalInvoices: bookingReqs.length,
+      paidInvoices: (bookingReqs as any[]).filter((b) => b.clinicPaymentStatus === "paid").length,
+      pendingInvoices: (bookingReqs as any[]).filter((b) => b.clinicPaymentStatus !== "paid").length,
+      sessionRevenueKwd: fmtKwd(sessionRevenueMils),
+      paidRevenueKwd: fmtKwd(paidRevenueMils),
+      pendingRevenueKwd: fmtKwd(sessionRevenueMils - paidRevenueMils),
+    },
+    sessions: (sessions as any[]).map((s) => ({
+      id: s._id.toString(),
+      userId: s.userId,
+      ...resolveUser(s.userId),
+      scheduledAt: s.scheduledAt,
+      status: s.status,
+      notes: s.notes ?? null,
+      cashbackUnlockedKwd: s.cashbackUnlockedKwd ?? null,
+    })),
+    invoices: (bookingReqs as any[]).map((br) => ({
+      id: br._id.toString(),
+      userId: br.userId,
+      ...resolveUser(br.userId),
+      status: br.status,
+      sessionPriceKwd: br.sessionPriceKwd ?? null,
+      cashbackDeductedKwd: br.cashbackDeductedKwd ?? null,
+      clinicPaymentStatus: br.clinicPaymentStatus ?? "pending",
+      membershipType: br.membershipType ?? null,
+      createdAt: br.createdAt,
+      confirmedAt: br.confirmedAt ?? null,
+    })),
+  };
+}
+
+// ===========================================================================
+// CLINIC REPORT EXPORT — CSV and XLSX per clinic
+// ===========================================================================
+
+export async function exportClinicReportCsv(clinicId: string, filters: { from?: string; to?: string }) {
+  const data = await computeClinicDetail(clinicId, filters);
+  const escape = (v: any) => {
+    if (v === null || v === undefined) return "";
+    const s = String(v);
+    if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const toCsv = (headers: string[], rows: any[][]) =>
+    [headers.join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n");
+
+  const sessionsCsv = toCsv(
+    ["Date", "Customer", "Phone", "Status", "Cashback Unlocked (KWD)"],
+    data.sessions.map((s) => [
+      new Date(s.scheduledAt).toISOString().slice(0, 16).replace("T", " "),
+      s.customerName,
+      s.customerPhone ?? "",
+      s.status,
+      s.cashbackUnlockedKwd ?? "0.000",
+    ])
+  );
+
+  const invoicesCsv = toCsv(
+    ["Date", "Customer", "Phone", "Session Price (KWD)", "Cashback Applied (KWD)", "Clinic Payment", "Type", "Request Status"],
+    data.invoices.map((i) => [
+      new Date(i.createdAt).toISOString().slice(0, 10),
+      i.customerName,
+      i.customerPhone ?? "",
+      i.sessionPriceKwd ?? "—",
+      i.cashbackDeductedKwd ?? "0.000",
+      i.clinicPaymentStatus,
+      i.membershipType ?? "—",
+      i.status,
+    ])
+  );
+
+  const clinicName = data.clinic?.nameEn ?? clinicId;
+  const s = data.summary;
+  const summaryLines = [
+    `Clinic Report: ${clinicName}`,
+    `Generated: ${new Date().toISOString()}`,
+    "",
+    "SUMMARY",
+    `Total Sessions,${s.totalSessions}`,
+    `Completed Sessions,${s.completedSessions}`,
+    `No-Show Sessions,${s.noShowSessions}`,
+    `Scheduled Sessions,${s.scheduledSessions}`,
+    `Total Invoices,${s.totalInvoices}`,
+    `Paid Invoices,${s.paidInvoices}`,
+    `Pending Invoices,${s.pendingInvoices}`,
+    `Session Revenue (KWD),${s.sessionRevenueKwd}`,
+    `Paid Revenue (KWD),${s.paidRevenueKwd}`,
+    `Pending Revenue (KWD),${s.pendingRevenueKwd}`,
+  ].join("\n");
+
+  return `${summaryLines}\n\nSESSIONS\n${sessionsCsv}\n\nINVOICES\n${invoicesCsv}`;
+}
+
+export async function exportClinicReportXlsx(clinicId: string, filters: { from?: string; to?: string }) {
+  const data = await computeClinicDetail(clinicId, filters);
+  const clinicName = data.clinic?.nameEn ?? clinicId;
+  const s = data.summary;
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Belamonda";
+  wb.created = new Date();
+
+  // — Summary sheet —
+  const wsSum = wb.addWorksheet("Summary");
+  wsSum.getCell("A1").value = `Clinic Report: ${clinicName}`;
+  wsSum.getCell("A1").font = { size: 16, bold: true };
+  wsSum.getCell("A2").value = `Generated: ${new Date().toISOString()}`;
+  wsSum.getCell("A2").font = { size: 10, color: { argb: "FF64748B" } };
+  const summaryRows = [
+    ["Total Sessions", s.totalSessions],
+    ["Completed", s.completedSessions],
+    ["No-Show", s.noShowSessions],
+    ["Scheduled", s.scheduledSessions],
+    ["Total Invoices", s.totalInvoices],
+    ["Paid Invoices", s.paidInvoices],
+    ["Pending Invoices", s.pendingInvoices],
+    ["Session Revenue (KWD)", parseFloat(s.sessionRevenueKwd)],
+    ["Paid Revenue (KWD)", parseFloat(s.paidRevenueKwd)],
+    ["Pending Revenue (KWD)", parseFloat(s.pendingRevenueKwd)],
+  ];
+  summaryRows.forEach(([label, value], i) => {
+    const row = wsSum.getRow(i + 4);
+    row.getCell(1).value = label;
+    row.getCell(1).font = { bold: true };
+    row.getCell(2).value = value;
+    styleDataRow(row, i % 2 === 1);
+  });
+  wsSum.getColumn(1).width = 28;
+  wsSum.getColumn(2).width = 18;
+
+  // — Sessions sheet —
+  const wsS = wb.addWorksheet("Sessions");
+  const sessionHeaders = ["Date", "Customer", "Phone", "Status", "Cashback Unlocked (KWD)"];
+  const sHeaderRow = wsS.getRow(1);
+  sHeaderRow.values = sessionHeaders;
+  styleHeaderRow(sHeaderRow);
+  wsS.getColumn(1).width = 20;
+  wsS.getColumn(2).width = 24;
+  wsS.getColumn(3).width = 18;
+  wsS.getColumn(4).width = 14;
+  wsS.getColumn(5).width = 24;
+  data.sessions.forEach((s, idx) => {
+    const row = wsS.getRow(idx + 2);
+    row.values = [
+      new Date(s.scheduledAt).toISOString().slice(0, 16).replace("T", " "),
+      s.customerName,
+      s.customerPhone ?? "",
+      s.status,
+      s.cashbackUnlockedKwd ? parseFloat(s.cashbackUnlockedKwd) : 0,
+    ];
+    styleDataRow(row, idx % 2 === 1);
+  });
+
+  // — Invoices sheet —
+  const wsI = wb.addWorksheet("Invoices");
+  const invoiceHeaders = ["Date", "Customer", "Phone", "Session Price (KWD)", "Cashback Applied (KWD)", "Clinic Payment", "Type", "Status"];
+  const iHeaderRow = wsI.getRow(1);
+  iHeaderRow.values = invoiceHeaders;
+  styleHeaderRow(iHeaderRow);
+  wsI.getColumn(1).width = 14;
+  wsI.getColumn(2).width = 24;
+  wsI.getColumn(3).width = 18;
+  wsI.getColumn(4).width = 20;
+  wsI.getColumn(5).width = 24;
+  wsI.getColumn(6).width = 16;
+  wsI.getColumn(7).width = 16;
+  wsI.getColumn(8).width = 18;
+  data.invoices.forEach((inv, idx) => {
+    const row = wsI.getRow(idx + 2);
+    row.values = [
+      new Date(inv.createdAt).toISOString().slice(0, 10),
+      inv.customerName,
+      inv.customerPhone ?? "",
+      inv.sessionPriceKwd ? parseFloat(inv.sessionPriceKwd) : "",
+      inv.cashbackDeductedKwd ? parseFloat(inv.cashbackDeductedKwd) : 0,
+      inv.clinicPaymentStatus,
+      inv.membershipType ?? "—",
+      inv.status,
+    ];
+    styleDataRow(row, idx % 2 === 1);
+  });
+
+  const bufXlsx = await wb.xlsx.writeBuffer();
+  return Buffer.isBuffer(bufXlsx) ? bufXlsx : Buffer.from(bufXlsx as ArrayBuffer);
 }
