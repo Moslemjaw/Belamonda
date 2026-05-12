@@ -239,13 +239,33 @@ function PurchaseModal({ pkg, onClose, inviteCode }: { pkg: any; onClose: () => 
          <div className="p-6 space-y-6 flex-1 overflow-y-auto">
             
             {pkg.isGroupOffer && (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 text-xl">👥</div>
+              <div className={`border rounded-2xl p-4 flex gap-3 ${pkg.groupRewardType === 'split_bill' ? 'bg-blue-50 border-blue-200' : 'bg-emerald-50 border-emerald-200'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-xl ${pkg.groupRewardType === 'split_bill' ? 'bg-blue-100' : 'bg-emerald-100'}`}>
+                  {pkg.groupRewardType === 'split_bill' ? '🧾' : '👥'}
+                </div>
                 <div>
-                  <h4 className="font-bold text-emerald-800 text-sm mb-1">{ar() ? "عرض جماعي متاح!" : "Group Offer Available!"}</h4>
-                  <p className="text-xs text-emerald-600 leading-relaxed font-medium">
-                    {ar() ? `بعد الاشتراك، قم بدعوة ${pkg.groupSizeRequired - 1} أصدقاء للحصول على ${pkg.groupRewardType === 'free_session' ? 'جلسة مجانية' : 'مكافأة'}!` : `After subscribing, invite ${pkg.groupSizeRequired - 1} friends to unlock ${pkg.groupRewardType === 'free_session' ? 'a free session' : 'a special reward'}!`}
-                  </p>
+                  {pkg.groupRewardType === 'split_bill' ? (
+                    <>
+                      <h4 className="font-bold text-blue-800 text-sm mb-1">{ar() ? "تقسيم الفاتورة بين الأصدقاء!" : "Split the Bill with Friends!"}</h4>
+                      <p className="text-xs text-blue-700 leading-relaxed font-medium">
+                        {(() => {
+                          const total = parseFloat(pkg.price ?? pkg.subscriptionPriceKwd ?? '0') || 0;
+                          const count = pkg.groupSizeRequired || 1;
+                          const perPerson = (total / count).toFixed(3);
+                          return ar()
+                            ? `ادفع ${perPerson} KWD فقط! شارك مع ${count} أشخاص بالضبط وتقاسموا الفاتورة الكلية (${total.toFixed(3)} KWD). يجب أن يكون العدد ${count} أشخاص لا أقل.`
+                            : `Pay only ${perPerson} KWD each! Group up with exactly ${count} people and split the total bill (${total.toFixed(3)} KWD). Minimum ${count} people required — no less accepted.`;
+                        })()}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h4 className="font-bold text-emerald-800 text-sm mb-1">{ar() ? "عرض جماعي متاح!" : "Group Offer Available!"}</h4>
+                      <p className="text-xs text-emerald-600 leading-relaxed font-medium">
+                        {ar() ? `بعد الاشتراك، قم بدعوة ${pkg.groupSizeRequired - 1} أصدقاء للحصول على ${pkg.groupRewardType === 'free_session' ? 'جلسة مجانية' : 'مكافأة'}!` : `After subscribing, invite ${pkg.groupSizeRequired - 1} friends to unlock ${pkg.groupRewardType === 'free_session' ? 'a free session' : 'a special reward'}!`}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             )}

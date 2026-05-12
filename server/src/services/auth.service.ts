@@ -47,7 +47,7 @@ export async function registerCustomer(input: {
     const referrer = await UserModel.findOne({
       referralCode: input.referralCode.trim().toUpperCase()
     }).select("_id role").lean<ReferrerLean>();
-    if (referrer && referrer.role !== "customer") {
+    if (referrer) {
       referredBy = referrer._id;
     }
   }

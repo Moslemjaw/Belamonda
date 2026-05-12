@@ -109,7 +109,7 @@ const OfferSchema = new Schema(
     // ─── Group Offer Mechanics ───────────────────────────────────────────────
     isGroupOffer: { type: Boolean, default: false },
     groupSizeRequired: { type: Number, min: 2 },
-    groupRewardType: { type: String, enum: ["free_session", "discount", "cashback_bonus"] },
+    groupRewardType: { type: String, enum: ["free_session", "discount", "cashback_bonus", "split_bill"] },
     groupRewardValue: { type: String },
     description: { type: String },
     terms: { type: String },

@@ -544,15 +544,47 @@ function OffersManager() {
               </label>
               {form.isGroupOffer && (
                 <>
-                  {F(ar() ? "حجم المجموعة المطلوب" : "Required Group Size", <input className="input-field" type="number" value={form.groupSizeRequired} onChange={e => setForm({...form, groupSizeRequired: e.target.value})} />)}
+                  {F(
+                    form.groupRewardType === "split_bill"
+                      ? (ar() ? "عدد الأشخاص (للتقسيم)" : "Number of People (Split)")
+                      : (ar() ? "حجم المجموعة المطلوب" : "Required Group Size"),
+                    <input
+                      className="input-field"
+                      type="number"
+                      min={form.groupRewardType === "split_bill" ? 2 : 1}
+                      value={form.groupSizeRequired}
+                      onChange={e => setForm({...form, groupSizeRequired: e.target.value})}
+                    />
+                  )}
                   {F(ar() ? "نوع المكافأة" : "Reward Type", (
                     <select className="select-field w-full" value={form.groupRewardType} onChange={e => setForm({...form, groupRewardType: e.target.value})}>
                       <option value="free_session">{ar() ? "جلسة مجانية" : "Free Session"}</option>
                       <option value="discount">{ar() ? "خصم إضافي" : "Extra Discount"}</option>
                       <option value="cashback_bonus">{ar() ? "كاش باك إضافي" : "Bonus Cashback"}</option>
+                      <option value="split_bill">{ar() ? "تقسيم الفاتورة" : "Split Bill"}</option>
                     </select>
                   ))}
-                  {F(ar() ? "قيمة المكافأة" : "Reward Value", <input className="input-field" type="text" placeholder="e.g. 10 KWD or 1 session" value={form.groupRewardValue} onChange={e => setForm({...form, groupRewardValue: e.target.value})} />)}
+                  {form.groupRewardType === "split_bill" ? (
+                    <div className="bg-brand-pink-50 border border-brand-pink-200 rounded-xl p-3 md:col-span-1">
+                      <div className="text-xs font-bold text-brand-pink-700 mb-1">{ar() ? "معاينة التقسيم" : "Split Preview"}</div>
+                      {(() => {
+                        const price = parseFloat(form.price) || 0;
+                        const count = parseInt(form.groupSizeRequired) || 0;
+                        const perPerson = count > 0 ? (price / count).toFixed(3) : "—";
+                        return (
+                          <div className="text-sm text-brand-pink-800">
+                            <span className="font-black">{perPerson} KWD</span>
+                            {ar() ? ` لكل شخص (${count} أشخاص على الأقل)` : ` per person (minimum ${count} people)`}
+                          </div>
+                        );
+                      })()}
+                      <div className="text-[10px] text-brand-pink-500 mt-1">
+                        {ar() ? `الفاتورة الكلية ${form.price || 0} KWD مقسّمة على ${form.groupSizeRequired} أشخاص. لن يُقبل أقل من العدد المطلوب.` : `Total bill ${form.price || 0} KWD divided by ${form.groupSizeRequired} people. No less than the required count will be accepted.`}
+                      </div>
+                    </div>
+                  ) : (
+                    F(ar() ? "قيمة المكافأة" : "Reward Value", <input className="input-field" type="text" placeholder="e.g. 10 KWD or 1 session" value={form.groupRewardValue} onChange={e => setForm({...form, groupRewardValue: e.target.value})} />)
+                  )}
                 </>
               )}
             </div>
