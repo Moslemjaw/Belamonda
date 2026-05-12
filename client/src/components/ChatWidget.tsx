@@ -17,6 +17,15 @@ interface Props {
   title?: string;
 }
 
+function getInitials(title: string): string {
+  return title
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0] ?? "")
+    .join("")
+    .toUpperCase();
+}
+
 export default function ChatWidget({ conversationId: initialConvId, adminMode, showBookingActions, title }: Props) {
   const { auth, getAuthHeader } = useAuth();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -269,27 +278,46 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
               )}
             </div>
             {conversations.length === 0 ? (
-              <div className="p-6 text-center text-xs text-surface-400">{ar() ? "لا توجد محادثات بعد" : "No conversations yet"}</div>
+              <div className="empty-state py-12">
+                <div className="empty-state-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
+                    <path fillRule="evenodd" d="M4.848 2.771A49.144 49.144 0 0112 2.25c2.43 0 4.817.178 7.152.52 1.978.292 3.348 2.024 3.348 3.97v6.02c0 1.946-1.37 3.678-3.348 3.97a48.901 48.901 0 01-3.476.383.39.39 0 00-.297.17l-2.755 4.133a.75.75 0 01-1.248 0l-2.755-4.133a.39.39 0 00-.297-.17 48.9 48.9 0 01-3.476-.384c-1.978-.29-3.348-2.024-3.348-3.97V6.741c0-1.946 1.37-3.68 3.348-3.97z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <p className="empty-state-title">{ar() ? "لا توجد محادثات بعد" : "No conversations yet"}</p>
+                <p className="empty-state-sub">{ar() ? "ستظهر المحادثات هنا عند بدئها" : "Conversations will appear here once started"}</p>
+              </div>
             ) : (
               <div className="divide-y divide-surface-200">
-                {conversations.map((c) => (
-                  <button
-                    key={c.id}
-                    className={`w-full text-left p-3 hover:bg-surface-100 transition-colors ${selectedId === c.id ? "bg-white" : ""}`}
-                    onClick={() => setSelectedId(c.id)}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="font-bold text-sm text-surface-900 truncate">{c.title}</div>
-                      {(c.unreadCount ?? 0) > 0 && (
-                        <span className="text-[10px] font-bold bg-brand-pink-500 text-white rounded-full px-1.5 py-0.5">{c.unreadCount}</span>
+                {conversations.map((c) => {
+                  const isActive = selectedId === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      className={`relative w-full text-left p-3 hover:bg-surface-100 transition-colors ${isActive ? "bg-white" : ""}`}
+                      onClick={() => setSelectedId(c.id)}
+                    >
+                      {isActive && (
+                        <span className="absolute start-0 top-3 bottom-3 w-1 rounded-e-full bg-brand-pink-500" />
                       )}
-                    </div>
-                    <div className="text-xs text-surface-500 truncate mt-0.5">{c.lastMessagePreview || "—"}</div>
-                    <div className="text-[10px] text-surface-400 mt-1">
-                      {c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString() : ""}
-                    </div>
-                  </button>
-                ))}
+                      <div className="flex items-start gap-2.5 ps-1">
+                        <span className="avatar avatar-sm shrink-0 mt-0.5">{getInitials(c.title || "?")}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className={`text-sm truncate ${isActive ? "font-bold text-surface-900" : "font-medium text-surface-800"}`}>{c.title}</div>
+                            {(c.unreadCount ?? 0) > 0 && (
+                              <span className="shrink-0 text-[10px] font-bold bg-brand-pink-500 text-white rounded-full px-1.5 py-0.5">{c.unreadCount}</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-surface-500 truncate mt-0.5">{c.lastMessagePreview || "—"}</div>
+                          <div className="text-[10px] text-surface-400 mt-1">
+                            {c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString() : ""}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -477,8 +505,17 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
               )}
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-sm text-surface-400">
-              {ar() ? "اختر محادثة" : "Select a conversation"}
+            <div className="flex-1 flex items-center justify-center">
+              <div className="empty-state">
+                <div className="empty-state-icon">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
+                    <path d="M4.913 2.658c2.075-.27 4.19-.408 6.337-.408 2.147 0 4.262.139 6.337.408 1.922.25 3.291 1.861 3.405 3.727a4.403 4.403 0 00-1.032-.211 50.89 50.89 0 00-8.42 0c-2.358.196-4.04 2.19-4.04 4.434v4.286a4.47 4.47 0 002.433 3.984L7.28 21.53A.75.75 0 016 21v-4.03a48.527 48.527 0 01-1.087-.128C2.905 16.58 1.5 14.833 1.5 12.862V6.638c0-1.97 1.405-3.718 3.413-3.979z" />
+                    <path d="M15.75 7.5c-1.376 0-2.739.057-4.086.169C10.124 7.797 9 9.103 9 10.609v4.285c0 1.507 1.128 2.810 2.67 2.930 1.243.098 2.498.147 3.768.147 1.271 0 2.526-.05 3.77-.147 1.542-.12 2.667-1.423 2.667-2.93v-4.285c0-1.506-1.125-2.810-2.664-2.93A49.145 49.145 0 0015.75 7.5z" />
+                  </svg>
+                </div>
+                <p className="empty-state-title">{ar() ? "اختر محادثة" : "Select a conversation"}</p>
+                <p className="empty-state-sub">{ar() ? "اختر محادثة من القائمة لعرض الرسائل" : "Choose a conversation from the list to view messages"}</p>
+              </div>
             </div>
           )}
         </div>
