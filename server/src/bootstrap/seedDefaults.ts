@@ -3,9 +3,6 @@ import { ClinicModel } from "../models/clinic.model.js";
 import { ClinicSessionOfferingModel } from "../models/clinicSessionOffering.model.js";
 import { OfferModel } from "../models/offer.model.js";
 import { SessionTypeModel } from "../models/sessionType.model.js";
-import { UserModel, type UserDoc } from "../models/user.model.js";
-import { UserOfferModel } from "../models/userOffer.model.js";
-import bcrypt from "bcryptjs";
 
 const DEFAULT_CATEGORIES: Array<{
   slug: string;
@@ -24,76 +21,6 @@ export async function seedDefaultCategories(): Promise<void> {
   }
 }
 
-export async function seedLocalDemoUsersAndClinics(): Promise<void> {
-
-  const demoPassword = "demo12345";
-  const passwordHash = await bcrypt.hash(demoPassword, 10);
-
-  const demoUsers: Array<{
-    username: string;
-    role: "customer" | "admin" | "cs" | "finance" | "clinicStaff";
-    email?: string;
-    clinicId?: string;
-  }> = [
-    // Customers
-    { username: "cust1", role: "customer" },
-    { username: "cust2", role: "customer" },
-    { username: "cust3", role: "customer" },
-
-    // Admins
-    { username: "admin1", role: "admin" },
-    { username: "admin2", role: "admin" },
-
-    // Customer Service
-    { username: "cs1", role: "cs" },
-    { username: "cs2", role: "cs" },
-    { username: "cs3", role: "cs" },
-
-    // Finance
-    { username: "fin1", role: "finance" },
-    { username: "fin2", role: "finance" }
-  ];
-
-  // Keep local demo logins deterministic in dev.
-  for (const u of demoUsers) {
-    const email = u.email ?? `${u.username}@belamonda.local`;
-    const existing = await UserModel.findOne({ username: u.username });
-    if (existing) {
-      existing.passwordHash = passwordHash;
-      existing.role = u.role;
-      existing.isActive = true;
-      if (u.role === "clinicStaff") existing.clinicId = u.clinicId as string;
-      await existing.save();
-      continue;
-    }
-
-    await UserModel.create({
-      username: u.username,
-      email,
-      passwordHash,
-      role: u.role,
-      isActive: true,
-      clinicId: u.role === "clinicStaff" ? u.clinicId : undefined
-    });
-  }
-
-  console.log(
-    `[seed] Demo accounts ready (password: demo12345):\n` +
-    `  Customers : cust1, cust2, cust3\n` +
-    `  Admins    : admin1, admin2\n` +
-    `  CS        : cs1, cs2, cs3\n` +
-    `  Finance   : fin1, fin2`
-  );
-
-  // Remove all subscriptions for cust1 on every dev startup so the demo account stays clean.
-  const cust1User = await UserModel.findOne({ username: "cust1" }).lean<UserDoc | null>();
-  if (cust1User) {
-    const deleted = await UserOfferModel.deleteMany({ userId: cust1User._id.toString() });
-    if (deleted.deletedCount > 0) {
-      console.log(`[seed] Cleared ${deleted.deletedCount} subscription(s) for cust1.`);
-    }
-  }
-}
 
 const DEFAULT_SESSION_TYPES: Array<{
   slug: string;

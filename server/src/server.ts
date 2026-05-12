@@ -3,7 +3,7 @@ import { randomBytes } from "crypto";
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { connectMongo } from "./db/mongo.js";
-import { seedDefaultCategories, seedDefaultOffers, seedDefaultSessionTypesAndOfferings, seedLocalDemoUsersAndClinics } from "./bootstrap/seedDefaults.js";
+import { seedDefaultCategories, seedDefaultOffers, seedDefaultSessionTypesAndOfferings } from "./bootstrap/seedDefaults.js";
 import { startPurchaseReminders } from "./services/purchaseReminders.service.js";
 import { startFormSignatureReminders } from "./services/formSignatureReminders.service.js";
 import { initChatSocket } from "./modules/chat/chat.socket.js";
@@ -47,9 +47,6 @@ async function main() {
   // seed calls removed
   await seedDefaultCategories();
   if (env.NODE_ENV !== "production") {
-    if (env.SEED_DEMO) {
-      await seedLocalDemoUsersAndClinics();
-    }
     await seedDefaultSessionTypesAndOfferings();
     await seedDefaultOffers();
   }
