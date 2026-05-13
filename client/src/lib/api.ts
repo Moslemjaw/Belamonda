@@ -14,6 +14,20 @@ function normalizeSiteBase(raw: string | undefined): string {
 export const API_BASE_URL = normalizeApiBase(import.meta.env.VITE_API_URL);
 export const SITE_BASE_URL = normalizeSiteBase(import.meta.env.VITE_SITE_URL);
 
+const AUTH_STORAGE_KEY = "belamonda_auth";
+
+/** Handle expired / invalid sessions globally — clear stored auth and redirect to login. */
+function handleSessionExpired() {
+  // Prevent infinite redirect loops: only act once
+  if ((window as any).__bel_session_expired) return;
+  (window as any).__bel_session_expired = true;
+  localStorage.removeItem(AUTH_STORAGE_KEY);
+  sessionStorage.removeItem(AUTH_STORAGE_KEY);
+  // Redirect to login with a return-to path
+  const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.href = `/login?expired=1&next=${returnTo}`;
+}
+
 export async function apiFetch(path: string, init?: RequestInit) {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -22,6 +36,18 @@ export async function apiFetch(path: string, init?: RequestInit) {
       ...(init?.headers ?? {})
     }
   });
+
+  // ── Handle expired / invalid token globally ──
+  if (res.status === 401) {
+    // Only auto-logout for authenticated endpoints (those with an Authorization header)
+    const hasAuth = init?.headers && typeof init.headers === "object" && "Authorization" in init.headers;
+    if (hasAuth) {
+      handleSessionExpired();
+      const err = new Error("UNAUTHORIZED") as Error & { data?: unknown; status?: number };
+      err.status = 401;
+      throw err;
+    }
+  }
 
   const text = await res.text();
   let data: unknown = null;

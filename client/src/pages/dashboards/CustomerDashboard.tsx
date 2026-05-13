@@ -1194,13 +1194,17 @@ export default function CustomerDashboard() {
         <div className="px-3 py-3 sm:p-4 lg:px-8 lg:pb-8 bg-surface-50 min-h-[calc(100dvh-12rem)] lg:min-h-[calc(100vh-200px)]">
           
         {activeTab === "store" && (() => {
-          const filtered = (homeCatalogData?.items || []).filter((o: any) => offerFilter === "all" || o.category === offerFilter);
-          // Determine featured tier (mid-priced or marked) — pick the median price
-          const sortedByPrice = [...filtered].sort((a: any, b: any) => parseFloat(a.subscriptionPriceKwd || "0") - parseFloat(b.subscriptionPriceKwd || "0"));
-          const featuredIdx = Math.floor(sortedByPrice.length / 2);
-          const featuredId = sortedByPrice[featuredIdx]?.id;
+          const allOffers = homeCatalogData?.items || [];
+          // Only show categories that have at least one membership
+          const offerCategorySlugs = new Set(allOffers.map((o: any) => o.category).filter(Boolean));
+          const activeFilters = categoryFilters.filter(cf => cf.slug === "all" || offerCategorySlugs.has(cf.slug));
+          const filtered = allOffers.filter((o: any) => offerFilter === "all" || o.category === offerFilter);
+          // Sort: highest price first (premium plans on top)
+          const sorted = [...filtered].sort((a: any, b: any) => parseFloat(b.subscriptionPriceKwd || "0") - parseFloat(a.subscriptionPriceKwd || "0"));
+          // Featured = the most expensive plan (first after sort)
+          const featuredId = sorted.length > 1 ? sorted[0]?.id : null;
           return (
-            <div className="space-y-8 animate-fade-in">
+            <div className="space-y-6 animate-fade-in">
               <div className="text-center max-w-2xl mx-auto">
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-pink-50 border border-brand-pink-100 text-brand-pink-600 text-xs font-bold uppercase tracking-wider mb-3">
                   <span className="w-1.5 h-1.5 rounded-full bg-brand-pink-500 animate-pulse" />
@@ -1209,31 +1213,44 @@ export default function CustomerDashboard() {
                 <h2 className="text-3xl lg:text-4xl font-black text-surface-900 mb-2 tracking-tight">{ar() ? "اختاري الخطة المثالية لكِ" : "Find Your Perfect Plan"}</h2>
                 <p className="text-surface-500 text-sm lg:text-base">{ar() ? "باقات شاملة بأسعار حصرية وكاش باك تلقائي على كل جلسة." : "Comprehensive packages with exclusive pricing and automatic cashback on every session."}</p>
               </div>
-              <div className="flex items-center justify-center flex-wrap gap-2">
-                {categoryFilters.map(cf => (
-                  <button
-                    key={cf.slug}
-                    onClick={() => setOfferFilter(cf.slug)}
-                    className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${offerFilter === cf.slug ? "bg-brand-pink-500 text-white shadow-md" : "bg-white text-surface-600 border border-surface-200 hover:border-brand-pink-300 hover:text-brand-pink-600"}`}
-                  >
-                    {ar() ? cf.nameAr : cf.nameEn}
-                  </button>
-                ))}
+              {/* Horizontally scrollable filters on mobile, wrapping on desktop */}
+              <div className="relative -mx-3 px-3 sm:mx-0 sm:px-0">
+                <div
+                  className="flex gap-2 overflow-x-auto overflow-y-hidden no-scrollbar pb-2 sm:pb-0 sm:flex-wrap sm:justify-center sm:overflow-visible touch-pan-x overscroll-x-contain"
+                  style={{ WebkitOverflowScrolling: "touch" }}
+                >
+                  {activeFilters.map(cf => {
+                    const count = cf.slug === "all" ? allOffers.length : allOffers.filter((o: any) => o.category === cf.slug).length;
+                    return (
+                      <button
+                        key={cf.slug}
+                        onClick={() => setOfferFilter(cf.slug)}
+                        className={`snap-start shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${offerFilter === cf.slug ? "bg-brand-pink-500 text-white shadow-md" : "bg-white text-surface-600 border border-surface-200 hover:border-brand-pink-300 hover:text-brand-pink-600"}`}
+                      >
+                        {ar() ? cf.nameAr : cf.nameEn}
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${offerFilter === cf.slug ? "bg-white/25 text-white" : "bg-surface-100 text-surface-500"}`}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="grid gap-5 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 pt-4">
-                {filtered.map((o: any) => {
-                  const isFeatured = o.id === featuredId && filtered.length > 1;
+              <div className="grid gap-5 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 pt-2">
+                {sorted.map((o: any) => {
+                  const isFeatured = o.id === featuredId && sorted.length > 1;
                   const sessions = o.sessionCount || o.maxSessions;
                   const cashbackPct = o.cashbackPercent;
                   const branches = o.branchCount;
                   const savings = o.originalClinicPriceKwd && o.subscriptionPriceKwd
                     ? (parseFloat(o.originalClinicPriceKwd) - parseFloat(o.subscriptionPriceKwd)).toFixed(3)
                     : null;
+                  // Resolve category name from API data
+                  const catDef = (categoriesData?.items || []).find(c => c.slug === o.category);
+                  const categoryLabel = catDef ? (ar() ? catDef.nameAr : catDef.nameEn) : o.category;
                   return (
                     <div key={o.id} className={`plan-card ${isFeatured ? "is-featured" : ""}`}>
                       {isFeatured && <span className="plan-badge">{ar() ? "الأكثر شعبية" : "Most Popular"}</span>}
-                      <div className="text-[10px] font-bold text-brand-pink-500 uppercase tracking-wider mb-2">{o.category}</div>
-                      <h3 className="text-lg font-black text-surface-900 leading-tight mb-1">{o.name}</h3>
+                      <div className="text-[10px] font-bold text-brand-pink-500 uppercase tracking-wider mb-2">{categoryLabel}</div>
+                      <h3 className="text-lg font-black text-surface-900 leading-tight mb-1">{ar() ? (o.nameAr || o.name) : o.name}</h3>
                       {o.subtitle && <p className="text-xs text-surface-500 line-clamp-2 mb-4">{o.subtitle}</p>}
                       <div className="flex items-baseline gap-2 mb-1">
                         <span className="text-4xl font-black text-surface-900 tracking-tight">{o.subscriptionPriceKwd}</span>
@@ -1284,7 +1301,7 @@ export default function CustomerDashboard() {
                   );
                 })}
               </div>
-              {filtered.length === 0 && (
+              {sorted.length === 0 && (
                 <div className="text-center py-16 text-surface-400">
                   <div className="text-5xl mb-3">🌸</div>
                   <p className="font-medium">{ar() ? "لا توجد عروض في هذه الفئة" : "No memberships in this category"}</p>

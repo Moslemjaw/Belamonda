@@ -13,6 +13,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
 
   const isAr = i18n.language === "ar";
+  const isExpired = new URLSearchParams(window.location.search).get("expired") === "1";
 
   async function handleSignIn() {
     setLoading("signin");
@@ -67,6 +68,13 @@ export default function LoginPage() {
             <h2 className="mt-6 text-2xl font-bold text-surface-900">{t("welcomeBack")}</h2>
             <p className="mt-1 text-sm text-surface-500">{t("loginSubtitle")}</p>
           </div>
+
+          {isExpired && (
+            <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center gap-3 text-sm text-amber-800">
+              <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              <span className="font-medium">{isAr ? "انتهت صلاحية الجلسة. يرجى تسجيل الدخول مرة أخرى." : "Your session has expired. Please sign in again."}</span>
+            </div>
+          )}
 
           <form
             className="card-elevated p-6 mb-4"
