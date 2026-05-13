@@ -102,7 +102,10 @@ const OfferBaseSchema = z.object({
   installmentsEFormId: z.string().optional(),
   depositEFormId: z.string().optional(),
   allowENet: z.boolean().default(false),
-  enetEFormId: z.string().optional()
+  enetEFormId: z.string().optional(),
+
+  // Display ordering
+  sortOrder: z.number().int().min(0).default(0)
 });
 
 const OfferCreateSchema = OfferBaseSchema;
@@ -240,6 +243,23 @@ offersRouter.delete("/admin/:offerId", authRequired, requireRole(["admin"]), asy
       targetEntityType: "Offer",
       targetEntityId: req.params.offerId
     });
+    return res.json({ success: true });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// Bulk reorder offers
+offersRouter.post("/admin/reorder", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const items = req.body.items;
+    if (!Array.isArray(items)) return res.status(400).json({ error: "VALIDATION_ERROR", message: "items must be an array of { id, sortOrder }" });
+    const { updateOffer: updateOfferFn } = await import("../../services/offer.service.js");
+    for (const item of items) {
+      if (typeof item.id === "string" && typeof item.sortOrder === "number") {
+        await updateOfferFn(item.id, { sortOrder: item.sortOrder });
+      }
+    }
     return res.json({ success: true });
   } catch (error) {
     return next(error);

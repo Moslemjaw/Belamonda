@@ -68,6 +68,7 @@ export function serializeOffer(doc: OfferDoc, categorySlug?: string | null) {
     active: doc.active,
     visibility: (doc as any).visibility ?? "public",
     featured: doc.featured,
+    sortOrder: (doc as any).sortOrder ?? 0,
     clinicId: idString(doc.clinicId as Types.ObjectId),
     clinicIds: ((doc as any).clinicIds ?? []).map((c: Types.ObjectId | string) => idString(c as Types.ObjectId)),
     clinicLocked: (doc as any).clinicLocked,

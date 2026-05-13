@@ -664,68 +664,120 @@ function OffersManager() {
         </div>
       )}
 
-      {/* Offer Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {offers.map(o => {
-          const enrolled = (o.enrolledCount || 0);
-          const isExpanded = expandedId === (o.id || o._id);
-          const displayTitle = ar() ? (o.nameAr || o.name) : (o.name || o.nameEn);
-          const cats = o.category ? o.category.split(',') : [];
-          const categoryName = o.category === "all" ? (ar() ? "جميع الفئات" : "All Categories") : cats.map((c: string) => {
-            const cDef = (categoriesAdminData?.items || []).find(tc => tc.slug === c);
-            return cDef ? (ar() ? cDef.nameAr : cDef.nameEn) : c;
-          }).join(' • ');
-          
-          return (
-            <div key={o.id || o._id} className={`card-elevated p-0 overflow-hidden ${!o.active ? 'opacity-60 grayscale' : ''}`}>
-              {o.imageUrl && <div className="h-32 w-full relative"><img src={o.imageUrl} className="w-full h-full object-cover" alt="" /><div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" /></div>}
-              <div className="p-5">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0 pr-4">
-                    <h4 className="font-bold text-surface-900 truncate" title={displayTitle}>{displayTitle}</h4>
-                    <div className="text-xs text-surface-500 mt-0.5 flex items-center gap-1.5 truncate" title={categoryName}>
-                       <span className="w-3.5 h-3.5 shrink-0">{getCategoryIcon(cats[0] || o.category)}</span>
-                       <span className="truncate">{categoryName} • {o.validityDays} {ar() ? "يوم" : "days"}</span>
-                    </div>
-                  </div>
-                  <span className={o.active ? "badge-green shrink-0" : "badge-gray shrink-0"}>{o.active ? (ar() ? "نشط" : "Active") : (ar() ? "متوقف" : "Inactive")}</span>
-                </div>
-                <div className="text-2xl font-black text-brand-pink-600 mb-3">{o.subscriptionPriceKwd || o.price} <span className="text-sm text-surface-400 font-medium">KWD</span></div>
-                
-                {/* Cashback summary */}
-                <div className="flex flex-wrap gap-1.5 mb-3">
-                  {o.isCashbackOnly && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">{ar() ? "💳 كاش باك فقط" : "💳 Cashback Only"}</span>}
-                  {parseFloat(o.signupCashbackKwd || o.signupCashback || "0") > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">💰 {o.signupCashbackKwd || o.signupCashback} KWD {ar() ? "كاش باك" : "signup CB"}</span>}
-                  {parseFloat(o.cashbackPerSessionKwd || o.perSessionCashback || "0") > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700">🔄 {o.cashbackPerSessionKwd || o.perSessionCashback} KWD/{ar() ? "جلسة" : "session"}</span>}
-                  {parseFloat(o.cashbackActivationFeeKwd || o.cashbackActivationFee || "0") > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700">🔑 +{o.cashbackActivationFeeKwd || o.cashbackActivationFee} KWD {ar() ? "تفعيل" : "activation"}</span>}
-                </div>
+      {/* Offer Cards — with reorder controls */}
+      {(() => {
+        const moveOffer = async (idx: number, dir: -1 | 1) => {
+          const newIdx = idx + dir;
+          if (newIdx < 0 || newIdx >= offers.length) return;
+          // Swap sortOrder values
+          const items = offers.map((o: any, i: number) => ({
+            id: o.id || o._id,
+            sortOrder: i === idx ? newIdx : i === newIdx ? idx : i
+          }));
+          try {
+            await apiFetch("/offers/admin/reorder", {
+              method: "POST",
+              headers: getAuthHeader(),
+              body: JSON.stringify({ items })
+            });
+            refresh();
+          } catch { /* ignore */ }
+        };
 
-                <div className="text-xs text-surface-500 mb-3">{enrolled} {ar() ? "مشترك" : "enrolled"} • {o.sessionIntervalDays}d {ar() ? "انتظار" : "interval"}</div>
-
-                {/* Expandable details */}
-                {isExpanded && (
-                  <div className="border-t border-surface-100 pt-3 mt-2 space-y-2 text-xs animate-fade-in">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "دفع كامل" : "Full Pay"}</span><div className="font-bold">{o.allowFullPayment ? "✓" : "✗"}</div></div>
-                      <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "أقساط" : "Installments"}</span><div className="font-bold">{o.allowInstallments ? `✓ (${o.maxInstallments})` : "✗"}</div></div>
-                      <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "عربون" : "Deposit"}</span><div className="font-bold">{o.allowDeposit ? `✓ (${o.depositAmount} KWD)` : "✗"}</div></div>
-                    </div>
-                    <div className="flex flex-wrap gap-1.5 pt-1">{((ar() ? o.tagsAr : o.tagsEn) || []).map((t: string) => <span key={t} className="bg-surface-100 text-surface-600 text-[9px] uppercase font-bold px-2 py-0.5 rounded">{t}</span>)}</div>
-                  </div>
-                )}
-
-                <div className="flex gap-2 mt-3 pt-3 border-t border-surface-100">
-                  <button className="text-xs font-bold text-brand-pink-600 bg-brand-pink-50 px-3 py-1.5 rounded-lg hover:bg-brand-pink-100" onClick={() => openEdit(o)}>{ar() ? "تعديل" : "Edit"}</button>
-                  <button className="text-xs font-bold text-surface-500 bg-surface-100 px-3 py-1.5 rounded-lg hover:bg-surface-200" onClick={() => setExpandedId(isExpanded ? null : (o.id || o._id))}>{isExpanded ? (ar() ? "إخفاء" : "Less") : (ar() ? "تفاصيل" : "Details")}</button>
-                  <button className="text-xs font-bold px-3 py-1.5 rounded-lg ml-auto" onClick={() => toggleActive(o)}>{o.active ? <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">{ar() ? "إيقاف" : "Deactivate"}</span> : <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">{ar() ? "تفعيل" : "Activate"}</span>}</button>
-                  <button className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100" onClick={() => deleteOffer(o.id || o._id)}>{ar() ? "حذف" : "Delete"}</button>
-                </div>
+        return (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <div className="text-xs text-surface-500">
+                {ar() ? `${offers.length} عرض — اسحب لترتيب العرض` : `${offers.length} offers — use arrows to reorder`}
               </div>
             </div>
-          );
-        })}
-        {offers.length === 0 && <div className="md:col-span-3 text-center text-surface-400 py-12 card-elevated">{ar() ? "لا توجد عروض" : "No offers yet"}</div>}
-      </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {offers.map((o: any, idx: number) => {
+                const enrolled = (o.enrolledCount || 0);
+                const isExpanded = expandedId === (o.id || o._id);
+                const displayTitle = ar() ? (o.nameAr || o.name) : (o.name || o.nameEn);
+                const cats = o.category ? o.category.split(',') : [];
+                const categoryName = o.category === "all" ? (ar() ? "جميع الفئات" : "All Categories") : cats.map((c: string) => {
+                  const cDef = (categoriesAdminData?.items || []).find(tc => tc.slug === c);
+                  return cDef ? (ar() ? cDef.nameAr : cDef.nameEn) : c;
+                }).join(' • ');
+
+                return (
+                  <div key={o.id || o._id} className={`card-elevated p-0 overflow-hidden ${!o.active ? 'opacity-60 grayscale' : ''}`}>
+                    {o.imageUrl && <div className="h-32 w-full relative"><img src={o.imageUrl} className="w-full h-full object-cover" alt="" /><div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" /></div>}
+                    <div className="p-5">
+                      {/* Sort order controls */}
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-black text-surface-400 bg-surface-100 px-2 py-0.5 rounded">#{idx + 1}</span>
+                        <div className="flex gap-1">
+                          <button
+                            disabled={idx === 0}
+                            onClick={() => void moveOffer(idx, -1)}
+                            className="w-7 h-7 rounded-lg bg-surface-100 hover:bg-surface-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-surface-600 transition-colors"
+                            title={ar() ? "تحريك لأعلى" : "Move up"}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
+                          </button>
+                          <button
+                            disabled={idx === offers.length - 1}
+                            onClick={() => void moveOffer(idx, 1)}
+                            className="w-7 h-7 rounded-lg bg-surface-100 hover:bg-surface-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-surface-600 transition-colors"
+                            title={ar() ? "تحريك لأسفل" : "Move down"}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1 min-w-0 pr-4">
+                          <h4 className="font-bold text-surface-900 truncate" title={displayTitle}>{displayTitle}</h4>
+                          <div className="text-xs text-surface-500 mt-0.5 flex items-center gap-1.5 truncate" title={categoryName}>
+                             <span className="w-3.5 h-3.5 shrink-0">{getCategoryIcon(cats[0] || o.category)}</span>
+                             <span className="truncate">{categoryName} • {o.validityDays} {ar() ? "يوم" : "days"}</span>
+                          </div>
+                        </div>
+                        <span className={o.active ? "badge-green shrink-0" : "badge-gray shrink-0"}>{o.active ? (ar() ? "نشط" : "Active") : (ar() ? "متوقف" : "Inactive")}</span>
+                      </div>
+                      <div className="text-2xl font-black text-brand-pink-600 mb-3">{o.subscriptionPriceKwd || o.price} <span className="text-sm text-surface-400 font-medium">KWD</span></div>
+
+                      {/* Cashback summary */}
+                      <div className="flex flex-wrap gap-1.5 mb-3">
+                        {o.isCashbackOnly && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">{ar() ? "💳 كاش باك فقط" : "💳 Cashback Only"}</span>}
+                        {parseFloat(o.signupCashbackKwd || o.signupCashback || "0") > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700">💰 {o.signupCashbackKwd || o.signupCashback} KWD {ar() ? "كاش باك" : "signup CB"}</span>}
+                        {parseFloat(o.cashbackPerSessionKwd || o.perSessionCashback || "0") > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-700">🔄 {o.cashbackPerSessionKwd || o.perSessionCashback} KWD/{ar() ? "جلسة" : "session"}</span>}
+                        {parseFloat(o.cashbackActivationFeeKwd || o.cashbackActivationFee || "0") > 0 && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700">🔑 +{o.cashbackActivationFeeKwd || o.cashbackActivationFee} KWD {ar() ? "تفعيل" : "activation"}</span>}
+                      </div>
+
+                      <div className="text-xs text-surface-500 mb-3">{enrolled} {ar() ? "مشترك" : "enrolled"} • {o.sessionIntervalDays}d {ar() ? "انتظار" : "interval"}</div>
+
+                      {/* Expandable details */}
+                      {isExpanded && (
+                        <div className="border-t border-surface-100 pt-3 mt-2 space-y-2 text-xs animate-fade-in">
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "دفع كامل" : "Full Pay"}</span><div className="font-bold">{o.allowFullPayment ? "✓" : "✗"}</div></div>
+                            <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "أقساط" : "Installments"}</span><div className="font-bold">{o.allowInstallments ? `✓ (${o.maxInstallments})` : "✗"}</div></div>
+                            <div className="bg-surface-50 p-2 rounded-lg"><span className="text-surface-400">{ar() ? "عربون" : "Deposit"}</span><div className="font-bold">{o.allowDeposit ? `✓ (${o.depositAmount} KWD)` : "✗"}</div></div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 pt-1">{((ar() ? o.tagsAr : o.tagsEn) || []).map((t: string) => <span key={t} className="bg-surface-100 text-surface-600 text-[9px] uppercase font-bold px-2 py-0.5 rounded">{t}</span>)}</div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-surface-100">
+                        <button className="text-xs font-bold text-brand-pink-600 bg-brand-pink-50 px-3 py-1.5 rounded-lg hover:bg-brand-pink-100" onClick={() => openEdit(o)}>{ar() ? "تعديل" : "Edit"}</button>
+                        <button className="text-xs font-bold text-surface-500 bg-surface-100 px-3 py-1.5 rounded-lg hover:bg-surface-200" onClick={() => setExpandedId(isExpanded ? null : (o.id || o._id))}>{isExpanded ? (ar() ? "إخفاء" : "Less") : (ar() ? "تفاصيل" : "Details")}</button>
+                        <button className="text-xs font-bold px-3 py-1.5 rounded-lg ml-auto" onClick={() => toggleActive(o)}>{o.active ? <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">{ar() ? "إيقاف" : "Deactivate"}</span> : <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">{ar() ? "تفعيل" : "Activate"}</span>}</button>
+                        <button className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100" onClick={() => deleteOffer(o.id || o._id)}>{ar() ? "حذف" : "Delete"}</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {offers.length === 0 && <div className="md:col-span-3 text-center text-surface-400 py-12 card-elevated">{ar() ? "لا توجد عروض" : "No offers yet"}</div>}
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }

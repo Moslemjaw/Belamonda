@@ -57,6 +57,8 @@ const OfferSchema = new Schema(
       default: "public"
     },
     featured: { type: Boolean, default: false },
+    /** Admin-controlled display order. Lower = first. */
+    sortOrder: { type: Number, default: 0 },
 
     // ─── Clinic & Doctor assignment ──────────────────────────────────────────
     /** Primary clinic (backward compat). */
@@ -167,7 +169,7 @@ const OfferSchema = new Schema(
   { timestamps: true }
 );
 
-OfferSchema.index({ status: 1, visibility: 1, featured: -1, createdAt: -1 });
+OfferSchema.index({ status: 1, visibility: 1, sortOrder: 1, featured: -1, createdAt: -1 });
 OfferSchema.index({ active: 1, featured: -1, createdAt: -1 });
 OfferSchema.index({ clinicId: 1, status: 1 });
 OfferSchema.index({ clinicIds: 1, status: 1 });

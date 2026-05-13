@@ -97,7 +97,7 @@ export async function getOffer(id: string) {
 }
 
 export async function listOffersAdmin() {
-  const rows = await OfferModel.find({}).sort({ createdAt: -1 }).lean();
+  const rows = await OfferModel.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
   const out = [];
   for (const doc of rows) {
     const slug = await primaryCategorySlugForOffer(doc as any);
@@ -202,7 +202,7 @@ export async function listOffersPublic(filters: {
       { $limit: limit }
     ]);
   } else {
-    let sortSpec: Record<string, 1 | -1> = { featured: -1, createdAt: -1 };
+    let sortSpec: Record<string, 1 | -1> = { sortOrder: 1, featured: -1, createdAt: -1 };
     if (filters.sort === "duration_asc") sortSpec = { validityDays: 1 };
     else if (filters.sort === "duration_desc") sortSpec = { validityDays: -1 };
     rows = await OfferModel.find(q).sort(sortSpec).skip(skip).limit(limit).lean();
@@ -252,7 +252,7 @@ export async function listMembershipOffers(limit = 6) {
         ]
       }
     },
-    { $sort: { featured: -1, createdAt: -1 } },
+    { $sort: { sortOrder: 1, featured: -1, createdAt: -1 } },
     { $limit: limit },
   ]);
   const out = [];
@@ -283,7 +283,7 @@ export async function listCashbackOffers(limit = 6) {
         }
       }
     },
-    { $sort: { featured: -1, createdAt: -1 } },
+    { $sort: { sortOrder: 1, featured: -1, createdAt: -1 } },
     { $limit: limit },
   ]);
   const out = [];
