@@ -1199,9 +1199,14 @@ export default function CustomerDashboard() {
           const offerCategorySlugs = new Set(allOffers.map((o: any) => o.category).filter(Boolean));
           const activeFilters = categoryFilters.filter(cf => cf.slug === "all" || offerCategorySlugs.has(cf.slug));
           const filtered = allOffers.filter((o: any) => offerFilter === "all" || o.category === offerFilter);
-          // Sort: highest price first (premium plans on top)
-          const sorted = [...filtered].sort((a: any, b: any) => parseFloat(b.subscriptionPriceKwd || "0") - parseFloat(a.subscriptionPriceKwd || "0"));
-          // Featured = the most expensive plan (first after sort)
+          // Sort: custom admin order first, fallback to highest price (premium plans on top)
+          const sorted = [...filtered].sort((a: any, b: any) => {
+            const orderA = a.sortOrder ?? 0;
+            const orderB = b.sortOrder ?? 0;
+            if (orderA !== orderB) return orderA - orderB;
+            return parseFloat(b.subscriptionPriceKwd || "0") - parseFloat(a.subscriptionPriceKwd || "0");
+          });
+          // Featured = the first plan in the sorted list
           const featuredId = sorted.length > 1 ? sorted[0]?.id : null;
           return (
             <div className="space-y-6 animate-fade-in">
