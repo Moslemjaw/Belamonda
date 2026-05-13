@@ -5,7 +5,7 @@ import { useAuth } from "../../app/AuthContext";
 import { useApi, useKycQueue, usePendingPayments, useComplaints, useProducts, useFinanceSnapshot, useAdminReservations, type ReservationItem } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL, SITE_BASE_URL } from "../../lib/api";
 import i18n from "../../app/i18n";
-import { allTreatments, treatmentCategories } from "../../lib/treatments";
+import { allTreatments } from "../../lib/treatments";
 import { getCategoryIcon } from "../../components/CategoryIcons";
 import { OfferTemplate, getOfferTemplates, saveOfferTemplates, upsertOfferTemplate, deleteOfferTemplate, seedDefaultOffers, getSubscriptions } from "../../lib/offerSystem";
 import { sharedClinics } from "../../lib/clinics";
@@ -162,7 +162,7 @@ function OffersManager() {
   const { data: clinicsData } = useApi<{ clinics: any[] }>("/clinics/admin");
   const { data: apiOffersData, loading: loadingOffers, refetch: refetchOffers } = useApi<{ items: any[] }>("/offers/admin");
   const { data: formsData } = useApi<{ items: any[] }>("/eforms/admin/forms");
-  const { data: categoriesAdminData } = useApi<{ items: Array<{ id: string; slug: string }> }>("/categories/admin");
+  const { data: categoriesAdminData } = useApi<{ items: Array<{ id: string; slug: string; nameEn: string; nameAr: string }> }>("/categories/admin");
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -454,17 +454,17 @@ function OffersManager() {
                 <input type="checkbox" className="accent-brand-pink-500 w-4 h-4 rounded" checked={form.category === "all"} onChange={e => setForm({...form, category: e.target.checked ? "all" : ""})} />
                 <span className="font-medium">{ar() ? "جميع الفئات" : "All Categories"}</span>
               </label>
-              {treatmentCategories.map(c => (
+              {(categoriesAdminData?.items || []).map(c => (
                 <label key={c.id} className={`flex items-center gap-2 text-sm cursor-pointer hover:bg-white p-2 rounded-lg border border-surface-200 shadow-sm w-[calc(50%-0.25rem)] lg:w-[calc(25%-0.5rem)] ${form.category === "all" ? "opacity-50 pointer-events-none grayscale" : ""}`}>
                   <input type="checkbox" className="accent-brand-pink-500 w-4 h-4 rounded" 
-                         checked={form.category !== "all" && form.category.split(',').includes(c.id)}
+                         checked={form.category !== "all" && form.category.split(',').includes(c.slug)}
                          onChange={e => {
                             if (form.category === "all") return;
                             let arr = form.category ? form.category.split(',').filter(Boolean) : [];
-                            if (e.target.checked) arr.push(c.id); else arr = arr.filter(x => x !== c.id);
+                            if (e.target.checked) arr.push(c.slug); else arr = arr.filter(x => x !== c.slug);
                             setForm({...form, category: arr.join(',')});
                          }} />
-                  <span className="w-4 h-4 shrink-0">{getCategoryIcon(c.id)}</span>
+                  <span className="w-4 h-4 shrink-0">{getCategoryIcon(c.slug)}</span>
                   <span className="font-medium">{ar() ? c.nameAr : c.nameEn}</span>
                 </label>
               ))}
@@ -672,7 +672,7 @@ function OffersManager() {
           const displayTitle = ar() ? (o.nameAr || o.name) : (o.name || o.nameEn);
           const cats = o.category ? o.category.split(',') : [];
           const categoryName = o.category === "all" ? (ar() ? "جميع الفئات" : "All Categories") : cats.map((c: string) => {
-            const cDef = treatmentCategories.find(tc => tc.id === c);
+            const cDef = (categoriesAdminData?.items || []).find(tc => tc.slug === c);
             return cDef ? (ar() ? cDef.nameAr : cDef.nameEn) : c;
           }).join(' • ');
           
