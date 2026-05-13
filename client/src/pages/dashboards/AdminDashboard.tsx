@@ -173,6 +173,14 @@ function OffersManager() {
   const [form, setForm] = useState(emptyForm);
 
   const offers = apiOffersData?.items || [];
+  const [localOffers, setLocalOffers] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (apiOffersData?.items) {
+      setLocalOffers(apiOffersData.items);
+    }
+  }, [apiOffersData?.items]);
+
   const refresh = () => refetchOffers();
 
   const categoryIdToSlug = useMemo(() => {
@@ -668,31 +676,44 @@ function OffersManager() {
       {(() => {
         const moveOffer = async (idx: number, dir: -1 | 1) => {
           const newIdx = idx + dir;
-          if (newIdx < 0 || newIdx >= offers.length) return;
-          // Swap sortOrder values
-          const items = offers.map((o: any, i: number) => ({
+          if (newIdx < 0 || newIdx >= localOffers.length) return;
+          
+          // Optimistic update
+          const newOffers = [...localOffers];
+          const temp = newOffers[idx];
+          newOffers[idx] = newOffers[newIdx];
+          newOffers[newIdx] = temp;
+          setLocalOffers(newOffers);
+
+          // Swap sortOrder values based on the original list to save
+          const items = localOffers.map((o: any, i: number) => ({
             id: o.id || o._id,
             sortOrder: i === idx ? newIdx : i === newIdx ? idx : i
           }));
+          
           try {
             await apiFetch("/offers/admin/reorder", {
               method: "POST",
               headers: getAuthHeader(),
               body: JSON.stringify({ items })
             });
+            // Background refresh to sync any external changes
             refresh();
-          } catch { /* ignore */ }
+          } catch { 
+            // Revert on failure
+            setLocalOffers(offers);
+          }
         };
 
         return (
           <>
             <div className="flex items-center justify-between mb-2">
               <div className="text-xs text-surface-500">
-                {ar() ? `${offers.length} عرض — اسحب لترتيب العرض` : `${offers.length} offers — use arrows to reorder`}
+                {ar() ? `${localOffers.length} عرض — اسحب لترتيب العرض` : `${localOffers.length} offers — use arrows to reorder`}
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {offers.map((o: any, idx: number) => {
+              {localOffers.map((o: any, idx: number) => {
                 const enrolled = (o.enrolledCount || 0);
                 const isExpanded = expandedId === (o.id || o._id);
                 const displayTitle = ar() ? (o.nameAr || o.name) : (o.name || o.nameEn);
@@ -719,7 +740,7 @@ function OffersManager() {
                             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>
                           </button>
                           <button
-                            disabled={idx === offers.length - 1}
+                            disabled={idx === localOffers.length - 1}
                             onClick={() => void moveOffer(idx, 1)}
                             className="w-7 h-7 rounded-lg bg-surface-100 hover:bg-surface-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center text-surface-600 transition-colors"
                             title={ar() ? "تحريك لأسفل" : "Move down"}
@@ -773,7 +794,7 @@ function OffersManager() {
                   </div>
                 );
               })}
-              {offers.length === 0 && <div className="md:col-span-3 text-center text-surface-400 py-12 card-elevated">{ar() ? "لا توجد عروض" : "No offers yet"}</div>}
+              {localOffers.length === 0 && <div className="md:col-span-3 text-center text-surface-400 py-12 card-elevated">{ar() ? "لا توجد عروض" : "No offers yet"}</div>}
             </div>
           </>
         );
