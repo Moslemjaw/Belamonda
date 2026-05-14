@@ -13,6 +13,8 @@ const ClinicCreateSchema = z.object({
   lat: z.number().optional(),
   lng: z.number().optional(),
   phone: z.string().optional(),
+  contactPhone: z.string().optional(),
+  contactEmail: z.string().email().optional().or(z.literal("").optional()),
   categoryTags: z.array(z.string().min(1)).default([]),
   operatingHours: z
     .object({

@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Failed to impersonate");
 
-    const state: AuthState = { token: data.accessToken, userId: `impersonated_${clinicId}`, role: data.role as Role, clinicId: data.clinicId };
+    const state: AuthState = { token: data.accessToken, userId: data.userId || `impersonated_${clinicId}`, role: data.role as Role, clinicId: data.clinicId };
     setAuth(state);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
   }, [getAuthHeader]);

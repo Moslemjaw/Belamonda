@@ -1107,14 +1107,19 @@ function ClinicsManager() {
   });
 
   const saveClinic = async () => {
+    const payload = {
+      ...form,
+      contactPhone: form.phone,
+      contactEmail: form.email
+    };
     try {
       if (editingId) {
-        await apiFetch(`/clinics/admin/${editingId}`, { method: "PATCH", headers: getAuthHeader(), body: JSON.stringify({ ...form }) });
+        await apiFetch(`/clinics/admin/${editingId}`, { method: "PATCH", headers: getAuthHeader(), body: JSON.stringify(payload) });
         setShowCreate(false);
         setEditingId(null);
         refetch();
       } else {
-        const res = await apiFetch("/clinics/admin", { method: "POST", headers: getAuthHeader(), body: JSON.stringify({ ...form, active: true }) }) as any;
+        const res = await apiFetch("/clinics/admin", { method: "POST", headers: getAuthHeader(), body: JSON.stringify({ ...payload, active: true }) }) as any;
         setNewClinicId(form.account || "clinic1");
         setShowCreate(false);
         refetch();
@@ -1194,6 +1199,7 @@ function ClinicsManager() {
             <div className="md:col-span-1"><label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "اسم العيادة (AR)" : "Clinic Name (AR)"}</label><input className="input-field" placeholder="مثال: عيادة ديرما" value={form.nameAr} onChange={e => setForm({ ...form, nameAr: e.target.value })} dir="rtl" /></div>
             <div className="md:col-span-2"><label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "الموقع / المنطقة" : "Location / Area"}</label><input className="input-field" placeholder="Kuwait City, Sharq..." value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></div>
             <div className="md:col-span-1"><label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "رقم الهاتف" : "Phone"}</label><input className="input-field" placeholder="+965 ..." value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} /></div>
+            <div className="md:col-span-1"><label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "البريد الإلكتروني" : "Email"}</label><input className="input-field" placeholder="clinic@example.com" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></div>
             
             {!editingId && (
               <>
@@ -1219,7 +1225,7 @@ function ClinicsManager() {
               <div className="text-base font-bold text-surface-900">{c.nameEn || "New Clinic"}</div>
               <div className="text-xs text-surface-500 mt-1">{c.nameAr || "عيادة جديدة"} • {c.address || "No Address"}</div>
               <div className="text-xs text-surface-600 mt-3 flex flex-col gap-1.5 bg-surface-50 p-2.5 rounded-lg border border-surface-100">
-                 <div className="flex items-center gap-2"><svg className="w-3.5 h-3.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg> <span dir="ltr">{c.contactPhone || "+965 —"}</span></div>
+                 <div className="flex items-center gap-2"><svg className="w-3.5 h-3.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg> <span dir="ltr">{c.contactPhone || c.phone || "+965 —"}</span></div>
                  <div className="flex items-center gap-2"><svg className="w-3.5 h-3.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg> {c.contactEmail || "No Email"}</div>
               </div>
               <div className="mt-4 pt-4 border-t border-surface-100 flex justify-between items-center mb-4">

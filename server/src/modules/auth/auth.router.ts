@@ -110,9 +110,13 @@ authRouter.post("/admin/impersonate", authRequired, requireRole(["admin"]), asyn
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
     
     const clinicId = parsed.data.clinicId;
-    const token = signAccessToken({ sub: `impersonated_${clinicId}`, role: "clinicStaff" as any, clinicId });
+    const { UserModel } = await import("../../models/user.model.js");
+    const staffUser = await (UserModel as any).findOne({ clinicId, role: "clinicStaff" }).select("_id").lean() as any;
     
-    return res.json({ accessToken: token, role: "clinicStaff", clinicId });
+    const sub = staffUser ? String(staffUser._id) : `impersonated_${clinicId}`;
+    const token = signAccessToken({ sub, role: "clinicStaff" as any, clinicId });
+    
+    return res.json({ accessToken: token, role: "clinicStaff", clinicId, userId: sub });
   } catch (e) {
     next(e);
   }

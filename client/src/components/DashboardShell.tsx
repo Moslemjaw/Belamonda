@@ -173,7 +173,10 @@ export default function DashboardShell({
   const isAr = i18n.language === "ar";
 
   const { data: myProfile } = useApi<{ user: { username?: string; fullName?: string } }>("/users/me");
-  const displayName = myProfile?.user?.fullName || myProfile?.user?.username || auth?.userId || "—";
+  let displayName = myProfile?.user?.fullName || myProfile?.user?.username || auth?.userId || "—";
+  if (displayName.startsWith("impersonated_")) {
+    displayName = isAr ? "مدير النظام (مُحاكاة)" : "Admin (Impersonating)";
+  }
 
   const fetchNotifications = () => {
     if (!auth) return;

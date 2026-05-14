@@ -27,7 +27,7 @@ const ShareIcon = () => (
 export { ShareIcon };
 
 export default function ShareLinkPage() {
-  const { getAuthHeader } = useAuth();
+  const { getAuthHeader, auth } = useAuth();
   const isAr = i18n.language === "ar";
   const t = (en: string, ar: string) => (isAr ? ar : en);
 
@@ -39,6 +39,8 @@ export default function ShareLinkPage() {
   const [copied, setCopied] = useState(false);
   const [copyMsgCopied, setCopyMsgCopied] = useState(false);
 
+  const isImpersonating = auth?.userId?.startsWith("impersonated_");
+
   const fullLink = codeData ? `${SITE_BASE_URL}/signup?ref=${codeData.code}` : "";
 
   const shareMessage = isAr
@@ -48,6 +50,12 @@ export default function ShareLinkPage() {
   useEffect(() => {
     let mounted = true;
     setLoading(true);
+    
+    if (isImpersonating) {
+      setLoading(false);
+      return;
+    }
+
     const headers = getAuthHeader();
     Promise.all([
       apiFetch("/referral/my-code", { headers }),
@@ -65,7 +73,7 @@ export default function ShareLinkPage() {
       })
       .finally(() => { if (mounted) setLoading(false); });
     return () => { mounted = false; };
-  }, [getAuthHeader, retryCount]);
+  }, [getAuthHeader, retryCount, isImpersonating]);
 
   const copyLink = () => {
     if (!fullLink) return;
@@ -84,6 +92,23 @@ export default function ShareLinkPage() {
     setCopyMsgCopied(true);
     setTimeout(() => setCopyMsgCopied(false), 2000);
   };
+
+  if (isImpersonating) {
+    return (
+      <div className="max-w-2xl mx-auto p-8 text-center space-y-3 bg-surface-50 border border-surface-200 rounded-2xl">
+        <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm mx-auto mb-3">⚠️</div>
+        <h3 className="text-sm font-bold text-surface-900">
+          {t("Referral Link Unavailable", "رابط الإحالة غير متاح")}
+        </h3>
+        <p className="text-xs text-surface-500">
+          {t(
+            "You are impersonating this clinic. Referral links are only available when the actual clinic staff logs in.",
+            "أنت تحاكي هذه العيادة. روابط الإحالة متاحة فقط عند تسجيل دخول طاقم العيادة الفعلي."
+          )}
+        </p>
+      </div>
+    );
+  }
 
   if (fetchError) {
     return (
