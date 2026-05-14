@@ -1442,7 +1442,15 @@ export default function CustomerDashboard() {
                                 </div>
                                 <h4 className="font-bold text-surface-900 text-lg leading-tight tracking-tight">{offerName}</h4>
                               </div>
-                              {!isCashback && (
+                              {isCashback ? (
+                                <div className="bg-surface-50 px-3.5 py-2.5 rounded-2xl text-center shrink-0 border border-surface-200/70 min-w-[88px]">
+                                  <div className="text-[9px] text-surface-500 uppercase font-bold tracking-wider">{ar() ? "الرصيد المتبقي" : "Remaining"}</div>
+                                  <div className="font-black text-surface-900 text-xl leading-none mt-1">
+                                    {parseFloat(o.cashbackBalanceKwd || "0").toFixed(1)}
+                                    <span className="text-surface-400 text-sm font-bold ml-1">KWD</span>
+                                  </div>
+                                </div>
+                              ) : (
                                 <div className="bg-surface-50 px-3.5 py-2.5 rounded-2xl text-center shrink-0 border border-surface-200/70 min-w-[88px]">
                                   <div className="text-[9px] text-surface-500 uppercase font-bold tracking-wider">{ar() ? "جلسات" : "Sessions"}</div>
                                   <div className="font-black text-surface-900 text-xl leading-none mt-1">
@@ -1453,17 +1461,37 @@ export default function CustomerDashboard() {
                               )}
                             </div>
 
-                            {/* Sessions progress bar */}
-                            {!isCashback && o.maxSessions && (
-                              <div className="mb-4">
-                                <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5">
-                                  <span>{ar() ? "الاستخدام" : "Usage"}</span>
-                                  <span className="text-brand-pink-600">{usedPct.toFixed(0)}%</span>
+                            {/* Sessions/Cashback progress bar */}
+                            {isCashback ? (
+                              (() => {
+                                const remainingCb = parseFloat(o.cashbackBalanceKwd || "0");
+                                const appliedCb = parseFloat(o.cashbackAppliedKwd || "0");
+                                const totalCb = remainingCb + appliedCb;
+                                const usedPctCb = totalCb > 0 ? Math.min((appliedCb / totalCb) * 100, 100) : 0;
+                                return totalCb > 0 ? (
+                                  <div className="mb-4">
+                                    <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5">
+                                      <span>{ar() ? "الاستخدام" : "Usage"}</span>
+                                      <span className="text-brand-pink-600">{usedPctCb.toFixed(0)}%</span>
+                                    </div>
+                                    <div className="progress-bar">
+                                      <div className="progress-bar-fill" style={{ width: `${usedPctCb}%` }} />
+                                    </div>
+                                  </div>
+                                ) : null;
+                              })()
+                            ) : (
+                              o.maxSessions && (
+                                <div className="mb-4">
+                                  <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5">
+                                    <span>{ar() ? "الاستخدام" : "Usage"}</span>
+                                    <span className="text-brand-pink-600">{usedPct.toFixed(0)}%</span>
+                                  </div>
+                                  <div className="progress-bar">
+                                    <div className="progress-bar-fill" style={{ width: `${usedPct}%` }} />
+                                  </div>
                                 </div>
-                                <div className="progress-bar">
-                                  <div className="progress-bar-fill" style={{ width: `${usedPct}%` }} />
-                                </div>
-                              </div>
+                              )
                             )}
 
                             {o.clinicLocked && o.clinicId && (() => {
