@@ -119,11 +119,11 @@ export function useMutation<TInput, TResult = unknown>(
 
 // ── Domain-specific hooks ──────────────────────────
 
-export function useWallet() {
+export function useWallet(opts?: { lazy?: boolean }) {
   return useApi<{
     wallet: { lockedBalance: string; unlockedBalance: string; ceiling: string } | null;
     txns: Array<{ id: string; type: string; amountKwd: string; reason?: string; createdAt: string }>;
-  }>("/wallet/me");
+  }>("/wallet/me", opts);
 }
 
 export type MyOfferItem = {
@@ -159,35 +159,35 @@ export type MyOfferItem = {
   createdAt?: string;
 };
 
-export function useMyOffers() {
-  return useApi<{ items: MyOfferItem[] }>("/commerce/me/offers");
+export function useMyOffers(opts?: { lazy?: boolean }) {
+  return useApi<{ items: MyOfferItem[] }>("/commerce/me/offers", opts);
 }
 
-export function useKycQueue() {
+export function useKycQueue(opts?: { lazy?: boolean }) {
   return useApi<{
     items: Array<{
       id: string; userId: string; civilIdNumber: string;
       status: string; createdAt: string;
     }>;
-  }>("/kyc/cs/queue?status=pending");
+  }>("/kyc/cs/queue?status=pending", opts);
 }
 
-export function usePendingPayments() {
+export function usePendingPayments(opts?: { lazy?: boolean }) {
   return useApi<{
     items: Array<{
       id: string; userId: string; offerId: string; status: string;
       createdAt: string;
     }>;
-  }>("/payments/cs/pending");
+  }>("/payments/cs/pending", opts);
 }
 
-export function useNotifications() {
+export function useNotifications(opts?: { lazy?: boolean }) {
   return useApi<{
     inbox: Array<{
       id: string; type: string; title: string; body: string;
       read: boolean; sentAt: string;
     }>;
-  }>("/notifications/me");
+  }>("/notifications/me", opts);
 }
 
 export type FinanceSnapshot = {
@@ -213,12 +213,12 @@ export type FinanceSnapshot = {
   sessionsThisMonth: number;
 };
 
-export function useFinanceSnapshot(filters: { from?: string; to?: string } = {}) {
+export function useFinanceSnapshot(filters: { from?: string; to?: string } = {}, opts?: { lazy?: boolean }) {
   const p = new URLSearchParams();
   if (filters.from) p.set("from", filters.from);
   if (filters.to) p.set("to", filters.to);
   const q = p.toString() ? `?${p.toString()}` : "";
-  return useApi<{ snapshot: FinanceSnapshot }>(`/reporting/finance/snapshot${q}`, { deps: [filters.from, filters.to] });
+  return useApi<{ snapshot: FinanceSnapshot }>(`/reporting/finance/snapshot${q}`, { deps: [filters.from, filters.to], ...opts });
 }
 
 export type FinanceTimePoint = {
@@ -293,14 +293,14 @@ export function useAllTasks(dept: string) {
   }>(`/tasks/dept/${dept}/today`);
 }
 
-export function useComplaints() {
+export function useComplaints(opts?: { lazy?: boolean }) {
   return useApi<{
     items: Array<{
       id: string; userId: string; category: string; subject: string;
       status: string; createdAt: string;
     }>;
     total: number;
-  }>("/complaints/all");
+  }>("/complaints/all", opts);
 }
 
 export function useMyComplaints() {
@@ -315,14 +315,14 @@ export function useMyComplaints() {
   }>("/complaints/me");
 }
 
-export function useProducts() {
+export function useProducts(opts?: { lazy?: boolean }) {
   return useApi<{
     products: Array<{
       code: string; nameEn: string; nameAr: string;
       priceKwd: string; durationMonths: number;
       cashbackModel: string; fixedCashbackKwd: string;
     }>;
-  }>("/products");
+  }>("/products", opts);
 }
 
 export function useClinicSchedule(clinicId: string) {
@@ -459,8 +459,8 @@ export function useMyReservations() {
   return useApi<{ items: ReservationItem[] }>("/checkout/me/reservations");
 }
 
-export function useAdminReservations() {
-  return useApi<{ items: ReservationItem[] }>("/checkout/reservations/all");
+export function useAdminReservations(opts?: { lazy?: boolean }) {
+  return useApi<{ items: ReservationItem[] }>("/checkout/reservations/all", opts);
 }
 
 export function useMyClinicChangeRequests() {

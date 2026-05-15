@@ -619,13 +619,13 @@ export default function CustomerDashboard() {
   const [pendingInviteCode, setPendingInviteCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const { data: walletData, loading: wLoading } = useWallet();
-  const { data: offersData, refetch: refetchMyOffers } = useMyOffers();
+  const { data: walletData, loading: wLoading } = useWallet({ lazy: activeTab !== "overview" && activeTab !== "wallet" && activeTab !== "my-purchases" });
+  const { data: offersData, refetch: refetchMyOffers } = useMyOffers({ lazy: activeTab !== "overview" && activeTab !== "my-purchases" && activeTab !== "store" });
   const { data: reservationsData, refetch: refetchReservations } = useApi<{ items: any[] }>(activeTab === "my-purchases" ? "/checkout/me/reservations" : null, { deps: [activeTab] });
-  const { data: cardData, loading: cardLoading, error: cardError } = useApi<{ card: { displayName: string; memberSince: string | null; kycVerified: boolean; activeOffers: Array<{ offerId: string; offerName: string | null; activatedAt: string | null; expiresAt: string | null; sessionsUsed: number }>; activeSessionCount: number; recentSessions: Array<{ scheduledAt: string; status: string; completedAt: string | null }>; cashbackUnlockedKwd: string; cashbackLockedKwd: string; publicToken: string | undefined } }>("/public/me/card");
+  const { data: cardData, loading: cardLoading, error: cardError } = useApi<{ card: { displayName: string; memberSince: string | null; kycVerified: boolean; activeOffers: Array<{ offerId: string; offerName: string | null; activatedAt: string | null; expiresAt: string | null; sessionsUsed: number }>; activeSessionCount: number; recentSessions: Array<{ scheduledAt: string; status: string; completedAt: string | null }>; cashbackUnlockedKwd: string; cashbackLockedKwd: string; publicToken: string | undefined } }>(activeTab === "wallet" || activeTab === "overview" ? "/public/me/card" : null, { deps: [activeTab] });
   const { data: sessionsData, refetch: refetchMySessions } = useApi<{ items: any[] }>(activeTab === "my-purchases" || activeTab === "overview" ? "/scheduling/me/sessions" : null, { deps: [activeTab] });
   const { data: myComplaintsData, refetch: refetchMyComplaints } = useApi<{ items: any[] }>(activeTab === "profile" ? "/complaints/me" : null, { deps: [activeTab] });
-  const { data: notifData } = useNotifications();
+  const { data: notifData } = useNotifications({ lazy: activeTab !== "profile" });
   const { data: clinicsPublic } = useApi<{ items: Array<{ id: string; nameEn: string; nameAr: string }> }>("/clinics");
   const { data: categoriesData } = useApi<{ items: Array<{ id: string; slug: string; nameEn: string; nameAr: string }> }>("/categories");
   const { data: availableFormsData, refetch: refetchAvailableForms } = useApi<{ items: Array<{ id: string; title: string }> }>(
@@ -2693,7 +2693,7 @@ export default function CustomerDashboard() {
                     return (
                       <div key={r.id} className={`bg-white rounded-2xl border overflow-hidden ${urgent ? "border-red-300" : isConverted ? "border-emerald-200" : isExpired ? "border-surface-200" : "border-blue-200"}`}>
                         <div className={`px-5 py-3 flex items-center justify-between ${urgent ? "bg-red-50" : isConverted ? "bg-emerald-50" : isExpired ? "bg-surface-50" : "bg-blue-50"}`}>
-                          <div className="font-bold text-surface-900 text-sm">{r.offerName || homeCatalogData?.items?.find((x: any) => x.id === r.offerId)?.name || r.offerId}</div>
+                          <div className="font-bold text-surface-900 text-sm">{r.isStandalone && r.standaloneName ? r.standaloneName : (r.offerName || homeCatalogData?.items?.find((x: any) => x.id === r.offerId)?.name || r.offerId)}</div>
                           <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${isActive ? "bg-blue-100 text-blue-700" : isConverted ? "bg-emerald-100 text-emerald-700" : "bg-surface-200 text-surface-600"}`}>
                             {isActive ? (ar() ? "محجوز" : "Reserved") : isConverted ? (ar() ? "مُحوَّل" : "Converted") : (ar() ? "منتهي" : "Expired")}
                           </span>
@@ -3089,7 +3089,7 @@ export default function CustomerDashboard() {
             
             <div className="bg-surface-50 border border-surface-200 rounded-xl p-4 mb-5 space-y-3">
                <div className="text-xs text-surface-500 mb-1">{ar() ? "الخدمة / الباقة المختارة" : "Selected Service / Package"}</div>
-               <div className="font-bold text-surface-900">{showBookingModal.offerName || showBookingModal.offerId || "Booking"}</div>
+               <div className="font-bold text-surface-900">{showBookingModal.treatmentName || showBookingModal.offerName || showBookingModal.offerId || "Booking"}</div>
                {(() => {
                  const gross = parseFloat(showBookingModal.priceKwd || "0") || (parseFloat(showBookingModal.finalPrice || "0") + parseFloat(showBookingModal.cashbackKwd || "0"));
                  const cb = parseFloat(showBookingModal.cashbackKwd || "0");

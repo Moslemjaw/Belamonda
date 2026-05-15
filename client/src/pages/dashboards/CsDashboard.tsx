@@ -507,10 +507,17 @@ function BookingRequestsQueue() {
                <div className="bg-surface-50 rounded-2xl p-4 border border-surface-100">
                  <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-3">{ar() ? "تفاصيل الطلب" : "Request Details"}</h4>
                   <div className="space-y-2">
-                     <div className="flex justify-between items-center text-sm">
-                        <span className="text-surface-500">{ar() ? "العرض/الاشتراك" : "User offer"}</span>
-                        <span className="font-bold text-surface-900">{selectedBooking.userOfferId}</span>
-                     </div>
+                     {selectedBooking.isStandalone ? (
+                       <div className="flex justify-between items-center text-sm">
+                          <span className="text-surface-500">{ar() ? "الجلسة" : "Session"}</span>
+                          <span className="font-bold text-surface-900">{selectedBooking.standaloneName || selectedBooking.userOfferId}</span>
+                       </div>
+                     ) : (
+                       <div className="flex justify-between items-center text-sm">
+                          <span className="text-surface-500">{ar() ? "العرض/الاشتراك" : "User offer"}</span>
+                          <span className="font-bold text-surface-900">{selectedBooking.userOfferId}</span>
+                       </div>
+                     )}
                      <div className="flex justify-between items-center text-sm">
                         <span className="text-surface-500">{ar() ? "العيادة المطلوبة" : "Requested Clinic"}</span>
                         <span className="font-bold text-brand-pink-600">{ar() ? (selectedBooking.clinicNameAr || selectedBooking.clinicId) : (selectedBooking.clinicNameEn || selectedBooking.clinicId)}</span>

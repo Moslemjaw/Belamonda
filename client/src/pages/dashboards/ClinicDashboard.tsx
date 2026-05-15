@@ -263,6 +263,7 @@ type BookingRequestRow = {
   sessionGrossKwd?: string; clinicTakeKwd?: string; usesCashback?: boolean; isPrepaidMembership?: boolean;
   clinicPaymentStatus?: "pending" | "paid";
   customerName?: string | null; customerPhone?: string | null;
+  isStandalone?: boolean; standaloneName?: string;
 };
 
 function BookingFinancialBreakdown({ r }: { r: BookingRequestRow }) {
@@ -568,7 +569,8 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
                   </div>
                   <div className="mt-3 space-y-1 text-xs text-surface-500 bg-surface-50 border border-surface-100 rounded-xl p-3">
                     <div>{ar() ? "العميل:" : "Customer:"} <span className="font-semibold text-surface-700">{r.customerName ?? r.userId.slice(0, 12) + "…"}</span>{r.customerPhone && <span className="ml-2 text-surface-400 font-mono">{r.customerPhone}</span>}</div>
-                    {r.offerId && <div>{ar() ? "الخدمة:" : "Offer:"} <span className="font-semibold text-surface-700">{(r as any).offerName ?? r.offerId.slice(0, 12)}</span></div>}
+                    {r.isStandalone && r.standaloneName && <div>{ar() ? "الجلسة:" : "Session:"} <span className="font-semibold text-surface-700">{r.standaloneName}</span></div>}
+                    {!r.isStandalone && r.offerId && <div>{ar() ? "الخدمة:" : "Offer:"} <span className="font-semibold text-surface-700">{(r as any).offerName ?? r.offerId.slice(0, 12)}</span></div>}
                     {r.preferredAt && <div>{ar() ? "الوقت المفضل:" : "Preferred:"} <span className="font-semibold text-surface-700">{new Date(r.preferredAt).toLocaleString()}</span></div>}
                     {r.proposedAt && <div>{ar() ? "الوقت المقترح:" : "Proposed:"} <span className="font-semibold text-blue-700">{new Date(r.proposedAt).toLocaleString()}</span></div>}
                     {r.notes && <div>{ar() ? "ملاحظات:" : "Notes:"} <span className="text-surface-700">{r.notes}</span></div>}

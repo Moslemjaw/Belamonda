@@ -3203,14 +3203,14 @@ function NoticesAdminPanel() {
 export default function AdminDashboard() {
   const { t } = useTranslation();
   const [activeNav, setActiveNav] = useState("home");
-  const { data: kycData } = useKycQueue();
-  const { data: paymentsData } = usePendingPayments();
-  const { data: productsData } = useProducts();
-  const { data: offersData } = useApi<{ items: any[] }>("/offers/admin");
-  const { data: financeData } = useFinanceSnapshot();
-  const { data: complaintsData } = useComplaints();
-  const { data: reservationsData } = useAdminReservations();
-  const { data: recentAuditData } = useApi<{ items: any[] }>("/audit?limit=6&page=1");
+  const { data: kycData } = useKycQueue({ lazy: activeNav !== "home" });
+  const { data: paymentsData } = usePendingPayments({ lazy: activeNav !== "home" });
+  const { data: productsData } = useProducts({ lazy: activeNav !== "home" });
+  const { data: offersData } = useApi<{ items: any[] }>("/offers/admin", { lazy: activeNav !== "home" });
+  const { data: financeData } = useFinanceSnapshot({}, { lazy: activeNav !== "home" });
+  const { data: complaintsData } = useComplaints({ lazy: activeNav !== "home" });
+  const { data: reservationsData } = useAdminReservations({ lazy: activeNav !== "home" });
+  const { data: recentAuditData } = useApi<{ items: any[] }>("/audit?limit=6&page=1", { lazy: activeNav !== "home" });
   const fs = financeData?.snapshot;
 
   const navItems = [
