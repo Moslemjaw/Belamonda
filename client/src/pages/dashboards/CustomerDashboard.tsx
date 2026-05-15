@@ -1356,27 +1356,47 @@ export default function CustomerDashboard() {
             <div className="space-y-5 sm:space-y-6 lg:space-y-8">
               {/* Wallet Hero Card */}
               {(() => {
-                const totalCashback = offers.filter(o => o.status === 'active' && parseFloat(o.cashbackBalanceKwd || '0') > 0).reduce((sum, o) => sum + parseFloat(o.cashbackBalanceKwd || '0'), 0);
-                const walletBalance = parseFloat(wallet?.unlockedBalance || "0") + totalCashback;
+                let unlockedFromOffers = 0;
+                let lockedFromOffers = 0;
+
+                offers.filter(o => o.status === 'active').forEach(o => {
+                  const remainingCb = parseFloat(o.cashbackBalanceKwd || "0");
+                  const totalSignup = parseFloat(o.totalSignupCashbackKwd || "0");
+                  const granted = parseFloat(o.cashbackGrantedKwd || "0");
+                  const applied = parseFloat(o.cashbackAppliedKwd || "0");
+                  
+                  if (totalSignup > 0) {
+                    lockedFromOffers += Math.max(0, totalSignup - granted);
+                    unlockedFromOffers += Math.max(0, granted - applied);
+                  } else {
+                    unlockedFromOffers += remainingCb;
+                  }
+                });
+
+                const walletUnlocked = parseFloat(wallet?.unlockedBalance || "0");
+                const walletLocked = parseFloat(wallet?.lockedBalance || "0");
+                const totalUnlocked = walletUnlocked + unlockedFromOffers;
+                const totalLocked = walletLocked + lockedFromOffers;
+                
                 return (
               <div className="wallet-card shadow-glow-lg">
                 <div className="flex justify-between items-start gap-3 mb-4 sm:mb-6">
                   <div className="min-w-0">
                     <div className="text-white/80 text-[11px] sm:text-sm leading-tight">{ar() ? "الرصيد المتاح (كاش باك)" : "Available Cashback"}</div>
-                    <div className="text-3xl sm:text-4xl font-bold mt-0.5 sm:mt-1 text-white tabular-nums tracking-tight">{walletBalance.toFixed(3)} <span className="text-base sm:text-xl opacity-80 font-semibold">KWD</span></div>
+                    <div className="text-3xl sm:text-4xl font-bold mt-0.5 sm:mt-1 text-white tabular-nums tracking-tight">{totalUnlocked.toFixed(3)} <span className="text-base sm:text-xl opacity-80 font-semibold">KWD</span></div>
                   </div>
                   <div className="bg-white/20 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold text-white backdrop-blur-md shrink-0">
-                    {wallet || totalCashback > 0 ? (ar() ? "محفظة نشطة" : "Active Wallet") : (ar() ? "غير نشط" : "Inactive")}
+                    {wallet || totalUnlocked > 0 || totalLocked > 0 ? (ar() ? "محفظة نشطة" : "Active Wallet") : (ar() ? "غير نشط" : "Inactive")}
                   </div>
                 </div>
-                {(wallet || totalCashback > 0) && (
+                {(wallet || totalUnlocked > 0 || totalLocked > 0) && (
                   <>
                     <div className="flex justify-between text-sm text-white/80 mb-2">
-                      <span>{ar() ? "من الباقات:" : "From Offers:"} {totalCashback.toFixed(3)}</span>
-                      <span>{ar() ? "من المحفظة:" : "From Wallet:"} {parseFloat(wallet?.unlockedBalance || "0").toFixed(3)}</span>
+                      <span>{ar() ? "من الباقات:" : "From Offers:"} {unlockedFromOffers.toFixed(3)} {totalLocked > 0 && `(+${totalLocked.toFixed(3)} ${ar() ? 'مقفل' : 'Locked'})`}</span>
+                      <span>{ar() ? "من المحفظة:" : "From Wallet:"} {walletUnlocked.toFixed(3)}</span>
                     </div>
                     <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden">
-                      <div className="h-full bg-white rounded-full" style={{ width: `${Math.min(walletBalance > 0 ? 100 : 0, 100)}%` }} />
+                      <div className="h-full bg-white rounded-full" style={{ width: `${Math.min(totalUnlocked > 0 ? 100 : 0, 100)}%` }} />
                     </div>
                   </>
                 )}
@@ -1468,12 +1488,27 @@ export default function CustomerDashboard() {
                                 const appliedCb = parseFloat(o.cashbackAppliedKwd || "0");
                                 const totalCb = remainingCb + appliedCb;
                                 const usedPctCb = totalCb > 0 ? Math.min((appliedCb / totalCb) * 100, 100) : 0;
-                                return totalCb > 0 ? (
+                                
+                                const totalSignup = parseFloat(o.totalSignupCashbackKwd || "0");
+                                const granted = parseFloat(o.cashbackGrantedKwd || "0");
+                                const hasInstallmentTracking = totalSignup > 0;
+                                const locked = hasInstallmentTracking ? Math.max(0, totalSignup - granted) : 0;
+                                const unlocked = hasInstallmentTracking ? Math.max(0, granted - appliedCb) : remainingCb;
+
+                                return totalCb > 0 || totalSignup > 0 ? (
                                   <div className="mb-4">
-                                    <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5">
-                                      <span>{ar() ? "الاستخدام" : "Usage"}</span>
-                                      <span className="text-brand-pink-600">{usedPctCb.toFixed(0)}%</span>
-                                    </div>
+                                    {hasInstallmentTracking ? (
+                                      <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5 flex-wrap gap-y-1">
+                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400"></span> {ar() ? "متاح" : "Unlocked"}: {unlocked.toFixed(2)}</span>
+                                        {locked > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-surface-300"></span> {ar() ? "مقفل" : "Locked"}: {locked.toFixed(2)}</span>}
+                                        <span className="text-brand-pink-600 w-full sm:w-auto text-left sm:text-right">{usedPctCb.toFixed(0)}% {ar() ? "مستخدم" : "Used"}</span>
+                                      </div>
+                                    ) : (
+                                      <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5">
+                                        <span>{ar() ? "الاستخدام" : "Usage"}</span>
+                                        <span className="text-brand-pink-600">{usedPctCb.toFixed(0)}%</span>
+                                      </div>
+                                    )}
                                     <div className="progress-bar">
                                       <div className="progress-bar-fill" style={{ width: `${usedPctCb}%` }} />
                                     </div>

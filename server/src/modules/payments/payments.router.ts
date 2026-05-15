@@ -172,16 +172,46 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin"]), a
       expiresAt
     );
 
-    // Grant signup cashback if the offer awards one (attributed to the CS operator)
+    // Grant signup cashback — per-installment aware
     const signupBonus = (offer as { signupCashbackKwd?: string }).signupCashbackKwd ?? "0.000";
     const [ia, ib = "000"] = signupBonus.split(".");
-    if (Number(ia) * 1000 + Number(ib.padEnd(3, "0").slice(0, 3)) > 0) {
-      await kycStore.grantSignupCashback({
-        userId: refreshedUo?.userId ?? updated.userId,
+    const signupBonusMils = Number(ia) * 1000 + Number(ib.padEnd(3, "0").slice(0, 3));
+    if (signupBonusMils > 0) {
+      const userId = refreshedUo?.userId ?? updated.userId;
+      const uoId = refreshedUo?.id ?? updated.id;
+      const isInstallments = (uo as any).purchaseMode === "installments";
+      const totalInstallments = isInstallments ? ((uo as any).installmentCount ?? 1) : 1;
+
+      // Step 1: Credit full amount to wallet locked pool
+      await kycStore.creditOfferCashback({
+        userId,
         amountKwd: signupBonus,
-        userOfferId: refreshedUo?.id ?? updated.id,
+        userOfferId: uoId,
+        createdById: req.auth!.userId
+      });
+
+      // Step 2: Unlock proportional share for installment 1 (or full)
+      const perInstallment = Math.floor(signupBonusMils / totalInstallments);
+      const remainder = signupBonusMils - perInstallment * totalInstallments;
+      const thisAmount = perInstallment + remainder; // first installment gets rounding remainder
+      const fmtKwd = (m: number) => `${Math.floor(m / 1000)}.${String(m % 1000).padStart(3, "0")}`;
+
+      await kycStore.grantSignupCashback({
+        userId,
+        amountKwd: fmtKwd(thisAmount),
+        userOfferId: uoId,
         createdById: req.auth!.userId,
-        createdByKind: "cs"
+        createdByKind: "cs",
+        installmentNumber: totalInstallments > 1 ? 1 : undefined
+      });
+
+      // Update userOffer tracking
+      const { UserOfferModel } = await import("../../models/userOffer.model.js");
+      await UserOfferModel.findByIdAndUpdate(uoId, {
+        $set: {
+          totalSignupCashbackKwd: signupBonus,
+          cashbackGrantedKwd: fmtKwd(thisAmount)
+        }
       });
     }
     // Always snapshot wallet balance after payment for accurate historical per-transaction balance

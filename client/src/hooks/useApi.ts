@@ -144,6 +144,8 @@ export type MyOfferItem = {
   category?: string;
   cashbackPerSessionKwd?: string;
   cashbackBalanceKwd?: string;
+  totalSignupCashbackKwd?: string;
+  cashbackGrantedKwd?: string;
   signupCashbackKwd?: string;
   isCashbackOnly?: boolean;
   membershipType?: string;

@@ -220,14 +220,64 @@ export const kycStore = {
     return { ok: true as const, wallet, deductedKwd: fmtKwd(amount) };
   },
 
-  async grantSignupCashback(input: { userId: string; amountKwd: string; userOfferId: string; createdById: string; createdByKind?: "system" | "cs" | "admin" }) {
+  /**
+   * Credit offer cashback to wallet's locked pool.
+   * Called once when an offer is activated — increases both locked and ceiling
+   * by the offer's total signup cashback amount.
+   */
+  async creditOfferCashback(input: { userId: string; amountKwd: string; userOfferId: string; createdById: string }) {
     const wallet = await WalletModel.findOne({ userId: input.userId });
     if (!wallet) return { error: "NO_WALLET" as const };
 
+    const amount = parseKwd(input.amountKwd);
+    if (amount <= 0) return { ok: true as const };
+
+    // Dedup: only credit once per userOffer
+    const alreadyCredited = await WalletTxnModel.exists({
+      userId: input.userId,
+      type: "offer_cashback_credit",
+      "reference.id": input.userOfferId
+    });
+    if (alreadyCredited) return { ok: true as const, duplicate: true };
+
+    const locked = parseKwd(wallet.lockedKwd);
+    const ceiling = parseKwd(wallet.ceilingKwd);
+
+    wallet.lockedKwd = fmtKwd(locked + amount);
+    wallet.ceilingKwd = fmtKwd(ceiling + amount);
+    await wallet.save();
+
+    await WalletTxnModel.create({
+      userId: input.userId,
+      type: "offer_cashback_credit",
+      amountKwd: fmtKwd(amount),
+      reference: { kind: "userOffer", id: input.userOfferId },
+      createdBy: { kind: "system", id: input.createdById },
+      reason: "Offer cashback credited to wallet"
+    });
+
+    return { ok: true as const, creditedKwd: fmtKwd(amount) };
+  },
+
+  /**
+   * Unlock a portion of locked cashback (move from locked → unlocked).
+   * Supports per-installment dedup via optional installmentNumber.
+   */
+  async grantSignupCashback(input: { userId: string; amountKwd: string; userOfferId: string; createdById: string; createdByKind?: "system" | "cs" | "admin"; installmentNumber?: number }) {
+    const wallet = await WalletModel.findOne({ userId: input.userId });
+    if (!wallet) return { error: "NO_WALLET" as const };
+
+    // Dedup key includes installment number when provided
+    const dedupRefId = input.installmentNumber != null
+      ? `${input.userOfferId}_inst_${input.installmentNumber}`
+      : input.userOfferId;
+
+    const txnType = input.installmentNumber != null ? "installment_unlock" : "signup_bonus";
+
     const alreadyGranted = await WalletTxnModel.exists({
       userId: input.userId,
-      type: "signup_bonus",
-      "reference.id": input.userOfferId
+      type: txnType,
+      "reference.id": dedupRefId
     });
     if (alreadyGranted) return { ok: true as const, duplicate: true };
 
@@ -245,11 +295,13 @@ export const kycStore = {
 
     await WalletTxnModel.create({
       userId: input.userId,
-      type: "signup_bonus",
+      type: txnType,
       amountKwd: fmtKwd(actual),
-      reference: { kind: "userOffer", id: input.userOfferId },
+      reference: { kind: "userOffer", id: dedupRefId },
       createdBy: { kind: input.createdByKind ?? "system", id: input.createdById },
-      reason: "Signup cashback bonus"
+      reason: input.installmentNumber != null
+        ? `Cashback unlocked for installment ${input.installmentNumber}`
+        : "Signup cashback bonus"
     });
 
     return { ok: true as const, grantedKwd: fmtKwd(actual) };

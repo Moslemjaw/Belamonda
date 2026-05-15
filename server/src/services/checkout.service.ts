@@ -262,6 +262,61 @@ function buildSchedule(perAmount: string, count: number, firstDueOffsetDays = 0,
   return sched;
 }
 
+/**
+ * Grant proportional cashback for a specific installment payment.
+ *
+ * Flow:
+ *   1. On the FIRST installment (or full payment), credit the full cashback
+ *      amount to the wallet's locked pool (increases locked + ceiling).
+ *   2. Unlock `total / installmentCount` from locked → unlocked.
+ *   3. Update the userOffer's `cashbackGrantedKwd` tracker.
+ *
+ * For full payment, call with installmentNumber=1, totalInstallments=1.
+ */
+async function grantCashbackForPayment(
+  userId: string,
+  offer: OfferDoc | { signupCashbackKwd?: string },
+  userOfferId: string,
+  installmentNumber: number,
+  totalInstallments: number
+) {
+  const totalCashback = mils((offer as any).signupCashbackKwd ?? "0.000");
+  if (totalCashback <= 0) return;
+
+  // Step 1: Credit full amount to wallet locked pool on first payment
+  if (installmentNumber === 1) {
+    await kycStore.creditOfferCashback({
+      userId,
+      amountKwd: fmt(totalCashback),
+      userOfferId,
+      createdById: "system_checkout"
+    });
+  }
+
+  // Step 2: Calculate this installment's proportional share
+  const perInstallment = Math.floor(totalCashback / totalInstallments);
+  const remainder = totalCashback - perInstallment * totalInstallments;
+  // First installment absorbs rounding remainder
+  const thisAmount = perInstallment + (installmentNumber === 1 ? remainder : 0);
+
+  if (thisAmount > 0) {
+    await kycStore.grantSignupCashback({
+      userId,
+      amountKwd: fmt(thisAmount),
+      userOfferId,
+      createdById: "system_checkout",
+      installmentNumber: totalInstallments > 1 ? installmentNumber : undefined
+    });
+  }
+
+  // Step 3: Update userOffer cashbackGrantedKwd tracker
+  const currentUo = await UserOfferModel.findById(userOfferId).lean();
+  const currentGranted = mils((currentUo as any)?.cashbackGrantedKwd ?? "0.000");
+  await UserOfferModel.findByIdAndUpdate(userOfferId, {
+    $set: { cashbackGrantedKwd: fmt(currentGranted + thisAmount) }
+  });
+}
+
 // =============================
 // Full payment
 // =============================
@@ -335,9 +390,7 @@ export async function checkoutFull(input: {
     await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
     notifyPaymentSuccess(input.userId, String(uo._id), "0.000");
     notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-    if (mils(offer.signupCashbackKwd ?? "0.000") > 0) {
-      await kycStore.grantSignupCashback({ userId: input.userId, amountKwd: offer.signupCashbackKwd!, userOfferId: String(uo._id), createdById: "system_checkout" });
-    }
+    await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
     await snapshotWalletToPayment(payment._id, input.userId);
     const activated = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
     return { userOffer: serializeUserOffer(activated!) };
@@ -448,9 +501,7 @@ export async function checkoutInstallments(input: {
     await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
     notifyPaymentSuccess(input.userId, String(uo._id), "0.000");
     notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-    if (mils(offer.signupCashbackKwd ?? "0.000") > 0) {
-      await kycStore.grantSignupCashback({ userId: input.userId, amountKwd: offer.signupCashbackKwd!, userOfferId: String(uo._id), createdById: "system_checkout" });
-    }
+    await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
     await snapshotWalletToPayment(payment._id, input.userId);
     const activated = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
     return { userOffer: serializeUserOffer(activated!) };
@@ -537,6 +588,13 @@ export async function payNextInstallment(input: { userId: string; userOfferId: s
 
   notifyInstallmentPaid(input.userId, String(uo._id), entry.number, total);
   notifyPaymentSuccess(input.userId, String(uo._id), entry.amountKwd);
+
+  // Grant proportional cashback for this installment
+  const offer = await OfferModel.findById(uo.offerId).lean<OfferDoc | null>();
+  if (offer) {
+    await grantCashbackForPayment(input.userId, offer, String(uo._id), newPaid, total);
+  }
+
   await snapshotWalletToPayment(payment._id, input.userId);
 
   const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
@@ -659,9 +717,7 @@ export async function checkoutEnet4(input: {
   notifyEnetApproved(input.userId, String(uo._id));
   notifyPaymentSuccess(input.userId, String(uo._id), cb.netAmountKwd);
   notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-  if (mils(offer.signupCashbackKwd ?? "0.000") > 0) {
-    await kycStore.grantSignupCashback({ userId: input.userId, amountKwd: offer.signupCashbackKwd!, userOfferId: String(uo._id), createdById: "system_checkout" });
-  }
+  await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
   await snapshotWalletToPayment(payment._id, input.userId);
   const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
   return {
@@ -852,9 +908,7 @@ export async function convertReservation(input: {
     notifyEnetApproved(input.userId, String(uo._id));
     notifyPaymentSuccess(input.userId, String(uo._id), fmt(balanceNet));
     notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-    if (mils(offer.signupCashbackKwd ?? "0.000") > 0) {
-      await kycStore.grantSignupCashback({ userId: input.userId, amountKwd: offer.signupCashbackKwd!, userOfferId: String(uo._id), createdById: "system_checkout" });
-    }
+    await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
     await snapshotWalletToPayment(payment._id, input.userId);
     const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
     return {
@@ -917,9 +971,7 @@ export async function convertReservation(input: {
     await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
     notifyPaymentSuccess(input.userId, String(uo._id), fmt(balanceNet));
     notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-    if (mils(offer.signupCashbackKwd ?? "0.000") > 0) {
-      await kycStore.grantSignupCashback({ userId: input.userId, amountKwd: offer.signupCashbackKwd!, userOfferId: String(uo._id), createdById: "system_checkout" });
-    }
+    await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
     await snapshotWalletToPayment(payment._id, input.userId);
     const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
     return { userOffer: serializeUserOffer(fresh!) };
@@ -1000,9 +1052,7 @@ export async function convertReservation(input: {
   notifyPaymentSuccess(input.userId, String(uo._id), amounts[0]);
   notifyInstallmentPaid(input.userId, String(uo._id), 1, count);
   notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-  if (mils(offer.signupCashbackKwd ?? "0.000") > 0) {
-    await kycStore.grantSignupCashback({ userId: input.userId, amountKwd: offer.signupCashbackKwd!, userOfferId: String(uo._id), createdById: "system_checkout" });
-  }
+  await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, count);
   await snapshotWalletToPayment(payment._id, input.userId);
   const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
   return { userOffer: serializeUserOffer(fresh!) };

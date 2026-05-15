@@ -56,6 +56,12 @@ const UserOfferSchema = new Schema(
     // Remaining cashback budget (TYPE 1 — Cashback)
     cashbackBalanceKwd: { type: String, match: /^\d+(\.\d{3})$/ },
 
+    // Per-installment cashback tracking
+    /** Total signup cashback to be granted across all installments */
+    totalSignupCashbackKwd: { type: String, match: /^\d+(\.\d{3})$/ },
+    /** Cumulative cashback already unlocked (granted) so far */
+    cashbackGrantedKwd: { type: String, default: "0.000", match: /^\d+(\.\d{3})$/ },
+
     // For Group memberships (TYPE 3)
     groupInviteCode: { type: String, sparse: true, index: true },
     sharedWith: [{ type: String }],

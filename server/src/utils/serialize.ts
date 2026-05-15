@@ -177,6 +177,8 @@ export function serializeUserOffer(doc: UserOfferDoc) {
     // Membership type & group fields
     membershipType: (doc as any).membershipType ?? undefined,
     cashbackBalanceKwd: (doc as any).cashbackBalanceKwd ?? undefined,
+    totalSignupCashbackKwd: (doc as any).totalSignupCashbackKwd ?? undefined,
+    cashbackGrantedKwd: (doc as any).cashbackGrantedKwd ?? "0.000",
     groupInviteCode: (doc as any).groupInviteCode ?? undefined,
     sharedWith: (doc as any).sharedWith ?? [],
     maxSessions: (doc as any).maxSessions ?? undefined,

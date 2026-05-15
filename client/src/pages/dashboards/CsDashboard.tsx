@@ -463,11 +463,7 @@ function BookingRequestsQueue() {
               <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-600">
                 {ar() ? (b.clinicNameAr || b.clinicId) : (b.clinicNameEn || b.clinicId)}
               </span>
-              {(b.bookingRoute === "clinic" || (b.bookingRoute == null && b.isStandalone)) && (
-                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
-                  {ar() ? "العيادة تتولى الحجز" : "Clinic Handles"}
-                </span>
-              )}
+
               <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${b.clinicPaymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                 {b.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع بالعيادة" : "Clinic Paid") : (ar() ? "دفع العيادة معلّق" : "Clinic Payment Pending")}
               </span>
@@ -475,24 +471,9 @@ function BookingRequestsQueue() {
           </div>
           <div className="text-xs text-surface-400 mr-2">{new Date(b.createdAt).toLocaleTimeString()}</div>
           <div className="flex items-center gap-2">
-            {!(b.bookingRoute === "clinic" || (b.bookingRoute == null && b.isStandalone)) ? (
-              <>
-                <button className="btn-primary btn-sm px-4 bg-blue-500 hover:bg-blue-600 border-none" onClick={() => setSelectedBooking(b)}>
-                  {ar() ? "جدولة" : "Schedule"}
-                </button>
-                <button
-                  className="btn-sm bg-red-50 text-red-600 hover:bg-red-100 rounded-lg px-3 py-1.5 text-xs font-bold border border-red-200"
-                  disabled={processing === b.id}
-                  onClick={() => void cancelRequest(b.id)}
-                >
-                  {processing === b.id ? "..." : ar() ? "إلغاء" : "Cancel"}
-                </button>
-              </>
-            ) : (
-              <button className="bg-surface-100 hover:bg-surface-200 text-surface-700 font-medium px-3 py-1.5 rounded-xl text-xs transition-colors" onClick={() => setSelectedBooking(b)}>
-                {ar() ? "عرض" : "View"}
-              </button>
-            )}
+            <button className="bg-surface-100 hover:bg-surface-200 text-surface-700 font-medium px-3 py-1.5 rounded-xl text-xs transition-colors" onClick={() => setSelectedBooking(b)}>
+              {ar() ? "عرض التفاصيل" : "View Details"}
+            </button>
           </div>
         </div>
       ))}
@@ -559,38 +540,11 @@ function BookingRequestsQueue() {
                   </div>
                </div>
 
-              {!(selectedBooking.bookingRoute === "clinic" || (selectedBooking.bookingRoute == null && selectedBooking.isStandalone)) && (
-                <div className="bg-white rounded-2xl p-4 border border-surface-200">
-                  <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-3">{ar() ? "تحديد الموعد" : "Assign date & time"}</h4>
-                  <div className="grid gap-3">
-                    <input
-                      className="input-field"
-                      type="datetime-local"
-                      value={scheduleForm.scheduledAt}
-                      onChange={(e) => setScheduleForm((s) => ({ ...s, scheduledAt: e.target.value }))}
-                    />
-                    <input
-                      className="input-field"
-                      placeholder={ar() ? "ملاحظات (اختياري)" : "Notes (optional)"}
-                      value={scheduleForm.notes}
-                      onChange={(e) => setScheduleForm((s) => ({ ...s, notes: e.target.value }))}
-                    />
-                  </div>
-                </div>
-              )}
+               </div>
              </div>
 
              <div className="mt-8 flex gap-3">
                 <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors" onClick={() => setSelectedBooking(null)}>{ar() ? "إغلاق" : "Close"}</button>
-                {!(selectedBooking.bookingRoute === "clinic" || (selectedBooking.bookingRoute == null && selectedBooking.isStandalone)) && (
-                  <button
-                    className="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm"
-                    disabled={processing === selectedBooking.id || !scheduleForm.scheduledAt}
-                    onClick={() => void schedule(selectedBooking.id)}
-                  >
-                    {processing === selectedBooking.id ? "..." : ar() ? "تأكيد الموعد" : "Schedule"}
-                  </button>
-                )}
              </div>
            </div>
         </div>, document.body

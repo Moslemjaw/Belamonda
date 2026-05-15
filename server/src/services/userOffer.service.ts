@@ -38,6 +38,11 @@ export async function applyOfferMembershipToUserOffer(userOfferId: string, offer
     const signup = offer.signupCashbackKwd ?? "0.000";
     if (kwdMils(signup) > 0) extra.cashbackBalanceKwd = signup;
   }
+  // Store total signup cashback for per-installment tracking
+  const signupCb = offer.signupCashbackKwd ?? "0.000";
+  if (kwdMils(signupCb) > 0) {
+    extra.totalSignupCashbackKwd = signupCb;
+  }
   if (Object.keys(extra).length) {
     await UserOfferModel.findByIdAndUpdate(userOfferId, { $set: extra });
   }

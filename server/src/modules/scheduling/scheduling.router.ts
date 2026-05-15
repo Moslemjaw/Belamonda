@@ -782,9 +782,7 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
   const status = (typeof req.query.status === "string" ? req.query.status : "open") as BookingRequestStatus | "all" | "open";
   const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status };
   if (clinicId) filter.clinicId = clinicId;
-  const items = (await bookingRequestsStore.list(filter)).filter(
-    (it) => it.bookingRoute === "clinic" || (!it.bookingRoute && it.isStandalone === true)
-  );
+  const items = await bookingRequestsStore.list(filter);
 
   const uniqueUserIds = [...new Set(items.map((i) => i.userId))];
   const users = uniqueUserIds.length > 0
