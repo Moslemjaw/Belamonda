@@ -4,7 +4,7 @@ import { useAuth } from "../app/AuthContext";
 
 // ── Simple in-memory GET cache (stale-while-revalidate, 30 s TTL) ──────────
 const _cache = new Map<string, { data: unknown; ts: number }>();
-const CACHE_TTL = 30_000;
+const CACHE_TTL = 120_000;
 
 function getCached<T>(key: string): T | undefined {
   const entry = _cache.get(key);
@@ -24,7 +24,7 @@ export function invalidateCache(pathPrefix: string) {
 /** Generic fetch hook — calls an API endpoint and manages loading/error/data state */
 export function useApi<T>(
   path: string | null,
-  options?: { method?: string; body?: unknown; deps?: unknown[] }
+  options?: { method?: string; body?: unknown; deps?: unknown[]; lazy?: boolean }
 ) {
   const { getAuthHeader } = useAuth();
   const method = options?.method || "GET";
@@ -35,7 +35,7 @@ export function useApi<T>(
     path && isGet ? (getCached<T>(path) ?? null) : null
   );
   const [loading, setLoading] = useState(() =>
-    path && isGet ? !getCached(path) : !!path
+    path && isGet ? !getCached(path) : (options?.lazy ? false : !!path)
   );
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
@@ -75,7 +75,7 @@ export function useApi<T>(
 
   useEffect(() => {
     mountedRef.current = true;
-    fetchData();
+    if (!options?.lazy) fetchData();
     return () => { mountedRef.current = false; };
   }, [fetchData]);
 

@@ -621,10 +621,10 @@ export default function CustomerDashboard() {
 
   const { data: walletData, loading: wLoading } = useWallet();
   const { data: offersData, refetch: refetchMyOffers } = useMyOffers();
-  const { data: reservationsData, refetch: refetchReservations } = useMyReservations();
+  const { data: reservationsData, refetch: refetchReservations } = useApi<{ items: any[] }>(activeTab === "my-purchases" ? "/checkout/me/reservations" : null, { deps: [activeTab] });
   const { data: cardData, loading: cardLoading, error: cardError } = useApi<{ card: { displayName: string; memberSince: string | null; kycVerified: boolean; activeOffers: Array<{ offerId: string; offerName: string | null; activatedAt: string | null; expiresAt: string | null; sessionsUsed: number }>; activeSessionCount: number; recentSessions: Array<{ scheduledAt: string; status: string; completedAt: string | null }>; cashbackUnlockedKwd: string; cashbackLockedKwd: string; publicToken: string | undefined } }>("/public/me/card");
-  const { data: sessionsData, refetch: refetchMySessions } = useMySessions();
-  const { data: myComplaintsData, refetch: refetchMyComplaints } = useMyComplaints();
+  const { data: sessionsData, refetch: refetchMySessions } = useApi<{ items: any[] }>(activeTab === "my-purchases" || activeTab === "overview" ? "/scheduling/me/sessions" : null, { deps: [activeTab] });
+  const { data: myComplaintsData, refetch: refetchMyComplaints } = useApi<{ items: any[] }>(activeTab === "profile" ? "/complaints/me" : null, { deps: [activeTab] });
   const { data: notifData } = useNotifications();
   const { data: clinicsPublic } = useApi<{ items: Array<{ id: string; nameEn: string; nameAr: string }> }>("/clinics");
   const { data: categoriesData } = useApi<{ items: Array<{ id: string; slug: string; nameEn: string; nameAr: string }> }>("/categories");
@@ -674,7 +674,7 @@ export default function CustomerDashboard() {
     nameEn: string; nameAr: string; categorySlug: string;
     priceKwd: string; cashbackDeductionKwd: string;
     bookingMode: string; durationMinutes?: number;
-  }> }>("/session-types/offerings");
+  }> }>(activeTab === "store" || activeTab === "overview" ? "/session-types/offerings" : null, { deps: [activeTab] });
   const standaloneSessions = standaloneOfferingsData?.items || [];
 
   const dynamicTreatments = standaloneSessions.reduce((acc: any[], s: any) => {

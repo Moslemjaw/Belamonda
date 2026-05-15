@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
 import helmet from "helmet";
+import compression from "compression";
 import { env } from "./config/env.js";
 import { chatRouter, UPLOAD_DIR } from "./modules/chat/chat.router.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
@@ -75,6 +76,7 @@ export function createApp() {
   const app = express();
 
   app.use(helmet());
+  app.use(compression());
 
   const allowedOrigins =
     env.CLIENT_ORIGINS?.split(",").map((s) => s.trim()).filter(Boolean) ??
