@@ -540,7 +540,6 @@ function BookingRequestsQueue() {
                   </div>
                </div>
 
-               </div>
              </div>
 
              <div className="mt-8 flex gap-3">
