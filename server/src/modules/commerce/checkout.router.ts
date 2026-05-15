@@ -56,7 +56,11 @@ const DepositSchema = z.object({
   clinicId: z.string().optional()
 });
 
-const PayNextSchema = z.object({ userOfferId: z.string().min(1) });
+const PayNextSchema = z.object({ 
+  userOfferId: z.string().min(1),
+  method: z.string().optional(),
+  proofRef: z.string().optional()
+});
 
 const ConvertSchema = z
   .object({
@@ -110,7 +114,7 @@ checkoutRouter.post("/installments", ...customerOnly, (req, res, next) => {
 checkoutRouter.post("/installments/pay-next", ...customerOnly, (req, res, next) => {
   const parsed = PayNextSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
-  payNextInstallment({ userId: req.auth!.userId, userOfferId: parsed.data.userOfferId })
+  payNextInstallment({ userId: req.auth!.userId, userOfferId: parsed.data.userOfferId, method: parsed.data.method, proofRef: parsed.data.proofRef })
     .then((out) => res.json(out))
     .catch((e: unknown) => handleErr(e, res, next));
 });

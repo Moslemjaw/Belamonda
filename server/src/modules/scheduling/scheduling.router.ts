@@ -897,7 +897,7 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
   const finalItems = enriched.map((it) => {
     const offer = it.offerId && mongoose.isValidObjectId(it.offerId)
       ? (offerMap.get(it.offerId) ?? null)
-      : (it.offerId ? (offersStore.get(it.offerId) as SchedOffer | undefined) ?? null : null);
+      : (it.offerId ? (offersStore.get(it.offerId) as any as SchedOffer | undefined) ?? null : null);
     const financials = computeBookingRequestFinancials(it, offer);
     return {
       ...it,
@@ -944,7 +944,7 @@ schedulingRouter.get("/clinic/financial-summary", authRequired, requireRole(["cl
 
   for (const d of docs) {
     const offer = d.offerId ? offerMap.get(String(d.offerId)) ?? null : null;
-    const fin = computeBookingRequestFinancials(d as Parameters<typeof computeBookingRequestFinancials>[0], offer);
+    const fin = computeBookingRequestFinancials(d as any, offer as any);
     const gross = parseFloat(fin.sessionGrossKwd) || 0;
     const cb = parseFloat(fin.cashbackDeductedKwd) || 0;
     const cash = parseFloat(fin.clinicTakeKwd) || 0;
@@ -1386,7 +1386,7 @@ schedulingRouter.post(
       cashbackDeductedKwd: cashbackUsed,
       clinicPaymentStatus: isCsOrAdmin ? "paid" : "pending",
       ...(isCsOrAdmin
-        ? { clinicPaymentMarkedAt: new Date(), clinicPaymentMarkedBy: req.auth!.userId }
+        ? { clinicPaymentMarkedAt: new Date().toISOString(), clinicPaymentMarkedBy: req.auth!.userId }
         : {}),
     });
     if (updated?.conversationId) {

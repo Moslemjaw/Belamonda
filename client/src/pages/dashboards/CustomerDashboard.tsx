@@ -2053,13 +2053,13 @@ export default function CustomerDashboard() {
                                     <button
                                       onClick={async () => {
                                         try {
-                                          await apiFetch("/checkout/installments/pay-next", {
+                                          const res = await apiFetch("/checkout/installments/pay-next", {
                                             method: "POST",
                                             headers: getAuthHeader(),
                                             body: JSON.stringify({ userOfferId: uo.id })
                                           });
                                           await refetchMyOffers();
-                                          setSysAlert(ar() ? "تم دفع القسط" : "Installment paid");
+                                          setSysAlert(ar() ? "تم إرسال طلب الدفع لخدمة العملاء" : "Payment request submitted. Awaiting confirmation.");
                                           setTimeout(() => setSysAlert(null), 4000);
                                         } catch (e: unknown) {
                                           const msg = e instanceof Error ? e.message : "Payment failed";

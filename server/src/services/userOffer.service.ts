@@ -146,11 +146,14 @@ export async function confirmPaymentAndActivate(input: {
 
   if (doc.purchaseMode === "installments") {
     const schedule = [...(doc.installmentSchedule || [])];
-    if (schedule[0]) {
-      schedule[0].paid = true;
-      schedule[0].paidAt = new Date();
-      schedule[0].paymentId = new mongoose.Types.ObjectId(input.paymentId);
+    const paidSoFar = doc.installmentsPaid ?? 0;
+    const idx = paidSoFar;
+    if (schedule[idx]) {
+      schedule[idx].paid = true;
+      schedule[idx].paidAt = new Date();
+      schedule[idx].paymentId = new mongoose.Types.ObjectId(input.paymentId);
     }
+    const newPaid = paidSoFar + 1;
     updates.$set = {
       status: "active",
       paymentConfirmedBy: input.confirmedBy,
@@ -158,12 +161,12 @@ export async function confirmPaymentAndActivate(input: {
       paymentProofRef: input.proofRef,
       paymentMethod: input.method,
       paymentAmountKwd: input.amountKwd,
-      activatedAt: new Date(input.activatedAt),
-      expiresAt: new Date(input.expiresAt),
+      activatedAt: doc.activatedAt || new Date(input.activatedAt),
+      expiresAt: doc.expiresAt || new Date(input.expiresAt),
       paymentId: new mongoose.Types.ObjectId(input.paymentId),
-      installmentsPaid: 1,
+      installmentsPaid: newPaid,
       installmentSchedule: schedule,
-      nextInstallmentDueAt: schedule[1]?.dueDate || null
+      nextInstallmentDueAt: schedule[newPaid]?.dueDate || null
     };
   } else if (doc.purchaseMode === "deposit") {
     updates.$set = {

@@ -217,12 +217,12 @@ async function createPayment(input: {
   amountKwd: string;
   cashbackAppliedKwd: string;
   grossAmountKwd: string;
-  method: "card_mock" | "enet";
+  method: "card_mock" | "enet" | "bank_transfer" | "cash" | "pos" | "other" | string;
   purpose: "enrollment_full" | "installment" | "deposit" | "deposit_balance" | "enrollment_enet";
-  provider: "mock" | "enet";
+  provider: "mock" | "enet" | "manual" | string;
   providerRef: string;
   installmentNumber?: number;
-  status: "completed" | "failed";
+  status: "completed" | "failed" | "pending";
   failureReason?: string;
 }) {
   const doc = await PaymentModel.create({
@@ -514,7 +514,7 @@ export async function checkoutInstallments(input: {
 // =============================
 // Pay next installment
 // =============================
-export async function payNextInstallment(input: { userId: string; userOfferId: string }) {
+export async function payNextInstallment(input: { userId: string; userOfferId: string; method?: string; proofRef?: string }) {
   if (!mongoose.isValidObjectId(input.userOfferId)) throw httpErr(400, "INVALID_USER_OFFER_ID");
   const uo = await UserOfferModel.findById(input.userOfferId).lean<UserOfferDoc | null>();
   if (!uo) throw httpErr(404, "USER_OFFER_NOT_FOUND");
@@ -530,75 +530,29 @@ export async function payNextInstallment(input: { userId: string; userOfferId: s
   const entry = sched[idx];
   if (!entry) throw httpErr(409, "NO_SCHEDULE_ENTRY");
 
-  const provider = getProviderForMethod("card_mock");
-  const result = await provider.charge({
-    userId: input.userId,
-    amountKwd: entry.amountKwd,
-    description: `Installment ${entry.number}/${total}`
-  });
-
-  if (!result.success) {
-    await createPayment({
+  if (input.method === "bank_transfer") {
+    if (!input.proofRef) throw httpErr(400, "PROOF_REQUIRED");
+    const payment = await createPayment({
       userId: input.userId,
       offerId: String(uo.offerId),
       userOfferId: String(uo._id),
       amountKwd: entry.amountKwd,
       cashbackAppliedKwd: "0.000",
       grossAmountKwd: entry.amountKwd,
-      method: "card_mock",
+      method: "bank_transfer",
       purpose: "installment",
-      provider: "mock",
-      providerRef: result.providerRef,
+      provider: "manual",
+      providerRef: input.proofRef,
       installmentNumber: entry.number,
-      status: "failed",
-      failureReason: result.failureReason
+      status: "pending"
     });
-    notifyPaymentFailed(input.userId, String(uo._id), result.failureReason ?? "PAYMENT_FAILED");
-    throw httpErr(402, result.failureReason ?? "PAYMENT_FAILED");
+    return { pending: true, payment: serializePayment(payment.toObject()) };
   }
 
-  const payment = await createPayment({
-    userId: input.userId,
-    offerId: String(uo.offerId),
-    userOfferId: String(uo._id),
-    amountKwd: entry.amountKwd,
-    cashbackAppliedKwd: "0.000",
-    grossAmountKwd: entry.amountKwd,
-    method: "card_mock",
-    purpose: "installment",
-    provider: "mock",
-    providerRef: result.providerRef,
-    installmentNumber: entry.number,
-    status: "completed"
-  });
-
-  sched[idx].paid = true;
-  sched[idx].paidAt = new Date();
-  sched[idx].paymentId = payment._id;
-  const newPaid = paid + 1;
-  const next = sched[newPaid]?.dueDate;
-
-  await UserOfferModel.findByIdAndUpdate(uo._id, {
-    $set: {
-      installmentsPaid: newPaid,
-      installmentSchedule: sched,
-      nextInstallmentDueAt: next ?? null
-    }
-  });
-
-  notifyInstallmentPaid(input.userId, String(uo._id), entry.number, total);
-  notifyPaymentSuccess(input.userId, String(uo._id), entry.amountKwd);
-
-  // Grant proportional cashback for this installment
-  const offer = await OfferModel.findById(uo.offerId).lean<OfferDoc | null>();
-  if (offer) {
-    await grantCashbackForPayment(input.userId, offer, String(uo._id), newPaid, total);
-  }
-
-  await snapshotWalletToPayment(payment._id, input.userId);
-
-  const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
-  return { userOffer: serializeUserOffer(fresh!), payment: serializePayment(payment.toObject()) };
+  // If no method specified (e.g. from the simple "Pay now" button), put the offer into pending_payment
+  // This creates a request for Customer Service to verify the payment manually.
+  await UserOfferModel.findByIdAndUpdate(uo._id, { $set: { status: "pending_payment" } });
+  return { pending: true };
 }
 
 // =============================
