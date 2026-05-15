@@ -40,12 +40,13 @@ export function useApi<T>(
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (force = false) => {
     if (!path) return;
 
     // For GET: skip network if cache still fresh
     if (isGet) {
-      const fresh = getCached<T>(path);
+      if (force) _cache.delete(path);
+      const fresh = force ? undefined : getCached<T>(path);
       if (fresh !== undefined) {
         if (mountedRef.current) { setData(fresh); setLoading(false); }
         return;
@@ -78,7 +79,9 @@ export function useApi<T>(
     return () => { mountedRef.current = false; };
   }, [fetchData]);
 
-  return { data, loading, error, refetch: fetchData, setData };
+  const refetch = useCallback((force = false) => fetchData(force), [fetchData]);
+
+  return { data, loading, error, refetch, setData };
 }
 
 /** Mutation hook — for POST/PUT/DELETE actions */
@@ -324,7 +327,7 @@ export function useProducts() {
 
 export function useClinicSchedule(clinicId: string) {
   const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const to = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const to = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
   return useApi<{
     items: Array<{
       id: string;

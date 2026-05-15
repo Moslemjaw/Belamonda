@@ -800,15 +800,67 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
     customerPhone: userMap.get(item.userId)?.phone ?? null,
   }));
 
-  // Enrich with offer names
-  const finalItems = await Promise.all(
-    enriched.map(async (it) => {
-      const offer = it.offerId ? await loadOffer(it.offerId) : null;
-      return { ...it, offerName: offer?.name ?? null };
-    })
-  );
+  const uniqueOfferIds = [...new Set(enriched.map((it) => it.offerId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
+  const offerDocs = uniqueOfferIds.length > 0
+    ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).select("_id name").lean()
+    : [];
+  const offerNameMap = new Map((offerDocs as Array<{ _id: { toString(): string }; name?: string }>).map((o) => [o._id.toString(), o.name ?? null]));
+
+  const finalItems = enriched.map((it) => ({
+    ...it,
+    offerName: it.offerId ? (offerNameMap.get(it.offerId) ?? (mongoose.isValidObjectId(it.offerId) ? null : (offersStore.get(it.offerId) as { name?: string } | undefined)?.name ?? null)) : null,
+  }));
 
   return res.json({ items: finalItems });
+});
+
+schedulingRouter.get("/clinic/financial-summary", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res) => {
+  let clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
+  if (!clinicId && req.auth!.role === "clinicStaff") {
+    clinicId = req.auth!.clinicId || (await getUserClinicId(req.auth!.userId)) ?? undefined;
+  }
+  if (!clinicId) return res.json({ summary: { salesWithoutCashbackKwd: "0.000", salesWithCashbackKwd: "0.000", totalCashbackTakenKwd: "0.000", grossWithCashbackKwd: "0.000" } });
+
+  const docs = await BookingRequestModel.find({
+    clinicId,
+    status: { $in: ["confirmed", "under_review", "slot_proposed", "slot_accepted"] },
+  }).select("sessionPriceKwd cashbackDeductedKwd").lean();
+
+  let salesWithout = 0;
+  let salesWithCash = 0;
+  let cashbackTaken = 0;
+  let grossWithCashback = 0;
+
+  for (const d of docs) {
+    const price = parseFloat(String(d.sessionPriceKwd ?? "0")) || 0;
+    const cb = parseFloat(String(d.cashbackDeductedKwd ?? "0")) || 0;
+    cashbackTaken += cb;
+    if (cb > 0) {
+      salesWithCash += price;
+      grossWithCashback += price + cb;
+    } else {
+      salesWithout += price;
+    }
+  }
+
+  return res.json({
+    summary: {
+      salesWithoutCashbackKwd: salesWithout.toFixed(3),
+      salesWithCashbackKwd: salesWithCash.toFixed(3),
+      totalCashbackTakenKwd: cashbackTaken.toFixed(3),
+      grossWithCashbackKwd: grossWithCashback.toFixed(3),
+    },
+  });
+});
+
+schedulingRouter.post("/requests/:id/conversation", authRequired, requireRole(["clinicStaff", "cs", "admin"]), async (req, res) => {
+  const breq = await bookingRequestsStore.get(req.params.id);
+  if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
+  if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
+    return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+  }
+  const { conv } = await ensureConversationFor(breq.id);
+  return res.json({ conversationId: conv?.id ?? breq.conversationId ?? null });
 });
 
 // ── Clinic staff / CS proposes a slot in chat ─────────────────────────────
@@ -859,17 +911,23 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   if (!["slot_proposed", "slot_accepted", "under_review"].includes(breq.status)) {
     return res.status(409).json({ error: "INVALID_STATE" });
   }
-  const scheduledAt = breq.proposedAt || (req.body?.scheduledAt as string | undefined);
+  const bodyParsed = ProposeSchema.safeParse(req.body ?? {});
+  const scheduledAt = (bodyParsed.success ? bodyParsed.data.scheduledAt : undefined) || breq.proposedAt;
   if (!scheduledAt) return res.status(400).json({ error: "NO_SCHEDULED_TIME" });
 
-  const uo = await loadUserOffer(breq.userOfferId!);
+  if (!breq.userOfferId) {
+    return res.status(400).json({ error: "STANDALONE_USE_SCHEDULE_ENDPOINT" });
+  }
+
+  const uo = await loadUserOffer(breq.userOfferId);
   if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
   const offer = await loadOffer(uo.offerId);
   if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
   const elErr = await eligibilityError(uo, offer);
   if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
-  if (await sessionsStore.isSlotTaken(uo.clinicId, scheduledAt)) {
+  const sessionClinicId = breq.clinicId || uo.clinicId;
+  if (await sessionsStore.isSlotTaken(sessionClinicId, scheduledAt)) {
     return res.status(409).json({ error: "SLOT_TAKEN" });
   }
 
@@ -877,7 +935,7 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
     userOfferId: uo.id,
     userId: uo.userId,
     offerId: uo.offerId,
-    clinicId: uo.clinicId,
+    clinicId: sessionClinicId,
     scheduledAt,
     scheduledBy: req.auth!.userId
   });
@@ -1210,7 +1268,7 @@ schedulingRouter.post(
 schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["clinicStaff", "admin", "cs"]), async (req, res, next) => {
   try {
     const from = typeof req.query.from === "string" ? req.query.from : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const to = typeof req.query.to === "string" ? req.query.to : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const to = typeof req.query.to === "string" ? req.query.to : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const sessions = await sessionsStore.listByClinic(req.params.clinicId, from, to);
 
     if (sessions.length === 0) return res.json({ items: [] });

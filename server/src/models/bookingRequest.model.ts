@@ -36,7 +36,7 @@ const BookingRequestSchema = new Schema(
     rejectedBy: { type: String },
     rejectionReason: { type: String },
     
-    scheduledSessionId: { type: String },
+    scheduledSessionId: { type: String, index: true },
     sessionPaymentId: { type: String },
     sessionPriceKwd: { type: String },
     cashbackDeductedKwd: { type: String },

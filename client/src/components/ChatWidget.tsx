@@ -51,11 +51,11 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
       const data = (await apiFetch("/chat/conversations", { headers: getAuthHeader() })) as { items: ChatConversation[] };
       const items = data.items;
       setConversations(items);
-      if (!selectedId && items.length > 0) setSelectedId(items[0].id);
+      if (!initialConvId && !selectedId && items.length > 0) setSelectedId(items[0].id);
     } catch {
       /* ignore */
     }
-  }, [getAuthHeader, selectedId]);
+  }, [getAuthHeader, selectedId, initialConvId]);
 
   const loadConversation = useCallback(
     async (id: string) => {

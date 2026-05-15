@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
-import { useClinicSchedule, useMyClinicReport } from "../../hooks/useApi";
+import { useClinicSchedule, useMyClinicReport, invalidateCache } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL } from "../../lib/api";
 import { sharedClinics } from "../../lib/clinics";
 import i18n from "../../app/i18n";
@@ -313,9 +313,17 @@ function CustomerContextBadge({ ctx }: { ctx: CustomerContext }) {
   );
 }
 
+type FinancialSummary = {
+  salesWithoutCashbackKwd: string;
+  salesWithCashbackKwd: string;
+  totalCashbackTakenKwd: string;
+  grossWithCashbackKwd: string;
+};
+
 function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (convId: string) => void; onScheduleSuccess?: () => void; }) {
   const { getAuthHeader } = useAuth();
   const [requests, setRequests] = useState<BookingRequestRow[]>([]);
+  const [financial, setFinancial] = useState<FinancialSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
   const [actionType, setActionType] = useState<"confirm" | "reject" | null>(null);
@@ -332,8 +340,33 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
       const reqData = await apiFetch("/scheduling/clinic/requests?status=open", { headers: getAuthHeader() }) as { items?: BookingRequestRow[] };
       setRequests(reqData.items ?? []);
     } catch { /* ignore */ }
+    try {
+      const finData = await apiFetch("/scheduling/clinic/financial-summary", { headers: getAuthHeader() }) as { summary: FinancialSummary };
+      setFinancial(finData.summary ?? null);
+    } catch { /* ignore */ }
     finally { setLoading(false); }
   }, [getAuthHeader]);
+
+  const openChat = async (r: BookingRequestRow) => {
+    if (r.conversationId) {
+      onOpenChat(r.conversationId);
+      return;
+    }
+    try {
+      const data = await apiFetch(`/scheduling/requests/${r.id}/conversation`, {
+        method: "POST",
+        headers: getAuthHeader(),
+      }) as { conversationId?: string | null };
+      if (data.conversationId) {
+        setRequests((prev) => prev.map((x) => (x.id === r.id ? { ...x, conversationId: data.conversationId! } : x)));
+        onOpenChat(data.conversationId);
+      } else {
+        alert(ar() ? "تعذر فتح المحادثة" : "Could not open chat for this request");
+      }
+    } catch (e: any) {
+      alert(e.message || (ar() ? "تعذر فتح المحادثة" : "Could not open chat"));
+    }
+  };
 
   useEffect(() => { void load(); }, [load]);
 
@@ -358,7 +391,7 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
     if (!scheduledAt) { alert(ar() ? "اختر وقت الموعد" : "Please pick a scheduled time"); return; }
     setBusy(true);
     try {
-      await apiFetch(`/scheduling/requests/${id}/confirm`, {
+      await apiFetch(`/scheduling/cs/requests/${id}/schedule`, {
         method: "POST", headers: getAuthHeader(),
         body: JSON.stringify({ scheduledAt: new Date(scheduledAt).toISOString() }),
       });
@@ -421,6 +454,34 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
         </button>
       </div>
 
+      {financial && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="bg-white rounded-2xl border border-surface-200 p-4 shadow-sm">
+            <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">
+              {ar() ? "مبيعات بدون كاش باك" : "Sales Without Cashback"}
+            </div>
+            <div className="text-xl font-black text-surface-900">{financial.salesWithoutCashbackKwd} KWD</div>
+            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "المبلغ النقدي المحصل" : "Cash collected at clinic"}</div>
+          </div>
+          <div className="bg-white rounded-2xl border border-emerald-200 p-4 shadow-sm">
+            <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">
+              {ar() ? "مبيعات مع كاش باك" : "Sales With Cashback"}
+            </div>
+            <div className="text-xl font-black text-emerald-800">{financial.grossWithCashbackKwd} KWD</div>
+            <div className="text-[10px] text-surface-400 mt-1">
+              {ar() ? `نقدي: ${financial.salesWithCashbackKwd}` : `Cash: ${financial.salesWithCashbackKwd}`}
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl border border-amber-200 p-4 shadow-sm">
+            <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">
+              {ar() ? "إجمالي الكاش باك المستخدم" : "Total Cashback Used"}
+            </div>
+            <div className="text-xl font-black text-amber-800">{financial.totalCashbackTakenKwd} KWD</div>
+            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "مخصوم من محفظة العميل" : "Deducted from customer wallet"}</div>
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="shimmer h-24 rounded-2xl" />)}</div>
       ) : requests.length === 0 ? (
@@ -478,17 +539,14 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                     {ar() ? "معلومات العميل" : "Customer Info"}
                   </button>
-                  {/* Open chat button — always shown if conversation exists */}
-                  {r.conversationId && (
-                    <button
+                  <button
                       type="button"
                       className="text-xs font-bold bg-surface-100 hover:bg-surface-200 text-surface-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-                      onClick={() => onOpenChat(r.conversationId!)}
+                      onClick={() => void openChat(r)}
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                       {ar() ? "المحادثة" : "Open Chat"}
                     </button>
-                  )}
                   {/* Action buttons — only on actionable statuses */}
                   {["under_review", "slot_accepted"].includes(r.status) && (
                     <>
@@ -1054,7 +1112,8 @@ export default function ClinicDashboard() {
         method: "POST", headers: getAuthHeader(),
         body: JSON.stringify({ status, notes: `Marked as ${status}` }),
       });
-      refetch();
+      invalidateCache("/scheduling/clinic/");
+      void refetch(true);
     } catch (e: any) { alert(e.message); }
   };
 
@@ -1127,7 +1186,7 @@ export default function ClinicDashboard() {
             <div>
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-surface-900">{ar() ? "المواعيد" : "Appointments"}</h3>
-                <button className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg" onClick={refetch}>↻ {ar() ? "تحديث السجل" : "Refresh Log"}</button>
+                <button className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg" onClick={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }}>↻ {ar() ? "تحديث السجل" : "Refresh Log"}</button>
               </div>
               {loading ? (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{[1,2,3,4].map(i => <div key={i} className="shimmer h-64 rounded-3xl" />)}</div>
@@ -1140,7 +1199,7 @@ export default function ClinicDashboard() {
               ) : (
                 <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                   {sessions.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)).map(s => (
-                    <SessionCard key={s.id} session={s} onMark={markSession} onRefresh={refetch} />
+                    <SessionCard key={s.id} session={s} onMark={markSession} onRefresh={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }} />
                   ))}
                 </div>
               )}
@@ -1152,7 +1211,7 @@ export default function ClinicDashboard() {
           <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-surface-900">{ar() ? "جدول العيادة" : "Clinic Schedule"}</h3>
-              <button className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg" onClick={refetch}>
+              <button className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg" onClick={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }}>
                 ↻ {ar() ? "تحديث" : "Refresh"}
               </button>
             </div>
@@ -1163,7 +1222,10 @@ export default function ClinicDashboard() {
         {activeNav === "requests" && (
           <BookingRequestsPanel
             onOpenChat={(convId) => { setChatConvId(convId); setActiveNav("chat"); }}
-            onScheduleSuccess={refetch}
+            onScheduleSuccess={() => {
+              invalidateCache("/scheduling/clinic/");
+              void refetch(true);
+            }}
           />
         )}
 
@@ -1180,7 +1242,7 @@ export default function ClinicDashboard() {
                 {ar() ? `تم فتح محادثة الطلب: ${chatConvId.slice(0, 8)}` : `Opened from request conversation: ${chatConvId.slice(0, 8)}`}
               </div>
             )}
-            <ChatWidget showBookingActions />
+            <ChatWidget key={chatConvId ?? "default"} conversationId={chatConvId} showBookingActions />
           </div>
         )}
         {activeNav === "performance" && (
