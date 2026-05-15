@@ -260,9 +260,44 @@ type BookingRequestRow = {
   preferredAt?: string; proposedAt?: string; rejectionReason?: string;
   conversationId?: string; notes?: string; createdAt: string;
   sessionPriceKwd?: string; membershipType?: string; cashbackDeductedKwd?: string;
+  sessionGrossKwd?: string; clinicTakeKwd?: string; usesCashback?: boolean; isPrepaidMembership?: boolean;
   clinicPaymentStatus?: "pending" | "paid";
   customerName?: string | null; customerPhone?: string | null;
 };
+
+function BookingFinancialBreakdown({ r }: { r: BookingRequestRow }) {
+  const gross = r.sessionGrossKwd ?? r.sessionPriceKwd ?? "0.000";
+  const take = r.clinicTakeKwd ?? r.sessionPriceKwd ?? "0.000";
+  const cashback = r.cashbackDeductedKwd ?? "0.000";
+  const hasCashback = parseFloat(cashback) > 0;
+
+  return (
+    <div className="mt-2 pt-2 border-t border-dashed border-surface-200 space-y-1.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+        <span className="text-surface-500">{ar() ? "سعر الجلسة:" : "Session price:"}</span>
+        <span className="font-bold text-surface-800">{gross} KWD</span>
+      </div>
+      {hasCashback && (
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+          <span className="text-surface-500">{ar() ? "كاش باك مستخدم:" : "Cashback used:"}</span>
+          <span className="font-bold text-amber-700">− {cashback} KWD</span>
+        </div>
+      )}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-lg bg-emerald-50 border border-emerald-100 px-2.5 py-1.5 -mx-0.5">
+        <span className="text-emerald-800 font-semibold">{ar() ? "يستلم العيادة:" : "Clinic receives:"}</span>
+        <span className="font-black text-emerald-800 text-sm">{take} KWD</span>
+      </div>
+      {r.isPrepaidMembership && (
+        <p className="text-[10px] text-surface-400">{ar() ? "العضوية مدفوعة مسبقاً — لا مبلغ نقدي عند الزيارة" : "Prepaid membership — no cash due at visit"}</p>
+      )}
+      {r.membershipType && r.membershipType !== "none" && !r.isPrepaidMembership && (
+        <p className="text-[10px] text-surface-400">
+          {ar() ? "العضوية:" : "Membership:"} <span className="font-medium">{r.membershipType}</span>
+        </p>
+      )}
+    </div>
+  );
+}
 
 type CustomerContext = {
   paymentMode: string;
@@ -314,10 +349,27 @@ function CustomerContextBadge({ ctx }: { ctx: CustomerContext }) {
 }
 
 type FinancialSummary = {
-  salesWithoutCashbackKwd: string;
-  salesWithCashbackKwd: string;
-  totalCashbackTakenKwd: string;
-  grossWithCashbackKwd: string;
+  totalGrossSalesKwd: string;
+  totalCashbackSpentKwd: string;
+  totalClinicCashKwd: string;
+  totalPendingCashKwd: string;
+  totalPaidCashKwd: string;
+  salesWithoutCashbackKwd?: string;
+  salesWithCashbackKwd?: string;
+  totalCashbackTakenKwd?: string;
+  grossWithCashbackKwd?: string;
+};
+
+const SCHEDULE_ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
+  INSTALLMENT_NOT_PAID_FOR_NEXT_SESSION: {
+    en: "This customer must pay their next installment before another session can be scheduled.",
+    ar: "يجب على العميل دفع القسط التالي قبل جدولة جلسة أخرى.",
+  },
+  MAX_SESSIONS_REACHED: {
+    en: "This customer has used all sessions included in their current plan.",
+    ar: "استخدم العميل جميع الجلسات المتاحة في خطته الحالية.",
+  },
+  SLOT_TAKEN: { en: "That time slot is already booked.", ar: "هذا الموعد محجوز مسبقاً." },
 };
 
 function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (convId: string) => void; onScheduleSuccess?: () => void; }) {
@@ -397,7 +449,10 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
       });
       closeAction(); void load();
       if (onScheduleSuccess) onScheduleSuccess();
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) {
+      const mapped = SCHEDULE_ERROR_MESSAGES[e.message];
+      alert(mapped ? (ar() ? mapped.ar : mapped.en) : e.message);
+    }
     finally { setBusy(false); }
   };
 
@@ -455,29 +510,37 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
       </div>
 
       {financial && (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div className="bg-white rounded-2xl border border-surface-200 p-4 shadow-sm">
             <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">
-              {ar() ? "مبيعات بدون كاش باك" : "Sales Without Cashback"}
+              {ar() ? "إجمالي المبيعات" : "Total Sales"}
             </div>
-            <div className="text-xl font-black text-surface-900">{financial.salesWithoutCashbackKwd} KWD</div>
-            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "المبلغ النقدي المحصل" : "Cash collected at clinic"}</div>
+            <div className="text-xl font-black text-surface-900">{(financial.totalGrossSalesKwd ?? financial.grossWithCashbackKwd) || "0.000"} KWD</div>
+            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "قيمة الجلسات كاملة" : "Full session value"}</div>
           </div>
           <div className="bg-white rounded-2xl border border-emerald-200 p-4 shadow-sm">
             <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">
-              {ar() ? "مبيعات مع كاش باك" : "Sales With Cashback"}
+              {ar() ? "نقدي للعيادة" : "Clinic Cash Total"}
             </div>
-            <div className="text-xl font-black text-emerald-800">{financial.grossWithCashbackKwd} KWD</div>
-            <div className="text-[10px] text-surface-400 mt-1">
-              {ar() ? `نقدي: ${financial.salesWithCashbackKwd}` : `Cash: ${financial.salesWithCashbackKwd}`}
-            </div>
+            <div className="text-xl font-black text-emerald-800">{(financial.totalClinicCashKwd ?? financial.salesWithoutCashbackKwd) || "0.000"} KWD</div>
+            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "بعد خصم الكاش باك" : "After cashback"}</div>
           </div>
           <div className="bg-white rounded-2xl border border-amber-200 p-4 shadow-sm">
             <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">
-              {ar() ? "إجمالي الكاش باك المستخدم" : "Total Cashback Used"}
+              {ar() ? "إجمالي الكاش باك" : "Total Cashback Used"}
             </div>
-            <div className="text-xl font-black text-amber-800">{financial.totalCashbackTakenKwd} KWD</div>
-            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "مخصوم من محفظة العميل" : "Deducted from customer wallet"}</div>
+            <div className="text-xl font-black text-amber-800">{(financial.totalCashbackSpentKwd ?? financial.totalCashbackTakenKwd) || "0.000"} KWD</div>
+            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "مخصوم من العملاء" : "Deducted from customers"}</div>
+          </div>
+          <div className="bg-white rounded-2xl border border-orange-200 p-4 shadow-sm">
+            <div className="text-[10px] font-bold text-orange-600 uppercase tracking-wider mb-1">{ar() ? "قيد الانتظار" : "Pending at Clinic"}</div>
+            <div className="text-xl font-black text-orange-800">{financial.totalPendingCashKwd || "0.000"} KWD</div>
+            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "حتى يضغط مدفوع" : "Until marked paid"}</div>
+          </div>
+          <div className="bg-white rounded-2xl border border-emerald-200 p-4 shadow-sm">
+            <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">{ar() ? "تم التحصيل" : "Collected (Paid)"}</div>
+            <div className="text-xl font-black text-emerald-800">{(financial.totalPaidCashKwd ?? financial.salesWithCashbackKwd) || "0.000"} KWD</div>
+            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "مدفوع في العيادة" : "Marked paid"}</div>
           </div>
         </div>
       )}
@@ -509,16 +572,7 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
                     {r.preferredAt && <div>{ar() ? "الوقت المفضل:" : "Preferred:"} <span className="font-semibold text-surface-700">{new Date(r.preferredAt).toLocaleString()}</span></div>}
                     {r.proposedAt && <div>{ar() ? "الوقت المقترح:" : "Proposed:"} <span className="font-semibold text-blue-700">{new Date(r.proposedAt).toLocaleString()}</span></div>}
                     {r.notes && <div>{ar() ? "ملاحظات:" : "Notes:"} <span className="text-surface-700">{r.notes}</span></div>}
-                    {(r.sessionPriceKwd || r.membershipType || r.cashbackDeductedKwd) && (
-                      <div>
-                        {ar() ? "البيانات المالية:" : "Financial:"}{" "}
-                        <span className="font-semibold text-surface-700">
-                          {r.sessionPriceKwd ? `${r.sessionPriceKwd} KWD` : "0.000 KWD"}
-                          {r.membershipType && r.membershipType !== 'none' ? ` · ${ar() ? 'العضوية:' : 'Membership:'} ${r.membershipType}` : ''}
-                          {(r.cashbackDeductedKwd && r.cashbackDeductedKwd !== "0.000") ? ` · ${ar() ? 'خصم كاش باك:' : 'Cashback Used:'} ${r.cashbackDeductedKwd} KWD` : ''}
-                        </span>
-                      </div>
-                    )}
+                    <BookingFinancialBreakdown r={r} />
                     <div>
                       {ar() ? "الدفع في العيادة:" : "Clinic Payment:"}{" "}
                       <span className={`font-semibold ${r.clinicPaymentStatus === "paid" ? "text-emerald-700" : "text-amber-700"}`}>

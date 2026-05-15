@@ -126,26 +126,60 @@ function resolveSessionPrice(offer: SchedOffer, clinicId: string): string | unde
   return undefined;
 }
 
+function mapOfferDocToSched(o: OfferDoc): SchedOffer {
+  const overrides = (o.branchSessionPrices ?? []).map((b: { clinicId: unknown; sessionPriceKwd: unknown }) => ({
+    clinicId: String(b.clinicId),
+    sessionPriceKwd: String(b.sessionPriceKwd),
+  }));
+  return {
+    id: String(o._id),
+    name: (o as { name?: string }).name ?? undefined,
+    maxSessions: o.maxSessions ?? null,
+    sessionIntervalDays: o.sessionIntervalDays ?? 0,
+    cashbackPerSessionKwd: o.cashbackPerSessionKwd ?? undefined,
+    validityDays: o.validityDays,
+    payPerSession: o.payPerSession ?? false,
+    sessionPriceKwd: o.sessionPriceKwd ?? undefined,
+    branchSessionPrices: overrides,
+  };
+}
+
+/** Session list price, cashback applied, and cash the clinic should collect. */
+function computeBookingRequestFinancials(
+  breq: {
+    sessionPriceKwd?: string;
+    cashbackDeductedKwd?: string;
+    clinicId: string;
+    membershipType?: string;
+    hadCashback?: boolean;
+    isStandalone?: boolean;
+  },
+  offer: SchedOffer | null
+) {
+  const cashback = parseFloat(breq.cashbackDeductedKwd ?? "0") || 0;
+  const clinicTake = parseFloat(breq.sessionPriceKwd ?? "0") || 0;
+  const listFromOffer = offer ? parseFloat(resolveSessionPrice(offer, breq.clinicId) ?? "0") || 0 : 0;
+  const standalonePrice = breq.isStandalone ? clinicTake : 0;
+
+  let sessionGross = clinicTake + cashback;
+  if (sessionGross <= 0 && listFromOffer > 0) sessionGross = listFromOffer;
+  if (sessionGross <= 0 && standalonePrice > 0) sessionGross = standalonePrice;
+
+  const usesCashback = cashback > 0 || breq.hadCashback === true || breq.membershipType === "cashback";
+
+  return {
+    sessionGrossKwd: sessionGross.toFixed(3),
+    clinicTakeKwd: clinicTake.toFixed(3),
+    cashbackDeductedKwd: cashback.toFixed(3),
+    usesCashback,
+    isPrepaidMembership: !offer?.payPerSession && !breq.isStandalone && sessionGross > 0 && clinicTake === 0 && cashback === 0,
+  };
+}
+
 async function loadOffer(offerId: string): Promise<SchedOffer | null> {
   if (mongoose.isValidObjectId(offerId)) {
     const o = await OfferModel.findById(offerId).lean<OfferDoc | null>();
-    if (o) {
-      const overrides = (o.branchSessionPrices ?? []).map((b: any) => ({
-        clinicId: String(b.clinicId),
-        sessionPriceKwd: String(b.sessionPriceKwd)
-      }));
-      return {
-        id: String(o._id),
-        name: (o as any).name ?? undefined,
-        maxSessions: o.maxSessions ?? null,
-        sessionIntervalDays: o.sessionIntervalDays ?? 0,
-        cashbackPerSessionKwd: o.cashbackPerSessionKwd ?? undefined,
-        validityDays: o.validityDays,
-        payPerSession: o.payPerSession ?? false,
-        sessionPriceKwd: o.sessionPriceKwd ?? undefined,
-        branchSessionPrices: overrides
-      };
-    }
+    if (o) return mapOfferDocToSched(o);
   }
   const legacy = offersStore.get(offerId);
   if (!legacy) return null;
@@ -187,13 +221,19 @@ function maxAccessibleSessions(uo: SchedUO, offerMax: number | null): number | n
 }
 
 /** Common booking eligibility check returning HTTP error or null. */
-async function eligibilityError(uo: SchedUO, offer: SchedOffer): Promise<{ code: string; status: number } | null> {
+async function eligibilityError(
+  uo: SchedUO,
+  offer: SchedOffer,
+  opts?: { skipSessionCap?: boolean }
+): Promise<{ code: string; status: number } | null> {
   if (uo.status === "reserved") return { code: "RESERVED_NEEDS_BALANCE", status: 409 };
   if (uo.status === "enet_pending") return { code: "ENET_PENDING", status: 409 };
   if (uo.status === "enet_rejected") return { code: "ENET_REJECTED", status: 409 };
   if (uo.status !== "active" && uo.status !== "pending_payment") {
     return { code: "OFFER_NOT_ACTIVE", status: 409 };
   }
+
+  if (opts?.skipSessionCap) return null;
 
   const cap = maxAccessibleSessions(uo, offer.maxSessions);
   if (cap != null) {
@@ -634,6 +674,54 @@ schedulingRouter.get("/me/requests", authRequired, async (req, res) => {
   return res.json({ items });
 });
 
+/** Pre-booking quote: session price, cashback, and cash due at clinic. */
+schedulingRouter.get("/me/booking-quote", authRequired, async (req, res) => {
+  const userOfferId = typeof req.query.userOfferId === "string" ? req.query.userOfferId : "";
+  const clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
+  if (!userOfferId) return res.status(400).json({ error: "VALIDATION_ERROR" });
+
+  const uo = await loadUserOffer(userOfferId);
+  if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
+  const isOwner = uo.userId === req.auth!.userId;
+  const isMember = uo.membershipType === "group" && uo.sharedWith?.includes(req.auth!.userId);
+  if (!isOwner && !isMember) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
+
+  const offer = await loadOffer(uo.offerId);
+  if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
+
+  const targetClinic = clinicId || uo.clinicId;
+  const listPrice = resolveSessionPrice(offer, targetClinic);
+  const listNum = parseFloat(listPrice ?? "0") || 0;
+  const rate = listNum > 0 ? listNum : parseFloat(offer.cashbackPerSessionKwd || "0");
+
+  let cashbackApplied = 0;
+  let clinicPay = rate;
+  if (uo.membershipType === "cashback") {
+    const balance = parseFloat(uo.cashbackBalanceKwd || "0");
+    cashbackApplied = Math.min(balance, rate);
+    clinicPay = Math.max(0, rate - cashbackApplied);
+  } else if (listNum > 0) {
+    clinicPay = listNum;
+  }
+
+  const elErr = await eligibilityError(uo, offer);
+  const cap = maxAccessibleSessions(uo, offer.maxSessions);
+  const committed = await sessionsStore.countCommitted(uo.id);
+  const consumed = Math.max(uo.sessionsUsed ?? 0, committed);
+
+  return res.json({
+    canBook: !elErr,
+    blockCode: elErr?.code ?? null,
+    sessionGrossKwd: (rate || clinicPay + cashbackApplied).toFixed(3),
+    cashbackAppliedKwd: cashbackApplied.toFixed(3),
+    clinicPayKwd: clinicPay.toFixed(3),
+    sessionsUsed: consumed,
+    sessionsCap: cap,
+    installmentsPaid: uo.installmentsPaid ?? null,
+    installmentCount: uo.installmentCount ?? null,
+  });
+});
+
 // ── Customer pays the session fee (mock) ────────────────────────────────────
 schedulingRouter.post("/me/requests/:id/pay-session", authRequired, async (req, res, next) => {
   try {
@@ -802,14 +890,21 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
 
   const uniqueOfferIds = [...new Set(enriched.map((it) => it.offerId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
   const offerDocs = uniqueOfferIds.length > 0
-    ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).select("_id name").lean()
+    ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).lean<OfferDoc[]>()
     : [];
-  const offerNameMap = new Map((offerDocs as Array<{ _id: { toString(): string }; name?: string }>).map((o) => [o._id.toString(), o.name ?? null]));
+  const offerMap = new Map(offerDocs.map((o) => [String(o._id), mapOfferDocToSched(o)]));
 
-  const finalItems = enriched.map((it) => ({
-    ...it,
-    offerName: it.offerId ? (offerNameMap.get(it.offerId) ?? (mongoose.isValidObjectId(it.offerId) ? null : (offersStore.get(it.offerId) as { name?: string } | undefined)?.name ?? null)) : null,
-  }));
+  const finalItems = enriched.map((it) => {
+    const offer = it.offerId && mongoose.isValidObjectId(it.offerId)
+      ? (offerMap.get(it.offerId) ?? null)
+      : (it.offerId ? (offersStore.get(it.offerId) as SchedOffer | undefined) ?? null : null);
+    const financials = computeBookingRequestFinancials(it, offer);
+    return {
+      ...it,
+      offerName: offer?.name ?? (it.offerId && !mongoose.isValidObjectId(it.offerId) ? (offersStore.get(it.offerId) as { name?: string } | undefined)?.name ?? null : null),
+      ...financials,
+    };
+  });
 
   return res.json({ items: finalItems });
 });
@@ -819,36 +914,60 @@ schedulingRouter.get("/clinic/financial-summary", authRequired, requireRole(["cl
   if (!clinicId && req.auth!.role === "clinicStaff") {
     clinicId = req.auth!.clinicId || (await getUserClinicId(req.auth!.userId)) ?? undefined;
   }
-  if (!clinicId) return res.json({ summary: { salesWithoutCashbackKwd: "0.000", salesWithCashbackKwd: "0.000", totalCashbackTakenKwd: "0.000", grossWithCashbackKwd: "0.000" } });
+  const empty = {
+    totalGrossSalesKwd: "0.000",
+    totalCashbackSpentKwd: "0.000",
+    totalClinicCashKwd: "0.000",
+    totalPendingCashKwd: "0.000",
+    totalPaidCashKwd: "0.000",
+    salesWithoutCashbackKwd: "0.000",
+    salesWithCashbackKwd: "0.000",
+    totalCashbackTakenKwd: "0.000",
+    grossWithCashbackKwd: "0.000",
+  };
+  if (!clinicId) return res.json({ summary: empty });
 
   const docs = await BookingRequestModel.find({
     clinicId,
-    status: { $in: ["confirmed", "under_review", "slot_proposed", "slot_accepted"] },
-  }).select("sessionPriceKwd cashbackDeductedKwd").lean();
+    status: { $nin: ["cancelled", "rejected"] },
+  }).select("sessionPriceKwd cashbackDeductedKwd offerId clinicId membershipType hadCashback isStandalone status clinicPaymentStatus").lean();
 
-  let salesWithout = 0;
-  let salesWithCash = 0;
-  let cashbackTaken = 0;
-  let grossWithCashback = 0;
+  const offerIds = [...new Set(docs.map((d) => d.offerId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
+  const offerDocs = offerIds.length > 0 ? await OfferModel.find({ _id: { $in: offerIds } }).lean<OfferDoc[]>() : [];
+  const offerMap = new Map(offerDocs.map((o) => [String(o._id), mapOfferDocToSched(o)]));
+
+  let totalGross = 0;
+  let totalCashback = 0;
+  let totalClinicCash = 0;
+  let totalPending = 0;
+  let totalPaid = 0;
 
   for (const d of docs) {
-    const price = parseFloat(String(d.sessionPriceKwd ?? "0")) || 0;
-    const cb = parseFloat(String(d.cashbackDeductedKwd ?? "0")) || 0;
-    cashbackTaken += cb;
-    if (cb > 0) {
-      salesWithCash += price;
-      grossWithCashback += price + cb;
-    } else {
-      salesWithout += price;
+    const offer = d.offerId ? offerMap.get(String(d.offerId)) ?? null : null;
+    const fin = computeBookingRequestFinancials(d as Parameters<typeof computeBookingRequestFinancials>[0], offer);
+    const gross = parseFloat(fin.sessionGrossKwd) || 0;
+    const cb = parseFloat(fin.cashbackDeductedKwd) || 0;
+    const cash = parseFloat(fin.clinicTakeKwd) || 0;
+    totalGross += gross;
+    totalCashback += cb;
+    if (d.status === "confirmed") {
+      totalClinicCash += cash;
+      if (d.clinicPaymentStatus === "paid") totalPaid += cash;
+      else totalPending += cash;
     }
   }
 
   return res.json({
     summary: {
-      salesWithoutCashbackKwd: salesWithout.toFixed(3),
-      salesWithCashbackKwd: salesWithCash.toFixed(3),
-      totalCashbackTakenKwd: cashbackTaken.toFixed(3),
-      grossWithCashbackKwd: grossWithCashback.toFixed(3),
+      totalGrossSalesKwd: totalGross.toFixed(3),
+      totalCashbackSpentKwd: totalCashback.toFixed(3),
+      totalClinicCashKwd: totalClinicCash.toFixed(3),
+      totalPendingCashKwd: totalPending.toFixed(3),
+      totalPaidCashKwd: totalPaid.toFixed(3),
+      salesWithoutCashbackKwd: totalClinicCash.toFixed(3),
+      salesWithCashbackKwd: totalPaid.toFixed(3),
+      totalCashbackTakenKwd: totalCashback.toFixed(3),
+      grossWithCashbackKwd: totalGross.toFixed(3),
     },
   });
 });
@@ -923,7 +1042,7 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
   const offer = await loadOffer(uo.offerId);
   if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-  const elErr = await eligibilityError(uo, offer);
+  const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
   if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
   const sessionClinicId = breq.clinicId || uo.clinicId;
@@ -944,6 +1063,14 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   if (!breq.isStandalone && breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
     await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { sessionsUsed: 1 } });
   }
+
+  const finPreview = computeBookingRequestFinancials(breq, offer);
+  const clinicStaffConfirm = req.auth!.role === "clinicStaff";
+  await bookingRequestsStore.update(breq.id, {
+    sessionPriceKwd: breq.sessionPriceKwd && parseFloat(breq.sessionPriceKwd) > 0 ? breq.sessionPriceKwd : finPreview.clinicTakeKwd,
+    cashbackDeductedKwd: breq.cashbackDeductedKwd && parseFloat(breq.cashbackDeductedKwd) > 0 ? breq.cashbackDeductedKwd : finPreview.cashbackDeductedKwd,
+    clinicPaymentStatus: clinicStaffConfirm ? "pending" : breq.clinicPaymentStatus,
+  });
 
   let sessionPaymentId = breq.sessionPaymentId;
   if (breq.sessionPriceKwd && parseFloat(breq.sessionPriceKwd) > 0 && !sessionPaymentId) {
@@ -1203,7 +1330,7 @@ schedulingRouter.post(
     if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
     const offer = await loadOffer(uo.offerId);
     if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-    const elErr = await eligibilityError(uo, offer);
+    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
     // Deduct cashback balance if not already done at booking-request creation time.
@@ -1238,12 +1365,29 @@ schedulingRouter.post(
       scheduledBy: req.auth!.userId,
       notes: parsed.data.notes
     });
+
+    if (!breq.isStandalone && breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
+      await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { sessionsUsed: 1 } });
+    }
+
+    const breqAfterCb = (await bookingRequestsStore.get(breq.id)) ?? breq;
+    const finPreview = computeBookingRequestFinancials(breqAfterCb, offer);
+    const isCsOrAdmin = req.auth!.role === "cs" || req.auth!.role === "admin";
+    const clinicTake = breqAfterCb.sessionPriceKwd && parseFloat(breqAfterCb.sessionPriceKwd) > 0 ? breqAfterCb.sessionPriceKwd : finPreview.clinicTakeKwd;
+    const cashbackUsed = breqAfterCb.cashbackDeductedKwd && parseFloat(breqAfterCb.cashbackDeductedKwd) > 0 ? breqAfterCb.cashbackDeductedKwd : finPreview.cashbackDeductedKwd;
+
     const updated = await bookingRequestsStore.update(breq.id, {
       status: "confirmed",
       confirmedAt: new Date().toISOString(),
       confirmedBy: req.auth!.userId,
       scheduledSessionId: session.id,
-      proposedAt: parsed.data.scheduledAt
+      proposedAt: parsed.data.scheduledAt,
+      sessionPriceKwd: clinicTake,
+      cashbackDeductedKwd: cashbackUsed,
+      clinicPaymentStatus: isCsOrAdmin ? "paid" : "pending",
+      ...(isCsOrAdmin
+        ? { clinicPaymentMarkedAt: new Date(), clinicPaymentMarkedBy: req.auth!.userId }
+        : {}),
     });
     if (updated?.conversationId) {
       postSystemMessage(

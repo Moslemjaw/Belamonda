@@ -38,6 +38,42 @@ type ApiOfferRow = {
 
 const ar = () => i18n.language === "ar";
 
+function computeOfferCashbackParts(o: {
+  cashbackBalanceKwd?: string;
+  totalSignupCashbackKwd?: string;
+  cashbackGrantedKwd?: string;
+  cashbackAppliedKwd?: string;
+}) {
+  const remainingCb = parseFloat(o.cashbackBalanceKwd || "0");
+  const totalSignup = parseFloat(o.totalSignupCashbackKwd || "0");
+  const granted = parseFloat(o.cashbackGrantedKwd || "0");
+  const appliedCb = parseFloat(o.cashbackAppliedKwd || "0");
+  if (totalSignup > 0) {
+    return {
+      unlocked: Math.max(0, granted - appliedCb),
+      locked: Math.max(0, totalSignup - granted),
+      total: totalSignup,
+      hasInstallmentTracking: true,
+    };
+  }
+  return {
+    unlocked: remainingCb,
+    locked: 0,
+    total: remainingCb + appliedCb,
+    hasInstallmentTracking: false,
+  };
+}
+
+function CashbackProgressBar({ unlocked, locked }: { unlocked: number; locked: number }) {
+  const total = unlocked + locked;
+  const pct = total > 0 ? Math.min((unlocked / total) * 100, 100) : 0;
+  return (
+    <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden">
+      <div className="h-full bg-white rounded-full transition-all" style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
 const CustomerIcons = {
   home: <svg className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>,
   offers: <svg className="h-5 w-5 sm:h-6 sm:w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>,
@@ -1395,9 +1431,7 @@ export default function CustomerDashboard() {
                       <span>{ar() ? "من الباقات:" : "From Offers:"} {unlockedFromOffers.toFixed(3)} {totalLocked > 0 && `(+${totalLocked.toFixed(3)} ${ar() ? 'مقفل' : 'Locked'})`}</span>
                       <span>{ar() ? "من المحفظة:" : "From Wallet:"} {walletUnlocked.toFixed(3)}</span>
                     </div>
-                    <div className="h-1.5 w-full bg-black/20 rounded-full overflow-hidden">
-                      <div className="h-full bg-white rounded-full" style={{ width: `${Math.min(totalUnlocked > 0 ? 100 : 0, 100)}%` }} />
-                    </div>
+                    <CashbackProgressBar unlocked={totalUnlocked} locked={totalLocked} />
                   </>
                 )}
               </div>
@@ -1464,9 +1498,9 @@ export default function CustomerDashboard() {
                               </div>
                               {isCashback ? (
                                 <div className="bg-surface-50 px-3.5 py-2.5 rounded-2xl text-center shrink-0 border border-surface-200/70 min-w-[88px]">
-                                  <div className="text-[9px] text-surface-500 uppercase font-bold tracking-wider">{ar() ? "الرصيد المتبقي" : "Remaining"}</div>
+                                  <div className="text-[9px] text-surface-500 uppercase font-bold tracking-wider">{ar() ? "متاح للاستخدام" : "Available"}</div>
                                   <div className="font-black text-surface-900 text-xl leading-none mt-1">
-                                    {parseFloat(o.cashbackBalanceKwd || "0").toFixed(1)}
+                                    {computeOfferCashbackParts(o).unlocked.toFixed(1)}
                                     <span className="text-surface-400 text-sm font-bold ml-1">KWD</span>
                                   </div>
                                 </div>
@@ -1575,9 +1609,12 @@ export default function CustomerDashboard() {
 
                             {isCashback ? (
                               <div className="wallet-card py-5 px-5 shadow-glow">
-                                <div className="text-white/80 text-xs font-semibold uppercase tracking-wider mb-1">{ar() ? "رصيد الكاش باك" : "Cashback Balance"}</div>
+                                <div className="text-white/80 text-xs font-semibold uppercase tracking-wider mb-1">{ar() ? "رصيد الكاش باك المتاح" : "Available Cashback"}</div>
                                 <div className="text-3xl font-black text-white leading-none">
-                                  {parseFloat(o.cashbackBalanceKwd || "0").toFixed(3)} <span className="text-sm opacity-80 font-bold">KWD</span>
+                                  {computeOfferCashbackParts(o).unlocked.toFixed(3)} <span className="text-sm opacity-80 font-bold">KWD</span>
+                                </div>
+                                <div className="mt-3">
+                                  <CashbackProgressBar unlocked={computeOfferCashbackParts(o).unlocked} locked={computeOfferCashbackParts(o).locked} />
                                 </div>
                                 {parseFloat(o.cashbackPerSessionKwd || "0") > 0 && (
                                   <div className="text-white/85 text-xs mt-2 flex items-center gap-1.5">
@@ -3050,9 +3087,21 @@ export default function CustomerDashboard() {
             <h3 className="text-xl font-bold text-surface-900 mb-2">{ar() ? "حجز جلستك" : "Book Your Session"}</h3>
             <p className="text-sm text-surface-500 mb-6">{ar() ? "راجع تفاصيل الحجز واختر العيادة المفضلة لتأكيد الموعد." : "Review your booking details and select your preferred clinic to confirm."}</p>
             
-            <div className="bg-surface-50 border border-surface-200 rounded-xl p-4 mb-5">
+            <div className="bg-surface-50 border border-surface-200 rounded-xl p-4 mb-5 space-y-3">
                <div className="text-xs text-surface-500 mb-1">{ar() ? "الخدمة / الباقة المختارة" : "Selected Service / Package"}</div>
                <div className="font-bold text-surface-900">{showBookingModal.offerName || showBookingModal.offerId || "Booking"}</div>
+               {(() => {
+                 const gross = parseFloat(showBookingModal.priceKwd || "0") || (parseFloat(showBookingModal.finalPrice || "0") + parseFloat(showBookingModal.cashbackKwd || "0"));
+                 const cb = parseFloat(showBookingModal.cashbackKwd || "0");
+                 const pay = parseFloat(showBookingModal.finalPrice || showBookingModal.effectivePrice || "0") || Math.max(0, gross - cb);
+                 return gross > 0 ? (
+                   <div className="rounded-xl border border-surface-200 bg-white p-3 space-y-1.5 text-xs">
+                     <div className="flex justify-between"><span className="text-surface-500">{ar() ? "سعر الجلسة" : "Session price"}</span><span className="font-bold">{gross.toFixed(3)} KWD</span></div>
+                     {cb > 0 && <div className="flex justify-between"><span className="text-surface-500">{ar() ? "كاش باك" : "Cashback"}</span><span className="font-bold text-amber-700">− {cb.toFixed(3)} KWD</span></div>}
+                     <div className="flex justify-between border-t border-surface-100 pt-1.5"><span className="font-semibold text-emerald-800">{ar() ? "تدفعين في العيادة" : "You pay at clinic"}</span><span className="font-black text-emerald-800">{pay.toFixed(3)} KWD</span></div>
+                   </div>
+                 ) : null;
+               })()}
                {showBookingModal.method === "Standalone" && (
                  <div className="text-xs text-brand-pink-500 font-bold mt-1">{ar() ? "جلسة مفردة — الدفع في العيادة" : "Single Session — Pay at Clinic"}</div>
                )}
@@ -3187,10 +3236,13 @@ export default function CustomerDashboard() {
                  await refetchMySessions();
                  await refetchMyRequests();
                  setShowBookingModal(null);
-                 setSysAlert(ar() ? "✅ تم حجز موعدك بنجاح! سيتم التواصل معك لتأكيد الوقت." : "✅ Your session has been booked! We'll confirm the exact time shortly.");
+                 setSysAlert(ar() ? "✅ تم إرسال طلب الحجز! سيتم التواصل معك لتأكيد الوقت. المبلغ في العيادة يبقى قيد الانتظار حتى وصولك." : "✅ Booking request sent! We'll confirm the time. Payment at the clinic stays pending until you arrive.");
                  setTimeout(() => setSysAlert(null), 6000);
                } catch (e: any) {
                  const msg = e instanceof Error ? e.message : "Error";
+                 const friendly: Record<string, string> = {
+                   INSTALLMENT_NOT_PAID_FOR_NEXT_SESSION: ar() ? "يجب دفع القسط التالي قبل حجز جلسة جديدة." : "Please pay your next installment before booking another session.",
+                 };
                  const data = (e as any)?.data as { forms?: EFormPending[] } | undefined;
                  if (msg === "EFORMS_REQUIRED" && data?.forms?.[0]) {
                    const first = data.forms[0];
@@ -3198,7 +3250,7 @@ export default function CustomerDashboard() {
                    setShowBookingModal(null);
                    navigate(`/forms/fill/${first.formId}?userOfferId=${resolvedUserOfferId}&return=/dashboard`);
                  } else {
-                   setSysAlert(msg);
+                   setSysAlert(friendly[msg] ?? msg);
                  }
                  setTimeout(() => setSysAlert(null), 6000);
                }
