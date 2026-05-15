@@ -32,6 +32,8 @@ export async function createSessionPayment(input: {
   offerId: string;
   userOfferId: string;
   amountKwd: string;
+  grossAmountKwd?: string;
+  cashbackAppliedKwd?: string;
   bookingRequestId: string;
 }) {
   const doc = await PaymentModel.create({
@@ -39,6 +41,8 @@ export async function createSessionPayment(input: {
     offerId: new mongoose.Types.ObjectId(input.offerId),
     userOfferId: new mongoose.Types.ObjectId(input.userOfferId),
     amountKwd: input.amountKwd,
+    grossAmountKwd: input.grossAmountKwd,
+    cashbackAppliedKwd: input.cashbackAppliedKwd,
     currency: "KWD",
     method: "card_mock",
     purpose: "session_payment",

@@ -17,6 +17,7 @@ import { UserOfferModel, type UserOfferDoc } from "../../models/userOffer.model.
 import { OfferModel, type OfferDoc } from "../../models/offer.model.js";
 import { BookingSessionModel } from "../../models/bookingSession.model.js";
 import { BookingRequestModel } from "../../models/bookingRequest.model.js";
+import { PaymentModel } from "../../models/payment.model.js";
 import { notifyBookingConfirmed, notifyBookingUnderReview, notifyBookingRejected, notifyBookingCancelled, notifySessionCompletedCashback } from "../notifications/notifications.service.js";
 import { notifyChatRelatedUsers } from "../notifications/notifications.service.chat.js";
 import { listRequiredFormsForUser } from "../eforms/eforms.router.js";
@@ -530,11 +531,14 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       });
       let sessionPayment;
       try {
+        const gross = parseFloat(amountToPay) + cashbackDeducted;
         sessionPayment = await createSessionPayment({
           userId: uo.userId,
           offerId: uo.offerId,
           userOfferId: uo.id,
           amountKwd: amountToPay,
+          grossAmountKwd: gross.toFixed(3),
+          cashbackAppliedKwd: cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined,
           bookingRequestId: breq.id
         });
       } catch (payErr) {
@@ -883,11 +887,28 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
     await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { sessionsUsed: 1 } });
   }
 
+  let sessionPaymentId = breq.sessionPaymentId;
+  if (breq.sessionPriceKwd && parseFloat(breq.sessionPriceKwd) > 0 && !sessionPaymentId) {
+    const cb = parseFloat(breq.cashbackDeductedKwd || "0");
+    const gross = parseFloat(breq.sessionPriceKwd) + cb;
+    const sessionPayment = await createSessionPayment({
+      userId: uo.userId,
+      offerId: uo.offerId,
+      userOfferId: uo.id,
+      amountKwd: breq.sessionPriceKwd,
+      grossAmountKwd: gross.toFixed(3),
+      cashbackAppliedKwd: cb > 0 ? cb.toFixed(3) : undefined,
+      bookingRequestId: breq.id
+    });
+    sessionPaymentId = sessionPayment.id;
+  }
+
   const updated = await bookingRequestsStore.update(breq.id, {
     status: "confirmed",
     confirmedAt: new Date().toISOString(),
     confirmedBy: req.auth!.userId,
-    scheduledSessionId: session.id
+    scheduledSessionId: session.id,
+    ...(sessionPaymentId ? { sessionPaymentId } : {})
   });
 
   if (updated?.conversationId) {
@@ -920,6 +941,36 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
     return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
   }
   if (breq.clinicPaymentStatus === "paid") return res.status(409).json({ error: "ALREADY_MARKED_PAID" });
+
+  if (breq.sessionPaymentId) {
+    await PaymentModel.findByIdAndUpdate(breq.sessionPaymentId, {
+      status: "completed",
+      confirmedAt: new Date(),
+      confirmedBy: req.auth!.userId,
+      method: "cash" // or pos, we default to cash for clinic side payments
+    });
+  } else if (breq.sessionPriceKwd && parseFloat(breq.sessionPriceKwd) > 0) {
+    // Fallback if no pending payment existed
+    const cb = parseFloat(breq.cashbackDeductedKwd || "0");
+    const gross = parseFloat(breq.sessionPriceKwd) + cb;
+    const payDoc = await PaymentModel.create({
+      userId: breq.userId,
+      offerId: breq.offerId ? new mongoose.Types.ObjectId(breq.offerId) : undefined,
+      userOfferId: breq.userOfferId ? new mongoose.Types.ObjectId(breq.userOfferId) : undefined,
+      amountKwd: breq.sessionPriceKwd,
+      grossAmountKwd: gross.toFixed(3),
+      cashbackAppliedKwd: cb > 0 ? cb.toFixed(3) : undefined,
+      currency: "KWD",
+      method: "cash",
+      purpose: "session_payment",
+      status: "completed",
+      provider: "manual",
+      bookingRequestId: breq.id,
+      confirmedAt: new Date(),
+      confirmedBy: req.auth!.userId
+    });
+    await bookingRequestsStore.update(breq.id, { sessionPaymentId: payDoc.id });
+  }
 
   const updated = await bookingRequestsStore.update(breq.id, {
     clinicPaymentStatus: "paid",

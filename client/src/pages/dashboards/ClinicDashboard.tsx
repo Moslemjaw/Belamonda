@@ -313,7 +313,7 @@ function CustomerContextBadge({ ctx }: { ctx: CustomerContext }) {
   );
 }
 
-function BookingRequestsPanel({ onOpenChat }: { onOpenChat: (convId: string) => void }) {
+function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (convId: string) => void; onScheduleSuccess?: () => void; }) {
   const { getAuthHeader } = useAuth();
   const [requests, setRequests] = useState<BookingRequestRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -363,6 +363,7 @@ function BookingRequestsPanel({ onOpenChat }: { onOpenChat: (convId: string) => 
         body: JSON.stringify({ scheduledAt: new Date(scheduledAt).toISOString() }),
       });
       closeAction(); void load();
+      if (onScheduleSuccess) onScheduleSuccess();
     } catch (e: any) { alert(e.message); }
     finally { setBusy(false); }
   };
@@ -451,7 +452,9 @@ function BookingRequestsPanel({ onOpenChat }: { onOpenChat: (convId: string) => 
                       <div>
                         {ar() ? "البيانات المالية:" : "Financial:"}{" "}
                         <span className="font-semibold text-surface-700">
-                          {r.sessionPriceKwd ? `${r.sessionPriceKwd} KWD` : "0.000 KWD"} · {r.membershipType || "none"} · cashback {r.cashbackDeductedKwd || "0.000"} KWD
+                          {r.sessionPriceKwd ? `${r.sessionPriceKwd} KWD` : "0.000 KWD"}
+                          {r.membershipType && r.membershipType !== 'none' ? ` · ${ar() ? 'العضوية:' : 'Membership:'} ${r.membershipType}` : ''}
+                          {(r.cashbackDeductedKwd && r.cashbackDeductedKwd !== "0.000") ? ` · ${ar() ? 'خصم كاش باك:' : 'Cashback Used:'} ${r.cashbackDeductedKwd} KWD` : ''}
                         </span>
                       </div>
                     )}
@@ -1160,6 +1163,7 @@ export default function ClinicDashboard() {
         {activeNav === "requests" && (
           <BookingRequestsPanel
             onOpenChat={(convId) => { setChatConvId(convId); setActiveNav("chat"); }}
+            onScheduleSuccess={refetch}
           />
         )}
 
