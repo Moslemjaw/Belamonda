@@ -326,8 +326,11 @@ export function useProducts(opts?: { lazy?: boolean }) {
 }
 
 export function useClinicSchedule(clinicId: string) {
-  const from = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  const to = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+  const [dates] = useState(() => ({
+    from: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+    to: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+  }));
+  const { from, to } = dates;
   return useApi<{
     items: Array<{
       id: string;
