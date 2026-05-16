@@ -1491,10 +1491,26 @@ export default function CustomerDashboard() {
                     <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
                       {activeOffers.map(o => {
                         const isCashback = o.isCashbackOnly || o.membershipType === "cashback";
-                        const isPending = o.status === 'pending payment';
+                        const isPending = o.status === 'pending payment' || o.status === 'pending_payment';
+                        const isInstallment = o.method === "Installments";
+                        const paidInst = o.paidInstallments || 0;
+                        const sessionsUsed = o.sessionsUsed || 0;
+                        let bookingLocked = isPending;
+                        let lockedReason = ar() ? "بانتظار تأكيد الدفع" : "Awaiting Payment";
+
+                        if (!isPending && isInstallment) {
+                          if (paidInst === 0) {
+                            bookingLocked = true;
+                            lockedReason = ar() ? "يجب دفع القسط الأول" : "First installment required";
+                          } else if (paidInst === 1 && sessionsUsed >= 1) {
+                            bookingLocked = true;
+                            lockedReason = ar() ? "يجب دفع القسط الثاني" : "Second installment required";
+                          }
+                        }
+
                         const cardCls = `membership-card p-4 sm:p-5 lg:p-6 ${isPending ? 'is-pending' : isCashback ? 'is-cashback' : ''}`;
                         const offerName = o.offerName || homeCatalogData?.items?.find((x: any) => x.id === o.offerId)?.name || o.offerId || "Special Package";
-                        const usedPct = o.maxSessions ? Math.min(((o.sessionsUsed || 0) / o.maxSessions) * 100, 100) : 0;
+                        const usedPct = o.maxSessions ? Math.min((sessionsUsed / o.maxSessions) * 100, 100) : 0;
                         return (
                         <div key={o.id} className={cardCls}>
                           <span className="ribbon" />
@@ -1630,14 +1646,14 @@ export default function CustomerDashboard() {
                               );
                             })() : (
                               <button
-                                className={`w-full font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 ${isPending ? 'bg-amber-50 text-amber-700 border border-amber-200 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
+                                className={`w-full font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 ${bookingLocked ? 'bg-amber-50 text-amber-700 border border-amber-200 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
                                 onClick={() => setShowBookingModal({ ...o, userOfferId: o.id })}
-                                disabled={isPending}
+                                disabled={bookingLocked}
                               >
-                                {isPending ? (
+                                {bookingLocked ? (
                                   <>
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                                    {ar() ? "بانتظار تأكيد الدفع" : "Awaiting Payment"}
+                                    {lockedReason}
                                   </>
                                 ) : (
                                   <>
