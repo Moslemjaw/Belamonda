@@ -1497,23 +1497,28 @@ export default function CustomerDashboard() {
                         const sessionsUsed = o.sessionsUsed || 0;
                         let bookingLocked = isPending;
                         let lockedReason = ar() ? "بانتظار تأكيد الدفع" : "Awaiting Payment";
+                        let rebookDateStr = "";
 
                         const hasActiveBooking = o.hasActiveBooking;
                         const lastCompleted = o.lastCompletedSessionAt ? new Date(o.lastCompletedSessionAt) : null;
                         const sessionIntervalDays = o.sessionIntervalDays || 0;
-                        let daysSinceLast = 999;
-                        if (lastCompleted) {
-                          daysSinceLast = (new Date().getTime() - lastCompleted.getTime()) / (1000 * 60 * 60 * 24);
+                        let coolingActive = false;
+
+                        if (sessionIntervalDays > 0 && lastCompleted) {
+                          const nextEligible = new Date(lastCompleted.getTime() + sessionIntervalDays * 24 * 60 * 60 * 1000);
+                          if (new Date() < nextEligible) {
+                            coolingActive = true;
+                            bookingLocked = true;
+                            const fmtDate = nextEligible.toLocaleDateString(ar() ? "ar-KW" : "en-US", { month: "short", day: "numeric" });
+                            rebookDateStr = fmtDate;
+                            lockedReason = ar() ? `إعادة الحجز في ${fmtDate}` : `Rebook at ${fmtDate}`;
+                          }
                         }
 
-                        if (!isPending) {
+                        if (!isPending && !coolingActive) {
                           if (hasActiveBooking) {
                             bookingLocked = true;
                             lockedReason = ar() ? "يوجد حجز قيد المعالجة" : "Active booking exists";
-                          } else if (sessionIntervalDays > 0 && daysSinceLast < sessionIntervalDays) {
-                            bookingLocked = true;
-                            const remainingDays = Math.ceil(sessionIntervalDays - daysSinceLast);
-                            lockedReason = ar() ? `متاح بعد ${remainingDays} يوم` : `Available in ${remainingDays} days`;
                           } else if (isInstallment) {
                             if (paidInst === 0) {
                               bookingLocked = true;
@@ -1663,11 +1668,16 @@ export default function CustomerDashboard() {
                               );
                             })() : (
                               <button
-                                className={`w-full font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 ${bookingLocked ? 'bg-amber-50 text-amber-700 border border-amber-200 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
+                                className={`w-full font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 ${coolingActive ? 'bg-blue-50 text-blue-700 border border-blue-200 cursor-not-allowed' : bookingLocked ? 'bg-amber-50 text-amber-700 border border-amber-200 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
                                 onClick={() => setShowBookingModal({ ...o, userOfferId: o.id })}
                                 disabled={bookingLocked}
                               >
-                                {bookingLocked ? (
+                                {coolingActive ? (
+                                  <>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    {ar() ? `إعادة الحجز في ${rebookDateStr}` : `Rebook at ${rebookDateStr}`}
+                                  </>
+                                ) : bookingLocked ? (
                                   <>
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                                     {lockedReason}
