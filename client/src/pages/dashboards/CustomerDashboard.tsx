@@ -1391,39 +1391,69 @@ export default function CustomerDashboard() {
             <div className="space-y-5 sm:space-y-6 lg:space-y-8">
               {/* Wallet Hero Card */}
               {(() => {
-                let unlockedFromOffers = 0;
-                let lockedFromOffers = 0;
-
-                offers.filter(o => o.status === 'active').forEach(o => {
-                  const parts = computeOfferCashbackParts(o);
-                  unlockedFromOffers += parts.unlocked;
-                  lockedFromOffers += parts.locked;
-                });
-
                 const walletUnlocked = parseFloat(wallet?.unlockedBalance || "0");
                 const walletLocked = parseFloat(wallet?.lockedBalance || "0");
-                const totalUnlocked = walletUnlocked + unlockedFromOffers;
-                const totalLocked = walletLocked + lockedFromOffers;
+                const walletTxns = walletData?.txns ?? [];
+                const used = walletTxns.filter(t => t.type === "deduction").reduce((s, t) => s + parseFloat(t.amountKwd || "0"), 0);
+                const total = walletUnlocked + walletLocked;
+                const pctUnlocked = total > 0 ? (walletUnlocked / total) * 100 : 0;
+                const pctUsed = total > 0 ? (used / total) * 100 : 0;
+                const pctLocked = Math.max(0, 100 - pctUnlocked);
                 
                 return (
-              <div className="wallet-card shadow-glow-lg">
-                <div className="flex justify-between items-start gap-3 mb-4 sm:mb-6">
+              <div className="wallet-card shadow-glow-lg" style={{ cursor: "pointer" }} onClick={() => setActiveTab("wallet")}>
+                {/* Header */}
+                <div className="flex justify-between items-start gap-3 mb-5">
                   <div className="min-w-0">
-                    <div className="text-white/80 text-[11px] sm:text-sm leading-tight">{ar() ? "الرصيد المتاح (كاش باك)" : "Available Cashback"}</div>
-                    <div className="text-3xl sm:text-4xl font-bold mt-0.5 sm:mt-1 text-white tabular-nums tracking-tight">{totalUnlocked.toFixed(3)} <span className="text-base sm:text-xl opacity-80 font-semibold">KWD</span></div>
+                    <div className="text-white/70 text-[11px] sm:text-xs font-semibold uppercase tracking-wider">{ar() ? "محفظة الكاش باك" : "Cashback Wallet"}</div>
+                    <div className="text-3xl sm:text-4xl font-black mt-1 text-white tabular-nums tracking-tight">{total.toFixed(3)} <span className="text-lg sm:text-xl opacity-70 font-bold">KWD</span></div>
                   </div>
-                  <div className="bg-white/20 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold text-white backdrop-blur-md shrink-0">
-                    {wallet || totalUnlocked > 0 || totalLocked > 0 ? (ar() ? "محفظة نشطة" : "Active Wallet") : (ar() ? "غير نشط" : "Inactive")}
+                  <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold text-white backdrop-blur-md shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+                    {total > 0 ? (ar() ? "نشطة" : "Active") : (ar() ? "غير نشط" : "Inactive")}
                   </div>
                 </div>
-                {(wallet || totalUnlocked > 0 || totalLocked > 0) && (
-                  <>
-                    <div className="flex justify-between text-sm text-white/80 mb-2">
-                      <span>{ar() ? "من الباقات:" : "From Offers:"} {unlockedFromOffers.toFixed(3)} {totalLocked > 0 && `(+${totalLocked.toFixed(3)} ${ar() ? 'مقفل' : 'Locked'})`}</span>
-                      <span>{ar() ? "من المحفظة:" : "From Wallet:"} {walletUnlocked.toFixed(3)}</span>
+
+                {/* Segmented Progress Bar */}
+                <div className="mb-4">
+                  <div className="h-3 w-full rounded-full overflow-hidden flex bg-black/15">
+                    {pctUnlocked > 0 && <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${pctUnlocked}%` }} />}
+                    {pctLocked > 0 && <div className="h-full bg-white/30 transition-all duration-500" style={{ width: `${pctLocked}%` }} />}
+                  </div>
+                </div>
+
+                {/* Three stat columns */}
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="bg-emerald-500/25 border border-emerald-400/30 rounded-xl py-2.5 px-2 text-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="text-white/80 text-[10px] font-semibold">{ar() ? "متاح للاستخدام" : "Available"}</span>
                     </div>
-                    <CashbackProgressBar unlocked={totalUnlocked} locked={totalLocked} />
-                  </>
+                    <div className="text-white font-black text-base sm:text-lg tabular-nums">{walletUnlocked.toFixed(3)}</div>
+                  </div>
+                  <div className="bg-white/10 border border-white/15 rounded-xl py-2.5 px-2 text-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                      <span className="text-white/70 text-[10px] font-semibold">{ar() ? "مقفل" : "Locked"}</span>
+                    </div>
+                    <div className="text-white/80 font-black text-base sm:text-lg tabular-nums">{walletLocked.toFixed(3)}</div>
+                  </div>
+                  <div className="bg-white/10 border border-white/15 rounded-xl py-2.5 px-2 text-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <span className="text-white/70 text-[10px] font-semibold">{ar() ? "مستخدم" : "Used"}</span>
+                    </div>
+                    <div className="text-white/80 font-black text-base sm:text-lg tabular-nums">{used.toFixed(3)}</div>
+                  </div>
+                </div>
+
+                {/* Locked hint */}
+                {walletLocked > 0 && (
+                  <div className="mt-3 text-white/60 text-[10px] sm:text-[11px] text-center font-medium">
+                    {ar() 
+                      ? "💡 ادفع أقساطك لفتح الرصيد المقفل"
+                      : "💡 Pay your installments to unlock locked balance"}
+                  </div>
                 )}
               </div>
                 );
@@ -1563,41 +1593,52 @@ export default function CustomerDashboard() {
                                );
                             })()}
 
-                            {isCashback ? (
+                            {isCashback ? (() => {
+                              const parts = computeOfferCashbackParts(o);
+                              const offerTotal = parts.unlocked + parts.locked;
+                              const offerPct = offerTotal > 0 ? (parts.unlocked / offerTotal) * 100 : 0;
+                              return (
                               <div className="wallet-card py-5 px-5 shadow-glow">
-                                <div className="text-white/80 text-xs font-semibold uppercase tracking-wider mb-1">{ar() ? "رصيد الكاش باك المتاح" : "Available Cashback"}</div>
-                                <div className="text-3xl font-black text-white leading-none">
-                                  {computeOfferCashbackParts(o).unlocked.toFixed(3)} <span className="text-sm opacity-80 font-bold">KWD</span>
-                                </div>
-                                <div className="mt-3">
-                                  <div className="flex justify-between text-xs text-white/80 mb-1.5 px-1 font-semibold">
-                                    <span>{ar() ? "المتاح" : "Unlocked"}: {computeOfferCashbackParts(o).unlocked.toFixed(2)} KWD</span>
-                                    {computeOfferCashbackParts(o).locked > 0 && (
-                                      <span>{ar() ? "المقفل" : "Locked"}: {computeOfferCashbackParts(o).locked.toFixed(2)} KWD</span>
-                                    )}
+                                <div className="flex items-center justify-between mb-3">
+                                  <div className="text-white/70 text-[10px] font-semibold uppercase tracking-wider">{ar() ? "كاش باك الباقة" : "Membership Cashback"}</div>
+                                  <div className="flex items-center gap-1 text-emerald-300 text-[10px] font-bold">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
+                                    {parts.unlocked.toFixed(3)} / {offerTotal.toFixed(3)} KWD
                                   </div>
-                                  <CashbackProgressBar unlocked={computeOfferCashbackParts(o).unlocked} locked={computeOfferCashbackParts(o).locked} />
                                 </div>
-                                {computeOfferCashbackParts(o).locked > 0 && o.method === "Installments" && (
-                                  <div className="mt-4 bg-white/20 p-3 rounded-xl text-[11px] font-medium leading-relaxed border border-white/30">
-                                    {ar() 
-                                      ? "ادفع القسط التالي لفتح باقي رصيد الكاش باك (" + computeOfferCashbackParts(o).locked.toFixed(3) + " د.ك)."
-                                      : `Pay your next installment to unlock the rest of your cashback (${computeOfferCashbackParts(o).locked.toFixed(3)} KWD).`}
-                                    <button 
-                                      className="block w-full mt-2.5 bg-white text-surface-900 font-bold py-2 rounded-lg text-center transition-colors hover:bg-surface-50 shadow-sm"
-                                      onClick={(e) => { 
-                                         e.stopPropagation(); 
-                                         setActiveTab("my-purchases"); 
-                                         setPurchasesSubTab("packages"); 
-                                         setTimeout(() => {
-                                           const el = document.getElementById("sec-packages");
-                                           if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                                         }, 100);
-                                      }}
-                                    >
-                                      {ar() ? "دفع القسط الآن" : "Pay Installment Now"}
-                                    </button>
+
+                                {/* Progress bar */}
+                                <div className="h-2.5 w-full rounded-full overflow-hidden flex bg-black/15 mb-4">
+                                  {offerPct > 0 && <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${offerPct}%` }} />}
+                                </div>
+
+                                {/* Two stat columns */}
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div className="bg-emerald-500/25 border border-emerald-400/30 rounded-xl py-2 px-3 text-center">
+                                    <div className="text-white/70 text-[9px] font-semibold mb-0.5">{ar() ? "متاح للاستخدام" : "Available"}</div>
+                                    <div className="text-white font-black text-lg tabular-nums">{parts.unlocked.toFixed(3)}</div>
                                   </div>
+                                  <div className="bg-white/10 border border-white/15 rounded-xl py-2 px-3 text-center">
+                                    <div className="text-white/60 text-[9px] font-semibold mb-0.5">{ar() ? "مقفل" : "Locked"}</div>
+                                    <div className="text-white/70 font-black text-lg tabular-nums">{parts.locked.toFixed(3)}</div>
+                                  </div>
+                                </div>
+
+                                {parts.locked > 0 && o.method === "Installments" && (
+                                  <button
+                                    className="w-full mt-3 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold py-2.5 rounded-xl text-xs transition-all border border-white/20"
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      setActiveTab("my-purchases"); 
+                                      setPurchasesSubTab("packages"); 
+                                      setTimeout(() => {
+                                        const el = document.getElementById("sec-packages");
+                                        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                                      }, 100);
+                                    }}
+                                  >
+                                    🔓 {ar() ? `ادفع القسط لفتح ${parts.locked.toFixed(3)} د.ك` : `Pay installment to unlock ${parts.locked.toFixed(3)} KWD`}
+                                  </button>
                                 )}
                                 {parseFloat(o.cashbackPerSessionKwd || "0") > 0 && (
                                   <div className="text-white/85 text-xs mt-3 flex items-center gap-1.5">
@@ -1610,7 +1651,8 @@ export default function CustomerDashboard() {
                                   {ar() ? "بدون حجز" : "No Booking Needed"}
                                 </div>
                               </div>
-                            ) : (
+                              );
+                            })() : (
                               <button
                                 className={`w-full font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 ${isPending ? 'bg-amber-50 text-amber-700 border border-amber-200 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
                                 onClick={() => setShowBookingModal({ ...o, userOfferId: o.id })}
@@ -2317,29 +2359,64 @@ export default function CustomerDashboard() {
                 return (
                   <>
                     <div className="wallet-card shadow-glow-lg">
-                      <div className="flex justify-between items-start gap-3 mb-4 sm:mb-6">
+                      <div className="flex justify-between items-start gap-3 mb-5">
                         <div className="min-w-0">
-                          <div className="text-white/80 text-[11px] sm:text-sm">{ar() ? "إجمالي الرصيد" : "Total Balance"}</div>
-                          <div className="text-3xl sm:text-4xl font-bold mt-0.5 sm:mt-1 text-white tabular-nums">{total.toFixed(3)} <span className="text-base sm:text-xl opacity-80 font-semibold">KWD</span></div>
+                          <div className="text-white/70 text-[11px] sm:text-xs font-semibold uppercase tracking-wider">{ar() ? "محفظة الكاش باك" : "Cashback Wallet"}</div>
+                          <div className="text-3xl sm:text-4xl font-black mt-1 text-white tabular-nums tracking-tight">{total.toFixed(3)} <span className="text-lg sm:text-xl opacity-70 font-bold">KWD</span></div>
                         </div>
-                        <div className="bg-white/20 px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-semibold text-white backdrop-blur-md shrink-0">
+                        <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold text-white backdrop-blur-md shrink-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
                           {total > 0 ? (ar() ? "نشطة" : "Active") : (ar() ? "غير نشط" : "Inactive")}
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="bg-white/15 rounded-xl p-2">
-                          <div className="text-white/70 text-[10px] mb-1">{ar() ? "متاح" : "Unlocked"}</div>
-                          <div className="text-white font-bold text-sm">{unlocked.toFixed(3)}</div>
+
+                      {/* Segmented Progress Bar */}
+                      {(() => {
+                        const pctUnlocked = total > 0 ? (unlocked / total) * 100 : 0;
+                        const pctLocked = Math.max(0, 100 - pctUnlocked);
+                        return (
+                          <div className="mb-4">
+                            <div className="h-3 w-full rounded-full overflow-hidden flex bg-black/15">
+                              {pctUnlocked > 0 && <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${pctUnlocked}%` }} />}
+                              {pctLocked > 0 && <div className="h-full bg-white/30 transition-all duration-500" style={{ width: `${pctLocked}%` }} />}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Three stat columns */}
+                      <div className="grid grid-cols-3 gap-2.5">
+                        <div className="bg-emerald-500/25 border border-emerald-400/30 rounded-xl py-2.5 px-2 text-center">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                            <span className="text-white/80 text-[10px] font-semibold">{ar() ? "متاح للاستخدام" : "Available"}</span>
+                          </div>
+                          <div className="text-white font-black text-base sm:text-lg tabular-nums">{unlocked.toFixed(3)}</div>
                         </div>
-                        <div className="bg-white/15 rounded-xl p-2">
-                          <div className="text-white/70 text-[10px] mb-1">{ar() ? "مقفل" : "Locked"}</div>
-                          <div className="text-white font-bold text-sm">{locked.toFixed(3)}</div>
+                        <div className="bg-white/10 border border-white/15 rounded-xl py-2.5 px-2 text-center">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                            <span className="text-white/70 text-[10px] font-semibold">{ar() ? "مقفل" : "Locked"}</span>
+                          </div>
+                          <div className="text-white/80 font-black text-base sm:text-lg tabular-nums">{locked.toFixed(3)}</div>
                         </div>
-                        <div className="bg-white/15 rounded-xl p-2">
-                          <div className="text-white/70 text-[10px] mb-1">{ar() ? "مستخدم" : "Used"}</div>
-                          <div className="text-white font-bold text-sm">{used.toFixed(3)}</div>
+                        <div className="bg-white/10 border border-white/15 rounded-xl py-2.5 px-2 text-center">
+                          <div className="flex items-center justify-center gap-1 mb-1">
+                            <svg className="w-3 h-3 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span className="text-white/70 text-[10px] font-semibold">{ar() ? "مستخدم" : "Used"}</span>
+                          </div>
+                          <div className="text-white/80 font-black text-base sm:text-lg tabular-nums">{used.toFixed(3)}</div>
                         </div>
                       </div>
+
+                      {/* Locked hint */}
+                      {locked > 0 && (
+                        <div className="mt-3 text-white/60 text-[10px] sm:text-[11px] text-center font-medium">
+                          {ar() 
+                            ? "💡 ادفع أقساطك لفتح الرصيد المقفل"
+                            : "💡 Pay your installments to unlock locked balance"}
+                        </div>
+                      )}
                     </div>
 
                     {/* Transaction History */}
