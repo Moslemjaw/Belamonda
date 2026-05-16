@@ -536,18 +536,14 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     if (!parsed.data.isStandalone && uo.membershipType === "cashback") {
       const balance = parseFloat(uo.cashbackBalanceKwd || "0");
       // Use the explicit session price if set, otherwise fall back to the offer's per-session cashback rate.
-      const costPerSession = resolvedPrice
-        ? parseFloat(resolvedPrice)
-        : parseFloat(offer.cashbackPerSessionKwd || "0");
+      const maxCashbackAllowed = parseFloat(offer.cashbackPerSessionKwd || "0");
+      const maxDeductible = resolvedPrice
+        ? Math.min(parseFloat(resolvedPrice), maxCashbackAllowed > 0 ? maxCashbackAllowed : Infinity)
+        : maxCashbackAllowed;
 
-      if (costPerSession > 0 && balance > 0) {
-        if (balance >= costPerSession) {
-          cashbackDeducted = costPerSession;
-          amountToPay = "0.000";
-        } else {
-          cashbackDeducted = balance;
-          amountToPay = resolvedPrice ? (costPerSession - balance).toFixed(3) : "0.000";
-        }
+      if (maxDeductible > 0 && balance > 0) {
+        cashbackDeducted = Math.min(balance, maxDeductible);
+        amountToPay = resolvedPrice ? (parseFloat(resolvedPrice) - cashbackDeducted).toFixed(3) : "0.000";
 
         if (cashbackDeducted > 0 && mongoose.isValidObjectId(uo.id)) {
           const newBalance = (balance - cashbackDeducted).toFixed(3);
@@ -555,8 +551,8 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
           await kycStore.deductUnlocked({
             userId: uo.userId,
             amountKwd: cashbackDeducted.toFixed(3),
-            reason: "Cashback deducted for session booking",
-            createdById: req.auth!.userId
+            reference: { kind: "userOffer", id: uo.id },
+            createdBy: { kind: "admin", id: req.auth!.userId }
           });
         }
       } else if (resolvedPrice) {
@@ -1429,8 +1425,8 @@ schedulingRouter.post(
         await kycStore.deductUnlocked({
           userId: uo.userId,
           amountKwd: toDeduct.toFixed(3),
-          reason: "Cashback deducted at confirmation",
-          createdById: req.auth!.userId
+          reference: { kind: "userOffer", id: uo.id },
+          createdBy: { kind: "admin", id: req.auth!.userId }
         });
       }
     }
