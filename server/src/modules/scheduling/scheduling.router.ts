@@ -158,34 +158,33 @@ function computeBookingRequestFinancials(
   },
   offer: SchedOffer | null
 ) {
-  const cashback = parseFloat(breq.cashbackDeductedKwd ?? "0") || 0;
-  const clinicTake = parseFloat(breq.sessionPriceKwd ?? "0") || 0;
+  const storedPrice = parseFloat(breq.sessionPriceKwd ?? "0") || 0;
+  const storedCashback = parseFloat(breq.cashbackDeductedKwd ?? "0") || 0;
   const listFromOffer = offer ? parseFloat(resolveSessionPrice(offer, breq.clinicId) ?? "0") || 0 : 0;
   const cashbackRate = offer ? parseFloat(offer.cashbackPerSessionKwd ?? "0") || 0 : 0;
-  const standalonePrice = breq.isStandalone ? clinicTake : 0;
 
-  let sessionGross = clinicTake + cashback;
+  // sessionPriceKwd = the GROSS session price (what the treatment costs before cashback)
+  let sessionGross = storedPrice;
   if (sessionGross <= 0 && listFromOffer > 0) sessionGross = listFromOffer;
   if (sessionGross <= 0 && cashbackRate > 0) sessionGross = cashbackRate;
-  if (sessionGross <= 0 && standalonePrice > 0) sessionGross = standalonePrice;
 
-  const usesCashback = cashback > 0 || breq.hadCashback === true || breq.membershipType === "cashback";
+  const usesCashback = storedCashback > 0 || breq.hadCashback === true || breq.membershipType === "cashback";
 
-  // For cashback memberships where cashback covers the full session, clinicTake is 0
-  // and sessionGross equals the cashback rate
-  const effectiveCashback = usesCashback && cashback <= 0 && sessionGross > 0 && clinicTake <= 0
-    ? sessionGross
-    : cashback;
-  const effectiveClinicTake = usesCashback && clinicTake <= 0 && cashback <= 0
-    ? Math.max(0, sessionGross - effectiveCashback)
-    : clinicTake;
+  // Cashback deducted from the gross price
+  let cashbackDeducted = storedCashback;
+  if (cashbackDeducted <= 0 && usesCashback && cashbackRate > 0 && sessionGross > 0) {
+    cashbackDeducted = Math.min(cashbackRate, sessionGross);
+  }
+
+  // Clinic take = gross minus cashback (what the customer actually pays at the clinic)
+  const clinicTake = Math.max(0, sessionGross - cashbackDeducted);
 
   return {
     sessionGrossKwd: sessionGross.toFixed(3),
-    clinicTakeKwd: effectiveClinicTake.toFixed(3),
-    cashbackDeductedKwd: effectiveCashback.toFixed(3),
+    clinicTakeKwd: clinicTake.toFixed(3),
+    cashbackDeductedKwd: cashbackDeducted.toFixed(3),
     usesCashback,
-    isPrepaidMembership: !offer?.payPerSession && !breq.isStandalone && sessionGross > 0 && clinicTake === 0 && cashback === 0 && !usesCashback,
+    isPrepaidMembership: !offer?.payPerSession && !breq.isStandalone && sessionGross > 0 && clinicTake === 0 && cashbackDeducted === 0 && !usesCashback,
   };
 }
 
@@ -577,14 +576,14 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         preferredAt: parsed.data.preferredAt,
         notes: parsed.data.notes
       });
+      const gross = parseFloat(amountToPay) + cashbackDeducted;
       await bookingRequestsStore.update(breq.id, { 
         status: "awaiting_session_payment", 
-        sessionPriceKwd: amountToPay,
-        cashbackDeductedKwd: cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined 
+        sessionPriceKwd: parsed.data.sessionGrossKwd ?? gross.toFixed(3),
+        cashbackDeductedKwd: parsed.data.cashbackAppliedKwd ?? (cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined) 
       });
       let sessionPayment;
       try {
-        const gross = parseFloat(amountToPay) + cashbackDeducted;
         sessionPayment = await createSessionPayment({
           userId: uo.userId,
           offerId: uo.offerId,
