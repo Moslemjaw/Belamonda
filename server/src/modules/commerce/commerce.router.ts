@@ -14,6 +14,8 @@ import { OfferModel, type OfferDoc } from "../../models/offer.model.js";
 import { ClinicModel, type ClinicDoc } from "../../models/clinic.model.js";
 import { UserModel } from "../../models/user.model.js";
 import { ClinicChangeRequestModel } from "../../models/clinicChangeRequest.model.js";
+import { BookingRequestModel } from "../../models/bookingRequest.model.js";
+import { BookingSessionModel } from "../../models/bookingSession.model.js";
 import { getProviderForMethod } from "../../services/paymentProvider.service.js";
 import { allowedPurchaseClinicIds, resolvePurchaseClinicObjectId } from "../../services/checkout.service.js";
 
@@ -118,14 +120,43 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
       .lean();
     const offerMap = Object.fromEntries(offers.map((o: any) => [o._id.toString(), o]));
 
+    const userOfferIdsStr = items.map((i) => i._id.toString());
+    const userOfferObjectIds = items.map((i) => i._id as mongoose.Types.ObjectId);
+
+    const [pendingRequests, scheduledSessions, lastCompletedSessions] = await Promise.all([
+      BookingRequestModel.find({
+        userOfferId: { $in: userOfferIdsStr },
+        status: { $in: ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted", "confirmed"] }
+      }).select("userOfferId").lean(),
+      BookingSessionModel.find({
+        userOfferId: { $in: userOfferObjectIds },
+        status: "scheduled"
+      }).select("userOfferId").lean(),
+      BookingSessionModel.aggregate([
+        { $match: { userOfferId: { $in: userOfferObjectIds }, status: "completed" } },
+        { $sort: { completedAt: -1 } },
+        { $group: { _id: "$userOfferId", lastCompletedAt: { $first: "$completedAt" } } }
+      ])
+    ]);
+
+    const activeBookingsSet = new Set([
+      ...pendingRequests.map(r => r.userOfferId),
+      ...scheduledSessions.map(s => s.userOfferId.toString())
+    ]);
+    const lastCompletedMap = Object.fromEntries(lastCompletedSessions.map(s => [s._id.toString(), s.lastCompletedAt]));
+
     const enriched = items.map((item) => {
       const offer: any = offerMap[item.offerId] || {};
+      const uoId = item._id.toString();
       return {
         ...item,
         offerName: offer.name || undefined,
         offerNameAr: offer.nameAr || undefined,
         clinicLocked: offer.clinicLocked ?? undefined,
         branchSessionPrices: offer.branchSessionPrices || [],
+        sessionIntervalDays: offer.sessionIntervalDays || 0,
+        hasActiveBooking: activeBookingsSet.has(uoId),
+        lastCompletedSessionAt: lastCompletedMap[uoId] ? new Date(lastCompletedMap[uoId]).toISOString() : undefined,
       };
     });
 

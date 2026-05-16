@@ -1498,13 +1498,30 @@ export default function CustomerDashboard() {
                         let bookingLocked = isPending;
                         let lockedReason = ar() ? "بانتظار تأكيد الدفع" : "Awaiting Payment";
 
-                        if (!isPending && isInstallment) {
-                          if (paidInst === 0) {
+                        const hasActiveBooking = o.hasActiveBooking;
+                        const lastCompleted = o.lastCompletedSessionAt ? new Date(o.lastCompletedSessionAt) : null;
+                        const sessionIntervalDays = o.sessionIntervalDays || 0;
+                        let daysSinceLast = 999;
+                        if (lastCompleted) {
+                          daysSinceLast = (new Date().getTime() - lastCompleted.getTime()) / (1000 * 60 * 60 * 24);
+                        }
+
+                        if (!isPending) {
+                          if (hasActiveBooking) {
                             bookingLocked = true;
-                            lockedReason = ar() ? "يجب دفع القسط الأول" : "First installment required";
-                          } else if (paidInst === 1 && sessionsUsed >= 1) {
+                            lockedReason = ar() ? "يوجد حجز قيد المعالجة" : "Active booking exists";
+                          } else if (sessionIntervalDays > 0 && daysSinceLast < sessionIntervalDays) {
                             bookingLocked = true;
-                            lockedReason = ar() ? "يجب دفع القسط الثاني" : "Second installment required";
+                            const remainingDays = Math.ceil(sessionIntervalDays - daysSinceLast);
+                            lockedReason = ar() ? `متاح بعد ${remainingDays} يوم` : `Available in ${remainingDays} days`;
+                          } else if (isInstallment) {
+                            if (paidInst === 0) {
+                              bookingLocked = true;
+                              lockedReason = ar() ? "يجب دفع القسط الأول" : "First installment required";
+                            } else if (paidInst === 1 && sessionsUsed >= 1) {
+                              bookingLocked = true;
+                              lockedReason = ar() ? "يجب دفع القسط الثاني" : "Second installment required";
+                            }
                           }
                         }
 
