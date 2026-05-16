@@ -3179,8 +3179,12 @@ export default function CustomerDashboard() {
                            return <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}{feeText}</option>;
                         });
                      };
-                     return showBookingModal.category === "laser" && showBookingModal.clinicId ? (
-                        <select className="select-field w-full bg-surface-50 opacity-80" disabled value={showBookingModal.clinicId}>
+                     const isPreAssigned = !!showBookingModal.userOfferId && !!showBookingModal.clinicId;
+                     const isLaser = showBookingModal.category === "laser" && !!showBookingModal.clinicId;
+                     const shouldDisable = isPreAssigned || isLaser;
+
+                     return shouldDisable ? (
+                        <select className="select-field w-full bg-surface-50 opacity-80 cursor-not-allowed" disabled value={showBookingModal.clinicId}>
                            {renderClinicOptions()}
                         </select>
                      ) : (
@@ -3217,9 +3221,16 @@ export default function CustomerDashboard() {
                         </select>
                      );
                   })()}
-                  {showBookingModal.category === "laser" && showBookingModal.clinicId && (
-                     <p className="text-[10px] text-brand-pink-500 mt-1">{ar() ? "ملاحظة: هذا العرض مخصص لعيادة واحدة. لتغيير العيادة يجب دفع الرسوم." : "Note: This offer is restricted to the selected clinic. To change, you must pay the fee."}</p>
-                  )}
+                  {(() => {
+                    const isPreAssigned = !!showBookingModal.userOfferId && !!showBookingModal.clinicId;
+                    const isLaser = showBookingModal.category === "laser" && !!showBookingModal.clinicId;
+                    if (isLaser) {
+                      return <p className="text-[10px] text-brand-pink-500 mt-1">{ar() ? "ملاحظة: هذا العرض مخصص لعيادة واحدة. لتغيير العيادة يجب دفع الرسوم." : "Note: This offer is restricted to the selected clinic. To change, you must pay the fee."}</p>;
+                    } else if (isPreAssigned) {
+                      return <p className="text-[10px] text-surface-500 mt-1">{ar() ? "العيادة محددة مسبقاً لهذا العرض." : "Clinic is pre-assigned for this offer."}</p>;
+                    }
+                    return null;
+                  })()}
                </div>
 
                {/* Cashback Usage Option */}
