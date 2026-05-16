@@ -552,6 +552,12 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         if (cashbackDeducted > 0 && mongoose.isValidObjectId(uo.id)) {
           const newBalance = (balance - cashbackDeducted).toFixed(3);
           await UserOfferModel.findByIdAndUpdate(uo.id, { $set: { cashbackBalanceKwd: newBalance } });
+          await kycStore.deductUnlocked({
+            userId: uo.userId,
+            amountKwd: cashbackDeducted.toFixed(3),
+            reason: "Cashback deducted for session booking",
+            createdById: req.auth!.userId
+          });
         }
       } else if (resolvedPrice) {
         // No cashback balance — customer pays the full price
@@ -600,6 +606,12 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
           // Refund cashback
           await UserOfferModel.findByIdAndUpdate(uo.id, {
             $inc: { cashbackBalanceKwd: cashbackDeducted }
+          });
+          await kycStore.adjustUnlocked({
+            userId: uo.userId,
+            amountKwd: cashbackDeducted.toFixed(3),
+            reason: "Refund from failed booking payment",
+            createdById: req.auth!.userId
           });
         }
         throw payErr;
@@ -853,6 +865,12 @@ schedulingRouter.post("/me/requests/:id/cancel", authRequired, async (req, res) 
     const refund = parseFloat(updated.cashbackDeductedKwd);
     if (refund > 0) {
       await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { cashbackBalanceKwd: refund } });
+      await kycStore.adjustUnlocked({
+        userId: breq.userId,
+        amountKwd: refund.toFixed(3),
+        reason: "Refund from cancelled booking",
+        createdById: req.auth!.userId
+      });
     }
   }
   if (updated?.conversationId) {
@@ -1264,6 +1282,12 @@ schedulingRouter.post("/requests/:id/reject", authRequired, requireRole(["clinic
     const refund = parseFloat(updated.cashbackDeductedKwd);
     if (refund > 0) {
       await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { cashbackBalanceKwd: refund } });
+      await kycStore.adjustUnlocked({
+        userId: breq.userId,
+        amountKwd: refund.toFixed(3),
+        reason: "Refund from cancelled booking",
+        createdById: req.auth!.userId
+      });
     }
   }
   if (updated?.conversationId) {
@@ -1402,6 +1426,12 @@ schedulingRouter.post(
         const newBalance = (balance - toDeduct).toFixed(3);
         await UserOfferModel.findByIdAndUpdate(uo.id, { $set: { cashbackBalanceKwd: newBalance } });
         await bookingRequestsStore.update(breq.id, { cashbackDeductedKwd: toDeduct.toFixed(3) });
+        await kycStore.deductUnlocked({
+          userId: uo.userId,
+          amountKwd: toDeduct.toFixed(3),
+          reason: "Cashback deducted at confirmation",
+          createdById: req.auth!.userId
+        });
       }
     }
 
