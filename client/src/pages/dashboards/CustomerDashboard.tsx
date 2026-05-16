@@ -1595,21 +1595,12 @@ export default function CustomerDashboard() {
 
                             {isCashback ? (() => {
                               const parts = computeOfferCashbackParts(o);
+                              const isDeposit = o.purchaseMode === 'deposit' || o.method === 'Deposit';
+                              const verbEn = isDeposit ? 'Pay remaining balance' : 'Pay installment';
+                              const verbAr = isDeposit ? 'ادفع المبلغ المتبقي' : 'ادفع القسط';
+                              
                               return (
-                              <div className="py-3 px-4 bg-surface-50 border border-surface-100 rounded-2xl flex flex-col gap-3 items-center justify-center text-center mt-2">
-                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-xl mb-1">
-                                  💎
-                                </div>
-                                <div>
-                                  <div className="text-surface-900 font-bold text-sm mb-1">
-                                    {ar() ? "باقة كاش باك" : "Cashback Membership"}
-                                  </div>
-                                  <div className="text-surface-500 text-xs leading-relaxed max-w-[250px] mx-auto">
-                                    {ar() 
-                                      ? "هذه الباقة لا تتطلب حجز مواعيد. يتم إضافة الكاش باك مباشرة إلى محفظتك في الأعلى لتستخدمه في أي عيادة." 
-                                      : "No booking needed. Your cashback is added directly to your wallet above to spend at any clinic."}
-                                  </div>
-                                </div>
+                              <div className="pt-2 flex flex-col gap-2">
                                 {parts.locked > 0 && (
                                   <button
                                     className="w-full mt-1 bg-brand-pink-600 hover:bg-brand-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
@@ -1623,7 +1614,7 @@ export default function CustomerDashboard() {
                                       }, 100);
                                     }}
                                   >
-                                    🔓 {ar() ? `ادفع القسط لفتح ${parts.locked.toFixed(3)} د.ك` : `Pay installment to unlock ${parts.locked.toFixed(3)} KWD`}
+                                    🔓 {ar() ? `${verbAr} لفتح ${parts.locked.toFixed(3)} د.ك` : `${verbEn} to unlock ${parts.locked.toFixed(3)} KWD`}
                                   </button>
                                 )}
                                 {parseFloat(o.cashbackPerSessionKwd || "0") > 0 && (
