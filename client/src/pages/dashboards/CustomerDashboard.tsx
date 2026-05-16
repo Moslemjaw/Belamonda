@@ -1599,9 +1599,12 @@ export default function CustomerDashboard() {
                               const verbEn = isDeposit ? 'Pay remaining balance' : 'Pay installment';
                               const verbAr = isDeposit ? 'ادفع المبلغ المتبقي' : 'ادفع القسط';
                               
+                              const hasRemainingPayments = o.purchaseMode === 'deposit' || 
+                                (o.purchaseMode === 'installments' && (o.installmentsPaid || 0) < (o.installmentCount || 1));
+                              
                               return (
                               <div className="pt-2 flex flex-col gap-2">
-                                {parts.locked > 0 && (
+                                {parts.locked > 0 && hasRemainingPayments && (
                                   <button
                                     className="w-full mt-1 bg-brand-pink-600 hover:bg-brand-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
                                     onClick={(e) => { 
