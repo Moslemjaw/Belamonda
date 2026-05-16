@@ -26,7 +26,7 @@ const ShareIcon = () => (
 
 export { ShareIcon };
 
-export default function ShareLinkPage() {
+export default function ShareLinkPage({ hideHeader }: { hideHeader?: boolean } = {}) {
   const { getAuthHeader, auth } = useAuth();
   const isAr = i18n.language === "ar";
   const t = (en: string, ar: string) => (isAr ? ar : en);
@@ -128,15 +128,17 @@ export default function ShareLinkPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-fade-in">
-      <div>
-        <h2 className="text-2xl font-bold text-surface-900">{t("Share Link", "رابط الإحالة")}</h2>
-        <p className="text-sm text-surface-500 mt-1">
-          {t(
-            "Share your unique referral link with potential customers. You'll be notified when they complete their first purchase.",
-            "شارك رابطك الفريد مع العملاء المحتملين. ستصلك إشعار عند إتمام أول عملية شراء."
-          )}
-        </p>
-      </div>
+      {!hideHeader && (
+        <div>
+          <h2 className="text-2xl font-bold text-surface-900">{t("Share Link", "رابط الإحالة")}</h2>
+          <p className="text-sm text-surface-500 mt-1">
+            {t(
+              "Share your unique referral link with potential customers. You'll be notified when they complete their first purchase.",
+              "شارك رابطك الفريد مع العملاء المحتملين. ستصلك إشعار عند إتمام أول عملية شراء."
+            )}
+          </p>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">

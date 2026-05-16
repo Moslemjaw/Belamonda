@@ -201,3 +201,54 @@ publicRouter.get("/admin/customer/:userId/card", authRequired, requireRole(["adm
     next(e);
   }
 });
+
+// ===========================================================================
+// CLINIC SCANNER — look up customer by publicToken (for clinic QR scan)
+// ===========================================================================
+
+publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    if (!token || token.length < 10) return res.status(400).json({ error: "INVALID_TOKEN" });
+
+    const user = await UserModel.findOne({ publicToken: token })
+      .select("_id username fullName role publicToken createdAt phone")
+      .lean<UserCardFields & { phone?: string }>();
+
+    if (!user || user.role !== "customer") return res.status(404).json({ error: "CUSTOMER_NOT_FOUND" });
+
+    const card = await buildFullCardData(user);
+
+    // Also fetch clinic-specific sessions for this customer
+    const clinicId = req.auth!.clinicId;
+    let clinicSessions: any[] = [];
+    if (clinicId) {
+      const sessions = await BookingSessionModel.find({
+        userId: String(user._id),
+        clinicId: mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId,
+      })
+        .sort({ scheduledAt: -1 })
+        .limit(20)
+        .lean();
+
+      clinicSessions = sessions.map((s: any) => ({
+        id: s._id.toString(),
+        scheduledAt: s.scheduledAt,
+        status: s.status,
+        notes: s.notes ?? null,
+        completedAt: s.completedAt ?? null,
+        cashbackUnlockedKwd: s.cashbackUnlockedKwd ?? null,
+      }));
+    }
+
+    return res.json({
+      card: {
+        ...card,
+        phone: (user as any).phone ?? null,
+      },
+      clinicSessions,
+    });
+  } catch (e) {
+    next(e);
+  }
+});

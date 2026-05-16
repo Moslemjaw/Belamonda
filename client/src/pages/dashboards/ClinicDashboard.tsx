@@ -66,7 +66,8 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
            </div>
            <div>
              <div className="text-sm font-bold text-surface-900">{session.customerName || (ar() ? "عميل" : "Customer")}</div>
-             <div className="text-xs text-surface-500 font-medium mt-0.5">{session.offerName ? <><span className="text-brand-pink-500">{session.offerName}</span> · </> : null}{date}</div>
+             <div className="text-xs text-surface-500 font-medium mt-0.5">{session.offerName ? <><span className="text-brand-pink-500 font-bold">{session.offerName}</span> · </> : null}{date}</div>
+             {session.membershipType && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-pink-50 text-brand-pink-600 border border-brand-pink-100 mt-1 inline-block">{session.membershipType}</span>}
            </div>
         </div>
         <div className="text-right">
@@ -557,63 +558,163 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
       ) : (
         <div className="space-y-3">
           {requests.map((r) => (
-            <div key={r.id} className="bg-white rounded-2xl shadow-sm border border-surface-200 p-5 hover:shadow-md transition-shadow">
-              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-3 flex-wrap">
-                    <div className="h-8 w-8 rounded-full bg-brand-pink-100 text-brand-pink-700 flex items-center justify-center text-xs font-black">
-                      {(r.customerName || r.userId || "C").charAt(0).toUpperCase()}
-                    </div>
-                    <span className="font-bold text-surface-900 text-sm font-mono">{r.id.slice(0, 8)}</span>
-                    {statusChip(r.status)}
+            <div key={r.id} className="bg-white rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-surface-100 overflow-hidden hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all">
+              {/* Header */}
+              <div className="px-6 py-4 border-b border-surface-100 flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row bg-gradient-to-r from-surface-50/50 to-white">
+                <div className="flex items-center gap-3.5">
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-brand-pink-100 to-brand-pink-50 text-brand-pink-600 flex items-center justify-center text-lg font-black shadow-inner border border-brand-pink-100/50">
+                    {(r.customerName || r.userId || "C").charAt(0).toUpperCase()}
                   </div>
-                  <div className="mt-3 space-y-1 text-xs text-surface-500 bg-surface-50 border border-surface-100 rounded-xl p-3">
-                    <div>{ar() ? "العميل:" : "Customer:"} <span className="font-semibold text-surface-700">{r.customerName ?? r.userId.slice(0, 12) + "…"}</span>{r.customerPhone && <span className="ml-2 text-surface-400 font-mono">{r.customerPhone}</span>}</div>
-                    {r.isStandalone && r.standaloneName && <div>{ar() ? "الجلسة:" : "Session:"} <span className="font-semibold text-surface-700">{r.standaloneName}</span></div>}
-                    {!r.isStandalone && r.offerId && <div>{ar() ? "الخدمة:" : "Offer:"} <span className="font-semibold text-surface-700">{(r as any).offerName ?? r.offerId.slice(0, 12)}</span></div>}
-                    {r.preferredAt && <div>{ar() ? "الوقت المفضل:" : "Preferred:"} <span className="font-semibold text-surface-700">{new Date(r.preferredAt).toLocaleString()}</span></div>}
-                    {r.proposedAt && <div>{ar() ? "الوقت المقترح:" : "Proposed:"} <span className="font-semibold text-blue-700">{new Date(r.proposedAt).toLocaleString()}</span></div>}
-                    {r.notes && <div>{ar() ? "ملاحظات:" : "Notes:"} <span className="text-surface-700">{r.notes}</span></div>}
-                    <BookingFinancialBreakdown r={r} />
-                    <div>
-                      {ar() ? "الدفع في العيادة:" : "Clinic Payment:"}{" "}
-                      <span className={`font-semibold ${r.clinicPaymentStatus === "paid" ? "text-emerald-700" : "text-amber-700"}`}>
-                        {r.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع" : "Paid") : (ar() ? "قيد الانتظار" : "Pending")}
+                  <div>
+                    <div className="text-base font-black text-surface-900 tracking-tight">{r.customerName ?? r.userId.slice(0, 12) + "…"}</div>
+                    {r.customerPhone && <div className="text-xs text-surface-500 font-mono mt-0.5" dir="ltr">{r.customerPhone}</div>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-surface-400 font-mono">#{r.id.slice(0, 8)}</span>
+                  {statusChip(r.status)}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-6">
+                <div className="flex flex-col xl:flex-row gap-6">
+                  <div className="flex-1 min-w-0">
+                    {/* Badges */}
+                    <div className="flex items-center gap-2 flex-wrap mb-4">
+                      {r.isStandalone && r.standaloneName ? (
+                        <span className="text-xs font-bold px-3 py-1 rounded-xl bg-blue-50 text-blue-700 border border-blue-100/50">
+                          {r.standaloneName}
+                        </span>
+                      ) : (r as any).offerName ? (
+                        <span className="text-xs font-bold px-3 py-1 rounded-xl bg-brand-pink-50 text-brand-pink-700 border border-brand-pink-100/50">
+                          {(r as any).offerName}
+                        </span>
+                      ) : null}
+                      {r.membershipType && r.membershipType !== "none" && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100/50">
+                          {r.membershipType}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="space-y-2 text-sm text-surface-600">
+                      {r.preferredAt && <div className="flex items-center gap-2.5"><svg className="w-4 h-4 text-surface-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span className="font-semibold">{new Date(r.preferredAt).toLocaleString()}</span></div>}
+                      {r.proposedAt && <div className="flex items-center gap-2.5"><svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span className="font-bold text-blue-700">{new Date(r.proposedAt).toLocaleString()}</span></div>}
+                      {r.notes && <div className="flex items-start gap-2.5 mt-1"><svg className="w-4 h-4 text-surface-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg><span className="leading-relaxed bg-surface-50 p-2 rounded-xl text-xs flex-1">{r.notes}</span></div>}
+                    </div>
+                    
+                    <div className="mt-5">
+                      <BookingFinancialBreakdown r={r} />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 shrink-0 min-w-[200px]">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-surface-500 uppercase tracking-wider">{ar() ? "حالة الدفع" : "Payment"}</span>
+                      <span className={`inline-flex items-center gap-1 font-bold px-2.5 py-1 rounded-lg text-[11px] ${r.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : parseFloat(r.clinicTakeKwd || r.sessionPriceKwd || "0") === 0 ? "bg-surface-50 text-surface-500 border border-surface-100" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
+                        {r.clinicPaymentStatus === "paid" ? (ar() ? "✓ مدفوع" : "✓ Paid") : parseFloat(r.clinicTakeKwd || r.sessionPriceKwd || "0") === 0 ? (ar() ? "لا يوجد دفع" : "No payment") : (ar() ? "⏳ قيد الانتظار" : "⏳ Pending")}
                       </span>
                     </div>
-                    <div className="text-surface-400">{ar() ? "تاريخ الطلب:" : "Requested:"} {new Date(r.createdAt).toLocaleString()}</div>
+                    <div className="text-[10px] text-surface-400 flex items-center justify-between">
+                      <span>{ar() ? "تاريخ الطلب" : "Requested"}</span>
+                      <span>{new Date(r.createdAt).toLocaleDateString()} {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    
+                    <div className="mt-auto pt-4 flex flex-col gap-2">
+                       <button
+                         type="button"
+                         className={`text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 w-full ${expandedId === r.id ? "bg-indigo-600 text-white shadow-md" : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700"}`}
+                         onClick={() => void toggleExpand(r.id)}
+                       >
+                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                         {ar() ? "معلومات العميل" : "Customer Info"}
+                       </button>
+                       <button
+                         type="button"
+                         className="text-xs font-bold bg-surface-100 hover:bg-surface-200 text-surface-700 px-4 py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 w-full"
+                         onClick={() => void openChat(r)}
+                       >
+                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                         {ar() ? "المحادثة" : "Open Chat"}
+                       </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="flex gap-2 shrink-0 flex-wrap items-start">
-                  {/* Customer context button */}
-                  <button
-                    type="button"
-                    className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 ${expandedId === r.id ? "bg-indigo-600 text-white" : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200"}`}
-                    onClick={() => void toggleExpand(r.id)}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                    {ar() ? "معلومات العميل" : "Customer Info"}
-                  </button>
-                  <button
-                      type="button"
-                      className="text-xs font-bold bg-surface-100 hover:bg-surface-200 text-surface-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-                      onClick={() => void openChat(r)}
-                    >
-                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                      {ar() ? "المحادثة" : "Open Chat"}
-                    </button>
+                {/* Customer context panel */}
+                {expandedId === r.id && (
+                  contextMap[r.id] === undefined
+                    ? <div className="mt-5 pt-5 border-t border-surface-100"><div className="shimmer h-16 rounded-xl" /></div>
+                    : contextMap[r.id] === null
+                    ? <div className="mt-5 pt-5 border-t border-surface-100 text-xs text-surface-400">{ar() ? "تعذر تحميل المعلومات" : "Could not load customer info"}</div>
+                    : <div className="mt-5 pt-5 border-t border-surface-100"><CustomerContextBadge ctx={contextMap[r.id]!} /></div>
+                )}
+
+                {/* Inline confirm form */}
+                {actionId === r.id && actionType === "confirm" && (
+                  <div className="mt-5 pt-5 border-t border-surface-100 bg-brand-pink-50/30 rounded-xl p-4 space-y-4 border border-brand-pink-100/50">
+                    <div>
+                      <label className="text-xs font-bold text-brand-pink-800 block mb-2">{ar() ? "اختر وقت الجلسة" : "Select session time"}</label>
+                      <input
+                        type="datetime-local"
+                        className="input-field bg-white shadow-sm border-brand-pink-200 text-sm w-full sm:w-80"
+                        value={scheduledAt}
+                        onChange={(e) => setScheduledAt(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="text-sm font-bold bg-brand-pink-600 hover:bg-brand-pink-700 text-white px-6 py-2 rounded-xl transition-all shadow-sm shadow-brand-pink-500/20 disabled:opacity-50"
+                        onClick={() => submitConfirm(r.id)}
+                      >{busy ? "…" : ar() ? "تأكيد الجدولة" : "Confirm Schedule"}</button>
+                      <button type="button" className="text-sm font-bold bg-white text-surface-600 hover:text-surface-900 border border-surface-200 px-4 py-2 rounded-xl shadow-sm" onClick={closeAction}>{ar() ? "إلغاء" : "Cancel"}</button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Inline reject form */}
+                {actionId === r.id && actionType === "reject" && (
+                  <div className="mt-5 pt-5 border-t border-surface-100 bg-red-50/30 rounded-xl p-4 space-y-4 border border-red-100/50">
+                    <div>
+                      <label className="text-xs font-bold text-red-800 block mb-2">{ar() ? "سبب الرفض" : "Reason for declining"}</label>
+                      <textarea
+                        className="input-field bg-white shadow-sm border-red-200 text-sm w-full"
+                        rows={2}
+                        placeholder={ar() ? "مثال: الوقت غير متاح في هذه الفترة" : "e.g. No availability in that window"}
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className="text-sm font-bold bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl transition-all shadow-sm shadow-red-500/20 disabled:opacity-50"
+                        onClick={() => submitReject(r.id)}
+                      >{busy ? "…" : ar() ? "إرسال الرفض" : "Send Decline"}</button>
+                      <button type="button" className="text-sm font-bold bg-white text-surface-600 hover:text-surface-900 border border-surface-200 px-4 py-2 rounded-xl shadow-sm" onClick={closeAction}>{ar() ? "إلغاء" : "Cancel"}</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer Actions */}
+              <div className="bg-surface-50/80 px-6 py-4 border-t border-surface-100 flex items-center justify-end gap-3 flex-wrap">
                   {/* Action buttons — only on actionable statuses */}
                   {["under_review", "slot_accepted"].includes(r.status) && (
                     <>
                       <button
                         type="button"
-                        className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                        className="text-sm font-bold bg-brand-pink-500 hover:bg-brand-pink-600 text-white px-6 py-2.5 rounded-xl transition-all shadow-sm shadow-brand-pink-500/20"
                         onClick={() => openAction(r.id, "confirm")}
                       >{ar() ? "جدولة الموعد" : "Schedule"}</button>
                       <button
                         type="button"
-                        className="text-xs font-bold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg transition-colors"
+                        className="text-sm font-bold bg-white hover:bg-red-50 text-red-600 border border-surface-200 hover:border-red-200 px-6 py-2.5 rounded-xl transition-colors shadow-sm"
                         onClick={() => openAction(r.id, "reject")}
                       >{ar() ? "رفض" : "Decline"}</button>
                     </>
@@ -622,68 +723,13 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
                     <button
                       type="button"
                       disabled={payingId === r.id}
-                      className="text-xs font-bold bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white px-3 py-1.5 rounded-lg transition-colors"
+                      className="text-sm font-bold bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white px-6 py-2.5 rounded-xl transition-all shadow-sm shadow-emerald-500/20"
                       onClick={() => void markPaid(r.id)}
                     >
-                      {payingId === r.id ? "…" : ar() ? "تم الدفع" : "Paid"}
+                      {payingId === r.id ? "…" : ar() ? "تأكيد الدفع" : "Mark as Paid"}
                     </button>
                   )}
-                </div>
               </div>
-
-              {/* Customer context panel */}
-              {expandedId === r.id && (
-                contextMap[r.id] === undefined
-                  ? <div className="mt-3 pt-3 border-t border-surface-100"><div className="shimmer h-16 rounded-xl" /></div>
-                  : contextMap[r.id] === null
-                  ? <div className="mt-3 pt-3 border-t border-surface-100 text-xs text-surface-400">{ar() ? "تعذر تحميل المعلومات" : "Could not load customer info"}</div>
-                  : <CustomerContextBadge ctx={contextMap[r.id]!} />
-              )}
-
-              {/* Inline confirm form */}
-              {actionId === r.id && actionType === "confirm" && (
-                <div className="mt-4 pt-4 border-t border-surface-100 space-y-3">
-                  <label className="text-xs font-bold text-surface-700 block">{ar() ? "اختر وقت الجلسة" : "Select session time"}</label>
-                  <input
-                    type="datetime-local"
-                    className="input-field bg-surface-50 text-sm w-full sm:w-72"
-                    value={scheduledAt}
-                    onChange={(e) => setScheduledAt(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-                      onClick={() => submitConfirm(r.id)}
-                    >{busy ? "…" : ar() ? "تأكيد الجدولة" : "Confirm Schedule"}</button>
-                    <button type="button" className="text-xs font-bold text-surface-500 hover:text-surface-700 px-3 py-2" onClick={closeAction}>{ar() ? "إلغاء" : "Cancel"}</button>
-                  </div>
-                </div>
-              )}
-
-              {/* Inline reject form */}
-              {actionId === r.id && actionType === "reject" && (
-                <div className="mt-4 pt-4 border-t border-surface-100 space-y-3">
-                  <label className="text-xs font-bold text-surface-700 block">{ar() ? "سبب الرفض" : "Reason for declining"}</label>
-                  <textarea
-                    className="input-field bg-surface-50 text-sm w-full"
-                    rows={2}
-                    placeholder={ar() ? "مثال: الوقت غير متاح في هذه الفترة" : "e.g. No availability in that window"}
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      className="text-xs font-bold bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-                      onClick={() => submitReject(r.id)}
-                    >{busy ? "…" : ar() ? "إرسال الرفض" : "Send Decline"}</button>
-                    <button type="button" className="text-xs font-bold text-surface-500 hover:text-surface-700 px-3 py-2" onClick={closeAction}>{ar() ? "إلغاء" : "Cancel"}</button>
-                  </div>
-                </div>
-              )}
             </div>
           ))}
         </div>
@@ -758,9 +804,11 @@ function ClinicPerformanceTab({ sessions, completed, noShows, scheduled }: {
 // ===========================================================================
 function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
   const [from, setFrom] = useState(() => {
-    const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 10);
+    const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().slice(0, 10);
   });
-  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10);
+  });
   const { data, loading } = useMyClinicReport({ from, to });
 
   const invoices = data?.invoices ?? [];
@@ -847,9 +895,11 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
 function ClinicReportsTab({ clinicId: _clinicId }: { clinicId: string }) {
   const { getAuthHeader } = useAuth();
   const [from, setFrom] = useState(() => {
-    const d = new Date(); d.setMonth(d.getMonth() - 1); return d.toISOString().slice(0, 10);
+    const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().slice(0, 10);
   });
-  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [to, setTo] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10);
+  });
   const { data, loading } = useMyClinicReport({ from, to });
   const [downloading, setDownloading] = useState<string | null>(null);
 
@@ -887,14 +937,16 @@ function ClinicReportsTab({ clinicId: _clinicId }: { clinicId: string }) {
       </div>
 
       {s && (
-        <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { label: ar() ? "إجمالي الجلسات" : "Total Sessions", value: s.totalSessions },
             { label: ar() ? "مكتملة" : "Completed", value: s.completedSessions, color: "text-emerald-700" },
             { label: ar() ? "لم يحضر" : "No-Show", value: s.noShowSessions, color: "text-red-700" },
             { label: ar() ? "مجدولة" : "Scheduled", value: s.scheduledSessions, color: "text-blue-700" },
             { label: ar() ? "فواتير مدفوعة" : "Paid Invoices", value: `${s.paidInvoices}/${s.totalInvoices}` },
-            { label: ar() ? "إيرادات مدفوعة" : "Paid Revenue", value: `${s.paidRevenueKwd} KWD`, color: "text-emerald-700" },
+            { label: ar() ? "إيرادات الجلسات الأساسية" : "Total Sales (Base KWD)", value: `${s.sessionRevenueKwd} KWD`, color: "text-surface-900" },
+            { label: ar() ? "الكاشباك المستخدم" : "Cashback Utilized", value: `${s.cashbackTotalKwd} KWD`, color: "text-amber-600" },
+            { label: ar() ? "صافي الإيرادات" : "Net Revenue", value: `${s.netRevenueKwd} KWD`, color: "text-emerald-700" },
           ].map(k => (
             <div key={k.label} className="card-elevated border border-surface-200 p-4 shadow-sm rounded-xl">
               <div className="text-[10px] uppercase tracking-wider text-surface-500 font-bold mb-1">{k.label}</div>
@@ -1109,6 +1161,273 @@ function ClinicReportTable({ data, loading, from, to }: {
   );
 }
 
+// ===========================================================================
+// QR CARD SCANNER TAB
+// ===========================================================================
+const SESSION_STATUS_COLORS: Record<string, string> = {
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  scheduled: "bg-blue-50 text-blue-700 border-blue-200",
+  no_show: "bg-red-50 text-red-600 border-red-200",
+  cancelled: "bg-surface-100 text-surface-500 border-surface-200",
+};
+
+function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string, status: string) => Promise<void> }) {
+  const { getAuthHeader } = useAuth();
+  const [token, setToken] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<any | null>(null);
+  const [markingId, setMarkingId] = useState<string | null>(null);
+
+  const handleScan = async (scanToken?: string) => {
+    const rawInput = scanToken ?? token;
+    if (!rawInput.trim()) return;
+    
+    // Extract token from URL if full URL was pasted
+    let extracted = rawInput.trim();
+    const match = extracted.match(/\/verify\/([a-f0-9]+)/i);
+    if (match) extracted = match[1];
+    
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const data = await apiFetch(`/public/clinic/scan/${extracted}`, {
+        headers: getAuthHeader(),
+      });
+      setResult(data);
+    } catch (e: any) {
+      setError(e.message || (ar() ? "لم يتم العثور على العميل" : "Customer not found"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMarkSession = async (sessionId: string, status: string) => {
+    setMarkingId(sessionId);
+    try {
+      await onMarkSession(sessionId, status);
+      // Refresh the scan
+      await handleScan();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setMarkingId(null);
+    }
+  };
+
+  const card = result?.card;
+  const clinicSessions = result?.clinicSessions ?? [];
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div>
+        <h2 className="text-2xl font-bold text-surface-900">{ar() ? "ماسح بطاقة العضوية" : "Membership Card Scanner"}</h2>
+        <p className="text-sm text-surface-500 mt-1">{ar() ? "امسح رمز QR من بطاقة العميل أو أدخل الرمز يدوياً لعرض بياناته." : "Scan the QR code from the customer's card or enter the token manually."}</p>
+      </div>
+
+      {/* Scanner input */}
+      <div className="card-elevated p-6 bg-gradient-to-br from-surface-50 to-white">
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <svg className="w-5 h-5 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+            </svg>
+            <input
+              type="text"
+              value={token}
+              onChange={e => setToken(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleScan(); }}
+              placeholder={ar() ? "أدخل رمز البطاقة أو الصق رابط QR..." : "Enter card token or paste QR link..."}
+              className="input-field text-sm py-3 pl-11 pr-4 w-full bg-white"
+              dir="ltr"
+            />
+          </div>
+          <button
+            onClick={() => handleScan()}
+            disabled={loading || !token.trim()}
+            className="btn-primary px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-50 shrink-0"
+          >
+            {loading ? (
+              <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" /></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            )}
+            {ar() ? "بحث" : "Search"}
+          </button>
+        </div>
+        {error && (
+          <div className="mt-3 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+            {error}
+          </div>
+        )}
+      </div>
+
+      {/* Results */}
+      {card && (
+        <div className="space-y-5 animate-fade-in">
+          {/* Customer Profile Card */}
+          <div className="card-elevated overflow-hidden">
+            <div className="bg-gradient-to-r from-brand-pink-500 to-brand-pink-700 p-6 text-white">
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl font-black">
+                  {(card.displayName || "?").charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <div className="text-xl font-black">{card.displayName}</div>
+                  {card.phone && <div className="text-sm text-brand-pink-200 font-mono mt-0.5" dir="ltr">{card.phone}</div>}
+                  <div className="flex items-center gap-3 mt-2">
+                    {card.memberSince && (
+                      <span className="text-[10px] uppercase tracking-wider text-brand-pink-200 flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        {ar() ? "عضو منذ" : "Member since"} {card.memberSince}
+                      </span>
+                    )}
+                    {card.kycVerified && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-bold flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        {ar() ? "تم التحقق" : "Verified"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick stats */}
+            <div className="grid grid-cols-3 divide-x divide-surface-100 bg-white">
+              <div className="p-4 text-center">
+                <div className="text-lg font-black text-brand-pink-600">{card.activeOffers?.length ?? 0}</div>
+                <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mt-0.5">{ar() ? "عضويات فعالة" : "Active Offers"}</div>
+              </div>
+              <div className="p-4 text-center">
+                <div className="text-lg font-black text-blue-600">{card.activeSessionCount ?? 0}</div>
+                <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mt-0.5">{ar() ? "جلسات مجدولة" : "Scheduled"}</div>
+              </div>
+              <div className="p-4 text-center">
+                <div className="text-lg font-black text-emerald-600">{card.cashbackUnlockedKwd ?? "0.000"}</div>
+                <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mt-0.5">{ar() ? "كاشباك متاح" : "Cashback (KWD)"}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Active Memberships */}
+          {card.activeOffers && card.activeOffers.length > 0 && (
+            <div className="card-elevated p-5">
+              <h4 className="font-bold text-surface-900 mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
+                {ar() ? "العضويات الفعالة" : "Active Memberships"}
+              </h4>
+              <div className="space-y-2">
+                {card.activeOffers.map((o: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-surface-50 rounded-xl border border-surface-100">
+                    <div>
+                      <div className="text-sm font-bold text-surface-900">{o.offerName || o.offerId}</div>
+                      <div className="text-xs text-surface-500 mt-0.5">
+                        {o.activatedAt && <>{ar() ? "مفعلة:" : "Activated:"} {o.activatedAt}</>}
+                        {o.expiresAt && <> · {ar() ? "تنتهي:" : "Expires:"} {o.expiresAt}</>}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-brand-pink-600">{o.sessionsUsed} {ar() ? "جلسة" : "sessions"}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Clinic Sessions for this customer */}
+          <div className="card-elevated p-5">
+            <h4 className="font-bold text-surface-900 mb-3 flex items-center gap-2">
+              <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              {ar() ? "جلسات العيادة" : "Clinic Sessions"}
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">{clinicSessions.length}</span>
+            </h4>
+            {clinicSessions.length === 0 ? (
+              <div className="text-center py-8 text-sm text-surface-400">{ar() ? "لا توجد جلسات لهذا العميل في عيادتك" : "No sessions for this customer at your clinic"}</div>
+            ) : (
+              <div className="space-y-2">
+                {clinicSessions.map((s: any) => (
+                  <div key={s.id} className="flex items-center justify-between p-3 bg-surface-50 rounded-xl border border-surface-100 gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-surface-900">
+                        {new Date(s.scheduledAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                        <span className="text-surface-400 mx-1.5">·</span>
+                        <span className="text-surface-500">{new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      {s.notes && <div className="text-xs text-surface-400 mt-0.5 truncate">{s.notes}</div>}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>
+                        {s.status?.replace("_", " ")}
+                      </span>
+                      {s.status === "scheduled" && (
+                        <div className="flex gap-1">
+                          <button
+                            disabled={markingId === s.id}
+                            onClick={() => handleMarkSession(s.id, "completed")}
+                            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
+                            title={ar() ? "حضر" : "Attended"}
+                          >
+                            {markingId === s.id ? "…" : "✓"}
+                          </button>
+                          <button
+                            disabled={markingId === s.id}
+                            onClick={() => handleMarkSession(s.id, "no_show")}
+                            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
+                            title={ar() ? "لم يحضر" : "No-show"}
+                          >
+                            {markingId === s.id ? "…" : "✗"}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Session History */}
+          {card.recentSessions && card.recentSessions.length > 0 && (
+            <div className="card-elevated p-5">
+              <h4 className="font-bold text-surface-900 mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                {ar() ? "سجل الجلسات الأخير" : "Recent Session History"}
+              </h4>
+              <div className="space-y-1.5">
+                {card.recentSessions.map((s: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-surface-50 transition-colors text-sm">
+                    <span className="text-surface-700">{s.scheduledAt}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>
+                      {s.status?.replace("_", " ")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!card && !loading && !error && (
+        <div className="card-elevated p-16 text-center border-dashed border-2 border-surface-200 bg-surface-50/50">
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mx-auto mb-5">
+            <svg className="w-12 h-12 text-surface-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+            </svg>
+          </div>
+          <h3 className="text-lg font-bold text-surface-900 mb-1">{ar() ? "جاهز للمسح" : "Ready to Scan"}</h3>
+          <p className="text-sm text-surface-500 max-w-sm mx-auto">{ar() ? "أدخل رمز البطاقة أو امسح رمز QR من بطاقة العميل لعرض بياناته وجلساته." : "Enter the card token or scan the QR code from the customer's membership card to view their profile and sessions."}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ClinicDashboard() {
   const { t } = useTranslation();
   const { auth, getAuthHeader } = useAuth();
@@ -1216,12 +1535,13 @@ export default function ClinicDashboard() {
 
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
-    { key: "schedule", icon: Icons.calendar, label: t("schedule") },
+    { key: "scanner", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>, label: ar() ? "ماسح البطاقة" : "Scan Card" },
     { key: "requests", icon: Icons.clipboard, label: ar() ? "طلبات الحجز" : "Booking Requests" },
     { key: "chat", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>, label: ar() ? "محادثات الحجوزات" : "Booking Chat" },
-    { key: "performance", icon: Icons.chart, label: ar() ? "الأداء" : "Performance" },
+    { key: "schedule", icon: Icons.calendar, label: t("schedule") },
     { key: "invoices", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>, label: ar() ? "الفواتير" : "Invoices" },
     { key: "reports", icon: Icons.report, label: ar() ? "التقارير" : "Reports" },
+    { key: "performance", icon: Icons.chart, label: ar() ? "الأداء" : "Performance" },
     { key: "profile", icon: Icons.profile, label: ar() ? "الملف الشخصي" : "Profile & Settings" },
   ];
 
@@ -1307,6 +1627,10 @@ export default function ClinicDashboard() {
 
         {activeNav === "invoices" && (
           <ClinicInvoicesTab clinicId={CLINIC_ID} />
+        )}
+
+        {activeNav === "scanner" && (
+          <ClinicScannerTab onMarkSession={markSession} />
         )}
 
         {activeNav === "reports" && (
@@ -1395,7 +1719,7 @@ export default function ClinicDashboard() {
                 </h3>
               </div>
               <div className="p-6">
-                <ShareLinkPage />
+                <ShareLinkPage hideHeader />
               </div>
             </div>
           </div>

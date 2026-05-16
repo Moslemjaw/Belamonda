@@ -987,10 +987,14 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
   // Revenue from session prices
   let sessionRevenueMils = 0;
   let paidRevenueMils = 0;
+  let cashbackTotalMils = 0;
   for (const br of bookingReqs as any[]) {
     if (br.sessionPriceKwd) {
       sessionRevenueMils += parseKwd(br.sessionPriceKwd);
       if (br.clinicPaymentStatus === "paid") paidRevenueMils += parseKwd(br.sessionPriceKwd);
+    }
+    if (br.cashbackDeductedKwd) {
+      cashbackTotalMils += parseKwd(br.cashbackDeductedKwd);
     }
   }
 
@@ -1011,6 +1015,8 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
       sessionRevenueKwd: fmtKwd(sessionRevenueMils),
       paidRevenueKwd: fmtKwd(paidRevenueMils),
       pendingRevenueKwd: fmtKwd(sessionRevenueMils - paidRevenueMils),
+      cashbackTotalKwd: fmtKwd(cashbackTotalMils),
+      netRevenueKwd: fmtKwd(sessionRevenueMils - cashbackTotalMils),
     },
     sessions: (sessions as any[]).map((s) => ({
       id: s._id.toString(),
@@ -1090,7 +1096,9 @@ export async function exportClinicReportCsv(clinicId: string, filters: { from?: 
     `Total Invoices,${s.totalInvoices}`,
     `Paid Invoices,${s.paidInvoices}`,
     `Pending Invoices,${s.pendingInvoices}`,
-    `Session Revenue (KWD),${s.sessionRevenueKwd}`,
+    `Total Sales (Base KWD),${s.sessionRevenueKwd}`,
+    `Cashback Utilized (KWD),${s.cashbackTotalKwd}`,
+    `Net Revenue (KWD),${s.netRevenueKwd}`,
     `Paid Revenue (KWD),${s.paidRevenueKwd}`,
     `Pending Revenue (KWD),${s.pendingRevenueKwd}`,
   ].join("\n");
@@ -1121,7 +1129,9 @@ export async function exportClinicReportXlsx(clinicId: string, filters: { from?:
     ["Total Invoices", s.totalInvoices],
     ["Paid Invoices", s.paidInvoices],
     ["Pending Invoices", s.pendingInvoices],
-    ["Session Revenue (KWD)", parseFloat(s.sessionRevenueKwd)],
+    ["Total Sales (Base KWD)", parseFloat(s.sessionRevenueKwd)],
+    ["Cashback Utilized (KWD)", parseFloat(s.cashbackTotalKwd)],
+    ["Net Revenue (KWD)", parseFloat(s.netRevenueKwd)],
     ["Paid Revenue (KWD)", parseFloat(s.paidRevenueKwd)],
     ["Pending Revenue (KWD)", parseFloat(s.pendingRevenueKwd)],
   ];
