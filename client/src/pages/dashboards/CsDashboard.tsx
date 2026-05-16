@@ -518,8 +518,12 @@ function BookingRequestsQueue() {
                  <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-3">{ar() ? "تفاصيل الطلب" : "Request Details"}</h4>
                   <div className="space-y-2">
                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-surface-500">{ar() ? "الجلسة" : "Session / Offer"}</span>
-                        <span className="font-bold text-surface-900">{selectedBooking.offerName || selectedBooking.standaloneName || selectedBooking.userOfferId}</span>
+                        <span className="text-surface-500">{ar() ? "الباقة" : "Offer"}</span>
+                        <span className="font-bold text-surface-900">{selectedBooking.offerName || (selectedBooking.isStandalone ? "none" : selectedBooking.userOfferId)}</span>
+                     </div>
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-surface-500">{ar() ? "نوع الجلسة" : "Session Type"}</span>
+                        <span className="font-bold text-surface-900">{selectedBooking.notes || selectedBooking.standaloneName || (ar() ? "غير محدد" : "—")}</span>
                      </div>
                      <div className="flex justify-between items-center text-sm">
                         <span className="text-surface-500">{ar() ? "العيادة المطلوبة" : "Requested Clinic"}</span>
