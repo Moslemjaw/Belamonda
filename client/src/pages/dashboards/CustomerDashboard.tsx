@@ -3503,14 +3503,23 @@ export default function CustomerDashboard() {
       )}
 
       {/* System Alerts */}
-      {sysAlert && (
-         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[60] bg-emerald-50 border-2 border-emerald-500 text-emerald-800 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 animate-slide-down max-w-lg w-[calc(100%-2rem)]">
-            <div className="bg-emerald-500 text-white p-1 rounded-full shrink-0">
-               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-            </div>
-            <span className="font-bold text-sm leading-relaxed">{sysAlert}</span>
-         </div>
-      )}
+      {sysAlert && (() => {
+         const isError = sysAlert.includes("يجب دفع") || sysAlert.includes("Please pay") || sysAlert.includes("خطأ") || sysAlert.includes("Error") || sysAlert.includes("❌") || sysAlert.includes("already") || sysAlert.includes("بالفعل");
+         const bgColor = isError ? "bg-red-50 border-red-500 text-red-800" : "bg-emerald-50 border-emerald-500 text-emerald-800";
+         const iconBg = isError ? "bg-red-500" : "bg-emerald-500";
+         return (
+           <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-[60] border-2 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-4 animate-slide-down max-w-lg w-[calc(100%-2rem)] ${bgColor}`}>
+              <div className={`text-white p-1 rounded-full shrink-0 ${iconBg}`}>
+                 {isError ? (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                 ) : (
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                 )}
+              </div>
+              <span className="font-bold text-sm leading-relaxed">{sysAlert.replace(/^❌\s*/, '')}</span>
+           </div>
+         );
+      })()}
     </div>
   );
 }
