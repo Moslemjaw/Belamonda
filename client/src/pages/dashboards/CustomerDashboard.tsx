@@ -1515,52 +1515,17 @@ export default function CustomerDashboard() {
                               )}
                             </div>
 
-                            {/* Sessions/Cashback progress bar */}
-                            {isCashback ? (
-                              (() => {
-                                const remainingCb = parseFloat(o.cashbackBalanceKwd || "0");
-                                const appliedCb = parseFloat(o.cashbackAppliedKwd || "0");
-                                const totalCb = remainingCb + appliedCb;
-                                const usedPctCb = totalCb > 0 ? Math.min((appliedCb / totalCb) * 100, 100) : 0;
-                                
-                                const totalSignup = parseFloat(o.totalSignupCashbackKwd || "0");
-                                const granted = parseFloat(o.cashbackGrantedKwd || "0");
-                                const hasInstallmentTracking = totalSignup > 0;
-                                const locked = hasInstallmentTracking ? Math.max(0, totalSignup - granted) : 0;
-                                const unlocked = hasInstallmentTracking ? Math.max(0, granted - appliedCb) : remainingCb;
-
-                                return totalCb > 0 || totalSignup > 0 ? (
-                                  <div className="mb-4">
-                                    {hasInstallmentTracking ? (
-                                      <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5 flex-wrap gap-y-1">
-                                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400"></span> {ar() ? "متاح" : "Unlocked"}: {unlocked.toFixed(2)}</span>
-                                        {locked > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-surface-300"></span> {ar() ? "مقفل" : "Locked"}: {locked.toFixed(2)}</span>}
-                                        <span className="text-brand-pink-600 w-full sm:w-auto text-left sm:text-right">{usedPctCb.toFixed(0)}% {ar() ? "مستخدم" : "Used"}</span>
-                                      </div>
-                                    ) : (
-                                      <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5">
-                                        <span>{ar() ? "الاستخدام" : "Usage"}</span>
-                                        <span className="text-brand-pink-600">{usedPctCb.toFixed(0)}%</span>
-                                      </div>
-                                    )}
-                                    <div className="progress-bar">
-                                      <div className="progress-bar-fill" style={{ width: `${usedPctCb}%` }} />
-                                    </div>
-                                  </div>
-                                ) : null;
-                              })()
-                            ) : (
-                              o.maxSessions && (
-                                <div className="mb-4">
-                                  <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5">
-                                    <span>{ar() ? "الاستخدام" : "Usage"}</span>
-                                    <span className="text-brand-pink-600">{usedPct.toFixed(0)}%</span>
-                                  </div>
-                                  <div className="progress-bar">
-                                    <div className="progress-bar-fill" style={{ width: `${usedPct}%` }} />
-                                  </div>
+                            {/* Sessions progress bar (Cashback is handled in the pink card below) */}
+                            {!isCashback && o.maxSessions && (
+                              <div className="mb-4">
+                                <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5">
+                                  <span>{ar() ? "الاستخدام" : "Usage"}</span>
+                                  <span className="text-brand-pink-600">{usedPct.toFixed(0)}%</span>
                                 </div>
-                              )
+                                <div className="progress-bar">
+                                  <div className="progress-bar-fill" style={{ width: `${usedPct}%` }} />
+                                </div>
+                              </div>
                             )}
 
                             {o.clinicLocked && o.clinicId && (() => {
@@ -1614,10 +1579,37 @@ export default function CustomerDashboard() {
                                   {computeOfferCashbackParts(o).unlocked.toFixed(3)} <span className="text-sm opacity-80 font-bold">KWD</span>
                                 </div>
                                 <div className="mt-3">
+                                  <div className="flex justify-between text-xs text-white/80 mb-1.5 px-1 font-semibold">
+                                    <span>{ar() ? "المتاح" : "Unlocked"}: {computeOfferCashbackParts(o).unlocked.toFixed(2)} KWD</span>
+                                    {computeOfferCashbackParts(o).locked > 0 && (
+                                      <span>{ar() ? "المقفل" : "Locked"}: {computeOfferCashbackParts(o).locked.toFixed(2)} KWD</span>
+                                    )}
+                                  </div>
                                   <CashbackProgressBar unlocked={computeOfferCashbackParts(o).unlocked} locked={computeOfferCashbackParts(o).locked} />
                                 </div>
+                                {computeOfferCashbackParts(o).locked > 0 && o.method === "Installments" && (
+                                  <div className="mt-4 bg-white/20 p-3 rounded-xl text-[11px] font-medium leading-relaxed border border-white/30">
+                                    {ar() 
+                                      ? "ادفع القسط التالي لفتح باقي رصيد الكاش باك (" + computeOfferCashbackParts(o).locked.toFixed(3) + " د.ك)."
+                                      : `Pay your next installment to unlock the rest of your cashback (${computeOfferCashbackParts(o).locked.toFixed(3)} KWD).`}
+                                    <button 
+                                      className="block w-full mt-2.5 bg-white text-surface-900 font-bold py-2 rounded-lg text-center transition-colors hover:bg-surface-50 shadow-sm"
+                                      onClick={(e) => { 
+                                         e.stopPropagation(); 
+                                         setActiveTab("my-purchases"); 
+                                         setPurchasesSubTab("packages"); 
+                                         setTimeout(() => {
+                                           const el = document.getElementById("sec-packages");
+                                           if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                                         }, 100);
+                                      }}
+                                    >
+                                      {ar() ? "دفع القسط الآن" : "Pay Installment Now"}
+                                    </button>
+                                  </div>
+                                )}
                                 {parseFloat(o.cashbackPerSessionKwd || "0") > 0 && (
-                                  <div className="text-white/85 text-xs mt-2 flex items-center gap-1.5">
+                                  <div className="text-white/85 text-xs mt-3 flex items-center gap-1.5">
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
                                     {ar() ? `+${o.cashbackPerSessionKwd} د.ك مع كل جلسة` : `+${o.cashbackPerSessionKwd} KWD per session`}
                                   </div>
