@@ -120,8 +120,8 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
       .lean();
     const offerMap = Object.fromEntries(offers.map((o: any) => [o._id.toString(), o]));
 
-    const userOfferIdsStr = items.map((i) => i._id.toString());
-    const userOfferObjectIds = items.map((i) => i._id as mongoose.Types.ObjectId);
+    const userOfferIdsStr = items.map((i: any) => i.id);
+    const userOfferObjectIds = items.map((i: any) => new mongoose.Types.ObjectId(i.id));
 
     const [pendingRequests, scheduledSessions, lastCompletedSessions] = await Promise.all([
       BookingRequestModel.find({
@@ -147,7 +147,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
 
     const enriched = items.map((item) => {
       const offer: any = offerMap[item.offerId] || {};
-      const uoId = item._id.toString();
+      const uoId = item.id;
       return {
         ...item,
         offerName: offer.name || undefined,
