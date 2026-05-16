@@ -473,9 +473,15 @@ function BookingRequestsQueue() {
                   CB: {b.cashbackDeductedKwd} KWD
                 </span>
               )}
-              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${b.clinicPaymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                {b.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع بالعيادة" : "Clinic Paid") : (ar() ? "دفع العيادة معلّق" : "Clinic Payment Pending")}
-              </span>
+              {parseFloat(b.clinicTakeKwd || "0") === 0 ? (
+                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-500">
+                  {ar() ? "لا يوجد دفع" : "No Payment Required"}
+                </span>
+              ) : (
+                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${b.clinicPaymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                  {b.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع بالعيادة" : "Clinic Paid") : (ar() ? "دفع العيادة معلّق" : "Clinic Payment Pending")}
+                </span>
+              )}
             </div>
           </div>
           <div className="text-xs text-surface-400 mr-2">{new Date(b.createdAt).toLocaleTimeString()}</div>
@@ -567,10 +573,69 @@ function BookingRequestsQueue() {
                   </div>
                </div>
 
+               {/* Scheduling Form */}
+               <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100">
+                  <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-3">{ar() ? "جدولة الموعد" : "Schedule Appointment"}</h4>
+                  <div className="space-y-3">
+                     <div>
+                       <label className="block text-[11px] font-bold text-blue-800 mb-1">{ar() ? "وقت وتاريخ الموعد" : "Date & Time"}</label>
+                       <input 
+                         type="datetime-local" 
+                         className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                         value={scheduleForm.scheduledAt}
+                         onChange={e => setScheduleForm(prev => ({ ...prev, scheduledAt: e.target.value }))}
+                       />
+                     </div>
+                     <div>
+                       <label className="block text-[11px] font-bold text-blue-800 mb-1">{ar() ? "ملاحظات إضافية (اختياري)" : "Notes (Optional)"}</label>
+                       <input 
+                         type="text" 
+                         placeholder={ar() ? "أدخل أي ملاحظات للعيادة..." : "Enter notes for clinic..."}
+                         className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                         value={scheduleForm.notes}
+                         onChange={e => setScheduleForm(prev => ({ ...prev, notes: e.target.value }))}
+                       />
+                     </div>
+                  </div>
+               </div>
+
              </div>
 
-             <div className="mt-8 flex gap-3">
-                <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors" onClick={() => setSelectedBooking(null)}>{ar() ? "إغلاق" : "Close"}</button>
+             <div className="mt-6 flex flex-col gap-2">
+                <button 
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
+                  disabled={!scheduleForm.scheduledAt || processing === selectedBooking.id}
+                  onClick={() => schedule(selectedBooking.id)}
+                >
+                  {processing === selectedBooking.id ? (
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      {ar() ? "تأكيد الموعد وإرسال للعيادة" : "Confirm Schedule & Notify Clinic"}
+                    </>
+                  )}
+                </button>
+                <div className="flex gap-2">
+                  <button 
+                    className="flex-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 rounded-xl transition-colors border border-red-200"
+                    disabled={processing === selectedBooking.id}
+                    onClick={() => {
+                      if (window.confirm(ar() ? "هل أنت متأكد من إلغاء هذا الحجز؟" : "Are you sure you want to cancel this booking?")) {
+                        cancelRequest(selectedBooking.id);
+                      }
+                    }}
+                  >
+                    {ar() ? "إلغاء الطلب" : "Reject Request"}
+                  </button>
+                  <button 
+                    className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-2.5 rounded-xl transition-colors"
+                    disabled={processing === selectedBooking.id}
+                    onClick={() => setSelectedBooking(null)}
+                  >
+                    {ar() ? "إغلاق" : "Close"}
+                  </button>
+                </div>
              </div>
            </div>
         </div>, document.body
