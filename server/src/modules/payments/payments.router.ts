@@ -223,7 +223,7 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin"]), a
 
       // Update userOffer tracking + set spendable cashback balance
       const { UserOfferModel } = await import("../../models/userOffer.model.js");
-      const currentUo = await UserOfferModel.findById(uoId).select("cashbackGrantedKwd cashbackBalanceKwd").lean();
+      const currentUo = await UserOfferModel.findById(uoId).select("cashbackGrantedKwd cashbackBalanceKwd").lean() as any;
       const previousGranted = currentUo?.cashbackGrantedKwd ? (Number(currentUo.cashbackGrantedKwd.split(".")[0]) * 1000 + Number(currentUo.cashbackGrantedKwd.split(".")[1].padEnd(3, "0").slice(0, 3))) : 0;
       const previousBalance = currentUo?.cashbackBalanceKwd ? (Number(currentUo.cashbackBalanceKwd.split(".")[0]) * 1000 + Number(currentUo.cashbackBalanceKwd.split(".")[1].padEnd(3, "0").slice(0, 3))) : 0;
       
