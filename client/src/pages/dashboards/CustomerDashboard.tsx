@@ -1521,7 +1521,7 @@ export default function CustomerDashboard() {
                                 <div className="bg-surface-50 px-3.5 py-2.5 rounded-2xl text-center shrink-0 border border-surface-200/70 min-w-[88px]">
                                   <div className="text-[9px] text-surface-500 uppercase font-bold tracking-wider">{ar() ? "متاح للاستخدام" : "Available"}</div>
                                   <div className="font-black text-surface-900 text-xl leading-none mt-1">
-                                    {computeOfferCashbackParts(o).unlocked.toFixed(1)}
+                                    {walletUnlocked.toFixed(1)}
                                     <span className="text-surface-400 text-sm font-bold ml-1">KWD</span>
                                   </div>
                                 </div>
