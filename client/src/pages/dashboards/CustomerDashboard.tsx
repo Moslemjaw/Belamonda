@@ -3223,7 +3223,9 @@ export default function CustomerDashboard() {
                       schedulingMode: isStandaloneBooking ? resolvedSchedulingMode : undefined,
                       standaloneName: isStandaloneBooking ? (offer.offerName || offer.offerId || offer.treatmentName) : undefined,
                       standalonePrice: isStandaloneBooking ? standalonePriceKwd : undefined,
-                      notes: offer.treatmentName || offer.offerName || undefined
+                      notes: offer.treatmentName || offer.offerName || undefined,
+                      sessionGrossKwd: offer.priceKwd != null ? Number(offer.priceKwd).toFixed(3) : undefined,
+                      cashbackAppliedKwd: offer.cashbackKwd != null && Number(offer.cashbackKwd) > 0 ? Number(offer.cashbackKwd).toFixed(3) : undefined
                    })
                  });
                  await refetchMySessions();

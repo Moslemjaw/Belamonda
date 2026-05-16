@@ -31,7 +31,9 @@ const RequestSchema = z.object({
   isStandalone: z.boolean().optional(),
   schedulingMode: z.enum(["belamonda_cs", "clinic_handles"]).optional(),
   standaloneName: z.string().optional(),
-  standalonePrice: z.union([z.string(), z.number()]).optional()
+  standalonePrice: z.union([z.string(), z.number()]).optional(),
+  sessionGrossKwd: z.string().optional(),
+  cashbackAppliedKwd: z.string().optional()
 });
 
 const ScheduleSchema = z.object({
@@ -613,18 +615,25 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       });
     }
     // Compute session gross price for display on clinic/CS dashboards
+    // Priority: client-provided session price > server-computed > offer config
     let sessionGross: string | undefined;
-    if (parsed.data.isStandalone) {
+    if (parsed.data.sessionGrossKwd) {
+      // Client sent the actual treatment price at the clinic
+      sessionGross = parsed.data.sessionGrossKwd;
+    } else if (parsed.data.isStandalone) {
       sessionGross = String(parsed.data.standalonePrice ?? "0.000");
     } else if (cashbackDeducted > 0) {
-      // Gross = cashback deducted + remaining amount to pay
       const remaining = parseFloat(amountToPay ?? "0") || 0;
       sessionGross = (cashbackDeducted + remaining).toFixed(3);
     } else if (offer && uo.membershipType === "cashback") {
-      // Even if no cashback was deducted (e.g. 0 balance), use the offer's cashback rate as the session price
       const rate = parseFloat(offer.cashbackPerSessionKwd || "0") || 0;
       if (rate > 0) sessionGross = rate.toFixed(3);
     }
+
+    // Cashback deducted: prefer client-provided value, then server-computed
+    const finalCashbackDeducted = parsed.data.cashbackAppliedKwd
+      ? parsed.data.cashbackAppliedKwd
+      : (cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined);
 
     const breq = await bookingRequestsStore.create({
       userOfferId: uo.id,
@@ -634,9 +643,9 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       isStandalone: !!parsed.data.isStandalone,
       bookingRoute: "cs",
       membershipType: uo.membershipType ?? "none",
-      hadCashback: cashbackDeducted > 0,
+      hadCashback: cashbackDeducted > 0 || !!parsed.data.cashbackAppliedKwd,
       sessionPriceKwd: sessionGross,
-      cashbackDeductedKwd: cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined,
+      cashbackDeductedKwd: finalCashbackDeducted,
       preferredAt: parsed.data.preferredAt,
       notes: parsed.data.notes
     });
