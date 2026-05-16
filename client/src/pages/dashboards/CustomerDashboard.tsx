@@ -1610,7 +1610,7 @@ export default function CustomerDashboard() {
                                       : "No booking needed. Your cashback is added directly to your wallet above to spend at any clinic."}
                                   </div>
                                 </div>
-                                {parts.locked > 0 && o.method === "Installments" && (
+                                {parts.locked > 0 && (
                                   <button
                                     className="w-full mt-1 bg-brand-pink-600 hover:bg-brand-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
                                     onClick={(e) => { 
