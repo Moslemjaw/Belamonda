@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Html5QrcodeScanner } from "html5-qrcode";
+import { Html5Qrcode } from "html5-qrcode";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
 import { useClinicSchedule, useMyClinicReport, invalidateCache } from "../../hooks/useApi";
@@ -37,7 +37,12 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
   const [newTime, setNewTime] = useState("");
   const [rescheduling, setRescheduling] = useState(false);
 
-  const allGreen = session.eligibility?.offerActive && session.eligibility?.paymentConfirmed && session.eligibility?.intervalMet;
+  const isPast = session.status !== "scheduled";
+  const isOfferActive = isPast ? true : (session.userOfferId ? session.eligibility?.offerActive : true);
+  const isPaymentConfirmed = isPast ? true : (session.clinicPaymentStatus === "paid" || session.eligibility?.paymentConfirmed);
+  const isIntervalMet = isPast ? true : (session.eligibility?.intervalMet !== false);
+
+  const allGreen = isOfferActive && isPaymentConfirmed && isIntervalMet;
   const time = new Date(session.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const date = new Date(session.scheduledAt).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 
@@ -90,15 +95,15 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
         )}
         <div className="flex items-center justify-between text-xs">
            <span className="text-surface-600 font-medium">{ar() ? "العرض نشط" : "Offer Active"}</span>
-           {session.eligibility?.offerActive ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold">No</span>}
+           {isOfferActive ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold">No</span>}
         </div>
         <div className="flex items-center justify-between text-xs">
            <span className="text-surface-600 font-medium">{ar() ? "حالة الدفع" : "Payment"}</span>
-           {session.eligibility?.paymentConfirmed ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> OK</span> : <span className="text-red-500 font-bold">Pending</span>}
+           {isPaymentConfirmed ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> OK</span> : <span className="text-red-500 font-bold">Pending</span>}
         </div>
         <div className="flex items-center justify-between text-xs">
            <span className="text-surface-600 font-medium">{ar() ? "المدة المتاحة" : "Interval Met"}</span>
-           {session.eligibility?.intervalMet ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold border-b border-dashed border-red-300 pb-0.5">Too early</span>}
+           {isIntervalMet ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold border-b border-dashed border-red-300 pb-0.5">Too early</span>}
         </div>
       </div>
 
@@ -1179,24 +1184,35 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
   const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
+    let html5QrCode: Html5Qrcode | null = null;
+    let isStopped = false;
+
     if (showScanner) {
-      const scanner = new Html5QrcodeScanner(
-        "qr-reader",
+      html5QrCode = new Html5Qrcode("qr-reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
         { fps: 10, qrbox: { width: 250, height: 250 } },
-        false
-      );
-      
-      scanner.render((decodedText) => {
-        setToken(decodedText);
-        setShowScanner(false);
-        scanner.clear();
-        handleScan(decodedText);
-      }, () => {
-        // Ignore scan errors (they happen constantly when no QR is present)
+        (decodedText) => {
+          if (isStopped) return;
+          isStopped = true;
+          setToken(decodedText);
+          setShowScanner(false);
+          try {
+            html5QrCode?.stop().catch(() => {}).finally(() => html5QrCode?.clear());
+          } catch (e) {}
+          handleScan(decodedText);
+        },
+        () => {}
+      ).catch((err) => {
+        console.error(err);
+        setError(ar() ? "تعذر تشغيل الكاميرا. تحقق من الصلاحيات." : "Could not start camera. Check permissions.");
       });
 
       return () => {
-        scanner.clear().catch(() => {});
+        isStopped = true;
+        try {
+          html5QrCode?.stop().catch(() => {}).finally(() => html5QrCode?.clear());
+        } catch (e) {}
       };
     }
   }, [showScanner]);
