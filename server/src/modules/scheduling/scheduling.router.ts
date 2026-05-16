@@ -601,6 +601,10 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         conversationId: null
       });
     }
+    // Compute session gross price for display on clinic/CS dashboards
+    const sessionGross = parsed.data.isStandalone
+      ? String(parsed.data.standalonePrice ?? "0.000")
+      : (cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined);
 
     const breq = await bookingRequestsStore.create({
       userOfferId: uo.id,
@@ -611,7 +615,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       bookingRoute: "cs",
       membershipType: uo.membershipType ?? "none",
       hadCashback: cashbackDeducted > 0,
-      sessionPriceKwd: parsed.data.isStandalone ? String(parsed.data.standalonePrice ?? "0.000") : undefined,
+      sessionPriceKwd: sessionGross,
       preferredAt: parsed.data.preferredAt,
       notes: parsed.data.notes
     });
@@ -855,11 +859,37 @@ schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "admin", "
     if (cid) filter.clinicId = cid;
   }
   const items = await bookingRequestsStore.list(filter);
+
+  // Enrich with customer names
+  const uniqueUserIds = [...new Set(items.map((i) => i.userId))];
+  const users = uniqueUserIds.length > 0
+    ? (await UserModel.find({ _id: { $in: uniqueUserIds } }).select("_id fullName phone").lean()) as Array<{ _id: { toString(): string }; fullName?: string; phone?: string }>
+    : [];
+  const userMap = new Map(users.map((u) => [u._id.toString(), { fullName: u.fullName, phone: u.phone }]));
+
+  // Enrich with offer names and financials
+  const uniqueOfferIds = [...new Set(items.map((it) => it.offerId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
+  const offerDocs = uniqueOfferIds.length > 0
+    ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).lean<OfferDoc[]>()
+    : [];
+  const offerMap = new Map(offerDocs.map((o) => [String(o._id), mapOfferDocToSched(o)]));
+
   const enriched = await Promise.all(
     items.map(async (it) => {
       const c = await getClinicNames(it.clinicId);
-      const offer = it.offerId ? await loadOffer(it.offerId) : null;
-      return { ...it, clinicNameEn: c.nameEn, clinicNameAr: c.nameAr, offerName: offer?.name ?? null };
+      const offer = it.offerId && mongoose.isValidObjectId(it.offerId)
+        ? (offerMap.get(it.offerId) ?? null)
+        : null;
+      const financials = computeBookingRequestFinancials(it, offer);
+      return {
+        ...it,
+        customerName: userMap.get(it.userId)?.fullName ?? null,
+        customerPhone: userMap.get(it.userId)?.phone ?? null,
+        clinicNameEn: c.nameEn,
+        clinicNameAr: c.nameAr,
+        offerName: offer?.name ?? null,
+        ...financials,
+      };
     })
   );
   return res.json({ items: enriched });
@@ -912,7 +942,7 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
 schedulingRouter.get("/clinic/financial-summary", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res) => {
   let clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
   if (!clinicId && req.auth!.role === "clinicStaff") {
-    clinicId = req.auth!.clinicId || (await getUserClinicId(req.auth!.userId)) ?? undefined;
+    clinicId = req.auth!.clinicId || ((await getUserClinicId(req.auth!.userId)) ?? undefined);
   }
   const empty = {
     totalGrossSalesKwd: "0.000",

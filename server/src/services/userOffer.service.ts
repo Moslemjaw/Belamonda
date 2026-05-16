@@ -17,6 +17,7 @@ export async function applyOfferMembershipToUserOffer(userOfferId: string, offer
   if (!mongoose.isValidObjectId(userOfferId) || !mongoose.isValidObjectId(offerId)) return;
   const offer = await OfferModel.findById(offerId).lean() as any;
   if (!offer) return;
+  const currentUo = await UserOfferModel.findById(userOfferId).lean() as any;
   const branch = (offer.branchSessionPrices ?? []).map((b: any) => ({
     clinicId: String(b.clinicId),
     sessionPriceKwd: String(b.sessionPriceKwd)
@@ -36,7 +37,12 @@ export async function applyOfferMembershipToUserOffer(userOfferId: string, offer
   if (mt) extra.membershipType = mt;
   if (mt === "cashback") {
     const signup = offer.signupCashbackKwd ?? "0.000";
-    if (kwdMils(signup) > 0) extra.cashbackBalanceKwd = signup;
+    // Only set cashbackBalanceKwd if it hasn't been set by the proportional cashback grant yet.
+    // For installments, grantCashbackForPayment / payments.router sets this proportionally.
+    const alreadyGranted = kwdMils(currentUo?.cashbackGrantedKwd ?? "0.000") > 0;
+    if (kwdMils(signup) > 0 && !alreadyGranted) {
+      extra.cashbackBalanceKwd = signup;
+    }
   }
   // Store total signup cashback for per-installment tracking
   const signupCb = offer.signupCashbackKwd ?? "0.000";

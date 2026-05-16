@@ -25,6 +25,9 @@ async function run() {
     
     const res3 = await PaymentModel.deleteMany({ userId: { $in: userIds } });
     console.log('Deleted Payments:', res3.deletedCount);
+
+    const res4 = await UserModel.deleteMany({ _id: { $in: userIds } });
+    console.log('Deleted Users:', res4.deletedCount);
   } else {
     console.log('No users found.');
   }

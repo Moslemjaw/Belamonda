@@ -205,12 +205,13 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin"]), a
         installmentNumber: totalInstallments > 1 ? 1 : undefined
       });
 
-      // Update userOffer tracking
+      // Update userOffer tracking + set spendable cashback balance
       const { UserOfferModel } = await import("../../models/userOffer.model.js");
       await UserOfferModel.findByIdAndUpdate(uoId, {
         $set: {
           totalSignupCashbackKwd: signupBonus,
-          cashbackGrantedKwd: fmtKwd(thisAmount)
+          cashbackGrantedKwd: fmtKwd(thisAmount),
+          cashbackBalanceKwd: fmtKwd(thisAmount)
         }
       });
     }

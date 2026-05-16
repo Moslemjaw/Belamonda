@@ -455,15 +455,24 @@ function BookingRequestsQueue() {
         <div className="text-center text-sm text-surface-400 py-8">✅ {ar() ? "لا توجد طلبات حجز معلقة" : "No pending booking requests"}</div>
       ) : (data?.items || []).map((b: any) => (
         <div key={b.id} className="flex items-center gap-4 py-3 border-b border-surface-100 last:border-0">
-          <div className="avatar avatar-sm bg-blue-100 text-blue-700">{b.userId?.charAt(0)?.toUpperCase()}</div>
+          <div className="avatar avatar-sm bg-blue-100 text-blue-700">{(b.customerName || b.userId)?.charAt(0)?.toUpperCase()}</div>
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-surface-800">{b.userId}</div>
-            <div className="text-xs text-surface-400">{b.userOfferId?.slice(0, 25)}</div>
+            <div className="text-sm font-medium text-surface-800">{b.customerName || b.userId}</div>
+            <div className="text-xs text-surface-400">{b.offerName || (b.isStandalone ? b.standaloneName : null) || b.userOfferId?.slice(0, 25)}</div>
             <div className="mt-1 flex gap-1.5 flex-wrap">
               <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-600">
                 {ar() ? (b.clinicNameAr || b.clinicId) : (b.clinicNameEn || b.clinicId)}
               </span>
-
+              {b.membershipType && b.membershipType !== "none" && (
+                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
+                  {b.membershipType === "cashback" ? "💰 Cashback" : b.membershipType === "free_sessions" ? "🎫 Free" : b.membershipType}
+                </span>
+              )}
+              {parseFloat(b.cashbackDeductedKwd || "0") > 0 && (
+                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
+                  CB: {b.cashbackDeductedKwd} KWD
+                </span>
+              )}
               <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${b.clinicPaymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
                 {b.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع بالعيادة" : "Clinic Paid") : (ar() ? "دفع العيادة معلّق" : "Clinic Payment Pending")}
               </span>
@@ -495,10 +504,11 @@ function BookingRequestsQueue() {
                <div className="bg-surface-50 rounded-2xl p-4 border border-surface-100">
                   <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-3">{ar() ? "بيانات العميل" : "Customer Information"}</h4>
                   <div className="flex items-center gap-3">
-                     <div className="avatar avatar-sm bg-blue-100 text-blue-700">{selectedBooking.userId?.charAt(0)?.toUpperCase()}</div>
+                     <div className="avatar avatar-sm bg-blue-100 text-blue-700">{(selectedBooking.customerName || selectedBooking.userId)?.charAt(0)?.toUpperCase()}</div>
                      <div>
-                        <div className="font-bold text-surface-900">{selectedBooking.userId}</div>
-                        <div className="text-xs text-surface-500">{new Date(selectedBooking.createdAt).toLocaleString()}</div>
+                        <div className="font-bold text-surface-900">{selectedBooking.customerName || selectedBooking.userId}</div>
+                        {selectedBooking.customerPhone && <div className="text-xs text-surface-500">{selectedBooking.customerPhone}</div>}
+                        <div className="text-xs text-surface-400">{new Date(selectedBooking.createdAt).toLocaleString()}</div>
                      </div>
                   </div>
                </div>
@@ -507,17 +517,10 @@ function BookingRequestsQueue() {
                <div className="bg-surface-50 rounded-2xl p-4 border border-surface-100">
                  <h4 className="text-xs font-bold text-surface-500 uppercase tracking-wider mb-3">{ar() ? "تفاصيل الطلب" : "Request Details"}</h4>
                   <div className="space-y-2">
-                     {selectedBooking.isStandalone ? (
-                       <div className="flex justify-between items-center text-sm">
-                          <span className="text-surface-500">{ar() ? "الجلسة" : "Session"}</span>
-                          <span className="font-bold text-surface-900">{selectedBooking.standaloneName || selectedBooking.userOfferId}</span>
-                       </div>
-                     ) : (
-                       <div className="flex justify-between items-center text-sm">
-                          <span className="text-surface-500">{ar() ? "العرض/الاشتراك" : "User offer"}</span>
-                          <span className="font-bold text-surface-900">{selectedBooking.userOfferId}</span>
-                       </div>
-                     )}
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-surface-500">{ar() ? "الجلسة" : "Session / Offer"}</span>
+                        <span className="font-bold text-surface-900">{selectedBooking.offerName || selectedBooking.standaloneName || selectedBooking.userOfferId}</span>
+                     </div>
                      <div className="flex justify-between items-center text-sm">
                         <span className="text-surface-500">{ar() ? "العيادة المطلوبة" : "Requested Clinic"}</span>
                         <span className="font-bold text-brand-pink-600">{ar() ? (selectedBooking.clinicNameAr || selectedBooking.clinicId) : (selectedBooking.clinicNameEn || selectedBooking.clinicId)}</span>
@@ -527,21 +530,34 @@ function BookingRequestsQueue() {
                         <span className="font-bold text-surface-900">{selectedBooking.preferredAt ? new Date(selectedBooking.preferredAt).toLocaleString() : (ar() ? "غير محدد" : "—")}</span>
                      </div>
                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-surface-500">{ar() ? "السعر" : "Price"}</span>
-                        <span className="font-bold text-surface-900">{selectedBooking.sessionPriceKwd || "0.000"} KWD</span>
-                     </div>
-                     <div className="flex justify-between items-center text-sm">
                         <span className="text-surface-500">{ar() ? "العضوية/النوع" : "Membership Type"}</span>
-                        <span className="font-bold text-surface-900">{selectedBooking.membershipType || "none"}</span>
+                        <span className="font-bold text-surface-900">
+                          {selectedBooking.membershipType === "cashback" ? "💰 Cashback" : selectedBooking.membershipType === "free_sessions" ? "🎫 Free Sessions" : selectedBooking.membershipType || "none"}
+                        </span>
+                     </div>
+                  </div>
+               </div>
+
+               {/* Financial Breakdown */}
+               <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100">
+                  <h4 className="text-xs font-bold text-emerald-600 uppercase tracking-wider mb-3">{ar() ? "التفاصيل المالية" : "Financial Breakdown"}</h4>
+                  <div className="space-y-2">
+                     <div className="flex justify-between items-center text-sm">
+                        <span className="text-emerald-700">{ar() ? "سعر الجلسة" : "Session Price"}</span>
+                        <span className="font-bold text-emerald-900">{selectedBooking.sessionGrossKwd || selectedBooking.sessionPriceKwd || "0.000"} KWD</span>
                      </div>
                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-surface-500">{ar() ? "كاش باك مستخدم" : "Cashback Used"}</span>
-                        <span className="font-bold text-surface-900">{selectedBooking.cashbackDeductedKwd || "0.000"} KWD</span>
+                        <span className="text-emerald-700">{ar() ? "كاش باك مستخدم" : "Cashback Deducted"}</span>
+                        <span className="font-bold text-amber-600">-{selectedBooking.cashbackDeductedKwd || "0.000"} KWD</span>
                      </div>
-                     <div className="flex justify-between items-center text-sm">
-                        <span className="text-surface-500">{ar() ? "الدفع من العيادة" : "Clinic Payment"}</span>
+                     <div className="flex justify-between items-center text-sm border-t border-emerald-200 pt-2 mt-1">
+                        <span className="text-emerald-700 font-bold">{ar() ? "المبلغ على العميل" : "Amount Due at Clinic"}</span>
+                        <span className="font-black text-emerald-900">{selectedBooking.clinicTakeKwd || "0.000"} KWD</span>
+                     </div>
+                     <div className="flex justify-between items-center text-sm mt-1">
+                        <span className="text-surface-500">{ar() ? "الدفع من العيادة" : "Clinic Payment Status"}</span>
                         <span className={`font-bold ${selectedBooking.clinicPaymentStatus === "paid" ? "text-emerald-700" : "text-amber-700"}`}>
-                          {selectedBooking.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع" : "Paid") : (ar() ? "معلّق" : "Pending")}
+                          {selectedBooking.clinicPaymentStatus === "paid" ? (ar() ? "✓ مدفوع" : "✓ Paid") : (ar() ? "⏳ معلّق" : "⏳ Pending")}
                         </span>
                      </div>
                   </div>

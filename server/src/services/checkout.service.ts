@@ -309,11 +309,15 @@ async function grantCashbackForPayment(
     });
   }
 
-  // Step 3: Update userOffer cashbackGrantedKwd tracker
+  // Step 3: Update userOffer cashbackGrantedKwd tracker + spendable balance
   const currentUo = await UserOfferModel.findById(userOfferId).lean();
   const currentGranted = mils((currentUo as any)?.cashbackGrantedKwd ?? "0.000");
+  const currentBalance = mils((currentUo as any)?.cashbackBalanceKwd ?? "0.000");
   await UserOfferModel.findByIdAndUpdate(userOfferId, {
-    $set: { cashbackGrantedKwd: fmt(currentGranted + thisAmount) }
+    $set: {
+      cashbackGrantedKwd: fmt(currentGranted + thisAmount),
+      cashbackBalanceKwd: fmt(currentBalance + thisAmount)
+    }
   });
 }
 
