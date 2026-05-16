@@ -159,20 +159,31 @@ function computeBookingRequestFinancials(
   const cashback = parseFloat(breq.cashbackDeductedKwd ?? "0") || 0;
   const clinicTake = parseFloat(breq.sessionPriceKwd ?? "0") || 0;
   const listFromOffer = offer ? parseFloat(resolveSessionPrice(offer, breq.clinicId) ?? "0") || 0 : 0;
+  const cashbackRate = offer ? parseFloat(offer.cashbackPerSessionKwd ?? "0") || 0 : 0;
   const standalonePrice = breq.isStandalone ? clinicTake : 0;
 
   let sessionGross = clinicTake + cashback;
   if (sessionGross <= 0 && listFromOffer > 0) sessionGross = listFromOffer;
+  if (sessionGross <= 0 && cashbackRate > 0) sessionGross = cashbackRate;
   if (sessionGross <= 0 && standalonePrice > 0) sessionGross = standalonePrice;
 
   const usesCashback = cashback > 0 || breq.hadCashback === true || breq.membershipType === "cashback";
 
+  // For cashback memberships where cashback covers the full session, clinicTake is 0
+  // and sessionGross equals the cashback rate
+  const effectiveCashback = usesCashback && cashback <= 0 && sessionGross > 0 && clinicTake <= 0
+    ? sessionGross
+    : cashback;
+  const effectiveClinicTake = usesCashback && clinicTake <= 0 && cashback <= 0
+    ? Math.max(0, sessionGross - effectiveCashback)
+    : clinicTake;
+
   return {
     sessionGrossKwd: sessionGross.toFixed(3),
-    clinicTakeKwd: clinicTake.toFixed(3),
-    cashbackDeductedKwd: cashback.toFixed(3),
+    clinicTakeKwd: effectiveClinicTake.toFixed(3),
+    cashbackDeductedKwd: effectiveCashback.toFixed(3),
     usesCashback,
-    isPrepaidMembership: !offer?.payPerSession && !breq.isStandalone && sessionGross > 0 && clinicTake === 0 && cashback === 0,
+    isPrepaidMembership: !offer?.payPerSession && !breq.isStandalone && sessionGross > 0 && clinicTake === 0 && cashback === 0 && !usesCashback,
   };
 }
 
@@ -602,9 +613,18 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       });
     }
     // Compute session gross price for display on clinic/CS dashboards
-    const sessionGross = parsed.data.isStandalone
-      ? String(parsed.data.standalonePrice ?? "0.000")
-      : (cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined);
+    let sessionGross: string | undefined;
+    if (parsed.data.isStandalone) {
+      sessionGross = String(parsed.data.standalonePrice ?? "0.000");
+    } else if (cashbackDeducted > 0) {
+      // Gross = cashback deducted + remaining amount to pay
+      const remaining = parseFloat(amountToPay ?? "0") || 0;
+      sessionGross = (cashbackDeducted + remaining).toFixed(3);
+    } else if (offer && uo.membershipType === "cashback") {
+      // Even if no cashback was deducted (e.g. 0 balance), use the offer's cashback rate as the session price
+      const rate = parseFloat(offer.cashbackPerSessionKwd || "0") || 0;
+      if (rate > 0) sessionGross = rate.toFixed(3);
+    }
 
     const breq = await bookingRequestsStore.create({
       userOfferId: uo.id,
@@ -616,13 +636,10 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       membershipType: uo.membershipType ?? "none",
       hadCashback: cashbackDeducted > 0,
       sessionPriceKwd: sessionGross,
+      cashbackDeductedKwd: cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined,
       preferredAt: parsed.data.preferredAt,
       notes: parsed.data.notes
     });
-
-    if (cashbackDeducted > 0) {
-       await bookingRequestsStore.update(breq.id, { cashbackDeductedKwd: cashbackDeducted.toFixed(3) });
-    }
 
     const [{ conv, csIds: convCsIds }, financeIds] = await Promise.all([
       ensureConversationFor(breq.id),

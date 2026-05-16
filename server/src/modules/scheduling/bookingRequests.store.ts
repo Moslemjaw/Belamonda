@@ -91,6 +91,7 @@ export const bookingRequestsStore = {
     membershipType?: string;
     hadCashback?: boolean;
     sessionPriceKwd?: string;
+    cashbackDeductedKwd?: string;
     preferredAt?: string;
     notes?: string;
   }): Promise<BookingRequestRecord> {

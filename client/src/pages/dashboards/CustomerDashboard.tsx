@@ -3222,7 +3222,8 @@ export default function CustomerDashboard() {
                       isStandalone: isStandaloneBooking,
                       schedulingMode: isStandaloneBooking ? resolvedSchedulingMode : undefined,
                       standaloneName: isStandaloneBooking ? (offer.offerName || offer.offerId || offer.treatmentName) : undefined,
-                      standalonePrice: isStandaloneBooking ? standalonePriceKwd : undefined
+                      standalonePrice: isStandaloneBooking ? standalonePriceKwd : undefined,
+                      notes: offer.treatmentName || offer.offerName || undefined
                    })
                  });
                  await refetchMySessions();
