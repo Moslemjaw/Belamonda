@@ -42,15 +42,14 @@ function computeOfferCashbackParts(o: {
   cashbackBalanceKwd?: string;
   totalSignupCashbackKwd?: string;
   cashbackGrantedKwd?: string;
-  cashbackAppliedKwd?: string;
+  signupCashbackKwd?: string;
 }) {
   const remainingCb = parseFloat(o.cashbackBalanceKwd || "0");
-  const totalSignup = parseFloat(o.totalSignupCashbackKwd || "0");
+  const totalSignup = parseFloat(o.totalSignupCashbackKwd || o.signupCashbackKwd || "0");
   const granted = parseFloat(o.cashbackGrantedKwd || "0");
-  const appliedCb = parseFloat(o.cashbackAppliedKwd || "0");
   if (totalSignup > 0) {
     return {
-      unlocked: Math.max(0, granted - appliedCb),
+      unlocked: remainingCb,
       locked: Math.max(0, totalSignup - granted),
       total: totalSignup,
       hasInstallmentTracking: true,
@@ -59,7 +58,7 @@ function computeOfferCashbackParts(o: {
   return {
     unlocked: remainingCb,
     locked: 0,
-    total: remainingCb + appliedCb,
+    total: remainingCb,
     hasInstallmentTracking: false,
   };
 }
@@ -1396,17 +1395,9 @@ export default function CustomerDashboard() {
                 let lockedFromOffers = 0;
 
                 offers.filter(o => o.status === 'active').forEach(o => {
-                  const remainingCb = parseFloat(o.cashbackBalanceKwd || "0");
-                  const totalSignup = parseFloat(o.totalSignupCashbackKwd || "0");
-                  const granted = parseFloat(o.cashbackGrantedKwd || "0");
-                  const applied = parseFloat(o.cashbackAppliedKwd || "0");
-                  
-                  if (totalSignup > 0) {
-                    lockedFromOffers += Math.max(0, totalSignup - granted);
-                    unlockedFromOffers += Math.max(0, granted - applied);
-                  } else {
-                    unlockedFromOffers += remainingCb;
-                  }
+                  const parts = computeOfferCashbackParts(o);
+                  unlockedFromOffers += parts.unlocked;
+                  lockedFromOffers += parts.locked;
                 });
 
                 const walletUnlocked = parseFloat(wallet?.unlockedBalance || "0");
@@ -3085,7 +3076,7 @@ export default function CustomerDashboard() {
                {(() => {
                  const gross = parseFloat(showBookingModal.priceKwd || "0") || (parseFloat(showBookingModal.finalPrice || "0") + parseFloat(showBookingModal.cashbackKwd || "0"));
                  const cb = parseFloat(showBookingModal.cashbackKwd || "0");
-                 const pay = parseFloat(showBookingModal.finalPrice || showBookingModal.effectivePrice || "0") || Math.max(0, gross - cb);
+                 const pay = Math.max(0, gross - cb);
                  return gross > 0 ? (
                    <div className="rounded-xl border border-surface-200 bg-white p-3 space-y-1.5 text-xs">
                      <div className="flex justify-between"><span className="text-surface-500">{ar() ? "سعر الجلسة" : "Session price"}</span><span className="font-bold">{gross.toFixed(3)} KWD</span></div>
@@ -3127,8 +3118,31 @@ export default function CustomerDashboard() {
                         <select
                            className="select-field w-full bg-surface-50"
                            id="bookingClinicSelect"
-                           key={`bc-${String(showBookingModal.id)}-${String(showBookingModal.clinicId ?? "")}`}
-                           defaultValue={showBookingModal.clinicId || ""}
+                           value={showBookingModal.clinicId || ""}
+                           onChange={(e) => {
+                             const newClinicId = e.target.value;
+                             const t = dynamicTreatments?.find((dt: any) => dt.id === showBookingModal.treatmentId);
+                             if (t) {
+                               const offeringsBy = (t.offeringsByClinic || {}) as Record<string, { priceKwd: number; cashbackKwd: number }>;
+                               const clinicOffering = offeringsBy[newClinicId];
+                               const newBasePrice = clinicOffering?.priceKwd ?? t.priceKwd;
+                               const actualDiscountPct = showBookingModal.discountPct || 0;
+                               const discountAmt = actualDiscountPct > 0 ? +(newBasePrice * actualDiscountPct / 100).toFixed(3) : 0;
+                               const newFinalPrice = +(newBasePrice - discountAmt).toFixed(3);
+                               
+                               setShowBookingModal({
+                                 ...showBookingModal,
+                                 clinicId: newClinicId,
+                                 priceKwd: newBasePrice,
+                                 finalPrice: newFinalPrice
+                               });
+                             } else {
+                               setShowBookingModal({
+                                 ...showBookingModal,
+                                 clinicId: newClinicId
+                               });
+                             }
+                           }}
                         >
                            {renderClinicOptions()}
                         </select>

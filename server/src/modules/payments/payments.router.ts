@@ -176,6 +176,7 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin"]), a
     const signupBonus = (offer as { signupCashbackKwd?: string }).signupCashbackKwd ?? "0.000";
     const [ia, ib = "000"] = signupBonus.split(".");
     const signupBonusMils = Number(ia) * 1000 + Number(ib.padEnd(3, "0").slice(0, 3));
+    const isCashbackOnly = !!(offer as { isCashbackOnly?: boolean }).isCashbackOnly;
     if (signupBonusMils > 0) {
       const userId = refreshedUo?.userId ?? updated.userId;
       const uoId = refreshedUo?.id ?? updated.id;
@@ -183,12 +184,16 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin"]), a
       const totalInstallments = isInstallments ? ((uo as any).installmentCount ?? 1) : 1;
 
       // Step 1: Credit full amount to wallet locked pool
-      await kycStore.creditOfferCashback({
-        userId,
-        amountKwd: signupBonus,
-        userOfferId: uoId,
-        createdById: req.auth!.userId
-      });
+      // For isCashbackOnly offers the locked pool is pre-funded at KYC approval,
+      // so skip this step to avoid double-crediting.
+      if (!isCashbackOnly) {
+        await kycStore.creditOfferCashback({
+          userId,
+          amountKwd: signupBonus,
+          userOfferId: uoId,
+          createdById: req.auth!.userId
+        });
+      }
 
       // Step 2: Unlock proportional share for installment 1 (or full)
       const perInstallment = Math.floor(signupBonusMils / totalInstallments);

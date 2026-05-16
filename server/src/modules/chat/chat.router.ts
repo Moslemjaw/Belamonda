@@ -68,12 +68,22 @@ chatRouter.get("/conversations", authRequired, (req, res) => {
   return res.json({ items });
 });
 
+async function checkConvAccess(req: any, conv: any) {
+  if (req.auth!.role === "admin") return true;
+  if (chatStore.isParticipant(conv.id, req.auth!.userId)) return true;
+  if (req.auth!.role === "clinicStaff" && conv.bookingRequestId) {
+    const breq = await bookingRequestsStore.get(conv.bookingRequestId);
+    if (breq && breq.clinicId === req.auth!.clinicId) return true;
+  }
+  return false;
+}
+
 // Get a conversation (participant or admin)
 chatRouter.get("/conversations/:id", authRequired, async (req, res, next) => {
   try {
     const conv = chatStore.getConversation(req.params.id);
     if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
-    if (req.auth!.role !== "admin" && !chatStore.isParticipant(conv.id, req.auth!.userId)) {
+    if (!(await checkConvAccess(req, conv))) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
     const breq = conv.bookingRequestId ? await bookingRequestsStore.get(conv.bookingRequestId) : null;
@@ -85,74 +95,86 @@ chatRouter.get("/conversations/:id", authRequired, async (req, res, next) => {
 });
 
 // Paginated messages
-chatRouter.get("/conversations/:id/messages", authRequired, (req, res) => {
-  const conv = chatStore.getConversation(req.params.id);
-  if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
-  if (req.auth!.role !== "admin" && !chatStore.isParticipant(conv.id, req.auth!.userId)) {
-    return res.status(403).json({ error: "FORBIDDEN" });
+chatRouter.get("/conversations/:id/messages", authRequired, async (req, res, next) => {
+  try {
+    const conv = chatStore.getConversation(req.params.id);
+    if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
+    if (!(await checkConvAccess(req, conv))) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+    const before = typeof req.query.before === "string" ? req.query.before : undefined;
+    const limit = req.query.limit ? Math.min(100, Number(req.query.limit)) : 50;
+    const result = chatStore.listMessages(conv.id, { before, limit });
+    return res.json(result);
+  } catch (error) {
+    next(error);
   }
-  const before = typeof req.query.before === "string" ? req.query.before : undefined;
-  const limit = req.query.limit ? Math.min(100, Number(req.query.limit)) : 50;
-  const result = chatStore.listMessages(conv.id, { before, limit });
-  return res.json(result);
 });
 
 // Post a message via REST (also broadcasts via socket)
-chatRouter.post("/conversations/:id/messages", authRequired, (req, res) => {
-  const conv = chatStore.getConversation(req.params.id);
-  if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
-  if (req.auth!.role === "admin") {
-    return res.status(403).json({ error: "ADMIN_READ_ONLY" });
+chatRouter.post("/conversations/:id/messages", authRequired, async (req, res, next) => {
+  try {
+    const conv = chatStore.getConversation(req.params.id);
+    if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
+    if (req.auth!.role === "admin") {
+      return res.status(403).json({ error: "ADMIN_READ_ONLY" });
+    }
+    if (!(await checkConvAccess(req, conv))) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+    const parsed = PostMessageSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    const body = parsed.data.body.trim();
+    const attachments = parsed.data.attachments ?? [];
+    if (!body && attachments.length === 0) return res.status(400).json({ error: "EMPTY_MESSAGE" });
+
+    const msg = chatStore.addMessage({
+      conversationId: conv.id,
+      senderId: req.auth!.userId,
+      senderRole: req.auth!.role as Role,
+      body,
+      attachments
+    });
+    if (!msg) return res.status(500).json({ error: "SEND_FAILED" });
+
+    emitToConversation(conv.id, "message:new", { conversationId: conv.id, message: msg });
+
+    const recipients = conv.participants.map((p) => p.userId).filter((u) => u !== req.auth!.userId);
+    notifyChatRelatedUsers({
+      userIds: recipients,
+      kind: "chat_message",
+      body: body || (attachments[0]?.filename ?? "Attachment"),
+      payload: { conversationId: conv.id, messageId: msg.id }
+    });
+
+    return res.status(201).json({ message: msg });
+  } catch (error) {
+    next(error);
   }
-  if (!chatStore.isParticipant(conv.id, req.auth!.userId)) {
-    return res.status(403).json({ error: "FORBIDDEN" });
-  }
-  const parsed = PostMessageSchema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
-  const body = parsed.data.body.trim();
-  const attachments = parsed.data.attachments ?? [];
-  if (!body && attachments.length === 0) return res.status(400).json({ error: "EMPTY_MESSAGE" });
-
-  const msg = chatStore.addMessage({
-    conversationId: conv.id,
-    senderId: req.auth!.userId,
-    senderRole: req.auth!.role as Role,
-    body,
-    attachments
-  });
-  if (!msg) return res.status(500).json({ error: "SEND_FAILED" });
-
-  emitToConversation(conv.id, "message:new", { conversationId: conv.id, message: msg });
-
-  const recipients = conv.participants.map((p) => p.userId).filter((u) => u !== req.auth!.userId);
-  notifyChatRelatedUsers({
-    userIds: recipients,
-    kind: "chat_message",
-    body: body || (attachments[0]?.filename ?? "Attachment"),
-    payload: { conversationId: conv.id, messageId: msg.id }
-  });
-
-  return res.status(201).json({ message: msg });
 });
 
 // Mark conversation as read up to a message id
 const MarkReadSchema = z.object({ lastMessageId: z.string().optional() });
-chatRouter.post("/conversations/:id/read", authRequired, (req, res) => {
-  const conv = chatStore.getConversation(req.params.id);
-  if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
-  if (!chatStore.isParticipant(conv.id, req.auth!.userId)) {
-    return res.status(403).json({ error: "FORBIDDEN" });
+chatRouter.post("/conversations/:id/read", authRequired, async (req, res, next) => {
+  try {
+    const conv = chatStore.getConversation(req.params.id);
+    if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
+    if (!(await checkConvAccess(req, conv))) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+    const parsed = MarkReadSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
+    const cur = chatStore.markRead(conv.id, req.auth!.userId, parsed.data.lastMessageId);
+    emitToConversation(conv.id, "read:update", {
+      conversationId: conv.id,
+      userId: req.auth!.userId,
+      lastReadMessageId: cur.lastReadMessageId,
+      lastReadAt: cur.lastReadAt
+    });
+    return res.json({ cursor: cur });
+  } catch (error) {
+    next(error);
   }
-  const parsed = MarkReadSchema.safeParse(req.body ?? {});
-  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
-  const cur = chatStore.markRead(conv.id, req.auth!.userId, parsed.data.lastMessageId);
-  emitToConversation(conv.id, "read:update", {
-    conversationId: conv.id,
-    userId: req.auth!.userId,
-    lastReadMessageId: cur.lastReadMessageId,
-    lastReadAt: cur.lastReadAt
-  });
-  return res.json({ cursor: cur });
 });
 
 // File upload — returns AttachmentRef the client can attach to the next message
