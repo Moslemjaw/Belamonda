@@ -37,12 +37,8 @@ export async function applyOfferMembershipToUserOffer(userOfferId: string, offer
   if (mt) extra.membershipType = mt;
   if (mt === "cashback") {
     const signup = offer.signupCashbackKwd ?? "0.000";
-    // Only set cashbackBalanceKwd if it hasn't been set by the proportional cashback grant yet.
-    // For installments, grantCashbackForPayment / payments.router sets this proportionally.
-    const alreadyGranted = kwdMils(currentUo?.cashbackGrantedKwd ?? "0.000") > 0;
-    if (kwdMils(signup) > 0 && !alreadyGranted) {
-      extra.cashbackBalanceKwd = signup;
-    }
+    // Removed eager cashbackBalanceKwd initialization.
+    // It is now handled correctly by grantCashbackForPayment during checkout and installment payments.
   }
   // Store total signup cashback for per-installment tracking
   const signupCb = offer.signupCashbackKwd ?? "0.000";
