@@ -116,7 +116,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
       mongoose.isValidObjectId(id)
     );
     const offers = await OfferModel.find({ _id: { $in: offerIds } })
-      .select("name nameAr clinicLocked branchSessionPrices")
+      .select("name nameAr clinicLocked branchSessionPrices sessionIntervalDays")
       .lean();
     const offerMap = Object.fromEntries(offers.map((o: any) => [o._id.toString(), o]));
 
