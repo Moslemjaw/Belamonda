@@ -1406,7 +1406,7 @@ export default function CustomerDashboard() {
                 <div className="flex justify-between items-start gap-3 mb-5">
                   <div className="min-w-0">
                     <div className="text-white/70 text-[11px] sm:text-xs font-semibold uppercase tracking-wider">{ar() ? "محفظة الكاش باك" : "Cashback Wallet"}</div>
-                    <div className="text-3xl sm:text-4xl font-black mt-1 text-white tabular-nums tracking-tight">{total.toFixed(3)} <span className="text-lg sm:text-xl opacity-70 font-bold">KWD</span></div>
+                    <div className="text-3xl sm:text-4xl font-black mt-1 text-white tabular-nums tracking-tight">{walletUnlocked.toFixed(3)} <span className="text-lg sm:text-xl opacity-70 font-bold">KWD</span></div>
                   </div>
                   <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold text-white backdrop-blur-md shrink-0">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
@@ -2338,7 +2338,7 @@ export default function CustomerDashboard() {
                       <div className="flex justify-between items-start gap-3 mb-5">
                         <div className="min-w-0">
                           <div className="text-white/70 text-[11px] sm:text-xs font-semibold uppercase tracking-wider">{ar() ? "محفظة الكاش باك" : "Cashback Wallet"}</div>
-                          <div className="text-3xl sm:text-4xl font-black mt-1 text-white tabular-nums tracking-tight">{total.toFixed(3)} <span className="text-lg sm:text-xl opacity-70 font-bold">KWD</span></div>
+                          <div className="text-3xl sm:text-4xl font-black mt-1 text-white tabular-nums tracking-tight">{unlocked.toFixed(3)} <span className="text-lg sm:text-xl opacity-70 font-bold">KWD</span></div>
                         </div>
                         <div className="flex items-center gap-1.5 bg-white/20 px-3 py-1.5 rounded-full text-[10px] sm:text-xs font-bold text-white backdrop-blur-md shrink-0">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
