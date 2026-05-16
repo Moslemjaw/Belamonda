@@ -548,6 +548,7 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
 // ===========================================================================
 
 function CustomersTab({ from, to }: { from: string; to: string }) {
+  const { impersonateUser } = useAuth();
   const [search, setSearch] = useState("");
   const { data, loading } = useRevenueByUser({ from, to });
   const items = (data?.items ?? []).filter(u =>
@@ -596,6 +597,7 @@ function CustomersTab({ from, to }: { from: string; to: string }) {
                   <th className="text-right">{ar() ? "القيمة الدائمة" : "LTV"}</th>
                   <th className="text-right">{ar() ? "كاش باك مستخدم" : "Cashback Used"}</th>
                   <th className="text-center">{ar() ? "معلق" : "Pending"}</th>
+                  <th className="text-center"></th>
                 </tr>
               </thead>
               <tbody>
@@ -617,6 +619,14 @@ function CustomersTab({ from, to }: { from: string; to: string }) {
                       ) : (
                         <span className="text-surface-400 text-xs">—</span>
                       )}
+                    </td>
+                    <td className="text-center">
+                      <button 
+                        onClick={() => impersonateUser(u.userId).catch(e => alert(e.message))}
+                        className="bg-brand-pink-50 text-brand-pink-600 hover:bg-brand-pink-100 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors"
+                      >
+                        {ar() ? "دخول كعميل" : "Impersonate"}
+                      </button>
                     </td>
                   </tr>
                 ))}
