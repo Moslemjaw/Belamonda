@@ -173,20 +173,26 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin"]), a
     );
 
     // Grant signup cashback — per-installment aware
+    // Rules:
+    //   Full / ENET → 100% cashback unlocked immediately
+    //   Installments → even split (e.g. 50/50 for 2, 33/33/33 for 3)
+    //   Deposit → NO cashback until converted to full/installments
     const signupBonus = (offer as { signupCashbackKwd?: string }).signupCashbackKwd ?? "0.000";
     const [ia, ib = "000"] = signupBonus.split(".");
     const signupBonusMils = Number(ia) * 1000 + Number(ib.padEnd(3, "0").slice(0, 3));
     const isCashbackOnly = !!(offer as { isCashbackOnly?: boolean }).isCashbackOnly;
-    if (signupBonusMils > 0) {
+    const isDeposit = (uo as any).purchaseMode === "deposit";
+    if (signupBonusMils > 0 && !isDeposit) {
       const userId = refreshedUo?.userId ?? updated.userId;
       const uoId = refreshedUo?.id ?? updated.id;
       const isInstallments = (uo as any).purchaseMode === "installments";
       const totalInstallments = isInstallments ? ((uo as any).installmentCount ?? 1) : 1;
 
-      // Step 1: Credit full amount to wallet locked pool
+      // Step 1: Credit full amount to wallet locked pool on FIRST installment only
       // For isCashbackOnly offers the locked pool is pre-funded at KYC approval,
       // so skip this step to avoid double-crediting.
-      if (!isCashbackOnly) {
+      const currentInstallment = isInstallments ? (refreshedUo?.installmentsPaid ?? 1) : 1;
+      if (!isCashbackOnly && currentInstallment === 1) {
         await kycStore.creditOfferCashback({
           userId,
           amountKwd: signupBonus,
@@ -195,23 +201,13 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin"]), a
         });
       }
 
-      // Step 2: Unlock proportional share based on which installment is being paid
-      const currentInstallment = isInstallments ? (refreshedUo?.installmentsPaid ?? 1) : 1;
-      
+      // Step 2: Unlock proportional share — even split across installments
       let thisAmountMils = signupBonusMils;
       if (isInstallments && totalInstallments > 1) {
-        // First installment gets 33%, the rest is divided among remaining installments
-        const firstAmount = Math.floor(signupBonusMils * 0.33);
-        const remainingAmount = signupBonusMils - firstAmount;
-        
-        if (currentInstallment === 1) {
-          thisAmountMils = firstAmount;
-        } else {
-          const perRemaining = Math.floor(remainingAmount / (totalInstallments - 1));
-          const remainder = remainingAmount - perRemaining * (totalInstallments - 1);
-          // If it's the last installment, give the rounding remainder too
-          thisAmountMils = currentInstallment === totalInstallments ? perRemaining + remainder : perRemaining;
-        }
+        const perInstallment = Math.floor(signupBonusMils / totalInstallments);
+        const remainder = signupBonusMils - perInstallment * totalInstallments;
+        // First installment absorbs rounding remainder
+        thisAmountMils = perInstallment + (currentInstallment === 1 ? remainder : 0);
       }
 
       const fmtKwd = (m: number) => `${Math.floor(m / 1000)}.${String(m % 1000).padStart(3, "0")}`;
@@ -226,7 +222,6 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin"]), a
       });
 
       // Update userOffer tracking + set spendable cashback balance
-      // We need to fetch the total granted so far since this might be the 2nd installment
       const { UserOfferModel } = await import("../../models/userOffer.model.js");
       const currentUo = await UserOfferModel.findById(uoId).select("cashbackGrantedKwd cashbackBalanceKwd").lean();
       const previousGranted = currentUo?.cashbackGrantedKwd ? (Number(currentUo.cashbackGrantedKwd.split(".")[0]) * 1000 + Number(currentUo.cashbackGrantedKwd.split(".")[1].padEnd(3, "0").slice(0, 3))) : 0;
