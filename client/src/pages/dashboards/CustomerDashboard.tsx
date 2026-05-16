@@ -1417,17 +1417,17 @@ export default function CustomerDashboard() {
                 {/* Segmented Progress Bar */}
                 <div className="mb-4">
                   <div className="h-3 w-full rounded-full overflow-hidden flex bg-black/15">
-                    {pctUnlocked > 0 && <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${pctUnlocked}%` }} />}
+                    {pctUnlocked > 0 && <div className="h-full bg-white transition-all duration-500" style={{ width: `${pctUnlocked}%` }} />}
                     {pctLocked > 0 && <div className="h-full bg-white/30 transition-all duration-500" style={{ width: `${pctLocked}%` }} />}
                   </div>
                 </div>
 
                 {/* Three stat columns */}
                 <div className="grid grid-cols-3 gap-2.5">
-                  <div className="bg-emerald-500/25 border border-emerald-400/30 rounded-xl py-2.5 px-2 text-center">
+                  <div className="bg-white/20 border border-white/30 rounded-xl py-2.5 px-2 text-center backdrop-blur-sm shadow-sm">
                     <div className="flex items-center justify-center gap-1 mb-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span className="text-white/80 text-[10px] font-semibold">{ar() ? "متاح للاستخدام" : "Available"}</span>
+                      <span className="w-2 h-2 rounded-full bg-white" />
+                      <span className="text-white/90 text-[10px] font-bold">{ar() ? "متاح للاستخدام" : "Available"}</span>
                     </div>
                     <div className="text-white font-black text-base sm:text-lg tabular-nums">{walletUnlocked.toFixed(3)}</div>
                   </div>
@@ -1593,7 +1593,9 @@ export default function CustomerDashboard() {
                                );
                             })()}
 
-                            {isCashback ? (
+                            {isCashback ? (() => {
+                              const parts = computeOfferCashbackParts(o);
+                              return (
                               <div className="py-3 px-4 bg-surface-50 border border-surface-100 rounded-2xl flex flex-col gap-3 items-center justify-center text-center mt-2">
                                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-xl mb-1">
                                   💎
@@ -1608,6 +1610,22 @@ export default function CustomerDashboard() {
                                       : "No booking needed. Your cashback is added directly to your wallet above to spend at any clinic."}
                                   </div>
                                 </div>
+                                {parts.locked > 0 && o.method === "Installments" && (
+                                  <button
+                                    className="w-full mt-1 bg-brand-pink-600 hover:bg-brand-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
+                                    onClick={(e) => { 
+                                      e.stopPropagation(); 
+                                      setActiveTab("my-purchases"); 
+                                      setPurchasesSubTab("packages"); 
+                                      setTimeout(() => {
+                                        const el = document.getElementById("sec-packages");
+                                        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+                                      }, 100);
+                                    }}
+                                  >
+                                    🔓 {ar() ? `ادفع القسط لفتح ${parts.locked.toFixed(3)} د.ك` : `Pay installment to unlock ${parts.locked.toFixed(3)} KWD`}
+                                  </button>
+                                )}
                                 {parseFloat(o.cashbackPerSessionKwd || "0") > 0 && (
                                   <div className="mt-1 text-emerald-600 bg-emerald-50 text-[11px] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1.5">
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
@@ -1615,7 +1633,8 @@ export default function CustomerDashboard() {
                                   </div>
                                 )}
                               </div>
-                            ) : (
+                              );
+                            })() : (
                               <button
                                 className={`w-full font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 ${isPending ? 'bg-amber-50 text-amber-700 border border-amber-200 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
                                 onClick={() => setShowBookingModal({ ...o, userOfferId: o.id })}
@@ -2340,7 +2359,7 @@ export default function CustomerDashboard() {
                         return (
                           <div className="mb-4">
                             <div className="h-3 w-full rounded-full overflow-hidden flex bg-black/15">
-                              {pctUnlocked > 0 && <div className="h-full bg-emerald-400 transition-all duration-500" style={{ width: `${pctUnlocked}%` }} />}
+                              {pctUnlocked > 0 && <div className="h-full bg-white transition-all duration-500" style={{ width: `${pctUnlocked}%` }} />}
                               {pctLocked > 0 && <div className="h-full bg-white/30 transition-all duration-500" style={{ width: `${pctLocked}%` }} />}
                             </div>
                           </div>
@@ -2349,10 +2368,10 @@ export default function CustomerDashboard() {
 
                       {/* Three stat columns */}
                       <div className="grid grid-cols-3 gap-2.5">
-                        <div className="bg-emerald-500/25 border border-emerald-400/30 rounded-xl py-2.5 px-2 text-center">
+                        <div className="bg-white/20 border border-white/30 rounded-xl py-2.5 px-2 text-center backdrop-blur-sm shadow-sm">
                           <div className="flex items-center justify-center gap-1 mb-1">
-                            <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                            <span className="text-white/80 text-[10px] font-semibold">{ar() ? "متاح للاستخدام" : "Available"}</span>
+                            <span className="w-2 h-2 rounded-full bg-white" />
+                            <span className="text-white/90 text-[10px] font-bold">{ar() ? "متاح للاستخدام" : "Available"}</span>
                           </div>
                           <div className="text-white font-black text-base sm:text-lg tabular-nums">{unlocked.toFixed(3)}</div>
                         </div>
