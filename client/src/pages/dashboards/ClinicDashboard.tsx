@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { Html5QrcodeScanner } from "html5-qrcode";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
 import { useClinicSchedule, useMyClinicReport, invalidateCache } from "../../hooks/useApi";
@@ -1175,6 +1176,30 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
   const { getAuthHeader } = useAuth();
   const [token, setToken] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+
+  useEffect(() => {
+    if (showScanner) {
+      const scanner = new Html5QrcodeScanner(
+        "qr-reader",
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        false
+      );
+      
+      scanner.render((decodedText) => {
+        setToken(decodedText);
+        setShowScanner(false);
+        scanner.clear();
+        handleScan(decodedText);
+      }, () => {
+        // Ignore scan errors (they happen constantly when no QR is present)
+      });
+
+      return () => {
+        scanner.clear().catch(() => {});
+      };
+    }
+  }, [showScanner]);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any | null>(null);
   const [markingId, setMarkingId] = useState<string | null>(null);
@@ -1244,6 +1269,17 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
             />
           </div>
           <button
+            onClick={() => setShowScanner(!showScanner)}
+            className={`px-4 py-3 rounded-xl flex items-center justify-center gap-2 shrink-0 border transition-colors ${showScanner ? 'bg-red-50 text-red-600 border-red-200' : 'bg-surface-50 hover:bg-surface-100 text-surface-700 border-surface-200'}`}
+            title={ar() ? "مسح عبر الكاميرا" : "Scan via Camera"}
+          >
+            {showScanner ? (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            ) : (
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            )}
+          </button>
+          <button
             onClick={() => handleScan()}
             disabled={loading || !token.trim()}
             className="btn-primary px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-50 shrink-0"
@@ -1260,6 +1296,12 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
           <div className="mt-3 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             {error}
+          </div>
+        )}
+
+        {showScanner && (
+          <div className="mt-4 rounded-xl overflow-hidden border border-surface-200 bg-black">
+            <div id="qr-reader" className="w-full"></div>
           </div>
         )}
       </div>
