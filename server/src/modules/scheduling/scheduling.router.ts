@@ -535,17 +535,22 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
 
     if (!parsed.data.isStandalone && uo.membershipType === "cashback") {
       const balance = parseFloat(uo.cashbackBalanceKwd || "0");
-      // Use the explicit session price if set, otherwise fall back to the offer's per-session cashback rate.
-      const maxCashbackAllowed = parseFloat(offer.cashbackPerSessionKwd || "0");
-      const maxDeductible = resolvedPrice
-        ? Math.min(parseFloat(resolvedPrice), maxCashbackAllowed > 0 ? maxCashbackAllowed : Infinity)
-        : maxCashbackAllowed;
-
-      if (maxDeductible > 0 && balance > 0) {
+      
+      // Use the explicit client-provided cashback if set, otherwise fall back to the server-computed rate.
+      if (parsed.data.cashbackAppliedKwd) {
+        cashbackDeducted = parseFloat(parsed.data.cashbackAppliedKwd);
+      } else {
+        const maxCashbackAllowed = parseFloat(offer.cashbackPerSessionKwd || "0");
+        const maxDeductible = resolvedPrice
+          ? Math.min(parseFloat(resolvedPrice), maxCashbackAllowed > 0 ? maxCashbackAllowed : Infinity)
+          : maxCashbackAllowed;
         cashbackDeducted = Math.min(balance, maxDeductible);
-        amountToPay = resolvedPrice ? (parseFloat(resolvedPrice) - cashbackDeducted).toFixed(3) : "0.000";
+      }
 
-        if (cashbackDeducted > 0 && mongoose.isValidObjectId(uo.id)) {
+      if (cashbackDeducted > 0 && balance >= cashbackDeducted) {
+        amountToPay = resolvedPrice ? Math.max(0, parseFloat(resolvedPrice) - cashbackDeducted).toFixed(3) : "0.000";
+
+        if (mongoose.isValidObjectId(uo.id)) {
           const newBalance = (balance - cashbackDeducted).toFixed(3);
           await UserOfferModel.findByIdAndUpdate(uo.id, { $set: { cashbackBalanceKwd: newBalance } });
           await kycStore.deductUnlocked({
@@ -556,7 +561,8 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
           });
         }
       } else if (resolvedPrice) {
-        // No cashback balance — customer pays the full price
+        // No cashback balance or insufficient balance — customer pays the full price
+        cashbackDeducted = 0;
         amountToPay = resolvedPrice;
       }
     } else if (resolvedPrice && !parsed.data.isStandalone) {
@@ -638,9 +644,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     }
 
     // Cashback deducted: prefer client-provided value, then server-computed
-    const finalCashbackDeducted = parsed.data.cashbackAppliedKwd
-      ? parsed.data.cashbackAppliedKwd
-      : (cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined);
+    const finalCashbackDeducted = cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined;
 
     const breq = await bookingRequestsStore.create({
       userOfferId: uo.id,
