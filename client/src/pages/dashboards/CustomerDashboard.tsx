@@ -1593,66 +1593,29 @@ export default function CustomerDashboard() {
                                );
                             })()}
 
-                            {isCashback ? (() => {
-                              const parts = computeOfferCashbackParts(o);
-                              const offerTotal = parts.unlocked + parts.locked;
-                              const offerPct = offerTotal > 0 ? (parts.unlocked / offerTotal) * 100 : 0;
-                              return (
-                              <div className="wallet-card py-5 px-5 shadow-glow">
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="text-white/70 text-[10px] font-semibold uppercase tracking-wider">{ar() ? "كاش باك الباقة" : "Membership Cashback"}</div>
-                                  <div className="flex items-center gap-1 text-emerald-300 text-[10px] font-bold">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
-                                    {parts.unlocked.toFixed(3)} / {offerTotal.toFixed(3)} KWD
+                            {isCashback ? (
+                              <div className="py-3 px-4 bg-surface-50 border border-surface-100 rounded-2xl flex flex-col gap-3 items-center justify-center text-center mt-2">
+                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm text-xl mb-1">
+                                  💎
+                                </div>
+                                <div>
+                                  <div className="text-surface-900 font-bold text-sm mb-1">
+                                    {ar() ? "باقة كاش باك" : "Cashback Membership"}
+                                  </div>
+                                  <div className="text-surface-500 text-xs leading-relaxed max-w-[250px] mx-auto">
+                                    {ar() 
+                                      ? "هذه الباقة لا تتطلب حجز مواعيد. يتم إضافة الكاش باك مباشرة إلى محفظتك في الأعلى لتستخدمه في أي عيادة." 
+                                      : "No booking needed. Your cashback is added directly to your wallet above to spend at any clinic."}
                                   </div>
                                 </div>
-
-                                {/* Progress bar */}
-                                <div className="h-2.5 w-full rounded-full overflow-hidden flex bg-black/15 mb-4">
-                                  {offerPct > 0 && <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${offerPct}%` }} />}
-                                </div>
-
-                                {/* Two stat columns */}
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="bg-emerald-500/25 border border-emerald-400/30 rounded-xl py-2 px-3 text-center">
-                                    <div className="text-white/70 text-[9px] font-semibold mb-0.5">{ar() ? "متاح للاستخدام" : "Available"}</div>
-                                    <div className="text-white font-black text-lg tabular-nums">{parts.unlocked.toFixed(3)}</div>
-                                  </div>
-                                  <div className="bg-white/10 border border-white/15 rounded-xl py-2 px-3 text-center">
-                                    <div className="text-white/60 text-[9px] font-semibold mb-0.5">{ar() ? "مقفل" : "Locked"}</div>
-                                    <div className="text-white/70 font-black text-lg tabular-nums">{parts.locked.toFixed(3)}</div>
-                                  </div>
-                                </div>
-
-                                {parts.locked > 0 && o.method === "Installments" && (
-                                  <button
-                                    className="w-full mt-3 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white font-bold py-2.5 rounded-xl text-xs transition-all border border-white/20"
-                                    onClick={(e) => { 
-                                      e.stopPropagation(); 
-                                      setActiveTab("my-purchases"); 
-                                      setPurchasesSubTab("packages"); 
-                                      setTimeout(() => {
-                                        const el = document.getElementById("sec-packages");
-                                        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-                                      }, 100);
-                                    }}
-                                  >
-                                    🔓 {ar() ? `ادفع القسط لفتح ${parts.locked.toFixed(3)} د.ك` : `Pay installment to unlock ${parts.locked.toFixed(3)} KWD`}
-                                  </button>
-                                )}
                                 {parseFloat(o.cashbackPerSessionKwd || "0") > 0 && (
-                                  <div className="text-white/85 text-xs mt-3 flex items-center gap-1.5">
+                                  <div className="mt-1 text-emerald-600 bg-emerald-50 text-[11px] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1.5">
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                                    {ar() ? `+${o.cashbackPerSessionKwd} د.ك مع كل جلسة` : `+${o.cashbackPerSessionKwd} KWD per session`}
+                                    {ar() ? `+${o.cashbackPerSessionKwd} د.ك إضافية مع كل زيارة` : `+${o.cashbackPerSessionKwd} KWD extra per visit`}
                                   </div>
                                 )}
-                                <div className="mt-3 inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md rounded-full py-1.5 px-3 text-[11px] text-white font-bold">
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                                  {ar() ? "بدون حجز" : "No Booking Needed"}
-                                </div>
                               </div>
-                              );
-                            })() : (
+                            ) : (
                               <button
                                 className={`w-full font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 ${isPending ? 'bg-amber-50 text-amber-700 border border-amber-200 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
                                 onClick={() => setShowBookingModal({ ...o, userOfferId: o.id })}

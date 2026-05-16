@@ -111,8 +111,8 @@ export const kycStore = {
     if (!w) {
       await WalletModel.create({
         userId: sub.userId,
-        ceilingKwd: "1000.000",
-        lockedKwd: "1000.000",
+        ceilingKwd: "1500.000",
+        lockedKwd: "1500.000",
         unlockedKwd: "0.000"
       });
     }

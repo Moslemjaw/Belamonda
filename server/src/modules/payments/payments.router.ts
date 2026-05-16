@@ -195,28 +195,48 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin"]), a
         });
       }
 
-      // Step 2: Unlock proportional share for installment 1 (or full)
-      const perInstallment = Math.floor(signupBonusMils / totalInstallments);
-      const remainder = signupBonusMils - perInstallment * totalInstallments;
-      const thisAmount = perInstallment + remainder; // first installment gets rounding remainder
+      // Step 2: Unlock proportional share based on which installment is being paid
+      const currentInstallment = isInstallments ? (refreshedUo?.installmentsPaid ?? 1) : 1;
+      
+      let thisAmountMils = signupBonusMils;
+      if (isInstallments && totalInstallments > 1) {
+        // First installment gets 33%, the rest is divided among remaining installments
+        const firstAmount = Math.floor(signupBonusMils * 0.33);
+        const remainingAmount = signupBonusMils - firstAmount;
+        
+        if (currentInstallment === 1) {
+          thisAmountMils = firstAmount;
+        } else {
+          const perRemaining = Math.floor(remainingAmount / (totalInstallments - 1));
+          const remainder = remainingAmount - perRemaining * (totalInstallments - 1);
+          // If it's the last installment, give the rounding remainder too
+          thisAmountMils = currentInstallment === totalInstallments ? perRemaining + remainder : perRemaining;
+        }
+      }
+
       const fmtKwd = (m: number) => `${Math.floor(m / 1000)}.${String(m % 1000).padStart(3, "0")}`;
 
       await kycStore.grantSignupCashback({
         userId,
-        amountKwd: fmtKwd(thisAmount),
+        amountKwd: fmtKwd(thisAmountMils),
         userOfferId: uoId,
         createdById: req.auth!.userId,
         createdByKind: "cs",
-        installmentNumber: totalInstallments > 1 ? 1 : undefined
+        installmentNumber: totalInstallments > 1 ? currentInstallment : undefined
       });
 
       // Update userOffer tracking + set spendable cashback balance
+      // We need to fetch the total granted so far since this might be the 2nd installment
       const { UserOfferModel } = await import("../../models/userOffer.model.js");
+      const currentUo = await UserOfferModel.findById(uoId).select("cashbackGrantedKwd cashbackBalanceKwd").lean();
+      const previousGranted = currentUo?.cashbackGrantedKwd ? (Number(currentUo.cashbackGrantedKwd.split(".")[0]) * 1000 + Number(currentUo.cashbackGrantedKwd.split(".")[1].padEnd(3, "0").slice(0, 3))) : 0;
+      const previousBalance = currentUo?.cashbackBalanceKwd ? (Number(currentUo.cashbackBalanceKwd.split(".")[0]) * 1000 + Number(currentUo.cashbackBalanceKwd.split(".")[1].padEnd(3, "0").slice(0, 3))) : 0;
+      
       await UserOfferModel.findByIdAndUpdate(uoId, {
         $set: {
           totalSignupCashbackKwd: signupBonus,
-          cashbackGrantedKwd: fmtKwd(thisAmount),
-          cashbackBalanceKwd: fmtKwd(thisAmount)
+          cashbackGrantedKwd: fmtKwd(previousGranted + thisAmountMils),
+          cashbackBalanceKwd: fmtKwd(previousBalance + thisAmountMils)
         }
       });
     }
