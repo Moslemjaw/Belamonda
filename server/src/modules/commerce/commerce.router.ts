@@ -167,7 +167,6 @@ commerceRouter.post("/me/offers/join", authRequired, async (req, res, next) => {
 
     const uid = req.auth!.userId;
     if (uo.userId === uid) return res.status(409).json({ error: "CANNOT_JOIN_OWN_GROUP" });
-    if (uo.sharedWith && uo.sharedWith.includes(uid)) return res.json({ ok: true, message: "ALREADY_JOINED" });
 
     // Add joiner to creator's sharedWith array
     await UserOfferModel.findByIdAndUpdate(uo._id, { $addToSet: { sharedWith: uid } });
@@ -175,24 +174,20 @@ commerceRouter.post("/me/offers/join", authRequired, async (req, res, next) => {
     // If it's an unlock_membership, the joiner ALSO needs a pending UserOffer so they can buy it when the group fills up
     const offer = await OfferModel.findById(uo.offerId).lean() as any;
     if (offer && offer.groupRewardType === "unlock_membership") {
-      const existing = await UserOfferModel.findOne({
-        userId: uid,
-        groupInviteCode: parsed.data.inviteCode,
-        membershipType: "group",
-      });
-      if (!existing) {
-        await UserOfferModel.create({
-          userId: uid,
-          offerId: uo.offerId,
-          clinicId: uo.clinicId,
-          status: "pending_payment",
-          membershipType: "group",
-          groupInviteCode: uo.groupInviteCode,
-          sharedWith: [], // joiner's sharedWith doesn't track progress; group-status endpoint checks the creator's sharedWith
-          purchaseMode: "full",
-          pendingExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days to fill group
-        });
-      }
+      // Use updateOne with upsert to prevent race conditions creating duplicates
+      await UserOfferModel.updateOne(
+        { userId: uid, groupInviteCode: parsed.data.inviteCode, membershipType: "group", offerId: uo.offerId },
+        {
+          $setOnInsert: {
+            clinicId: uo.clinicId,
+            status: "pending_payment",
+            sharedWith: [], // joiner's sharedWith doesn't track progress
+            purchaseMode: "full",
+            pendingExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days to fill group
+          }
+        },
+        { upsert: true }
+      );
     }
 
     // Return updated group count info
@@ -207,6 +202,7 @@ commerceRouter.post("/me/offers/join", authRequired, async (req, res, next) => {
       isUnlocked: membersJoined >= membersNeeded,
       offerName: offer?.name,
       offerNameAr: offer?.nameAr,
+      message: uo.sharedWith && uo.sharedWith.includes(uid) ? "ALREADY_JOINED" : undefined
     });
   } catch (e) {
     next(e);

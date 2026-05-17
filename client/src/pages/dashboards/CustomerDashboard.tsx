@@ -1888,6 +1888,29 @@ export default function CustomerDashboard() {
                                       </>
                                     );
                                   })()}
+                                  {/* Unlock Membership Purchase Button */}
+                                  {(() => {
+                                    const sharedWith = (o as any).sharedWith || [];
+                                    const groupSizeRequired = (o as any).groupSizeRequired || 2;
+                                    const isComplete = sharedWith.length >= (groupSizeRequired - 1);
+                                    const rewardType = (o as any).groupRewardType || '';
+                                    if (isComplete && rewardType === 'unlock_membership' && (o.status === 'pending_payment' || o.status === 'pending payment')) {
+                                      return (
+                                        <button
+                                          className="w-full mt-3 bg-brand-pink-600 hover:bg-brand-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-lg"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Pass the existing pending userOffer to checkout so we don't create a new one
+                                            const offerData = (homeCatalogData?.items || []).find((x: any) => x.id === o.offerId);
+                                            setCheckoutPkg({ ...(offerData || o), userOfferId: o.id, groupInviteCode: (o as any).groupInviteCode });
+                                          }}
+                                        >
+                                          {ar() ? "اشترِ العضوية الآن" : "Purchase Membership Now"}
+                                        </button>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                 </div>
                               );
                             })()}
