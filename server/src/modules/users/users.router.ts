@@ -435,6 +435,134 @@ usersRouter.patch("/me", authRequired, async (req, res, next) => {
   }
 });
 
+usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs"]), async (req, res, next) => {
+  try {
+    const parsed = z.object({
+      phone: z.string().min(1, "Phone is required"),
+      fullName: z.string().min(1, "Name is required"),
+      email: z.string().optional().or(z.literal("")),
+      offerId: z.string().optional(),
+      clinicId: z.string().optional(),
+      purchaseMode: z.enum(["full", "installments", "deposit"]).optional(),
+      amountPaidKwd: z.string().optional(),
+      method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "other"]).optional(),
+      isVerified: z.boolean().optional(),
+      installmentCount: z.number().optional()
+    }).safeParse(req.body);
+
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    const d = parsed.data;
+
+    let user = await UserModel.findOne({ phone: d.phone }).lean<UserLean>();
+    if (!user) {
+      const created = await UserModel.create({
+        phone: d.phone,
+        fullName: d.fullName,
+        username: d.phone,
+        email: d.email || undefined,
+        role: "customer",
+        isActive: true,
+      });
+      user = created.toObject() as UserLean;
+    }
+
+    if (!d.offerId) {
+      return res.json({ message: "User created/found", user: { id: String(user._id), phone: user.phone, fullName: user.fullName } });
+    }
+
+    const offer = await OfferModel.findById(d.offerId).lean();
+    if (!offer) return res.status(404).json({ error: "OFFER_NOT_FOUND" });
+
+    const now = new Date();
+    const purchaseMode = d.purchaseMode || "full";
+    const method = d.method || "cash";
+    const isVerified = d.isVerified ?? true;
+    const amountKwd = parseFloat(d.amountPaidKwd || "0").toFixed(3);
+    
+    let uoStatus = isVerified ? (purchaseMode === "deposit" ? "reserved" : "active") : "pending_payment";
+    const paymentStatus = isVerified ? "completed" : "pending";
+    const expiresAt = new Date(now.getTime() + (offer.validityDays || 30) * 24 * 60 * 60 * 1000);
+
+    let schedule: any[] = [];
+    if (purchaseMode === "installments") {
+      const count = d.installmentCount === 3 ? 3 : 2;
+      const total = parseFloat(offer.subscriptionPriceKwd || "0");
+      const baseEach = Math.floor((total * 1000) / count) / 1000;
+      const remainder = total - (baseEach * count);
+      
+      for (let i = 0; i < count; i++) {
+        const amt = baseEach + (i === 0 ? remainder : 0);
+        schedule.push({
+          number: i + 1,
+          amountKwd: amt.toFixed(3),
+          dueDate: new Date(now.getTime() + i * 30 * 24 * 60 * 60 * 1000),
+          paid: i === 0 && isVerified,
+          paidAt: (i === 0 && isVerified) ? now : null
+        });
+      }
+    }
+
+    const uo = await UserOfferModel.create({
+      userId: String(user._id),
+      offerId: offer._id,
+      clinicId: d.clinicId || undefined,
+      status: uoStatus,
+      purchaseMode,
+      paymentMethod: method,
+      paymentAmountKwd: amountKwd,
+      cashbackAppliedKwd: "0.000",
+      installmentCount: purchaseMode === "installments" ? (d.installmentCount === 3 ? 3 : 2) : undefined,
+      installmentsPaid: (purchaseMode === "installments" && isVerified) ? 1 : 0,
+      installmentSchedule: purchaseMode === "installments" ? schedule : undefined,
+      nextInstallmentDueAt: purchaseMode === "installments" ? schedule[isVerified ? 1 : 0]?.dueDate : undefined,
+      membershipType: offer.membershipType,
+      activatedAt: (uoStatus === "active") ? now : undefined,
+      expiresAt: (uoStatus === "active") ? expiresAt : undefined,
+      paymentConfirmedBy: isVerified ? req.auth!.userId : undefined,
+      paymentConfirmedAt: isVerified ? now : undefined,
+    });
+
+    const payment = await PaymentModel.create({
+      userId: String(user._id),
+      offerId: offer._id,
+      userOfferId: uo._id,
+      amountKwd,
+      grossAmountKwd: amountKwd,
+      cashbackAppliedKwd: "0.000",
+      method,
+      purpose: purchaseMode === "installments" ? "installment" : (purchaseMode === "deposit" ? "deposit" : "enrollment_full"),
+      status: paymentStatus,
+      provider: "manual",
+      isManual: true,
+      manualLabel: "Admin Manual Enroll",
+      confirmedBy: isVerified ? req.auth!.userId : undefined,
+      confirmedAt: isVerified ? now : undefined,
+      createdByUserId: req.auth!.userId,
+      clinicId: d.clinicId || undefined,
+      installmentNumber: purchaseMode === "installments" ? 1 : undefined,
+    });
+
+    if (purchaseMode === "installments" && isVerified && schedule.length > 0) {
+      schedule[0].paymentId = payment._id;
+      await UserOfferModel.findByIdAndUpdate(uo._id, { $set: { installmentSchedule: schedule, paymentId: payment._id } });
+    } else if (uoStatus === "active" || uoStatus === "reserved") {
+      await UserOfferModel.findByIdAndUpdate(uo._id, { $set: { paymentId: payment._id } });
+    }
+
+    const { applyOfferMembershipToUserOffer } = await import("../../services/userOffer.service.js");
+    await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
+
+    return res.json({
+      message: "Enrollment successful",
+      user: { id: String(user._id), phone: user.phone, fullName: user.fullName },
+      userOfferId: String(uo._id),
+      paymentId: String(payment._id)
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 usersRouter.patch("/admin/:id", authRequired, requireRole(["admin"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });

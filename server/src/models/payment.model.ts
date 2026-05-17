@@ -10,6 +10,7 @@ const PaymentSchema = new Schema(
     amountKwd: { type: String, required: true, match: /^\d+(\.\d{3})$/ },
     cashbackAppliedKwd: { type: String, default: "0.000", match: /^\d+(\.\d{3})$/ },
     grossAmountKwd: { type: String, match: /^\d+(\.\d{3})$/ },
+    clinicId: { type: Schema.Types.ObjectId, ref: "Clinic", index: true },
     currency: { type: String, default: "KWD", uppercase: true },
     method: {
       type: String,

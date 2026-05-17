@@ -91,7 +91,10 @@ export async function computePaymentsBreakdown(filters: {
   const breqMap = new Map(breqDocs.map((b: any) => [b._id.toString(), { clinicId: b.clinicId as string, membershipType: b.membershipType as string }]));
   const userMap = new Map(userDocs.map((u: any) => [u._id.toString(), { fullName: u.fullName as string, phone: u.phone as string }]));
 
-  const clinicIds = [...new Set([...breqMap.values()].map((b) => b.clinicId).filter(Boolean))] as string[];
+  const clinicIds = [...new Set([
+    ...[...breqMap.values()].map((b) => b.clinicId),
+    ...payments.map((p) => p.clinicId?.toString())
+  ].filter(Boolean))] as string[];
   const clinicDocs = await ClinicModel.find({ _id: { $in: clinicIds } }).select("nameEn nameAr").lean();
   const clinicMap = new Map(clinicDocs.map((c: any) => [c._id.toString(), { nameEn: c.nameEn as string, nameAr: c.nameAr as string }]));
 
@@ -99,14 +102,16 @@ export async function computePaymentsBreakdown(filters: {
     const offerId = p.offerId?.toString();
     const brId = p.bookingRequestId;
     const userId = p.userId?.toString();
+    const directClinicId = p.clinicId?.toString();
     const breq = brId ? breqMap.get(brId) : undefined;
-    const clinic = breq?.clinicId ? clinicMap.get(breq.clinicId) : undefined;
+    const clinicId = directClinicId || breq?.clinicId;
+    const clinic = clinicId ? clinicMap.get(clinicId) : undefined;
     const offer = offerId ? offerMap.get(offerId) : undefined;
     const user = userId ? userMap.get(userId) : undefined;
     return {
       ...serializePayment(p as any),
       offerName: offer?.name,
-      clinicId: breq?.clinicId,
+      clinicId,
       clinicNameEn: clinic?.nameEn,
       clinicNameAr: clinic?.nameAr,
       membershipType: breq?.membershipType ?? offer?.membershipType,

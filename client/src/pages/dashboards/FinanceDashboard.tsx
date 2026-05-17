@@ -34,6 +34,7 @@ import {
 } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL } from "../../lib/api";
 import i18n from "../../app/i18n";
+import { UserProfilePanel } from "./AdminDashboard";
 
 const ar = () => i18n.language === "ar";
 
@@ -551,6 +552,7 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
 function CustomersTab({ from, to }: { from: string; to: string }) {
   const { impersonateUser } = useAuth();
   const [search, setSearch] = useState("");
+  const [selectedUser, setSelectedUser] = useState<any>(null);
   const { data, loading } = useRevenueByUser({ from, to });
   const items = (data?.items ?? []).filter(u =>
     !search ||
@@ -565,13 +567,23 @@ function CustomersTab({ from, to }: { from: string; to: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <KpiCard label={ar() ? "عدد العملاء" : "Customers"} value={String(items.length)} color="text-indigo-600" />
-        <KpiCard label={ar() ? "إجمالي LTV" : "Total LTV"} value={`${fmt(totalLtv)} KWD`} color="text-emerald-600" />
-        <KpiCard label={ar() ? "متوسط LTV" : "Avg LTV"} value={`${fmt(avgLtv)} KWD`} color="text-brand-pink-600" />
-      </div>
+      {selectedUser ? (
+        <UserProfilePanel
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+          onRoleChange={() => {}}
+          onStatusChange={() => {}}
+          onLoginAs={() => void impersonateUser(selectedUser.id).catch(e => alert(e.message))}
+        />
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <KpiCard label={ar() ? "عدد العملاء" : "Customers"} value={String(items.length)} color="text-indigo-600" />
+            <KpiCard label={ar() ? "إجمالي LTV" : "Total LTV"} value={`${fmt(totalLtv)} KWD`} color="text-emerald-600" />
+            <KpiCard label={ar() ? "متوسط LTV" : "Avg LTV"} value={`${fmt(avgLtv)} KWD`} color="text-brand-pink-600" />
+          </div>
 
-      <div className="card-elevated p-5 border border-surface-200 shadow-sm">
+          <div className="card-elevated p-5 border border-surface-200 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
           <h3 className="text-base font-bold text-surface-900">{ar() ? "أفضل العملاء" : "Top Customers by Revenue"}</h3>
           <div className="relative">
@@ -623,10 +635,19 @@ function CustomersTab({ from, to }: { from: string; to: string }) {
                     </td>
                     <td className="text-center">
                       <button 
-                        onClick={() => impersonateUser(u.userId).catch(e => alert(e.message))}
+                        onClick={() => setSelectedUser({
+                          id: u.userId,
+                          username: u.displayName,
+                          fullName: u.displayName,
+                          email: u.email,
+                          phone: u.phone,
+                          role: "customer",
+                          kyc: true,
+                          status: "Active"
+                        })}
                         className="bg-brand-pink-50 text-brand-pink-600 hover:bg-brand-pink-100 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors"
                       >
-                        {ar() ? "دخول كعميل" : "Impersonate"}
+                        {ar() ? "إدارة" : "Manage"}
                       </button>
                     </td>
                   </tr>
@@ -636,6 +657,8 @@ function CustomersTab({ from, to }: { from: string; to: string }) {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
@@ -1431,13 +1454,15 @@ interface ManualEntry {
 function ManualEntriesTab() {
   const { getAuthHeader } = useAuth();
 
-  // ── Form state ──────────────────────────────────────────────────────────
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("cash");
   const [purpose, setPurpose] = useState("manual_entry");
   const [status, setStatus] = useState("completed");
   const [label, setLabel] = useState("");
   const [notes, setNotes] = useState("");
+  const [clinicId, setClinicId] = useState("");
+  const { data: clinicsData } = useApi<{ items: any[] }>("/clinics");
+  const clinics = clinicsData?.items ?? [];
   const [ref, setRef] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
@@ -1473,6 +1498,7 @@ function ManualEntriesTab() {
         method, purpose, status,
         paymentDate: new Date(paymentDate).toISOString(),
       };
+      if (clinicId) body.clinicId = clinicId;
       if (label.trim()) body.manualLabel = label.trim();
       if (notes.trim()) body.notes = notes.trim();
       if (ref.trim()) body.providerRef = ref.trim();
@@ -1483,7 +1509,7 @@ function ManualEntriesTab() {
         body: JSON.stringify(body),
       });
       setSaveMsg({ type: "ok", text: ar() ? "تم إضافة القيد بنجاح" : "Entry added successfully" });
-      setAmount(""); setLabel(""); setNotes(""); setRef("");
+      setAmount(""); setLabel(""); setNotes(""); setRef(""); setClinicId("");
       setPaymentDate(new Date().toISOString().slice(0, 10));
       load();
     } catch (err: any) {
@@ -1587,6 +1613,13 @@ function ManualEntriesTab() {
             </select>
           </div>
           <div>
+            <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "العيادة" : "Clinic"}</label>
+            <select className="select-field" value={clinicId} onChange={e => setClinicId(e.target.value)}>
+              <option value="">{ar() ? "بدون عيادة (الشركة)" : "No Clinic (Corporate)"}</option>
+              {clinics.map((c: any) => <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr || c.nameEn : c.nameEn}</option>)}
+            </select>
+          </div>
+          <div>
             <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "تاريخ الدفعة" : "Payment Date"}</label>
             <input
               type="date"
@@ -1648,6 +1681,7 @@ function ManualEntriesTab() {
               <thead>
                 <tr>
                   <th>{ar() ? "التاريخ" : "Date"}</th>
+                  <th>{ar() ? "العيادة" : "Clinic"}</th>
                   <th>{ar() ? "المبلغ" : "Amount"}</th>
                   <th>{ar() ? "الطريقة" : "Method"}</th>
                   <th>{ar() ? "النوع" : "Purpose"}</th>
@@ -1664,6 +1698,9 @@ function ManualEntriesTab() {
                     <td className="text-xs font-mono text-surface-500 whitespace-nowrap">
                       {new Date(e.createdAt).toLocaleDateString()}<br />
                       <span className="text-[10px]">{new Date(e.createdAt).toLocaleTimeString()}</span>
+                    </td>
+                    <td className="font-medium text-surface-900 whitespace-nowrap text-xs">
+                      {(e as any).clinicNameEn || "—"}
                     </td>
                     <td className="font-black text-emerald-700 whitespace-nowrap">{e.amountKwd} KWD</td>
                     <td>

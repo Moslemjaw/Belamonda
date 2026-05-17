@@ -227,6 +227,7 @@ const ManualPaymentSchema = z.object({
   providerRef: z.string().max(200).optional(),
   userId: z.string().optional(),
   paymentDate: z.string().datetime().optional(),
+  clinicId: z.string().optional(),
 });
 
 reportingRouter.post("/finance/manual-payment", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
@@ -254,6 +255,7 @@ reportingRouter.post("/finance/manual-payment", authRequired, requireRole(FINANC
       createdByUserId: req.auth!.userId,
       confirmedBy: req.auth!.userId,
       confirmedAt: new Date(),
+      clinicId: d.clinicId || undefined,
       ...(d.paymentDate ? { createdAt: new Date(d.paymentDate) } : {}),
     });
 
@@ -266,7 +268,7 @@ reportingRouter.post("/finance/manual-payment", authRequired, requireRole(FINANC
 reportingRouter.get("/finance/manual-payments", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {
     const limit = Math.min(500, Number(str(req.query.limit)) || 200);
-    const docs = await PaymentModel.find({ isManual: true }).sort({ createdAt: -1 }).limit(limit).lean();
+    const docs = await PaymentModel.find({ isManual: true }).populate("clinicId", "nameEn").sort({ createdAt: -1 }).limit(limit).lean();
     const items = docs.map((d: any) => ({
       id: d._id.toString(),
       amountKwd: d.amountKwd,
@@ -277,6 +279,7 @@ reportingRouter.get("/finance/manual-payments", authRequired, requireRole(FINANC
       notes: d.notes,
       providerRef: d.providerRef,
       userId: d.userId,
+      clinicNameEn: d.clinicId?.nameEn,
       createdByUserId: d.createdByUserId,
       createdAt: d.createdAt,
     }));
