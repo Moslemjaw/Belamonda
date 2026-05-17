@@ -89,7 +89,7 @@ const COLORS = {
 const PIE_COLORS = [COLORS.pink, COLORS.emerald, COLORS.indigo, COLORS.amber, COLORS.purple, COLORS.cyan, COLORS.blue, COLORS.surface];
 
 const METHOD_LABELS: Record<string, string> = {
-  bank_transfer: "Bank Transfer", cash: "Cash", pos: "POS",
+  bank_transfer: "Paid by Customer Service", cash: "Paid in Clinic", pos: "POS",
   card_mock: "Card (Online)", enet: "ENET", wallet: "Wallet", other: "Other",
 };
 const PURPOSE_LABELS: Record<string, string> = {
@@ -478,7 +478,7 @@ function PaymentsTab({ from, to }: { from: string; to: string }) {
 // ===========================================================================
 
 function InstallmentsTab({ from, to }: { from: string; to: string }) {
-  const [statusFilter, setStatusFilter] = useState<"" | "late" | "upcoming">("");
+  const [statusFilter, setStatusFilter] = useState<"" | "paid" | "late" | "upcoming">("");
   const { data, loading } = useFinanceInstallments({ from, to });
   const summary = data?.summary;
   const items = (data?.items ?? []).filter(i => !statusFilter || i.status === statusFilter);
@@ -497,6 +497,7 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
           <h3 className="text-base font-bold text-surface-900">{ar() ? "متتبع الأقساط" : "Installment Tracker"}</h3>
           <select className="select-field text-xs py-1.5 h-auto w-40" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
             <option value="">{ar() ? "الكل" : "All"}</option>
+            <option value="paid">{ar() ? "مدفوعة" : "Paid"}</option>
             <option value="late">{ar() ? "متأخرة" : "Late"}</option>
             <option value="upcoming">{ar() ? "قادمة" : "Upcoming"}</option>
           </select>
@@ -528,8 +529,8 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
                     <td className="text-right font-bold text-surface-900">{i.amountKwd} KWD</td>
                     <td className="text-surface-600">{i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "—"}</td>
                     <td>
-                      <span className={`px-2 py-1 rounded-md text-xs font-bold ${i.status === "late" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
-                        {i.status === "late" ? (ar() ? "متأخر" : "Late") : (ar() ? "قادم" : "Upcoming")}
+                      <span className={`px-2 py-1 rounded-md text-xs font-bold ${i.status === "paid" ? "bg-emerald-50 text-emerald-700" : i.status === "late" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
+                        {i.status === "paid" ? (ar() ? "مدفوع" : "Paid") : i.status === "late" ? (ar() ? "متأخر" : "Late") : (ar() ? "قادم" : "Upcoming")}
                       </span>
                     </td>
                   </tr>
@@ -1388,8 +1389,8 @@ function ProfileTab() {
 // ===========================================================================
 
 const MANUAL_METHODS = [
-  { value: "cash", label: "Cash" },
-  { value: "bank_transfer", label: "Bank Transfer" },
+  { value: "cash", label: "Paid in Clinic" },
+  { value: "bank_transfer", label: "Paid by Customer Service" },
   { value: "pos", label: "POS" },
   { value: "card_mock", label: "Card (Online)" },
   { value: "enet", label: "ENET" },

@@ -569,11 +569,11 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
       const amt = parseKwd(inst.amountKwd);
       if (inst.paid) {
         paidMils += amt;
-        continue;
+      } else {
+        const isLate = due && due.getTime() < now.getTime();
+        if (isLate) lateMils += amt;
+        else upcomingMils += amt;
       }
-      const isLate = due && due.getTime() < now.getTime();
-      if (isLate) lateMils += amt;
-      else upcomingMils += amt;
       tracker.push({
         userOfferId: uo._id.toString(),
         userId: uo.userId,
@@ -583,7 +583,8 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
         installmentNumber: inst.number,
         amountKwd: inst.amountKwd,
         dueDate: inst.dueDate,
-        status: isLate ? "late" : "upcoming",
+        paidAt: inst.paidAt,
+        status: inst.paid ? "paid" : (due && due.getTime() < now.getTime() ? "late" : "upcoming"),
       });
     }
   }

@@ -285,7 +285,7 @@ export function useFinanceInstallments(filters: { from?: string; to?: string } =
   const q = p.toString() ? `?${p.toString()}` : "";
   return useApi<{
     summary: { paidKwd: string; upcomingKwd: string; lateKwd: string; forecastKwd: string; lateCount: number; upcomingCount: number };
-    items: Array<{ userOfferId: string; userId: string; offerName: string; installmentNumber: number; amountKwd: string; dueDate?: string; status: "late" | "upcoming" }>;
+    items: Array<{ userOfferId: string; userId: string; offerName: string; installmentNumber: number; amountKwd: string; dueDate?: string; status: "paid" | "late" | "upcoming" }>;
   }>(`/reporting/finance/installments${q}`, { deps: [filters.from, filters.to] });
 }
 
