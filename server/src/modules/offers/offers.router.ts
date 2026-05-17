@@ -94,7 +94,7 @@ const OfferBaseSchema = z.object({
   // Group offer
   isGroupOffer: z.boolean().default(false),
   groupSizeRequired: z.number().int().min(2).optional(),
-  groupRewardType: z.enum(["free_session", "discount", "cashback_bonus"]).optional(),
+  groupRewardType: z.enum(["free_session", "discount", "cashback_bonus", "split_bill", "unlock_membership"]).optional(),
   groupRewardValue: z.string().optional(),
 
   // E-forms + eNet

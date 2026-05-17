@@ -79,14 +79,17 @@ export async function computePaymentsBreakdown(filters: {
   const isObjectId = (s: string) => /^[a-f0-9]{24}$/i.test(s);
   const offerIds = [...new Set(payments.map((p) => p.offerId?.toString()).filter(Boolean))].filter(isObjectId) as string[];
   const brIds = [...new Set(payments.map((p) => (p as any).bookingRequestId).filter(Boolean))].filter(isObjectId) as string[];
+  const userIds = [...new Set(payments.map((p) => p.userId?.toString()).filter(Boolean))].filter(isObjectId) as string[];
 
-  const [offerDocs, breqDocs] = await Promise.all([
+  const [offerDocs, breqDocs, userDocs] = await Promise.all([
     offerIds.length ? OfferModel.find({ _id: { $in: offerIds } }).select("name membershipType").lean() : Promise.resolve([]),
     brIds.length ? BookingRequestModel.find({ _id: { $in: brIds } }).select("clinicId membershipType").lean().catch(() => []) : Promise.resolve([]),
+    userIds.length ? UserModel.find({ _id: { $in: userIds } }).select("fullName phone").lean() : Promise.resolve([]),
   ]);
 
   const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), { name: o.name as string, membershipType: o.membershipType as string }]));
   const breqMap = new Map(breqDocs.map((b: any) => [b._id.toString(), { clinicId: b.clinicId as string, membershipType: b.membershipType as string }]));
+  const userMap = new Map(userDocs.map((u: any) => [u._id.toString(), { fullName: u.fullName as string, phone: u.phone as string }]));
 
   const clinicIds = [...new Set([...breqMap.values()].map((b) => b.clinicId).filter(Boolean))] as string[];
   const clinicDocs = await ClinicModel.find({ _id: { $in: clinicIds } }).select("nameEn nameAr").lean();
@@ -95,9 +98,11 @@ export async function computePaymentsBreakdown(filters: {
   const enriched = payments.map((p: any) => {
     const offerId = p.offerId?.toString();
     const brId = p.bookingRequestId;
+    const userId = p.userId?.toString();
     const breq = brId ? breqMap.get(brId) : undefined;
     const clinic = breq?.clinicId ? clinicMap.get(breq.clinicId) : undefined;
     const offer = offerId ? offerMap.get(offerId) : undefined;
+    const user = userId ? userMap.get(userId) : undefined;
     return {
       ...serializePayment(p as any),
       offerName: offer?.name,
@@ -105,6 +110,8 @@ export async function computePaymentsBreakdown(filters: {
       clinicNameEn: clinic?.nameEn,
       clinicNameAr: clinic?.nameAr,
       membershipType: breq?.membershipType ?? offer?.membershipType,
+      customerName: user?.fullName,
+      customerPhone: user?.phone,
     };
   });
 
@@ -411,8 +418,14 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
   const tracker: any[] = [];
 
   const offerIds = offers.map((o: any) => o.offerId).filter(Boolean);
-  const offerDocs = await OfferModel.find({ _id: { $in: offerIds } }).select("name").lean();
+  const userIds = offers.map((o: any) => o.userId).filter(Boolean);
+  
+  const [offerDocs, userDocs] = await Promise.all([
+    OfferModel.find({ _id: { $in: offerIds } }).select("name").lean(),
+    UserModel.find({ _id: { $in: userIds } }).select("fullName phone").lean(),
+  ]);
   const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o.name]));
+  const userMap = new Map(userDocs.map((u: any) => [u._id.toString(), { fullName: u.fullName as string, phone: u.phone as string }]));
 
   for (const uo of offers as any[]) {
     const offerName = offerMap.get(uo.offerId?.toString()) ?? "—";
@@ -433,6 +446,8 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
       tracker.push({
         userOfferId: uo._id.toString(),
         userId: uo.userId,
+        customerName: userMap.get(uo.userId)?.fullName,
+        customerPhone: userMap.get(uo.userId)?.phone,
         offerName,
         installmentNumber: inst.number,
         amountKwd: inst.amountKwd,
@@ -745,7 +760,8 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     addTable(
       [
         { key: "date", header: "Date", alignment: { vertical: "middle", horizontal: "left" } },
-        { key: "userId", header: "User" },
+        { key: "customerName", header: "Customer Name" },
+        { key: "customerPhone", header: "Phone" },
         { key: "offerName", header: "Offer" },
         { key: "clinic", header: "Clinic" },
         { key: "method", header: "Method" },
@@ -756,7 +772,8 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
       ],
       data.items.map((p: any) => ({
         date: new Date(p.createdAt).toISOString(),
-        userId: p.userId,
+        customerName: p.customerName || p.userId,
+        customerPhone: p.customerPhone || "",
         offerName: p.offerName ?? "",
         clinic: p.clinicNameEn ?? "",
         method: p.method,
@@ -832,7 +849,8 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     const data = await computeInstallmentsAnalytics({ from: filters.from, to: filters.to });
     addTable(
       [
-        { key: "userId", header: "User" },
+        { key: "customerName", header: "Customer Name" },
+        { key: "customerPhone", header: "Phone" },
         { key: "offerName", header: "Offer" },
         { key: "installmentNumber", header: "Installment #" },
         { key: "amountKwd", header: "Amount (KWD)", numFmt: "0.000" },
@@ -840,7 +858,8 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         { key: "status", header: "Status" },
       ],
       data.items.map((i: any) => ({
-        userId: i.userId,
+        customerName: i.customerName || i.userId,
+        customerPhone: i.customerPhone || "",
         offerName: i.offerName,
         installmentNumber: i.installmentNumber,
         amountKwd: Number.parseFloat(i.amountKwd ?? "0"),

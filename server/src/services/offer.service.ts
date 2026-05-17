@@ -349,7 +349,7 @@ type OfferInput = {
   offerExpirationDate?: string;
   isGroupOffer?: boolean;
   groupSizeRequired?: number;
-  groupRewardType?: "free_session" | "discount" | "cashback_bonus";
+  groupRewardType?: "free_session" | "discount" | "cashback_bonus" | "split_bill" | "unlock_membership";
   groupRewardValue?: string;
   fullPaymentEFormId?: string;
   installmentsEFormId?: string;

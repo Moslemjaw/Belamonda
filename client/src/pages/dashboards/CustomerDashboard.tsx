@@ -34,6 +34,10 @@ type ApiOfferRow = {
   signupCashbackKwd?: string;
   cashbackPerSessionKwd?: string;
   isCashbackOnly?: boolean;
+  isGroupOffer?: boolean;
+  groupSizeRequired?: number;
+  groupRewardType?: string;
+  groupRewardValue?: string;
 };
 
 const ar = () => i18n.language === "ar";
@@ -274,9 +278,27 @@ function PurchaseModal({ pkg, onClose, inviteCode }: { pkg: any; onClose: () => 
          <div className="p-6 space-y-6 flex-1 overflow-y-auto">
             
             {pkg.isGroupOffer && (
-              <div className={`border rounded-2xl p-4 flex gap-3 ${pkg.groupRewardType === 'split_bill' ? 'bg-blue-50 border-blue-200' : 'bg-emerald-50 border-emerald-200'}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-xl ${pkg.groupRewardType === 'split_bill' ? 'bg-blue-100' : 'bg-emerald-100'}`}>
-                  {pkg.groupRewardType === 'split_bill' ? '🧾' : '👥'}
+              <div className={`border rounded-2xl p-4 flex gap-3 ${
+                pkg.groupRewardType === 'split_bill' ? 'bg-blue-50 border-blue-200' :
+                pkg.groupRewardType === 'unlock_membership' ? 'bg-purple-50 border-purple-200' :
+                pkg.groupRewardType === 'free_session' ? 'bg-emerald-50 border-emerald-200' :
+                pkg.groupRewardType === 'discount' ? 'bg-amber-50 border-amber-200' :
+                pkg.groupRewardType === 'cashback_bonus' ? 'bg-teal-50 border-teal-200' :
+                'bg-emerald-50 border-emerald-200'
+              }`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-xl ${
+                  pkg.groupRewardType === 'split_bill' ? 'bg-blue-100' :
+                  pkg.groupRewardType === 'unlock_membership' ? 'bg-purple-100' :
+                  pkg.groupRewardType === 'free_session' ? 'bg-emerald-100' :
+                  pkg.groupRewardType === 'discount' ? 'bg-amber-100' :
+                  pkg.groupRewardType === 'cashback_bonus' ? 'bg-teal-100' :
+                  'bg-emerald-100'
+                }`}>
+                  {pkg.groupRewardType === 'split_bill' ? '🧾' :
+                   pkg.groupRewardType === 'unlock_membership' ? '🔓' :
+                   pkg.groupRewardType === 'free_session' ? '🎁' :
+                   pkg.groupRewardType === 'discount' ? '💰' :
+                   pkg.groupRewardType === 'cashback_bonus' ? '💎' : '👥'}
                 </div>
                 <div>
                   {pkg.groupRewardType === 'split_bill' ? (
@@ -293,11 +315,47 @@ function PurchaseModal({ pkg, onClose, inviteCode }: { pkg: any; onClose: () => 
                         })()}
                       </p>
                     </>
+                  ) : pkg.groupRewardType === 'unlock_membership' ? (
+                    <>
+                      <h4 className="font-bold text-purple-800 text-sm mb-1">{ar() ? "عضوية تحتاج أصدقاء لفتحها!" : "Membership Requires Friends to Unlock!"}</h4>
+                      <p className="text-xs text-purple-700 leading-relaxed font-medium">
+                        {ar()
+                          ? `أنشئ مجموعتك وشارك الرابط مع ${(pkg.groupSizeRequired || 2) - 1} صديق. بعد اكتمال المجموعة، ستتمكن من شراء العضوية بسعر ${pkg.subscriptionPriceKwd || pkg.price} KWD.`
+                          : `Create your group and share the link with ${(pkg.groupSizeRequired || 2) - 1} friends. Once the group is complete, you can purchase the membership for ${pkg.subscriptionPriceKwd || pkg.price} KWD.`}
+                      </p>
+                    </>
+                  ) : pkg.groupRewardType === 'free_session' ? (
+                    <>
+                      <h4 className="font-bold text-emerald-800 text-sm mb-1">{ar() ? "احصل على جلسة مجانية!" : "Get a Free Session!"}</h4>
+                      <p className="text-xs text-emerald-600 leading-relaxed font-medium">
+                        {ar()
+                          ? `بعد الاشتراك، ادعُ ${(pkg.groupSizeRequired || 2) - 1} أصدقاء. عندما يشتركون جميعاً، ستحصل على ${pkg.groupRewardValue || '1'} جلسة مجانية كمكافأة!`
+                          : `After subscribing, invite ${(pkg.groupSizeRequired || 2) - 1} friends. When they all subscribe, you'll get ${pkg.groupRewardValue || '1'} free session(s) as a reward!`}
+                      </p>
+                    </>
+                  ) : pkg.groupRewardType === 'discount' ? (
+                    <>
+                      <h4 className="font-bold text-amber-800 text-sm mb-1">{ar() ? "خصم جماعي!" : "Group Discount!"}</h4>
+                      <p className="text-xs text-amber-700 leading-relaxed font-medium">
+                        {ar()
+                          ? `ادعُ ${(pkg.groupSizeRequired || 2) - 1} أصدقاء بعد الاشتراك واحصل على خصم ${pkg.groupRewardValue || ''} على عضويتك!`
+                          : `Invite ${(pkg.groupSizeRequired || 2) - 1} friends after subscribing and get a ${pkg.groupRewardValue || ''} discount on your membership!`}
+                      </p>
+                    </>
+                  ) : pkg.groupRewardType === 'cashback_bonus' ? (
+                    <>
+                      <h4 className="font-bold text-teal-800 text-sm mb-1">{ar() ? "مكافأة كاش باك إضافية!" : "Bonus Cashback Reward!"}</h4>
+                      <p className="text-xs text-teal-700 leading-relaxed font-medium">
+                        {ar()
+                          ? `ادعُ ${(pkg.groupSizeRequired || 2) - 1} أصدقاء بعد الاشتراك واحصل على ${pkg.groupRewardValue || ''} KWD كاش باك إضافي في محفظتك!`
+                          : `Invite ${(pkg.groupSizeRequired || 2) - 1} friends after subscribing and get ${pkg.groupRewardValue || ''} KWD bonus cashback added to your wallet!`}
+                      </p>
+                    </>
                   ) : (
                     <>
                       <h4 className="font-bold text-emerald-800 text-sm mb-1">{ar() ? "عرض جماعي متاح!" : "Group Offer Available!"}</h4>
                       <p className="text-xs text-emerald-600 leading-relaxed font-medium">
-                        {ar() ? `بعد الاشتراك، قم بدعوة ${pkg.groupSizeRequired - 1} أصدقاء للحصول على ${pkg.groupRewardType === 'free_session' ? 'جلسة مجانية' : 'مكافأة'}!` : `After subscribing, invite ${pkg.groupSizeRequired - 1} friends to unlock ${pkg.groupRewardType === 'free_session' ? 'a free session' : 'a special reward'}!`}
+                        {ar() ? `بعد الاشتراك، ادعُ ${(pkg.groupSizeRequired || 2) - 1} أصدقاء للحصول على مكافأة!` : `After subscribing, invite ${(pkg.groupSizeRequired || 2) - 1} friends to unlock a special reward!`}
                       </p>
                     </>
                   )}
@@ -617,6 +675,15 @@ export default function CustomerDashboard() {
   const [checkoutPkg, setCheckoutPkg] = useState<any>(null);
   const [pendingInviteCode, setPendingInviteCode] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const [groupModal, setGroupModal] = useState<{
+    pkg: any;
+    step: "creating" | "share" | "unlocked";
+    userOfferId?: string;
+    groupInviteCode?: string;
+    membersJoined: number;
+    membersNeeded: number;
+    loading: boolean;
+  } | null>(null);
 
   const { data: walletData, loading: wLoading } = useWallet({ lazy: activeTab !== "overview" && activeTab !== "wallet" && activeTab !== "my-purchases" });
   const { data: offersData, refetch: refetchMyOffers } = useMyOffers({ lazy: activeTab !== "overview" && activeTab !== "my-purchases" && activeTab !== "store" });
@@ -1331,11 +1398,66 @@ export default function CustomerDashboard() {
                           <span>{ar() ? "دعم عملاء مخصص" : "Priority customer support"}</span>
                         </div>
                       </div>
+                      {/* Group offer badge */}
+                      {o.isGroupOffer && (
+                        <div className={`plan-feature ${o.groupRewardType === 'unlock_membership' ? '!text-purple-600' : '!text-emerald-600'}`}>
+                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          <span>
+                            {o.groupRewardType === 'unlock_membership'
+                              ? (ar() ? `🔓 يحتاج ${(o.groupSizeRequired || 2) - 1} أشخاص لفتح العضوية` : `🔓 Needs ${(o.groupSizeRequired || 2) - 1} people to unlock`)
+                              : o.groupRewardType === 'free_session'
+                              ? (ar() ? `🎁 جلسة مجانية مع ${(o.groupSizeRequired || 2) - 1} أصدقاء` : `🎁 Free session with ${(o.groupSizeRequired || 2) - 1} friends`)
+                              : o.groupRewardType === 'discount'
+                              ? (ar() ? `💰 خصم مع ${(o.groupSizeRequired || 2) - 1} أصدقاء` : `💰 Discount with ${(o.groupSizeRequired || 2) - 1} friends`)
+                              : o.groupRewardType === 'cashback_bonus'
+                              ? (ar() ? `💎 كاش باك إضافي مع ${(o.groupSizeRequired || 2) - 1} أصدقاء` : `💎 Bonus cashback with ${(o.groupSizeRequired || 2) - 1} friends`)
+                              : o.groupRewardType === 'split_bill'
+                              ? (ar() ? `🧾 تقسيم الفاتورة بين ${o.groupSizeRequired || 2} أشخاص` : `🧾 Split bill between ${o.groupSizeRequired || 2} people`)
+                              : (ar() ? `👥 عرض جماعي` : `👥 Group offer`)}
+                          </span>
+                        </div>
+                      )}
                       <button
                         className={isFeatured ? "btn-primary w-full py-3 text-sm font-bold shadow-glow" : "w-full py-3 rounded-2xl text-sm font-bold border-2 border-surface-200 text-surface-700 bg-white hover:border-brand-pink-400 hover:text-brand-pink-600 transition-colors"}
-                        onClick={() => setCheckoutPkg(o)}
+                        onClick={() => {
+                          if (o.isGroupOffer && o.groupRewardType === 'unlock_membership') {
+                            // Start group creation flow
+                            setGroupModal({
+                              pkg: o,
+                              step: "creating",
+                              membersJoined: 0,
+                              membersNeeded: (o.groupSizeRequired || 2) - 1,
+                              loading: true,
+                            });
+                            // Call create-group API
+                            apiFetch("/commerce/me/offers/create-group", {
+                              method: "POST",
+                              headers: getAuthHeader(),
+                              body: JSON.stringify({ offerId: o.id || o._id }),
+                            })
+                              .then((data: any) => {
+                                setGroupModal(prev => prev ? {
+                                  ...prev,
+                                  step: "share",
+                                  userOfferId: data.userOfferId,
+                                  groupInviteCode: data.groupInviteCode,
+                                  membersJoined: (data.sharedWith || []).length,
+                                  membersNeeded: (data.groupSizeRequired || 2) - 1,
+                                  loading: false,
+                                } : null);
+                              })
+                              .catch((e: any) => {
+                                alert(e?.message || "Error creating group");
+                                setGroupModal(null);
+                              });
+                          } else {
+                            setCheckoutPkg(o);
+                          }
+                        }}
                       >
-                        {ar() ? "اختاري هذه الخطة" : "Choose this Plan"}
+                        {o.isGroupOffer && o.groupRewardType === 'unlock_membership'
+                          ? (ar() ? "🔓 أنشئ مجموعة لفتح العضوية" : "🔓 Create Group to Unlock")
+                          : (ar() ? "اختاري هذه الخطة" : "Choose this Plan")}
                       </button>
                     </div>
                   );
@@ -1708,13 +1830,48 @@ export default function CustomerDashboard() {
                                       {isCopied ? (ar() ? "تم!" : "Copied!") : (ar() ? "نسخ" : "Copy")}
                                     </button>
                                   </div>
-                                  {(o as any).groupSizeRequired && (
-                                    <div className="mt-1.5 text-[11px] text-brand-pink-600 font-medium">
-                                      {ar()
-                                        ? `ادعُ ${(o as any).groupSizeRequired - 1} أصدقاء لتفعيل المكافأة الجماعية`
-                                        : `Invite ${(o as any).groupSizeRequired - 1} friends to unlock your group reward`}
-                                    </div>
-                                  )}
+                                  {(() => {
+                                    const sharedWith = (o as any).sharedWith || [];
+                                    const membersJoined = sharedWith.length;
+                                    const offerData = (homeCatalogData?.items || []).find((x: any) => x.id === o.offerId);
+                                    const groupSizeRequired = offerData?.groupSizeRequired || (o as any).groupSizeRequired || 2;
+                                    const membersNeeded = groupSizeRequired - 1;
+                                    const isComplete = membersJoined >= membersNeeded;
+                                    const rewardType = offerData?.groupRewardType || '';
+                                    return (
+                                      <>
+                                        {/* Progress bar */}
+                                        <div className="mt-2">
+                                          <div className="flex justify-between text-[10px] font-bold text-surface-500 mb-1">
+                                            <span>{ar() ? "تقدم المجموعة" : "Group Progress"}</span>
+                                            <span className={isComplete ? "text-emerald-600" : "text-brand-pink-600"}>{membersJoined}/{membersNeeded}</span>
+                                          </div>
+                                          <div className="h-2 bg-surface-100 rounded-full overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all duration-500 ${isComplete ? 'bg-emerald-500' : 'bg-brand-pink-500'}`}
+                                              style={{ width: `${Math.min(100, membersNeeded > 0 ? (membersJoined / membersNeeded) * 100 : 0)}%` }} />
+                                          </div>
+                                        </div>
+                                        {/* Reward description */}
+                                        <div className={`mt-1.5 text-[11px] font-medium ${isComplete ? 'text-emerald-600' : 'text-brand-pink-600'}`}>
+                                          {isComplete ? (
+                                            ar() ? "🎉 اكتملت المجموعة! مكافأتك مفعّلة" : "🎉 Group complete! Your reward is active"
+                                          ) : rewardType === 'unlock_membership' ? (
+                                            ar() ? `🔓 ادعُ ${membersNeeded - membersJoined} أصدقاء لفتح العضوية` : `🔓 Invite ${membersNeeded - membersJoined} more to unlock membership`
+                                          ) : rewardType === 'free_session' ? (
+                                            ar() ? `🎁 ادعُ ${membersNeeded - membersJoined} أصدقاء للحصول على جلسة مجانية` : `🎁 Invite ${membersNeeded - membersJoined} more to earn a free session`
+                                          ) : rewardType === 'discount' ? (
+                                            ar() ? `💰 ادعُ ${membersNeeded - membersJoined} أصدقاء للحصول على خصم ${offerData?.groupRewardValue || ''}` : `💰 Invite ${membersNeeded - membersJoined} more for a ${offerData?.groupRewardValue || ''} discount`
+                                          ) : rewardType === 'cashback_bonus' ? (
+                                            ar() ? `💎 ادعُ ${membersNeeded - membersJoined} أصدقاء للحصول على ${offerData?.groupRewardValue || ''} KWD كاش باك` : `💎 Invite ${membersNeeded - membersJoined} more to earn ${offerData?.groupRewardValue || ''} KWD cashback`
+                                          ) : rewardType === 'split_bill' ? (
+                                            ar() ? `🧾 ادعُ ${membersNeeded - membersJoined} أصدقاء لتقسيم الفاتورة` : `🧾 Invite ${membersNeeded - membersJoined} more to split the bill`
+                                          ) : (
+                                            ar() ? `ادعُ ${membersNeeded - membersJoined} أصدقاء لتفعيل المكافأة الجماعية` : `Invite ${membersNeeded - membersJoined} more to unlock your group reward`
+                                          )}
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               );
                             })()}
@@ -3473,6 +3630,152 @@ export default function CustomerDashboard() {
              </div>
            </div>
          </div>
+      )}
+
+
+      {/* ── Group Unlock Modal ── */}
+      {groupModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4 animate-fade-in" onClick={() => setGroupModal(null)}>
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-br from-purple-600 to-purple-800 p-6 text-white relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+              <div className="absolute bottom-0 left-0 w-20 h-20 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+              <div className="relative">
+                <button onClick={() => setGroupModal(null)} className="absolute top-0 right-0 w-8 h-8 rounded-full bg-white/20 flex items-center justify-center hover:bg-white/30 transition-colors">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <div className="text-3xl mb-2">🔓</div>
+                <h3 className="text-xl font-black">{ar() ? "فتح العضوية" : "Unlock Membership"}</h3>
+                <p className="text-white/80 text-sm mt-1">{ar() ? (groupModal.pkg.nameAr || groupModal.pkg.name) : groupModal.pkg.name}</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {groupModal.loading ? (
+                <div className="flex flex-col items-center py-8">
+                  <div className="w-10 h-10 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-3" />
+                  <p className="text-surface-500 text-sm font-medium">{ar() ? "جاري إنشاء المجموعة..." : "Creating your group..."}</p>
+                </div>
+              ) : groupModal.step === "share" ? (
+                <>
+                  {/* Progress */}
+                  <div>
+                    <div className="flex justify-between text-xs font-bold text-surface-600 mb-2">
+                      <span>{ar() ? "تقدم المجموعة" : "Group Progress"}</span>
+                      <span className={groupModal.membersJoined >= groupModal.membersNeeded ? "text-emerald-600" : "text-purple-600"}>
+                        {groupModal.membersJoined} / {groupModal.membersNeeded} {ar() ? "أشخاص" : "people"}
+                      </span>
+                    </div>
+                    <div className="h-3 bg-surface-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${groupModal.membersJoined >= groupModal.membersNeeded ? 'bg-emerald-500' : 'bg-purple-500'}`}
+                        style={{ width: `${Math.min(100, (groupModal.membersJoined / groupModal.membersNeeded) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {groupModal.membersJoined >= groupModal.membersNeeded ? (
+                    /* Unlocked! */
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+                      <div className="text-3xl mb-2">🎉</div>
+                      <h4 className="font-black text-emerald-800 text-lg">{ar() ? "تم فتح العضوية!" : "Membership Unlocked!"}</h4>
+                      <p className="text-emerald-600 text-sm mt-1">{ar() ? "يمكنك الآن شراء العضوية بالسعر الكامل" : "You can now purchase the membership"}</p>
+                      <div className="text-2xl font-black text-emerald-800 mt-2">{groupModal.pkg.subscriptionPriceKwd} KWD</div>
+                      <button
+                        className="btn-primary w-full py-3 mt-4 shadow-glow"
+                        onClick={() => {
+                          setGroupModal(null);
+                          setCheckoutPkg(groupModal.pkg);
+                        }}
+                      >
+                        {ar() ? "اشترِ الآن" : "Purchase Now"}
+                      </button>
+                    </div>
+                  ) : (
+                    /* Share link */
+                    <>
+                      <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+                          <span className="text-xs font-bold text-purple-700 uppercase tracking-wide">{ar() ? "رابط الدعوة" : "Invite Link"}</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <input
+                            readOnly
+                            value={`${SITE_BASE_URL}/dashboard?inviteCode=${groupModal.groupInviteCode}`}
+                            className="flex-1 text-xs font-mono bg-white border border-purple-200 rounded-xl px-3 py-2 text-surface-700 min-w-0 select-all"
+                            dir="ltr"
+                            onFocus={e => e.target.select()}
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(`${SITE_BASE_URL}/dashboard?inviteCode=${groupModal.groupInviteCode}`).catch(() => {});
+                              setCopiedCode(groupModal.groupInviteCode || null);
+                              setTimeout(() => setCopiedCode(null), 2000);
+                            }}
+                            className={`shrink-0 text-xs font-bold px-4 py-2 rounded-xl transition-colors ${copiedCode === groupModal.groupInviteCode ? 'bg-emerald-500 text-white' : 'bg-purple-600 hover:bg-purple-700 text-white'}`}
+                          >
+                            {copiedCode === groupModal.groupInviteCode ? (ar() ? "تم!" : "Copied!") : (ar() ? "نسخ" : "Copy")}
+                          </button>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-surface-500 text-center leading-relaxed">
+                        {ar()
+                          ? `شارك هذا الرابط مع ${groupModal.membersNeeded - groupModal.membersJoined} شخص آخر. بعد اكتمال المجموعة، ستتمكن من شراء العضوية.`
+                          : `Share this link with ${groupModal.membersNeeded - groupModal.membersJoined} more ${groupModal.membersNeeded - groupModal.membersJoined === 1 ? 'person' : 'people'}. Once complete, you can purchase the membership.`}
+                      </p>
+
+                      {/* Refresh button */}
+                      <button
+                        className="w-full py-3 rounded-2xl text-sm font-bold border-2 border-purple-200 text-purple-700 bg-white hover:border-purple-400 hover:bg-purple-50 transition-all flex items-center justify-center gap-2"
+                        onClick={() => {
+                          if (!groupModal.userOfferId) return;
+                          setGroupModal(prev => prev ? { ...prev, loading: true } : null);
+                          apiFetch(`/commerce/me/offers/group-status/${groupModal.userOfferId}`, {
+                            headers: getAuthHeader(),
+                          })
+                            .then((data: any) => {
+                              setGroupModal(prev => prev ? {
+                                ...prev,
+                                membersJoined: data.membersJoined || 0,
+                                membersNeeded: data.membersNeeded || 1,
+                                step: data.isUnlocked ? "unlocked" : "share",
+                                loading: false,
+                              } : null);
+                            })
+                            .catch(() => {
+                              setGroupModal(prev => prev ? { ...prev, loading: false } : null);
+                            });
+                        }}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        {ar() ? "تحديث الحالة" : "Refresh Status"}
+                      </button>
+                    </>
+                  )}
+                </>
+              ) : groupModal.step === "unlocked" ? (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center">
+                  <div className="text-3xl mb-2">🎉</div>
+                  <h4 className="font-black text-emerald-800 text-lg">{ar() ? "تم فتح العضوية!" : "Membership Unlocked!"}</h4>
+                  <p className="text-emerald-600 text-sm mt-1">{ar() ? "يمكنك الآن شراء العضوية" : "You can now purchase the membership"}</p>
+                  <div className="text-2xl font-black text-emerald-800 mt-2">{groupModal.pkg.subscriptionPriceKwd} KWD</div>
+                  <button
+                    className="btn-primary w-full py-3 mt-4 shadow-glow"
+                    onClick={() => {
+                      setGroupModal(null);
+                      setCheckoutPkg(groupModal.pkg);
+                    }}
+                  >
+                    {ar() ? "اشترِ الآن" : "Purchase Now"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* New Checkout Modal */}

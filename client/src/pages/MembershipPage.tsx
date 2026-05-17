@@ -123,11 +123,22 @@ export default function MembershipPage() {
 
     // Group offer
     if (o.isGroupOffer && o.groupSizeRequired) {
-      f.push(
-        isAr
-          ? `عرض جماعي — حتى ${o.groupSizeRequired} أعضاء`
-          : `Group offer — up to ${o.groupSizeRequired} members`
-      );
+      const rt = o.groupRewardType;
+      if (rt === 'unlock_membership') {
+        f.push(isAr ? `🔓 يحتاج ${o.groupSizeRequired - 1} أشخاص لفتح العضوية` : `🔓 Needs ${o.groupSizeRequired - 1} people to unlock`);
+      } else if (rt === 'free_session') {
+        f.push(isAr ? `🎁 جلسة مجانية عند دعوة ${o.groupSizeRequired - 1} أصدقاء` : `🎁 Free session when ${o.groupSizeRequired - 1} friends join`);
+      } else if (rt === 'discount') {
+        f.push(isAr ? `💰 خصم ${o.groupRewardValue || ''} مع ${o.groupSizeRequired - 1} أصدقاء` : `💰 ${o.groupRewardValue || ''} discount with ${o.groupSizeRequired - 1} friends`);
+      } else if (rt === 'cashback_bonus') {
+        f.push(isAr ? `💎 ${o.groupRewardValue || ''} KWD كاش باك إضافي مع ${o.groupSizeRequired - 1} أصدقاء` : `💎 ${o.groupRewardValue || ''} KWD bonus cashback with ${o.groupSizeRequired - 1} friends`);
+      } else if (rt === 'split_bill') {
+        const price = parseFloat(o.subscriptionPriceKwd || '0');
+        const pp = o.groupSizeRequired > 0 ? (price / o.groupSizeRequired).toFixed(3) : '0';
+        f.push(isAr ? `🧾 تقسيم الفاتورة — ${pp} د.ك لكل شخص` : `🧾 Split bill — ${pp} KWD per person`);
+      } else {
+        f.push(isAr ? `عرض جماعي — حتى ${o.groupSizeRequired} أعضاء` : `Group offer — up to ${o.groupSizeRequired} members`);
+      }
     }
 
     return f;
@@ -155,11 +166,36 @@ export default function MembershipPage() {
         : `${o.cashbackPerSessionKwd} KWD/session cashback`;
     }
     if (o.isGroupOffer && o.groupSizeRequired) {
-      const price = parseFloat(o.subscriptionPriceKwd || "0");
-      const perPerson = o.groupSizeRequired > 0 ? (price / o.groupSizeRequired).toFixed(3) : "0";
-      return isAr
-        ? `${perPerson} د.ك لكل شخص • حتى ${o.groupSizeRequired} أعضاء`
-        : `${perPerson} KWD per person • up to ${o.groupSizeRequired} members`;
+      const rt = o.groupRewardType;
+      if (rt === 'unlock_membership') {
+        return isAr
+          ? `🔓 أنشئ مجموعة من ${o.groupSizeRequired} لفتح العضوية`
+          : `🔓 Create a group of ${o.groupSizeRequired} to unlock`;
+      } else if (rt === 'split_bill') {
+        const price = parseFloat(o.subscriptionPriceKwd || "0");
+        const perPerson = o.groupSizeRequired > 0 ? (price / o.groupSizeRequired).toFixed(3) : "0";
+        return isAr
+          ? `${perPerson} د.ك لكل شخص • ${o.groupSizeRequired} أشخاص`
+          : `${perPerson} KWD per person • ${o.groupSizeRequired} people`;
+      } else if (rt === 'free_session') {
+        return isAr
+          ? `🎁 جلسة مجانية مع ${o.groupSizeRequired - 1} أصدقاء`
+          : `🎁 Free session with ${o.groupSizeRequired - 1} friends`;
+      } else if (rt === 'discount') {
+        return isAr
+          ? `💰 خصم ${o.groupRewardValue || ''} مع مجموعة`
+          : `💰 ${o.groupRewardValue || ''} group discount`;
+      } else if (rt === 'cashback_bonus') {
+        return isAr
+          ? `💎 ${o.groupRewardValue || ''} KWD كاش باك جماعي`
+          : `💎 ${o.groupRewardValue || ''} KWD group cashback`;
+      } else {
+        const price = parseFloat(o.subscriptionPriceKwd || "0");
+        const perPerson = o.groupSizeRequired > 0 ? (price / o.groupSizeRequired).toFixed(3) : "0";
+        return isAr
+          ? `${perPerson} د.ك لكل شخص • حتى ${o.groupSizeRequired} أعضاء`
+          : `${perPerson} KWD per person • up to ${o.groupSizeRequired} members`;
+      }
     }
     return null;
   };

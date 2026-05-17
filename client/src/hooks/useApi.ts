@@ -157,6 +157,12 @@ export type MyOfferItem = {
   paidInstallments?: number;
   amount?: string;
   createdAt?: string;
+  maxSessions?: number;
+  hasActiveBooking?: boolean;
+  lastCompletedSessionAt?: string;
+  sessionIntervalDays?: number;
+  clinicLocked?: boolean;
+  branchSessionPrices?: any[];
 };
 
 export function useMyOffers(opts?: { lazy?: boolean }) {
@@ -453,6 +459,7 @@ export type ReservationItem = MyOfferItem & {
   userId: string;
   createdAt: string;
   offerName?: string;
+  standaloneName?: string;
   reservationConvertedAt?: string;
   depositPaidAt?: string;
   reservationCompletionExpectedAt?: string;
@@ -534,6 +541,7 @@ export type ClinicDetailSummary = {
   totalSessions: number; completedSessions: number; noShowSessions: number; scheduledSessions: number;
   totalInvoices: number; paidInvoices: number; pendingInvoices: number;
   sessionRevenueKwd: string; paidRevenueKwd: string; pendingRevenueKwd: string;
+  cashbackTotalKwd?: string; netRevenueKwd?: string;
 };
 
 export function useClinicDetail(clinicId: string | null, filters: { from?: string; to?: string } = {}) {

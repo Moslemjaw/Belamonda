@@ -45,13 +45,120 @@ function isWithinWindow(offer: { startDate?: string; endDate?: string }, now: Da
 
 export const commerceRouter = Router();
 
+// ─── Group Team Endpoints ──────────────────────────────────────────────────────
+
+const CreateGroupSchema = z.object({ offerId: z.string().min(1), clinicId: z.string().optional() });
+
+/** Create a group team — generates an invite code without requiring payment yet. */
+commerceRouter.post("/me/offers/create-group", authRequired, async (req, res, next) => {
+  try {
+    const parsed = CreateGroupSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    const uid = req.auth!.userId;
+
+    const offer = await OfferModel.findById(parsed.data.offerId).lean() as any;
+    if (!offer) return res.status(404).json({ error: "OFFER_NOT_FOUND" });
+    if (!offer.isGroupOffer) return res.status(400).json({ error: "NOT_A_GROUP_OFFER" });
+
+    // Check if user already has a group for this offer
+    const existing = await UserOfferModel.findOne({
+      userId: uid,
+      offerId: new mongoose.Types.ObjectId(parsed.data.offerId),
+      membershipType: "group",
+      status: { $in: ["pending_payment", "active", "reserved", "enet_pending"] }
+    }).lean();
+    if (existing) {
+      // Return existing group info
+      return res.json({
+        userOfferId: (existing as any)._id.toString(),
+        groupInviteCode: (existing as any).groupInviteCode,
+        sharedWith: (existing as any).sharedWith || [],
+        groupSizeRequired: offer.groupSizeRequired || 2,
+        groupRewardType: offer.groupRewardType,
+        alreadyExists: true
+      });
+    }
+
+    // Resolve clinic
+    let clinicId: mongoose.Types.ObjectId;
+    if (parsed.data.clinicId && mongoose.isValidObjectId(parsed.data.clinicId)) {
+      clinicId = new mongoose.Types.ObjectId(parsed.data.clinicId);
+    } else if (offer.clinicId) {
+      clinicId = offer.clinicId;
+    } else {
+      const firstClinic = offer.clinicIds?.[0];
+      if (!firstClinic) return res.status(400).json({ error: "NO_CLINIC_AVAILABLE" });
+      clinicId = firstClinic;
+    }
+
+    const crypto = await import("crypto");
+    const groupInviteCode = crypto.randomBytes(4).toString("hex").toUpperCase();
+
+    const uo = await UserOfferModel.create({
+      userId: uid,
+      offerId: new mongoose.Types.ObjectId(parsed.data.offerId),
+      clinicId,
+      status: "pending_payment",
+      membershipType: "group",
+      groupInviteCode,
+      sharedWith: [],
+      purchaseMode: "full",
+      pendingExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days to fill group
+    });
+
+    return res.status(201).json({
+      userOfferId: uo._id.toString(),
+      groupInviteCode,
+      sharedWith: [],
+      groupSizeRequired: offer.groupSizeRequired || 2,
+      groupRewardType: offer.groupRewardType,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Check group team status — how many people have joined. */
+commerceRouter.get("/me/offers/group-status/:userOfferId", authRequired, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.userOfferId)) return res.status(400).json({ error: "INVALID_ID" });
+    const uo = await UserOfferModel.findById(req.params.userOfferId).lean() as any;
+    if (!uo) return res.status(404).json({ error: "NOT_FOUND" });
+    if (uo.userId !== req.auth!.userId) return res.status(403).json({ error: "FORBIDDEN" });
+
+    const offer = await OfferModel.findById(uo.offerId).lean() as any;
+    const groupSizeRequired = offer?.groupSizeRequired || 2;
+    const membersJoined = (uo.sharedWith || []).length;
+    // For unlock_membership, the owner counts as 1 person, so need (groupSizeRequired - 1) others
+    const membersNeeded = groupSizeRequired - 1;
+    const isUnlocked = membersJoined >= membersNeeded;
+
+    return res.json({
+      userOfferId: uo._id.toString(),
+      groupInviteCode: uo.groupInviteCode,
+      sharedWith: uo.sharedWith || [],
+      membersJoined,
+      membersNeeded,
+      groupSizeRequired,
+      isUnlocked,
+      groupRewardType: offer?.groupRewardType,
+      groupRewardValue: offer?.groupRewardValue,
+      offerName: offer?.name,
+      offerNameAr: offer?.nameAr,
+      subscriptionPriceKwd: offer?.subscriptionPriceKwd,
+      status: uo.status,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 const JoinGroupSchema = z.object({ inviteCode: z.string().min(1) });
 commerceRouter.post("/me/offers/join", authRequired, async (req, res, next) => {
   try {
     const parsed = JoinGroupSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
 
-    const { UserOfferModel } = await import("../../models/userOffer.model.js");
     const uo = await UserOfferModel.findOne({ groupInviteCode: parsed.data.inviteCode, membershipType: "group" });
     if (!uo) return res.status(404).json({ error: "INVALID_INVITE_CODE" });
 
@@ -60,7 +167,21 @@ commerceRouter.post("/me/offers/join", authRequired, async (req, res, next) => {
     if (uo.sharedWith && uo.sharedWith.includes(uid)) return res.json({ ok: true, message: "ALREADY_JOINED" });
 
     await UserOfferModel.findByIdAndUpdate(uo._id, { $addToSet: { sharedWith: uid } });
-    return res.json({ ok: true });
+
+    // Return updated group count info
+    const offer = await OfferModel.findById(uo.offerId).lean() as any;
+    const updatedUo = await UserOfferModel.findById(uo._id).lean() as any;
+    const membersJoined = (updatedUo.sharedWith || []).length;
+    const membersNeeded = (offer?.groupSizeRequired || 2) - 1;
+
+    return res.json({
+      ok: true,
+      membersJoined,
+      membersNeeded,
+      isUnlocked: membersJoined >= membersNeeded,
+      offerName: offer?.name,
+      offerNameAr: offer?.nameAr,
+    });
   } catch (e) {
     next(e);
   }
@@ -116,7 +237,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
       mongoose.isValidObjectId(id)
     );
     const offers = await OfferModel.find({ _id: { $in: offerIds } })
-      .select("name nameAr clinicLocked branchSessionPrices sessionIntervalDays")
+      .select("name nameAr clinicLocked branchSessionPrices sessionIntervalDays isGroupOffer groupSizeRequired groupRewardType groupRewardValue")
       .lean();
     const offerMap = Object.fromEntries(offers.map((o: any) => [o._id.toString(), o]));
 
@@ -157,6 +278,9 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
         sessionIntervalDays: offer.sessionIntervalDays || 0,
         hasActiveBooking: activeBookingsSet.has(uoId),
         lastCompletedSessionAt: lastCompletedMap[uoId] ? new Date(lastCompletedMap[uoId]).toISOString() : undefined,
+        groupSizeRequired: offer.groupSizeRequired || undefined,
+        groupRewardType: offer.groupRewardType || undefined,
+        groupRewardValue: offer.groupRewardValue || undefined,
       };
     });
 

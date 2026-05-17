@@ -570,6 +570,7 @@ function OffersManager() {
                       <option value="discount">{ar() ? "خصم إضافي" : "Extra Discount"}</option>
                       <option value="cashback_bonus">{ar() ? "كاش باك إضافي" : "Bonus Cashback"}</option>
                       <option value="split_bill">{ar() ? "تقسيم الفاتورة" : "Split Bill"}</option>
+                      <option value="unlock_membership">{ar() ? "فتح العضوية (يحتاج أشخاص)" : "Unlock Membership (needs people)"}</option>
                     </select>
                   ))}
                   {form.groupRewardType === "split_bill" ? (
@@ -588,6 +589,18 @@ function OffersManager() {
                       })()}
                       <div className="text-[10px] text-brand-pink-500 mt-1">
                         {ar() ? `الفاتورة الكلية ${form.price || 0} KWD مقسّمة على ${form.groupSizeRequired} أشخاص. لن يُقبل أقل من العدد المطلوب.` : `Total bill ${form.price || 0} KWD divided by ${form.groupSizeRequired} people. No less than the required count will be accepted.`}
+                      </div>
+                    </div>
+                  ) : form.groupRewardType === "unlock_membership" ? (
+                    <div className="bg-purple-50 border border-purple-200 rounded-xl p-3 md:col-span-1">
+                      <div className="text-xs font-bold text-purple-700 mb-1">{ar() ? "آلية فتح العضوية" : "Unlock Mechanic"}</div>
+                      <div className="text-sm text-purple-800">
+                        {ar()
+                          ? `السعر مخفي حتى ينضم ${parseInt(form.groupSizeRequired) - 1 || 1} شخص. بعد اكتمال المجموعة، يُفتح العرض ويظهر السعر ${form.price || 0} KWD.`
+                          : `Price is hidden until ${parseInt(form.groupSizeRequired) - 1 || 1} people join. Once the group is complete, the offer unlocks and shows the price ${form.price || 0} KWD.`}
+                      </div>
+                      <div className="text-[10px] text-purple-500 mt-1">
+                        {ar() ? "المستخدم ينشئ مجموعة ← يشارك الرابط ← تنضم المجموعة ← يُفتح الشراء" : "User creates a group → shares link → group joins → purchase unlocks"}
                       </div>
                     </div>
                   ) : (
