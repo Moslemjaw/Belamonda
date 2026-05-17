@@ -339,6 +339,117 @@ export async function computeRevenueByUser(filters: { from?: string; to?: string
   return { items: items.slice(0, limit) };
 }
 
+// Detailed Customers Report (for export)
+export async function computeDetailedCustomersReport(filters: { from?: string; to?: string; limit?: number } = {}) {
+  const q: Record<string, unknown> = {};
+  const dateFilter = buildDateFilter(filters.from, filters.to);
+  if (dateFilter) q.createdAt = dateFilter;
+  const userOffers = await UserOfferModel.find(q).lean();
+
+  const userIds = [...new Set(userOffers.map((u: any) => u.userId))].filter(Boolean);
+  const userDocs = await UserModel.find({
+    $or: [
+      { _id: { $in: userIds.filter(i => /^[a-f0-9]{24}$/i.test(i)) } },
+      { username: { $in: userIds } },
+    ],
+  }).select("username displayName fullName phone referredBy").lean().catch(() => []);
+  
+  const userMap = new Map<string, any>();
+  const referrerIds = new Set<string>();
+  for (const u of userDocs as any[]) {
+    userMap.set(u._id.toString(), u);
+    if (u.username) userMap.set(u.username, u);
+    if (u.referredBy) referrerIds.add(u.referredBy.toString());
+  }
+
+  const referrerDocs = await UserModel.find({ _id: { $in: [...referrerIds] } }).select("username displayName referralCode").lean().catch(() => []);
+  const referrerMap = new Map<string, any>();
+  for (const r of referrerDocs as any[]) {
+    referrerMap.set(r._id.toString(), r);
+  }
+
+  const offerIds = [...new Set(userOffers.map((u: any) => u.offerId))].filter(Boolean);
+  const offerDocs = await OfferModel.find({ _id: { $in: offerIds } }).select("name subscriptionPriceKwd").lean().catch(() => []);
+  const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o]));
+
+  const clinicIds = [...new Set(userOffers.map((u: any) => u.clinicId))].filter(Boolean);
+  const clinicDocs = await ClinicModel.find({ _id: { $in: clinicIds } }).select("nameEn").lean().catch(() => []);
+  const clinicMap = new Map(clinicDocs.map((c: any) => [c._id.toString(), c]));
+
+  const items = userOffers.map((uo: any) => {
+    const user = userMap.get(uo.userId) || {};
+    const refId = user.referredBy?.toString();
+    const referrer = refId ? referrerMap.get(refId) : null;
+    const offer = offerMap.get(uo.offerId?.toString());
+    const clinic = clinicMap.get(uo.clinicId?.toString());
+    
+    let depositAmt = "0.000";
+    let inst2Amt = "0.000";
+    let inst3Amt = "0.000";
+    let firstDate = "";
+    let secDate = "";
+    let thirdDate = "";
+    let paidMils = 0;
+    let totalMils = parseKwd(offer?.subscriptionPriceKwd || "0");
+
+    if (uo.purchaseMode === "installments") {
+      const sched = uo.installmentSchedule || [];
+      if (sched[0]) {
+         depositAmt = sched[0].amountKwd;
+         if (sched[0].paid) { paidMils += parseKwd(sched[0].amountKwd); firstDate = sched[0].paidAt ? new Date(sched[0].paidAt).toISOString().slice(0,10) : ""; }
+      }
+      if (sched[1]) {
+         inst2Amt = sched[1].amountKwd;
+         if (sched[1].paid) { paidMils += parseKwd(sched[1].amountKwd); secDate = sched[1].paidAt ? new Date(sched[1].paidAt).toISOString().slice(0,10) : ""; }
+      }
+      if (sched[2]) {
+         inst3Amt = sched[2].amountKwd;
+         if (sched[2].paid) { paidMils += parseKwd(sched[2].amountKwd); thirdDate = sched[2].paidAt ? new Date(sched[2].paidAt).toISOString().slice(0,10) : ""; }
+      }
+      for (let i = 3; i < sched.length; i++) {
+         if (sched[i].paid) paidMils += parseKwd(sched[i].amountKwd);
+      }
+    } else {
+      const amtMils = parseKwd(uo.paymentAmountKwd || offer?.subscriptionPriceKwd || "0");
+      if (uo.status === "active" || uo.status === "expired" || uo.status === "reserved") {
+         paidMils = uo.purchaseMode === "deposit" ? parseKwd(uo.depositAmountKwd || "0") : amtMils;
+      }
+      firstDate = uo.paymentConfirmedAt ? new Date(uo.paymentConfirmedAt).toISOString().slice(0, 10) : "";
+      if (uo.purchaseMode === "deposit") {
+         depositAmt = uo.depositAmountKwd || "0.000";
+         firstDate = uo.depositPaidAt ? new Date(uo.depositPaidAt).toISOString().slice(0, 10) : firstDate;
+      }
+    }
+
+    const refString = referrer ? `${referrer.displayName || referrer.username} (${referrer.referralCode || ''})` : "";
+    const balanceMils = Math.max(0, totalMils - paidMils);
+
+    return {
+      customerId: uo.userId || "",
+      customerName: user.fullName || user.displayName || user.username || "",
+      customerPhone: user.phone || "",
+      service: offer?.name || "",
+      clinicName: clinic?.nameEn || "",
+      expiryDate: uo.expiresAt ? new Date(uo.expiresAt).toISOString().slice(0,10) : "",
+      reference: refString,
+      totalPaymentKwd: fmtKwd(totalMils),
+      paidAmountKwd: fmtKwd(paidMils),
+      balanceKwd: fmtKwd(balanceMils),
+      paymentType: uo.purchaseMode || "full",
+      depositAmount: depositAmt,
+      installment2Amount: inst2Amt,
+      installment3Amount: inst3Amt,
+      firstPaymentDate: firstDate,
+      secondPaymentDate: secDate,
+      thirdPaymentDate: thirdDate,
+      notes: uo.enetReason || "",
+      packageDate: uo.createdAt ? new Date(uo.createdAt).toISOString().slice(0,10) : "",
+    };
+  });
+  
+  return { items };
+}
+
 // Revenue grouped by referrer (the staff who referred the buyer)
 export async function computeRevenueByReferral(filters: { from?: string; to?: string; limit?: number } = {}) {
   const q: Record<string, unknown> = { status: "completed" };
@@ -605,10 +716,10 @@ export async function exportFinanceCsv(kind: "payments" | "offers" | "users" | "
     );
   }
   if (kind === "users") {
-    const data = await computeRevenueByUser({ from: filters.from, to: filters.to, limit: 500 });
+    const data = await computeDetailedCustomersReport({ from: filters.from, to: filters.to });
     return toCsv(
-      ["User", "Display Name", "Email", "Phone", "Purchases", "LTV KWD", "Cashback Used KWD", "Pending"],
-      data.items.map((u) => [u.userId, u.displayName, u.email ?? "", u.phone ?? "", u.purchasesCount, u.ltvKwd, u.cashbackUsedKwd, u.pendingPayments]),
+      ["Customer ID", "Customer Name", "Phone", "Service", "Clinic Name", "Expiry Date", "Reference", "Total Payment", "Paid Amount", "Balance", "Payment Type", "Deposit", "Installment 2", "Installment 3", "First Payment Date", "Second Payment Date", "Third Payment Date", "Notes", "Package Date"],
+      data.items.map((u) => [u.customerId, u.customerName, u.customerPhone, u.service, u.clinicName, u.expiryDate, u.reference, u.totalPaymentKwd, u.paidAmountKwd, u.balanceKwd, u.paymentType, u.depositAmount, u.installment2Amount, u.installment3Amount, u.firstPaymentDate, u.secondPaymentDate, u.thirdPaymentDate, u.notes, u.packageDate]),
     );
   }
   if (kind === "referrals") {
@@ -804,28 +915,30 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
       })),
     );
   } else if (kind === "users") {
-    const data = await computeRevenueByUser({ from: filters.from, to: filters.to, limit: 500 });
+    const data = await computeDetailedCustomersReport({ from: filters.from, to: filters.to });
     addTable(
       [
-        { key: "userId", header: "User" },
-        { key: "displayName", header: "Name" },
-        { key: "email", header: "Email" },
-        { key: "phone", header: "Phone" },
-        { key: "purchasesCount", header: "Purchases" },
-        { key: "ltvKwd", header: "LTV (KWD)", numFmt: "0.000" },
-        { key: "cashbackUsedKwd", header: "Cashback Used (KWD)", numFmt: "0.000" },
-        { key: "pendingPayments", header: "Pending" },
+        { key: "customerId", header: "Customer ID" },
+        { key: "customerName", header: "Customer Name" },
+        { key: "customerPhone", header: "Phone" },
+        { key: "service", header: "Service" },
+        { key: "clinicName", header: "Clinic Name" },
+        { key: "expiryDate", header: "Expiry Date" },
+        { key: "reference", header: "Reference" },
+        { key: "totalPaymentKwd", header: "Total Payment", numFmt: "0.000" },
+        { key: "paidAmountKwd", header: "Paid Amount", numFmt: "0.000" },
+        { key: "balanceKwd", header: "Balance", numFmt: "0.000" },
+        { key: "paymentType", header: "Payment Type" },
+        { key: "depositAmount", header: "Deposit", numFmt: "0.000" },
+        { key: "installment2Amount", header: "Installment 2", numFmt: "0.000" },
+        { key: "installment3Amount", header: "Installment 3", numFmt: "0.000" },
+        { key: "firstPaymentDate", header: "First Payment Date" },
+        { key: "secondPaymentDate", header: "Second Payment Date" },
+        { key: "thirdPaymentDate", header: "Third Payment Date" },
+        { key: "notes", header: "Notes" },
+        { key: "packageDate", header: "Package Date" },
       ],
-      data.items.map((u) => ({
-        userId: u.userId,
-        displayName: u.displayName,
-        email: u.email ?? "",
-        phone: u.phone ?? "",
-        purchasesCount: u.purchasesCount,
-        ltvKwd: Number.parseFloat(u.ltvKwd),
-        cashbackUsedKwd: Number.parseFloat(u.cashbackUsedKwd),
-        pendingPayments: u.pendingPayments,
-      })),
+      data.items,
     );
   } else if (kind === "referrals") {
     const data = await computeRevenueByReferral({ from: filters.from, to: filters.to, limit: 200 });
