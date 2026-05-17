@@ -2394,9 +2394,11 @@ function UsersManager() {
   const [users, setUsers] = useState<any[]>([]);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  type EnrollmentRow = { offerId: string; clinicId: string; purchaseMode: string; amountPaidKwd: string; method: string; isVerified: boolean; installmentCount: number };
+  const emptyRow: EnrollmentRow = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "cash", isVerified: true, installmentCount: 2 };
   const [addForm, setAddForm] = useState({
-    phone: "", fullName: "", email: "", offerId: "", clinicId: "",
-    purchaseMode: "full", amountPaidKwd: "", method: "cash", isVerified: true, installmentCount: 2
+    phone: "", fullName: "", email: "", password: "",
+    enrollments: [{ ...emptyRow }] as EnrollmentRow[],
   });
   const { data: offersData } = useApi<{ items: any[] }>("/offers/admin");
   const offers = offersData?.items || [];
@@ -2404,18 +2406,32 @@ function UsersManager() {
   const clinics = clinicsData?.items || [];
   const [addingUser, setAddingUser] = useState(false);
 
+  const updateEnrollment = (idx: number, patch: Partial<EnrollmentRow>) => {
+    setAddForm(p => ({ ...p, enrollments: p.enrollments.map((e, i) => i === idx ? { ...e, ...patch } : e) }));
+  };
+  const addEnrollmentRow = () => {
+    setAddForm(p => ({ ...p, enrollments: [...p.enrollments, { ...emptyRow }] }));
+  };
+  const removeEnrollmentRow = (idx: number) => {
+    setAddForm(p => ({ ...p, enrollments: p.enrollments.filter((_, i) => i !== idx) }));
+  };
+
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddingUser(true);
     try {
+      const body: any = {
+        phone: addForm.phone, fullName: addForm.fullName, email: addForm.email, password: addForm.password,
+        enrollments: addForm.enrollments.filter(en => en.offerId),
+      };
       await apiFetch("/users/admin/manual-enroll", {
         method: "POST",
         headers: { ...getAuthHeader(), "Content-Type": "application/json" },
-        body: JSON.stringify(addForm),
+        body: JSON.stringify(body),
       });
       setShowAddModal(false);
       loadUsers();
-      setAddForm({ phone: "", fullName: "", email: "", offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "cash", isVerified: true, installmentCount: 2 });
+      setAddForm({ phone: "", fullName: "", email: "", password: "", enrollments: [{ ...emptyRow }] });
     } catch (err: any) {
       alert(ar() ? "حدث خطأ: " + err.message : "An error occurred: " + err.message);
     } finally {
@@ -2616,7 +2632,7 @@ function UsersManager() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-900/40 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div className="px-6 py-4 border-b border-surface-100 flex items-center justify-between bg-surface-50">
-              <h3 className="font-bold text-surface-900">{ar() ? "إضافة مستخدم جديد وتسجيل باقة" : "Add User & Enroll Membership"}</h3>
+              <h3 className="font-bold text-surface-900">{ar() ? "إضافة مستخدم جديد وتسجيل باقات" : "Add User & Enroll Memberships"}</h3>
               <button onClick={() => setShowAddModal(false)} className="text-surface-400 hover:text-surface-600 transition-colors p-1"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
             <div className="p-6 overflow-y-auto">
@@ -2630,71 +2646,93 @@ function UsersManager() {
                     <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "رقم الهاتف" : "Phone"} *</label>
                     <input required type="text" className="input-field" value={addForm.phone} onChange={e => setAddForm(p => ({ ...p, phone: e.target.value }))} placeholder="e.g. 965..." />
                   </div>
-                  <div className="sm:col-span-2">
+                  <div>
                     <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "البريد الإلكتروني (اختياري)" : "Email (Optional)"}</label>
                     <input type="email" className="input-field" value={addForm.email} onChange={e => setAddForm(p => ({ ...p, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "كلمة المرور" : "Password"}</label>
+                    <input type="text" className="input-field" value={addForm.password} onChange={e => setAddForm(p => ({ ...p, password: e.target.value }))} placeholder={ar() ? "اتركه فارغ = رقم الهاتف" : "Leave empty = phone number"} />
                   </div>
                 </div>
 
                 <div className="border-t border-surface-200 pt-6">
-                  <h4 className="text-sm font-bold text-surface-900 mb-4">{ar() ? "الاشتراكات والدفع" : "Membership & Payment"}</h4>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "اختيار باقة/جلسة" : "Select Offer/Session"}</label>
-                      <select className="select-field" value={addForm.offerId} onChange={e => setAddForm(p => ({ ...p, offerId: e.target.value }))}>
-                        <option value="">{ar() ? "-- بدون اشتراك --" : "-- No Membership --"}</option>
-                        {offers.map((o: any) => <option key={o._id} value={o._id}>{ar() ? o.nameAr || o.name : o.name}</option>)}
-                      </select>
-                    </div>
-                    {addForm.offerId && (
-                      <div>
-                        <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "العيادة (إن وجدت)" : "Clinic (if applicable)"}</label>
-                        <select className="select-field" value={addForm.clinicId} onChange={e => setAddForm(p => ({ ...p, clinicId: e.target.value }))}>
-                          <option value="">{ar() ? "غير محدد" : "None"}</option>
-                          {clinics.map((c: any) => <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr || c.nameEn : c.nameEn}</option>)}
-                        </select>
-                      </div>
-                    )}
-                    {addForm.offerId && (
-                      <>
-                        <div>
-                          <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "نوع الدفع" : "Purchase Mode"}</label>
-                          <select className="select-field" value={addForm.purchaseMode} onChange={e => setAddForm(p => ({ ...p, purchaseMode: e.target.value }))}>
-                            <option value="full">{ar() ? "دفع كامل" : "Full Payment"}</option>
-                            <option value="installments">{ar() ? "أقساط" : "Installments"}</option>
-                            <option value="deposit">{ar() ? "عربون" : "Deposit"}</option>
-                          </select>
-                        </div>
-                        {addForm.purchaseMode === "installments" && (
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-bold text-surface-900">{ar() ? "الاشتراكات والدفع" : "Memberships & Payment"}</h4>
+                    <button type="button" onClick={addEnrollmentRow} className="text-xs font-bold text-brand-pink-600 hover:text-brand-pink-700 flex items-center gap-1 transition-colors">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                      {ar() ? "إضافة باقة" : "Add Membership"}
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {addForm.enrollments.map((en, idx) => (
+                      <div key={idx} className="relative bg-surface-50 rounded-xl border border-surface-200 p-4 space-y-3">
+                        {addForm.enrollments.length > 1 && (
+                          <button type="button" onClick={() => removeEnrollmentRow(idx)} className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        )}
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">{ar() ? `باقة ${idx + 1}` : `Membership ${idx + 1}`}</div>
+                        <div className="grid gap-3 sm:grid-cols-2">
                           <div>
-                            <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "عدد الأقساط" : "Installment Count"}</label>
-                            <select className="select-field" value={addForm.installmentCount} onChange={e => setAddForm(p => ({ ...p, installmentCount: Number(e.target.value) }))}>
-                              <option value="2">2</option>
-                              <option value="3">3</option>
+                            <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "اختيار باقة/جلسة" : "Select Offer/Session"}</label>
+                            <select className="select-field" value={en.offerId} onChange={e => updateEnrollment(idx, { offerId: e.target.value })}>
+                              <option value="">{ar() ? "-- بدون اشتراك --" : "-- No Membership --"}</option>
+                              {offers.map((o: any) => <option key={o._id} value={o._id}>{ar() ? o.nameAr || o.name : o.name}</option>)}
                             </select>
                           </div>
+                          {en.offerId && (
+                            <div>
+                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "العيادة (إن وجدت)" : "Clinic (if applicable)"}</label>
+                              <select className="select-field" value={en.clinicId} onChange={e => updateEnrollment(idx, { clinicId: e.target.value })}>
+                                <option value="">{ar() ? "غير محدد" : "None"}</option>
+                                {clinics.map((c: any) => <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr || c.nameEn : c.nameEn}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                        {en.offerId && (
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            <div>
+                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "نوع الدفع" : "Purchase Mode"}</label>
+                              <select className="select-field" value={en.purchaseMode} onChange={e => updateEnrollment(idx, { purchaseMode: e.target.value })}>
+                                <option value="full">{ar() ? "دفع كامل" : "Full Payment"}</option>
+                                <option value="installments">{ar() ? "أقساط" : "Installments"}</option>
+                                <option value="deposit">{ar() ? "عربون" : "Deposit"}</option>
+                              </select>
+                            </div>
+                            {en.purchaseMode === "installments" && (
+                              <div>
+                                <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "عدد الأقساط" : "Installment Count"}</label>
+                                <select className="select-field" value={en.installmentCount} onChange={e => updateEnrollment(idx, { installmentCount: Number(e.target.value) })}>
+                                  <option value="2">2</option>
+                                  <option value="3">3</option>
+                                </select>
+                              </div>
+                            )}
+                            <div>
+                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "المبلغ المدفوع اليوم (KWD)" : "Amount Paid Today (KWD)"}</label>
+                              <input type="number" step="0.001" className="input-field" value={en.amountPaidKwd} onChange={e => updateEnrollment(idx, { amountPaidKwd: e.target.value })} placeholder="0.000" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
+                              <select className="select-field" value={en.method} onChange={e => updateEnrollment(idx, { method: e.target.value })}>
+                                <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
+                                <option value="pos">POS</option>
+                                <option value="bank_transfer">{ar() ? "الدفع عن طريق خدمة العملاء" : "Paid by Customer Service"}</option>
+                                <option value="enet">ENET</option>
+                                <option value="wallet">{ar() ? "محفظة" : "Wallet"}</option>
+                                <option value="other">{ar() ? "أخرى" : "Other"}</option>
+                              </select>
+                            </div>
+                            <div className="sm:col-span-2 flex items-center gap-2">
+                              <input type="checkbox" id={`verifyPay-${idx}`} checked={en.isVerified} onChange={e => updateEnrollment(idx, { isVerified: e.target.checked })} className="w-4 h-4 text-brand-pink-600 rounded focus:ring-brand-pink-500" />
+                              <label htmlFor={`verifyPay-${idx}`} className="text-sm text-surface-700 font-medium">{ar() ? "الدفع مؤكد وموثق؟ (تفعيل فوري)" : "Payment is verified? (Instant Activation)"}</label>
+                            </div>
+                          </div>
                         )}
-                        <div>
-                          <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "المبلغ المدفوع اليوم (KWD)" : "Amount Paid Today (KWD)"}</label>
-                          <input type="number" step="0.001" className="input-field" value={addForm.amountPaidKwd} onChange={e => setAddForm(p => ({ ...p, amountPaidKwd: e.target.value }))} placeholder="0.000" required />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
-                          <select className="select-field" value={addForm.method} onChange={e => setAddForm(p => ({ ...p, method: e.target.value }))}>
-                            <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
-                            <option value="pos">POS</option>
-                            <option value="bank_transfer">{ar() ? "الدفع عن طريق خدمة العملاء" : "Paid by Customer Service"}</option>
-                            <option value="enet">ENET</option>
-                            <option value="wallet">{ar() ? "محفظة" : "Wallet"}</option>
-                            <option value="other">{ar() ? "أخرى" : "Other"}</option>
-                          </select>
-                        </div>
-                        <div className="sm:col-span-2 flex items-center gap-2 mt-2">
-                          <input type="checkbox" id="verifyPay" checked={addForm.isVerified} onChange={e => setAddForm(p => ({ ...p, isVerified: e.target.checked }))} className="w-4 h-4 text-brand-pink-600 rounded focus:ring-brand-pink-500" />
-                          <label htmlFor="verifyPay" className="text-sm text-surface-700 font-medium">{ar() ? "الدفع مؤكد وموثق؟ (تفعيل فوري)" : "Payment is verified? (Instant Activation)"}</label>
-                        </div>
-                      </>
-                    )}
+                      </div>
+                    ))}
                   </div>
                 </div>
               </form>
