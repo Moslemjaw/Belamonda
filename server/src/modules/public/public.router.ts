@@ -212,19 +212,75 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     if (!token || token.length < 10) return res.status(400).json({ error: "INVALID_TOKEN" });
 
     const user = await UserModel.findOne({ publicToken: token })
-      .select("_id username fullName role publicToken createdAt phone")
-      .lean<UserCardFields & { phone?: string }>();
+      .select("_id username fullName role publicToken createdAt phone email")
+      .lean<UserCardFields & { phone?: string; email?: string }>();
 
     if (!user || user.role !== "customer") return res.status(404).json({ error: "CUSTOMER_NOT_FOUND" });
 
     const card = await buildFullCardData(user);
+    const userId = String(user._id);
 
-    // Also fetch clinic-specific sessions for this customer
+    // KYC documents
+    const { KycSubmissionModel } = await import("../../models/kyc.model.js");
+    const kycDocs = await KycSubmissionModel.find({ userId }).sort({ createdAt: -1 }).limit(1).lean();
+    const kycDoc = kycDocs[0] as any;
+    const kyc = kycDoc ? {
+      status: kycDoc.status,
+      civilIdNumberMasked: kycDoc.civilIdNumberMasked,
+      civilIdFrontRef: kycDoc.civilIdFrontRef,
+      civilIdBackRef: kycDoc.civilIdBackRef,
+      signatureRef: kycDoc.signatureRef,
+      createdAt: kycDoc.createdAt ? new Date(kycDoc.createdAt).toISOString() : null,
+      reviewedAt: kycDoc.reviewedAt ? new Date(kycDoc.reviewedAt).toISOString() : null,
+      rejectionReason: kycDoc.rejectionReason ?? null,
+    } : null;
+
+    // All memberships (not just active)
+    const { OfferModel } = await import("../../models/offer.model.js");
+    const allOffers = await UserOfferModel.find({ $or: [{ userId }, { sharedWith: userId }] })
+      .sort({ createdAt: -1 }).lean();
+    const offerIds = [...new Set(allOffers.map((o: any) => String(o.offerId)).filter(Boolean))];
+    const offers = offerIds.length ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr").lean() : [];
+    const offerMap: Record<string, any> = {};
+    (offers as any[]).forEach((o: any) => { offerMap[String(o._id)] = o; });
+
+    const memberships = allOffers.map((m: any) => ({
+      id: String(m._id),
+      offerId: String(m.offerId),
+      offerName: offerMap[String(m.offerId)]?.name ?? "—",
+      status: m.status,
+      purchaseMode: m.purchaseMode,
+      sessionsUsed: m.sessionsUsed ?? 0,
+      maxSessions: m.maxSessions ?? null,
+      installmentCount: m.installmentCount,
+      installmentsPaid: m.installmentsPaid ?? 0,
+      paymentAmountKwd: m.paymentAmountKwd,
+      paymentMethod: m.paymentMethod,
+      activatedAt: m.activatedAt ? new Date(m.activatedAt).toISOString().slice(0, 10) : null,
+      expiresAt: m.expiresAt ? new Date(m.expiresAt).toISOString().slice(0, 10) : null,
+      createdAt: m.createdAt ? new Date(m.createdAt).toISOString().slice(0, 10) : null,
+    }));
+
+    // Payment history
+    const { PaymentModel } = await import("../../models/payment.model.js");
+    const payments = await PaymentModel.find({ userId }).sort({ createdAt: -1 }).limit(50).lean();
+    const paymentItems = (payments as any[]).map((p: any) => ({
+      id: String(p._id),
+      amountKwd: p.amountKwd,
+      method: p.method,
+      purpose: p.purpose,
+      status: p.status,
+      installmentNumber: p.installmentNumber ?? null,
+      confirmedAt: p.confirmedAt ? new Date(p.confirmedAt).toISOString() : null,
+      createdAt: p.createdAt ? new Date(p.createdAt).toISOString() : null,
+    }));
+
+    // Clinic-specific sessions for this customer
     const clinicId = req.auth!.clinicId;
     let clinicSessions: any[] = [];
     if (clinicId) {
       const sessions = await BookingSessionModel.find({
-        userId: String(user._id),
+        userId,
         clinicId: mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId,
       })
         .sort({ scheduledAt: -1 })
@@ -241,14 +297,38 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
       }));
     }
 
+    // Also check booking requests for mark-paid
+    const { BookingRequestModel } = await import("../../models/bookingRequest.model.js");
+    let clinicBookings: any[] = [];
+    if (clinicId) {
+      const bookings = await BookingRequestModel.find({
+        userId,
+        clinicId: mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId,
+      }).sort({ createdAt: -1 }).limit(20).lean();
+      clinicBookings = (bookings as any[]).map((b: any) => ({
+        id: String(b._id),
+        status: b.status,
+        clinicPaymentStatus: b.clinicPaymentStatus ?? "pending",
+        sessionPriceKwd: b.sessionPriceKwd ?? null,
+        clinicTakeKwd: b.clinicTakeKwd ?? null,
+        createdAt: b.createdAt ? new Date(b.createdAt).toISOString() : null,
+      }));
+    }
+
     return res.json({
       card: {
         ...card,
         phone: (user as any).phone ?? null,
+        email: (user as any).email ?? null,
       },
+      kyc,
+      memberships,
+      payments: paymentItems,
       clinicSessions,
+      clinicBookings,
     });
   } catch (e) {
     next(e);
   }
 });
+

@@ -1177,6 +1177,223 @@ const SESSION_STATUS_COLORS: Record<string, string> = {
   cancelled: "bg-surface-100 text-surface-500 border-surface-200",
 };
 
+const STATUS_COLORS: Record<string, string> = {
+  active: "bg-emerald-50 text-emerald-700",
+  pending_payment: "bg-amber-50 text-amber-700",
+  reserved: "bg-blue-50 text-blue-700",
+  expired: "bg-surface-100 text-surface-500",
+  cancelled: "bg-red-50 text-red-600",
+};
+
+function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBookings, markingId, onMarkSession, onMarkPaid }: {
+  tabs: { key: string; label: string }[];
+  kyc: any;
+  memberships: any[];
+  payments: any[];
+  clinicSessions: any[];
+  clinicBookings: any[];
+  markingId: string | null;
+  onMarkSession: (id: string, status: string) => Promise<void>;
+  onMarkPaid: (id: string) => Promise<void>;
+}) {
+  const [activeTab, setActiveTab] = useState("sessions");
+  const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-1 overflow-x-auto pb-1 bg-surface-100 p-1 rounded-xl">
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setActiveTab(t.key)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${activeTab === t.key ? "bg-white text-surface-900 shadow-sm" : "text-surface-500 hover:text-surface-700"}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Info Tab ── */}
+      {activeTab === "info" && (
+        <div className="card-elevated p-5 space-y-4">
+          <h4 className="font-bold text-surface-900">{ar() ? "المعلومات الشخصية" : "Personal Information"}</h4>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {memberships.length > 0 && (
+              <div className="sm:col-span-2 bg-surface-50 rounded-xl p-4 border border-surface-100">
+                <div className="text-xs font-bold text-surface-500 mb-2">{ar() ? "ملخص العضويات" : "Membership Summary"}</div>
+                <div className="flex gap-3 flex-wrap">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">{memberships.filter(m => m.status === "active").length} {ar() ? "فعالة" : "Active"}</span>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">{memberships.filter(m => m.status === "pending_payment").length} {ar() ? "معلقة" : "Pending"}</span>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-surface-100 text-surface-600">{memberships.length} {ar() ? "إجمالي" : "Total"}</span>
+                </div>
+              </div>
+            )}
+            <div className="bg-surface-50 rounded-xl p-4 border border-surface-100">
+              <div className="text-xs font-bold text-surface-500 mb-1">{ar() ? "إجمالي الجلسات بالعيادة" : "Clinic Sessions"}</div>
+              <div className="text-lg font-black text-surface-900">{clinicSessions.length}</div>
+            </div>
+            <div className="bg-surface-50 rounded-xl p-4 border border-surface-100">
+              <div className="text-xs font-bold text-surface-500 mb-1">{ar() ? "إجمالي المدفوعات" : "Total Payments"}</div>
+              <div className="text-lg font-black text-surface-900">{payments.length}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Memberships Tab ── */}
+      {activeTab === "memberships" && (
+        <div className="card-elevated p-5 space-y-3">
+          <h4 className="font-bold text-surface-900">{ar() ? "جميع العضويات" : "All Memberships"}</h4>
+          {memberships.length === 0 ? (
+            <div className="text-center py-8 text-sm text-surface-400">{ar() ? "لا توجد عضويات" : "No memberships"}</div>
+          ) : memberships.map((m: any) => (
+            <div key={m.id} className="p-4 bg-surface-50 rounded-xl border border-surface-100 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-bold text-surface-900">{m.offerName}</div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_COLORS[m.status] ?? "bg-surface-100 text-surface-600"}`}>{m.status}</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div><span className="text-surface-500">{ar() ? "طريقة الدفع:" : "Mode:"}</span> <span className="font-bold text-surface-800">{m.purchaseMode}</span></div>
+                <div><span className="text-surface-500">{ar() ? "المبلغ:" : "Amount:"}</span> <span className="font-bold text-surface-800">{m.paymentAmountKwd} KWD</span></div>
+                <div><span className="text-surface-500">{ar() ? "الجلسات:" : "Sessions:"}</span> <span className="font-bold text-surface-800">{m.sessionsUsed}{m.maxSessions != null ? `/${m.maxSessions}` : ""}</span></div>
+                {m.purchaseMode === "installments" && (
+                  <div><span className="text-surface-500">{ar() ? "الأقساط:" : "Installments:"}</span> <span className="font-bold text-surface-800">{m.installmentsPaid}/{m.installmentCount}</span></div>
+                )}
+              </div>
+              <div className="text-[10px] text-surface-400 flex gap-3 flex-wrap">
+                {m.activatedAt && <span>{ar() ? "مفعلة:" : "Activated:"} {m.activatedAt}</span>}
+                {m.expiresAt && <span>{ar() ? "تنتهي:" : "Expires:"} {m.expiresAt}</span>}
+                {m.createdAt && <span>{ar() ? "أنشئت:" : "Created:"} {m.createdAt}</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Sessions Tab ── */}
+      {activeTab === "sessions" && (
+        <div className="space-y-4">
+          <div className="card-elevated p-5">
+            <h4 className="font-bold text-surface-900 mb-3">{ar() ? "جلسات العيادة" : "Clinic Sessions"} <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 ml-1">{clinicSessions.length}</span></h4>
+            {clinicSessions.length === 0 ? (
+              <div className="text-center py-8 text-sm text-surface-400">{ar() ? "لا توجد جلسات" : "No sessions at your clinic"}</div>
+            ) : (
+              <div className="space-y-2">
+                {clinicSessions.map((s: any) => (
+                  <div key={s.id} className="flex items-center justify-between p-3 bg-surface-50 rounded-xl border border-surface-100 gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-surface-900">
+                        {new Date(s.scheduledAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                        <span className="text-surface-400 mx-1.5">·</span>
+                        <span className="text-surface-500">{new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>{s.status?.replace("_", " ")}</span>
+                      {s.status === "scheduled" && (
+                        <div className="flex gap-1">
+                          <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "completed")} className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50">{markingId === s.id ? "…" : "✓ " + (ar() ? "حضر" : "Came")}</button>
+                          <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "no_show")} className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">{markingId === s.id ? "…" : "✗ " + (ar() ? "لم يحضر" : "No Show")}</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {/* Clinic Bookings - Mark Paid */}
+          {clinicBookings.filter((b: any) => b.clinicPaymentStatus !== "paid").length > 0 && (
+            <div className="card-elevated p-5">
+              <h4 className="font-bold text-surface-900 mb-3">{ar() ? "حجوزات بانتظار الدفع" : "Bookings Awaiting Payment"}</h4>
+              <div className="space-y-2">
+                {clinicBookings.filter((b: any) => b.clinicPaymentStatus !== "paid").map((b: any) => (
+                  <div key={b.id} className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200 gap-3">
+                    <div>
+                      <div className="text-xs font-bold text-surface-900">{b.clinicTakeKwd || b.sessionPriceKwd || "0.000"} KWD</div>
+                      <div className="text-[10px] text-surface-500">{b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "—"}</div>
+                    </div>
+                    <button disabled={payingBookingId === b.id} onClick={async () => { setPayingBookingId(b.id); await onMarkPaid(b.id); setPayingBookingId(null); }} className="text-xs font-bold px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+                      {payingBookingId === b.id ? "…" : (ar() ? "تأكيد الدفع" : "Mark Paid")}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Payments Tab ── */}
+      {activeTab === "payments" && (
+        <div className="card-elevated p-5 space-y-3">
+          <h4 className="font-bold text-surface-900">{ar() ? "سجل المدفوعات" : "Payment History"}</h4>
+          {payments.length === 0 ? (
+            <div className="text-center py-8 text-sm text-surface-400">{ar() ? "لا توجد مدفوعات" : "No payments"}</div>
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-surface-200">
+              <table className="w-full text-sm min-w-[500px]">
+                <thead><tr className="bg-surface-50 text-xs text-surface-500 uppercase tracking-wider">
+                  <th className="py-2 px-3 text-left">{ar() ? "التاريخ" : "Date"}</th>
+                  <th className="py-2 px-3 text-left">{ar() ? "المبلغ" : "Amount"}</th>
+                  <th className="py-2 px-3 text-left">{ar() ? "الطريقة" : "Method"}</th>
+                  <th className="py-2 px-3 text-left">{ar() ? "الغرض" : "Purpose"}</th>
+                  <th className="py-2 px-3 text-left">{ar() ? "الحالة" : "Status"}</th>
+                </tr></thead>
+                <tbody>
+                  {payments.map((p: any) => (
+                    <tr key={p.id} className="border-t border-surface-100">
+                      <td className="py-2 px-3 text-surface-600">{p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "—"}</td>
+                      <td className="py-2 px-3 font-bold text-emerald-700">{p.amountKwd} KWD</td>
+                      <td className="py-2 px-3 text-surface-600">{p.method}</td>
+                      <td className="py-2 px-3 text-surface-600">{p.purpose}{p.installmentNumber ? ` #${p.installmentNumber}` : ""}</td>
+                      <td className="py-2 px-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${p.status === "completed" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>{p.status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── KYC Tab ── */}
+      {activeTab === "kyc" && (
+        <div className="card-elevated p-5 space-y-4">
+          <h4 className="font-bold text-surface-900">{ar() ? "بيانات الهوية" : "KYC / Civil ID"}</h4>
+          {!kyc ? (
+            <div className="text-center py-8 text-sm text-surface-400">{ar() ? "لم يتم تقديم طلب التحقق" : "No KYC submission"}</div>
+          ) : (
+            <>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
+                  <div className="text-xs text-surface-500">{ar() ? "الحالة" : "Status"}</div>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${kyc.status === "approved" ? "bg-emerald-50 text-emerald-700" : kyc.status === "rejected" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"}`}>{kyc.status}</span>
+                </div>
+                <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
+                  <div className="text-xs text-surface-500">{ar() ? "رقم الهوية" : "Civil ID (masked)"}</div>
+                  <div className="font-black text-surface-900 tracking-widest font-mono mt-0.5">{kyc.civilIdNumberMasked}</div>
+                </div>
+              </div>
+              <div className="grid sm:grid-cols-3 gap-3">
+                {[
+                  { label: ar() ? "الهوية (أمامية)" : "Civil ID — Front", ref: kyc.civilIdFrontRef },
+                  { label: ar() ? "الهوية (خلفية)" : "Civil ID — Back", ref: kyc.civilIdBackRef },
+                  { label: ar() ? "التوقيع" : "Signature", ref: kyc.signatureRef },
+                ].filter(d => d.ref).map(doc => (
+                  <div key={doc.label} className="bg-white rounded-xl border border-surface-200 overflow-hidden">
+                    <div className="px-3 py-2 border-b border-surface-100 text-xs font-bold text-surface-600">{doc.label}</div>
+                    <div className="p-2">
+                      <img src={`/uploads/${doc.ref}`} alt={doc.label} className="w-full h-32 object-contain rounded-lg bg-surface-50" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string, status: string) => Promise<void> }) {
   const { getAuthHeader } = useAuth();
   const [token, setToken] = useState("");
@@ -1323,7 +1540,19 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
       </div>
 
       {/* Results */}
-      {card && (
+      {card && (() => {
+        const scanKyc = result?.kyc;
+        const scanMemberships = result?.memberships ?? [];
+        const scanPayments = result?.payments ?? [];
+        const scanBookings = result?.clinicBookings ?? [];
+        const SCAN_TABS = [
+          { key: "info", label: ar() ? "المعلومات" : "Info" },
+          { key: "memberships", label: ar() ? "العضويات" : "Memberships" },
+          { key: "sessions", label: ar() ? "الجلسات" : "Sessions" },
+          { key: "payments", label: ar() ? "المدفوعات" : "Payments" },
+          { key: "kyc", label: ar() ? "الهوية" : "KYC / ID" },
+        ];
+        return (
         <div className="space-y-5 animate-fade-in">
           {/* Customer Profile Card */}
           <div className="card-elevated overflow-hidden">
@@ -1335,28 +1564,25 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
                 <div>
                   <div className="text-xl font-black">{card.displayName}</div>
                   {card.phone && <div className="text-sm text-brand-pink-200 font-mono mt-0.5" dir="ltr">{card.phone}</div>}
+                  {card.email && <div className="text-xs text-brand-pink-200 mt-0.5">{card.email}</div>}
                   <div className="flex items-center gap-3 mt-2">
                     {card.memberSince && (
                       <span className="text-[10px] uppercase tracking-wider text-brand-pink-200 flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                         {ar() ? "عضو منذ" : "Member since"} {card.memberSince}
                       </span>
                     )}
                     {card.kycVerified && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-bold flex items-center gap-1">
-                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        {ar() ? "تم التحقق" : "Verified"}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-bold">
+                        ✓ {ar() ? "تم التحقق" : "Verified"}
                       </span>
                     )}
                   </div>
                 </div>
               </div>
             </div>
-
-            {/* Quick stats */}
             <div className="grid grid-cols-3 divide-x divide-surface-100 bg-white">
               <div className="p-4 text-center">
-                <div className="text-lg font-black text-brand-pink-600">{card.activeOffers?.length ?? 0}</div>
+                <div className="text-lg font-black text-brand-pink-600">{scanMemberships.filter((m: any) => m.status === "active").length}</div>
                 <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mt-0.5">{ar() ? "عضويات فعالة" : "Active Offers"}</div>
               </div>
               <div className="p-4 text-center">
@@ -1370,105 +1596,16 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
             </div>
           </div>
 
-          {/* Active Memberships */}
-          {card.activeOffers && card.activeOffers.length > 0 && (
-            <div className="card-elevated p-5">
-              <h4 className="font-bold text-surface-900 mb-3 flex items-center gap-2">
-                <svg className="w-4 h-4 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
-                {ar() ? "العضويات الفعالة" : "Active Memberships"}
-              </h4>
-              <div className="space-y-2">
-                {card.activeOffers.map((o: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-surface-50 rounded-xl border border-surface-100">
-                    <div>
-                      <div className="text-sm font-bold text-surface-900">{o.offerName || o.offerId}</div>
-                      <div className="text-xs text-surface-500 mt-0.5">
-                        {o.activatedAt && <>{ar() ? "مفعلة:" : "Activated:"} {o.activatedAt}</>}
-                        {o.expiresAt && <> · {ar() ? "تنتهي:" : "Expires:"} {o.expiresAt}</>}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-xs font-bold text-brand-pink-600">{o.sessionsUsed} {ar() ? "جلسة" : "sessions"}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Clinic Sessions for this customer */}
-          <div className="card-elevated p-5">
-            <h4 className="font-bold text-surface-900 mb-3 flex items-center gap-2">
-              <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              {ar() ? "جلسات العيادة" : "Clinic Sessions"}
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100">{clinicSessions.length}</span>
-            </h4>
-            {clinicSessions.length === 0 ? (
-              <div className="text-center py-8 text-sm text-surface-400">{ar() ? "لا توجد جلسات لهذا العميل في عيادتك" : "No sessions for this customer at your clinic"}</div>
-            ) : (
-              <div className="space-y-2">
-                {clinicSessions.map((s: any) => (
-                  <div key={s.id} className="flex items-center justify-between p-3 bg-surface-50 rounded-xl border border-surface-100 gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-surface-900">
-                        {new Date(s.scheduledAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                        <span className="text-surface-400 mx-1.5">·</span>
-                        <span className="text-surface-500">{new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      {s.notes && <div className="text-xs text-surface-400 mt-0.5 truncate">{s.notes}</div>}
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>
-                        {s.status?.replace("_", " ")}
-                      </span>
-                      {s.status === "scheduled" && (
-                        <div className="flex gap-1">
-                          <button
-                            disabled={markingId === s.id}
-                            onClick={() => handleMarkSession(s.id, "completed")}
-                            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 transition-colors disabled:opacity-50"
-                            title={ar() ? "حضر" : "Attended"}
-                          >
-                            {markingId === s.id ? "…" : "✓"}
-                          </button>
-                          <button
-                            disabled={markingId === s.id}
-                            onClick={() => handleMarkSession(s.id, "no_show")}
-                            className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-50"
-                            title={ar() ? "لم يحضر" : "No-show"}
-                          >
-                            {markingId === s.id ? "…" : "✗"}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Recent Session History */}
-          {card.recentSessions && card.recentSessions.length > 0 && (
-            <div className="card-elevated p-5">
-              <h4 className="font-bold text-surface-900 mb-3 flex items-center gap-2">
-                <svg className="w-4 h-4 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                {ar() ? "سجل الجلسات الأخير" : "Recent Session History"}
-              </h4>
-              <div className="space-y-1.5">
-                {card.recentSessions.map((s: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-surface-50 transition-colors text-sm">
-                    <span className="text-surface-700">{s.scheduledAt}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>
-                      {s.status?.replace("_", " ")}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Tabs */}
+          <ScanTabs tabs={SCAN_TABS} kyc={scanKyc} memberships={scanMemberships} payments={scanPayments} clinicSessions={clinicSessions} clinicBookings={scanBookings} markingId={markingId} onMarkSession={handleMarkSession} onMarkPaid={async (id: string) => {
+            try {
+              await apiFetch(`/scheduling/requests/${id}/mark-paid`, { method: "POST", headers: getAuthHeader() });
+              await handleScan();
+            } catch (e: any) { alert(e.message); }
+          }} />
         </div>
-      )}
+        );
+      })()}
 
       {/* Empty State */}
       {!card && !loading && !error && (
