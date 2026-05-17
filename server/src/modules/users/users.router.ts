@@ -470,7 +470,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       return res.json({ message: "User created/found", user: { id: String(user._id), phone: user.phone, fullName: user.fullName } });
     }
 
-    const offer = await OfferModel.findById(d.offerId).lean();
+    const offer = await OfferModel.findById(d.offerId).lean() as any;
     if (!offer) return res.status(404).json({ error: "OFFER_NOT_FOUND" });
 
     const now = new Date();
