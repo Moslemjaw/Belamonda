@@ -51,6 +51,7 @@ const FormCreateSchema = z.object({
   title: z.string().min(1),
   titleAr: z.string().optional(),
   description: z.string().optional(),
+  descriptionAr: z.string().optional(),
   fields: z.array(FieldSchema).min(1),
   targets: z.array(TargetSchema).optional().default([]),
   requireBeforeBooking: z.boolean().optional().default(false),
@@ -68,6 +69,7 @@ function serializeForm(doc: EFormDoc | (Record<string, unknown> & { _id: mongoos
     title: d.title,
     titleAr: d.titleAr,
     description: d.description,
+    descriptionAr: d.descriptionAr,
     fields: (d.fields ?? []).map((f: any) => ({
       key: f.key,
       type: f.type,
@@ -418,6 +420,7 @@ eformsRouter.post("/submit", authRequired, async (req, res, next) => {
       if (!f.required) continue;
       if (f.type === "signature") continue; // handled separately
       if (f.type === "file_upload") continue; // handled separately
+      if (f.type === "static_text") continue; // static text is display only
       const v = answersByKey.get(f.key);
       const empty = v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0);
       if (empty) return res.status(400).json({ error: "MISSING_REQUIRED_FIELD", field: f.key });
@@ -509,6 +512,10 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
 
     for (const f of fields) {
       doc.fontSize(11).fillColor("#0f172a").text(`${f.labelEn}${f.required ? " *" : ""}`);
+      if (f.type === "static_text") {
+        doc.moveDown(0.6);
+        continue;
+      }
       const value = answersByKey.get(f.key);
       let display = "—";
       if (Array.isArray(value)) display = value.join(", ");

@@ -14,7 +14,8 @@ const FIELD_TYPES = [
   { v: "multi_choice", labelEn: "Multi choice", labelAr: "اختيار متعدد" },
   { v: "date", labelEn: "Date", labelAr: "تاريخ" },
   { v: "signature", labelEn: "Signature", labelAr: "توقيع" },
-  { v: "file_upload", labelEn: "File upload", labelAr: "رفع ملف" }
+  { v: "file_upload", labelEn: "File upload", labelAr: "رفع ملف" },
+  { v: "static_text", labelEn: "Static text (Display)", labelAr: "نص ثابت (للعرض)" }
 ] as const;
 
 type FieldType = (typeof FIELD_TYPES)[number]["v"];
@@ -37,6 +38,7 @@ type FormItem = {
   title: string;
   titleAr?: string;
   description?: string;
+  descriptionAr?: string;
   fields: FieldDraft[];
   targets: Target[];
   requireBeforeBooking: boolean;
@@ -76,6 +78,7 @@ const blankForm = (): Omit<FormItem, "id" | "archived" | "version"> => ({
   title: "",
   titleAr: "",
   description: "",
+  descriptionAr: "",
   fields: [blankField()],
   targets: [],
   requireBeforeBooking: false,
@@ -88,6 +91,7 @@ function formItemToDefinition(f: FormItem): FormDefinition {
     title: f.title,
     titleAr: f.titleAr,
     description: f.description,
+    descriptionAr: f.descriptionAr,
     fields: f.fields.map((field) => ({
       key: field.key,
       type: field.type,
@@ -265,6 +269,7 @@ export function EFormsAdminPanel() {
       title: f.title,
       titleAr: f.titleAr ?? "",
       description: f.description ?? "",
+      descriptionAr: f.descriptionAr ?? "",
       fields: f.fields.length ? f.fields : [blankField()],
       targets: f.targets ?? [],
       requireBeforeBooking: f.requireBeforeBooking,
@@ -306,6 +311,7 @@ export function EFormsAdminPanel() {
       title: draft.title.trim(),
       titleAr: draft.titleAr || undefined,
       description: draft.description || undefined,
+      descriptionAr: draft.descriptionAr || undefined,
       fields: draft.fields.map((f, i) => ({
         key: f.key,
         type: f.type,
@@ -420,8 +426,12 @@ export function EFormsAdminPanel() {
                   <input className="input-field mt-1" dir="rtl" value={draft.titleAr} onChange={(e) => setDraft({ ...draft, titleAr: e.target.value })} />
                 </label>
                 <label className="block md:col-span-2">
-                  <span className="text-xs font-medium text-surface-500">{ar() ? "وصف" : "Description"}</span>
+                  <span className="text-xs font-medium text-surface-500">{ar() ? "الوصف (EN)" : "Description (EN)"}</span>
                   <textarea className="input-field mt-1" rows={2} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-xs font-medium text-surface-500">{ar() ? "الوصف (AR)" : "Description (AR)"}</span>
+                  <textarea className="input-field mt-1" dir="rtl" rows={2} value={draft.descriptionAr || ""} onChange={(e) => setDraft({ ...draft, descriptionAr: e.target.value })} />
                 </label>
               </div>
 
@@ -451,12 +461,20 @@ export function EFormsAdminPanel() {
                           </select>
                         </label>
                         <label className="block">
-                          <span className="text-[10px] font-medium text-surface-500 uppercase">{ar() ? "تسمية (EN)" : "Label (EN)"}</span>
-                          <input className="input-field mt-1" value={f.labelEn} onChange={(e) => updateField(i, { labelEn: e.target.value })} />
+                          <span className="text-[10px] font-medium text-surface-500 uppercase">{ar() ? "تسمية/النص (EN)" : "Label/Text (EN)"}</span>
+                          {f.type === "static_text" ? (
+                             <textarea className="input-field mt-1" rows={3} value={f.labelEn} onChange={(e) => updateField(i, { labelEn: e.target.value })} />
+                          ) : (
+                             <input className="input-field mt-1" value={f.labelEn} onChange={(e) => updateField(i, { labelEn: e.target.value })} />
+                          )}
                         </label>
                         <label className="block">
-                          <span className="text-[10px] font-medium text-surface-500 uppercase">{ar() ? "تسمية (AR)" : "Label (AR)"}</span>
-                          <input className="input-field mt-1" dir="rtl" value={f.labelAr ?? ""} onChange={(e) => updateField(i, { labelAr: e.target.value })} />
+                          <span className="text-[10px] font-medium text-surface-500 uppercase">{ar() ? "تسمية/النص (AR)" : "Label/Text (AR)"}</span>
+                          {f.type === "static_text" ? (
+                             <textarea className="input-field mt-1" dir="rtl" rows={3} value={f.labelAr ?? ""} onChange={(e) => updateField(i, { labelAr: e.target.value })} />
+                          ) : (
+                             <input className="input-field mt-1" dir="rtl" value={f.labelAr ?? ""} onChange={(e) => updateField(i, { labelAr: e.target.value })} />
+                          )}
                         </label>
                       </div>
                       {(f.type === "single_choice" || f.type === "multi_choice") && (

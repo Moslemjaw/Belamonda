@@ -10,7 +10,8 @@ export type FieldType =
   | "multi_choice"
   | "date"
   | "signature"
-  | "file_upload";
+  | "file_upload"
+  | "static_text";
 
 export type FormField = {
   key: string;
@@ -28,6 +29,7 @@ export type FormDefinition = {
   title: string;
   titleAr?: string;
   description?: string;
+  descriptionAr?: string;
   fields: FormField[];
 };
 
@@ -183,7 +185,9 @@ export function FormRenderer({
 
   return (
     <div className="space-y-5">
-      {form.description && <p className="text-sm text-surface-500">{form.description}</p>}
+      {form.description && !ar() && <p className="text-sm text-surface-500">{form.description}</p>}
+      {form.descriptionAr && ar() && <p className="text-sm text-surface-500">{form.descriptionAr}</p>}
+      {!form.descriptionAr && form.description && ar() && <p className="text-sm text-surface-500">{form.description}</p>}
       {readOnly && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-700 font-medium">
           <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -204,11 +208,19 @@ export function FormRenderer({
           const label = (ar() && labelAr ? labelAr : labelEn) || fallback;
           return (
             <div key={f.key} className="card-elevated p-4">
-              <label className="block text-sm font-bold text-surface-900 mb-2">
-                {label}
-                {f.required && <span className="text-red-500"> *</span>}
-              </label>
-              {f.helpText && <p className="text-xs text-surface-500 mb-2">{f.helpText}</p>}
+              {f.type === "static_text" ? (
+                <div className="text-sm text-surface-800 whitespace-pre-wrap leading-relaxed">
+                  {label}
+                </div>
+              ) : (
+                <>
+                  <label className="block text-sm font-bold text-surface-900 mb-2">
+                    {label}
+                    {f.required && <span className="text-red-500"> *</span>}
+                  </label>
+                  {f.helpText && <p className="text-xs text-surface-500 mb-2">{f.helpText}</p>}
+                </>
+              )}
 
               {f.type === "short_text" && (
                 <input

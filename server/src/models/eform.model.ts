@@ -7,7 +7,8 @@ export const EFORM_FIELD_TYPES = [
   "multi_choice",
   "date",
   "signature",
-  "file_upload"
+  "file_upload",
+  "static_text"
 ] as const;
 export type EFormFieldType = (typeof EFORM_FIELD_TYPES)[number];
 
@@ -38,6 +39,7 @@ const FormSchema = new Schema(
     title: { type: String, required: true, trim: true },
     titleAr: { type: String },
     description: { type: String },
+    descriptionAr: { type: String },
     fields: { type: [FieldSchema], default: [] },
     targets: { type: [TargetSchema], default: [] },
     requireBeforeBooking: { type: Boolean, default: false },
