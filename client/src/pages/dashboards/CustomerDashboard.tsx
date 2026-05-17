@@ -131,7 +131,6 @@ function ReservationConvertControls({
       >
         <option value="full">{ar ? "دفع كامل" : "Full payment"}</option>
         <option value="installments_2">{ar ? "قسطين" : "2 installments"}</option>
-        <option value="installments_3">{ar ? "ثلاثة أقساط" : "3 installments"}</option>
         <option value="installments_4_enet">{ar ? "٤ أقساط (ENET)" : "4 installments (ENET)"}</option>
       </select>
       <button
@@ -1804,30 +1803,34 @@ export default function CustomerDashboard() {
                                 )}
                               </div>
                               );
-                            })() : (
-                              <button
-                                className={`w-full font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 ${coolingActive ? 'bg-blue-50 text-blue-700 border border-blue-200 cursor-not-allowed' : bookingLocked ? 'bg-red-50 text-red-600 border border-red-200 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
-                                onClick={() => setShowBookingModal({ ...o, userOfferId: o.id })}
-                                disabled={bookingLocked}
-                              >
-                                {coolingActive ? (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                    {ar() ? `إعادة الحجز في ${rebookDateStr}` : `Rebook at ${rebookDateStr}`}
-                                  </>
-                                ) : bookingLocked ? (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    {lockedReason}
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                                    {ar() ? "حجز موعد" : "Book Appointment"}
-                                  </>
-                                )}
-                              </button>
-                            )}
+                            })() : (() => {
+                              const isUnlockMembershipPending = (o as any).groupRewardType === 'unlock_membership' && (o.status === 'pending_payment' || o.status === 'pending payment');
+                              if (isUnlockMembershipPending) return null;
+                              return (
+                                <button
+                                  className={`w-full font-bold py-3.5 rounded-2xl transition-all flex items-center justify-center gap-2 ${coolingActive ? 'bg-blue-50 text-blue-700 border border-blue-200 cursor-not-allowed' : bookingLocked ? 'bg-red-50 text-red-600 border border-red-200 cursor-not-allowed' : 'bg-surface-900 text-white hover:bg-surface-800 shadow-md hover:shadow-lg hover:-translate-y-0.5'}`}
+                                  onClick={() => setShowBookingModal({ ...o, userOfferId: o.id })}
+                                  disabled={bookingLocked}
+                                >
+                                  {coolingActive ? (
+                                    <>
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                      {ar() ? `إعادة الحجز في ${rebookDateStr}` : `Rebook at ${rebookDateStr}`}
+                                    </>
+                                  ) : bookingLocked ? (
+                                    <>
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                      {lockedReason}
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                      {ar() ? "حجز موعد" : "Book Appointment"}
+                                    </>
+                                  )}
+                                </button>
+                              );
+                            })()}
                             {(o as any).groupInviteCode && (() => {
                               const link = `${SITE_BASE_URL}/dashboard?inviteCode=${(o as any).groupInviteCode}`;
                               const isCopied = copiedCode === (o as any).groupInviteCode;

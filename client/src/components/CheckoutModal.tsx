@@ -601,7 +601,6 @@ export default function CheckoutModal({
                     >
                       <option value="full">{t("Full payment", "دفع كامل")}</option>
                       <option value="installments_2">{t("Installments × 2", "قسطين")}</option>
-                      <option value="installments_3">{t("Installments × 3", "ثلاثة أقساط")}</option>
                       <option value="installments_4_enet">{t("4 installments via ENET", "٤ أقساط ENET")}</option>
                     </select>
                   </div>
