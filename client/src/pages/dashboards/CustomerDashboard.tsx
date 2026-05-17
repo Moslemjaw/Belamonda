@@ -1413,9 +1413,10 @@ export default function CustomerDashboard() {
                           <span>{ar() ? "دعم عملاء مخصص" : "Priority customer support"}</span>
                         </div>
                       </div>
+                      
                       {/* Group offer badge */}
                       {o.isGroupOffer && (
-                        <div className={`plan-feature ${o.groupRewardType === 'unlock_membership' ? '!text-purple-600' : '!text-emerald-600'}`}>
+                        <div className={`plan-feature mb-6 ${o.groupRewardType === 'unlock_membership' ? '!text-purple-600' : '!text-emerald-600'}`}>
                           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                           <span>
                             {o.groupRewardType === 'unlock_membership'
