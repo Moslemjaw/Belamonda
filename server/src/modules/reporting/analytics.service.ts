@@ -450,15 +450,35 @@ export async function computeDetailedCustomersReport(filters: { from?: string; t
   return { items };
 }
 
-// Revenue grouped by referrer (the staff who referred the buyer)
+// Revenue grouped by referrer (the staff who referred the buyer) - ONLY first transaction counts
 export async function computeRevenueByReferral(filters: { from?: string; to?: string; limit?: number } = {}) {
   const q: Record<string, unknown> = { status: "completed" };
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
-  const payments = await PaymentModel.find(q).select("userId amountKwd").lean();
+  
+  // Find all completed payments in this period
+  const paymentsInPeriod = await PaymentModel.find(q).select("_id userId amountKwd createdAt").lean();
+
+  // Get unique userIds who made a payment in this period
+  const buyerIds = [...new Set(paymentsInPeriod.map((p: any) => p.userId))].filter(Boolean);
+  if (buyerIds.length === 0) return { items: [] };
+
+  // For these buyers, find their FIRST payment EVER
+  const firstPaymentsEver = await PaymentModel.aggregate([
+    { $match: { status: "completed", userId: { $in: buyerIds } } },
+    { $sort: { createdAt: 1 } },
+    { $group: {
+        _id: "$userId",
+        paymentId: { $first: "$_id" }
+    }}
+  ]);
+
+  const firstPaymentIds = new Set(firstPaymentsEver.map((p: any) => p.paymentId.toString()));
+
+  // Filter payments: only keep if it is the absolute first payment for that user
+  const validPayments = paymentsInPeriod.filter((p: any) => firstPaymentIds.has(p._id.toString()));
 
   // Map buyer userId → referredBy
-  const buyerIds = [...new Set(payments.map((p: any) => p.userId))];
   const buyers: any[] = await UserModel.find({
     $or: [
       { _id: { $in: buyerIds.filter((i) => /^[a-f0-9]{24}$/i.test(i)) } },
@@ -474,7 +494,7 @@ export async function computeRevenueByReferral(filters: { from?: string; to?: st
   }
 
   const map = new Map<string, { revenue: number; sales: number }>();
-  for (const p of payments as any[]) {
+  for (const p of validPayments as any[]) {
     const ref = buyerToReferrer.get(p.userId);
     if (!ref) continue;
     const cur = map.get(ref) ?? { revenue: 0, sales: 0 };
