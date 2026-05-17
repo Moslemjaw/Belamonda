@@ -796,12 +796,28 @@ export default function CustomerDashboard() {
     if (!urlInviteCode) return;
     apiFetch(`/checkout/group-invite/${encodeURIComponent(urlInviteCode)}`, { headers: getAuthHeader() })
       .then((data: any) => {
-        setPendingInviteCode(urlInviteCode);
-        setCheckoutPkg({ ...data, id: data.offerId });
-        setActiveTab("store");
+        if (data.isGroupOffer && data.groupRewardType === "unlock_membership") {
+          apiFetch("/commerce/me/offers/join", {
+            method: "POST",
+            headers: getAuthHeader(),
+            body: JSON.stringify({ inviteCode: urlInviteCode })
+          }).then(() => {
+            window.history.replaceState({}, document.title, window.location.pathname);
+            setSysAlert(ar() ? "تم الانضمام إلى المجموعة بنجاح! يمكنك الآن تتبع تقدم المجموعة هنا." : "Successfully joined the group! You can track its progress here.");
+            setActiveTab("my-purchases");
+            setPurchasesSubTab("packages");
+          }).catch(e => {
+            setSysAlert(e.message || (ar() ? "فشل الانضمام إلى المجموعة" : "Failed to join group"));
+            window.history.replaceState({}, document.title, window.location.pathname);
+          });
+        } else {
+          setPendingInviteCode(urlInviteCode);
+          setCheckoutPkg({ ...data, id: data.offerId });
+          setActiveTab("store");
+        }
       })
       .catch(() => {});
-  }, [urlInviteCode]);
+  }, [urlInviteCode, ar]);
 
   const [sysAlert, setSysAlert] = useState<string | null>(null);
   const [showBookingModal, setShowBookingModal] = useState<any>(null);
@@ -3686,7 +3702,7 @@ export default function CustomerDashboard() {
                         className="btn-primary w-full py-3 mt-4 shadow-glow"
                         onClick={() => {
                           setGroupModal(null);
-                          setCheckoutPkg(groupModal.pkg);
+                          setCheckoutPkg({ ...groupModal.pkg, userOfferId: groupModal.userOfferId, groupInviteCode: groupModal.groupInviteCode });
                         }}
                       >
                         {ar() ? "اشترِ الآن" : "Purchase Now"}
@@ -3766,7 +3782,7 @@ export default function CustomerDashboard() {
                     className="btn-primary w-full py-3 mt-4 shadow-glow"
                     onClick={() => {
                       setGroupModal(null);
-                      setCheckoutPkg(groupModal.pkg);
+                      setCheckoutPkg({ ...groupModal.pkg, userOfferId: groupModal.userOfferId, groupInviteCode: groupModal.groupInviteCode });
                     }}
                   >
                     {ar() ? "اشترِ الآن" : "Purchase Now"}

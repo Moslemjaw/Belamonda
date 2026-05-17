@@ -126,9 +126,12 @@ commerceRouter.get("/me/offers/group-status/:userOfferId", authRequired, async (
     if (!uo) return res.status(404).json({ error: "NOT_FOUND" });
     if (uo.userId !== req.auth!.userId) return res.status(403).json({ error: "FORBIDDEN" });
 
+    // The group progress is tracked on the creator's UserOffer (the first one created with this code)
+    const creatorUo = uo.groupInviteCode ? await UserOfferModel.findOne({ groupInviteCode: uo.groupInviteCode, membershipType: "group" }).sort({ createdAt: 1 }).lean() as any : uo;
+
     const offer = await OfferModel.findById(uo.offerId).lean() as any;
     const groupSizeRequired = offer?.groupSizeRequired || 2;
-    const membersJoined = (uo.sharedWith || []).length;
+    const membersJoined = (creatorUo.sharedWith || []).length;
     // For unlock_membership, the owner counts as 1 person, so need (groupSizeRequired - 1) others
     const membersNeeded = groupSizeRequired - 1;
     const isUnlocked = membersJoined >= membersNeeded;
@@ -136,7 +139,7 @@ commerceRouter.get("/me/offers/group-status/:userOfferId", authRequired, async (
     return res.json({
       userOfferId: uo._id.toString(),
       groupInviteCode: uo.groupInviteCode,
-      sharedWith: uo.sharedWith || [],
+      sharedWith: creatorUo.sharedWith || [],
       membersJoined,
       membersNeeded,
       groupSizeRequired,
@@ -159,17 +162,40 @@ commerceRouter.post("/me/offers/join", authRequired, async (req, res, next) => {
     const parsed = JoinGroupSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
 
-    const uo = await UserOfferModel.findOne({ groupInviteCode: parsed.data.inviteCode, membershipType: "group" });
+    const uo = await UserOfferModel.findOne({ groupInviteCode: parsed.data.inviteCode, membershipType: "group" }).sort({ createdAt: 1 });
     if (!uo) return res.status(404).json({ error: "INVALID_INVITE_CODE" });
 
     const uid = req.auth!.userId;
     if (uo.userId === uid) return res.status(409).json({ error: "CANNOT_JOIN_OWN_GROUP" });
     if (uo.sharedWith && uo.sharedWith.includes(uid)) return res.json({ ok: true, message: "ALREADY_JOINED" });
 
+    // Add joiner to creator's sharedWith array
     await UserOfferModel.findByIdAndUpdate(uo._id, { $addToSet: { sharedWith: uid } });
 
-    // Return updated group count info
+    // If it's an unlock_membership, the joiner ALSO needs a pending UserOffer so they can buy it when the group fills up
     const offer = await OfferModel.findById(uo.offerId).lean() as any;
+    if (offer && offer.groupRewardType === "unlock_membership") {
+      const existing = await UserOfferModel.findOne({
+        userId: uid,
+        groupInviteCode: parsed.data.inviteCode,
+        membershipType: "group",
+      });
+      if (!existing) {
+        await UserOfferModel.create({
+          userId: uid,
+          offerId: uo.offerId,
+          clinicId: uo.clinicId,
+          status: "pending_payment",
+          membershipType: "group",
+          groupInviteCode: uo.groupInviteCode,
+          sharedWith: [], // joiner's sharedWith doesn't track progress; group-status endpoint checks the creator's sharedWith
+          purchaseMode: "full",
+          pendingExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days to fill group
+        });
+      }
+    }
+
+    // Return updated group count info
     const updatedUo = await UserOfferModel.findById(uo._id).lean() as any;
     const membersJoined = (updatedUo.sharedWith || []).length;
     const membersNeeded = (offer?.groupSizeRequired || 2) - 1;
