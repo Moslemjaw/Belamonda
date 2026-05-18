@@ -124,9 +124,6 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
                 </button>
               </>
             )}
-            <button className="flex items-center gap-1 bg-red-50 text-red-700 hover:bg-red-100 transition-colors rounded-xl px-3 py-2 text-xs font-bold shadow-sm" onClick={() => onMark(session.id, "cancelled")}>
-              {ar() ? "إلغاء الجلسة" : "Cancel Session"}
-            </button>
             <button
               className="flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors rounded-xl px-3 py-2 text-xs font-bold shadow-sm"
               onClick={() => { setShowReschedule(!showReschedule); setNewTime(""); }}
