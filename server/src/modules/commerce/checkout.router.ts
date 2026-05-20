@@ -165,7 +165,7 @@ checkoutRouter.get("/me/reservations", ...customerOnly, (req, res, next) => {
     .catch(next);
 });
 
-checkoutRouter.get("/reservations/all", authRequired, requireRole(["admin", "cs"]), (req, res, next) => {
+checkoutRouter.get("/reservations/all", authRequired, requireRole(["admin", "cs", "legal"]), (req, res, next) => {
   listAllDepositReservations()
     .then((items) => res.json({ items }))
     .catch(next);

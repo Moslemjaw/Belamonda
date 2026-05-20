@@ -1056,6 +1056,55 @@ function CustomersManager() {
   const [grantAmount, setGrantAmount] = useState("");
   const [grantSessions, setGrantSessions] = useState("");
   const [freezing, setFreezing] = useState(false);
+  const [cashAmt, setCashAmt] = useState("");
+  const [cashReason, setCashReason] = useState("");
+  const [cashSaving, setCashSaving] = useState(false);
+  const [cashError, setCashError] = useState<string | null>(null);
+  const [sessionAdjustingId, setSessionAdjustingId] = useState<string | null>(null);
+
+  const handleCashbackAdjust = async (sign: 1 | -1) => {
+    if (!selectedUser) return;
+    const amt = parseFloat(cashAmt);
+    if (!amt || amt <= 0) { setCashError(ar() ? "أدخل مبلغاً صحيحاً" : "Enter a valid amount"); return; }
+    if (!cashReason.trim()) { setCashError(ar() ? "السبب مطلوب" : "Reason is required"); return; }
+    setCashSaving(true);
+    setCashError(null);
+    try {
+      const kwd = `${Math.floor(amt)}.${String(Math.round((amt % 1) * 1000)).padStart(3, "0")}`;
+      const signedKwd = sign === -1 ? `-${kwd}` : kwd;
+      await apiFetch("/wallet/admin/adjust", {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ userId: selectedUser.id, amountKwd: signedKwd, reason: cashReason })
+      });
+      setCashAmt("");
+      setCashReason("");
+      const d = await apiFetch(`/users/admin/${selectedUser.id}/profile`, { headers: getAuthHeader() });
+      setProfile(d);
+    } catch (e: any) {
+      setCashError(e.message);
+    } finally {
+      setCashSaving(false);
+    }
+  };
+
+  const handleAdjustSessions = async (membershipId: string, delta: number) => {
+    if (!selectedUser) return;
+    setSessionAdjustingId(membershipId + (delta > 0 ? "_inc" : "_dec"));
+    try {
+      await apiFetch(`/scheduling/admin/user-offers/${membershipId}/adjust-sessions`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ delta }),
+      });
+      const d = await apiFetch(`/users/admin/${selectedUser.id}/profile`, { headers: getAuthHeader() });
+      setProfile(d);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setSessionAdjustingId(null);
+    }
+  };
 
   const loadUsers = () => {
     setUsersLoading(true);
@@ -1199,6 +1248,43 @@ function CustomersManager() {
                   )}
                 </div>
               </div>
+
+              {/* Adjust Cashback card */}
+              <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
+                <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  {ar() ? "تعديل الكاش باك" : "Adjust Cashback"}
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.001"
+                      placeholder={ar() ? "المبلغ (د.ك)" : "Amount KWD"}
+                      className="input-field flex-1 text-sm bg-surface-50"
+                      value={cashAmt}
+                      onChange={e => setCashAmt(e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      placeholder={ar() ? "السبب (مطلوب)" : "Reason (required)"}
+                      className="input-field flex-[1.5] text-sm bg-surface-50"
+                      value={cashReason}
+                      onChange={e => setCashReason(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="btn-primary btn-sm flex-1 bg-emerald-500 hover:bg-emerald-600 border-none py-2 text-xs font-bold shadow-sm" disabled={cashSaving} onClick={() => void handleCashbackAdjust(1)}>
+                      {cashSaving ? "…" : (ar() ? "+ إضافة كاش باك" : "+ Add Cashback")}
+                    </button>
+                    <button className="btn-secondary btn-sm flex-1 text-red-500 hover:bg-red-50 hover:border-red-200 py-2 text-xs font-bold" disabled={cashSaving} onClick={() => void handleCashbackAdjust(-1)}>
+                      {cashSaving ? "…" : (ar() ? "- خصم كاش باك" : "- Deduct Cashback")}
+                    </button>
+                  </div>
+                  {cashError && <div className="text-xs text-red-500 font-medium mt-1">{cashError}</div>}
+                </div>
+              </div>
             </div>
 
             <div className="lg:col-span-2 space-y-6">
@@ -1211,33 +1297,127 @@ function CustomersManager() {
                 {!(profile?.memberships?.length) ? (
                   <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد اشتراكات" : "No memberships"}</div>
                 ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-3 sm:grid-cols-1">
                     {profile.memberships.map((m: any) => {
                       const sessionsLeft = m.maxSessions != null ? m.maxSessions - (m.sessionsUsed ?? 0) : null;
                       return (
-                        <div key={m.id} className="bg-surface-50 p-4 rounded-xl border border-surface-200 shadow-sm flex flex-col">
-                          <div className="text-sm font-bold text-surface-900">{m.offerName}</div>
-                          <div className="text-xs text-surface-500 mt-1 mb-1">
-                            {m.paymentAmountKwd != null ? `${Number(m.paymentAmountKwd).toFixed(3)} KWD` : "—"} • {m.purchaseMode || "—"}
-                          </div>
-                          <div className="mt-auto pt-3 border-t border-surface-100 flex justify-between items-center">
-                            <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider ${
+                        <div key={m.id} className="bg-surface-50 p-5 rounded-2xl border border-surface-200 shadow-sm flex flex-col">
+                          <div className="flex justify-between items-start gap-4">
+                            <div>
+                              <div className="text-base font-bold text-surface-900">{m.offerName}</div>
+                              <div className="text-xs text-surface-500 mt-1">
+                                {m.paymentAmountKwd != null ? `${Number(m.paymentAmountKwd).toFixed(3)} KWD` : "—"} • {m.purchaseMode || "—"}
+                              </div>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider ${
                               m.status === 'active' ? 'text-emerald-600 bg-emerald-50' :
                               m.status === 'pending_payment' ? 'text-amber-600 bg-amber-50' :
                               'text-surface-600 bg-surface-100'
                             }`}>
                               {m.purchaseMode === 'installments' ? `${m.installmentsPaid ?? 0}/${m.installmentCount ?? 0} Paid` : m.status}
                             </span>
-                            {sessionsLeft !== null && (
-                              <span className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">
-                                {sessionsLeft} {ar() ? "متبقية" : "left"}
-                              </span>
+                          </div>
+
+                          {m.cashbackBalanceKwd !== undefined && m.cashbackBalanceKwd !== null && (
+                            <div className="mt-3 flex justify-between items-center bg-brand-pink-50/50 text-brand-pink-700 px-3 py-1.5 rounded-xl text-xs font-semibold">
+                              <span>{ar() ? "رصيد الكاش باك المتبقي" : "Remaining Cashback Balance"}:</span>
+                              <span className="font-extrabold text-brand-pink-600">{Number(m.cashbackBalanceKwd).toFixed(3)} KWD</span>
+                            </div>
+                          )}
+
+                          {m.purchaseMode === 'deposit' && (
+                            <div className="mt-3 pt-3 border-t border-dashed border-surface-200 text-xs space-y-1.5">
+                              <div className="flex justify-between text-surface-500">
+                                <span>{ar() ? "مبلغ العربون المدفوع" : "Deposit Amount Paid"}:</span>
+                                <span className="font-bold text-emerald-600">{m.depositAmountKwd ? `${Number(m.depositAmountKwd).toFixed(3)} KWD` : "—"}</span>
+                              </div>
+                              {m.reservationExpiresAt && (
+                                <div className="flex justify-between text-surface-500">
+                                  <span>{ar() ? "تاريخ انتهاء صلاحية الحجز" : "Reservation Expiry Date"}:</span>
+                                  <span className="font-bold text-red-500">{new Date(m.reservationExpiresAt).toLocaleString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {m.purchaseMode === 'installments' && m.installmentSchedule?.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-dashed border-surface-200 text-xs space-y-2">
+                              <div className="flex justify-between font-semibold text-surface-600">
+                                <span>{ar() ? "الرصيد المتبقي للأقساط" : "Leftover Installment Balance"}:</span>
+                                <span className="font-bold text-surface-900">
+                                  {Number(m.installmentSchedule.filter((inst: any) => !inst.paid).reduce((acc: number, inst: any) => acc + Number(inst.amountKwd || 0), 0)).toFixed(3)} KWD
+                                </span>
+                              </div>
+                              {m.nextInstallmentDueAt && (
+                                <div className="flex justify-between text-[11px] text-surface-500">
+                                  <span>{ar() ? "تاريخ القسط القادم" : "Next Installment Due"}:</span>
+                                  <span className="font-semibold text-amber-600">{new Date(m.nextInstallmentDueAt).toLocaleDateString()}</span>
+                                </div>
+                              )}
+                              <div className="space-y-1 bg-surface-100/50 p-3 rounded-xl">
+                                <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">{ar() ? "جدول الأقساط" : "Installment Schedule"}</div>
+                                {m.installmentSchedule.map((inst: any) => (
+                                  <div key={inst.number} className="flex justify-between items-center text-[10px] text-surface-600 border-b border-surface-200/40 last:border-none py-1">
+                                    <span>{ar() ? `قسط ${inst.number}` : `Installment #${inst.number}`} ({inst.dueDate ? new Date(inst.dueDate).toLocaleDateString() : '—'})</span>
+                                    <span className={inst.paid ? 'text-emerald-600 font-bold' : 'text-amber-600 font-bold'}>
+                                      {Number(inst.amountKwd).toFixed(3)} KWD {inst.paid ? (ar() ? '✓ مدفوع' : '✓ Paid') : (ar() ? '• مستحق' : '• Due')}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="mt-4 pt-3 border-t border-surface-100 flex justify-between items-center">
+                            <span className="text-xs text-surface-400">
+                              {m.activatedAt ? `${ar() ? "نشط منذ" : "Active since"} ${new Date(m.activatedAt).toLocaleDateString()}` : ""}
+                            </span>
+                            
+                            {sessionsLeft !== null ? (
+                              <div className="flex items-center gap-2 bg-white border border-surface-200 px-2 py-1 rounded-xl shadow-sm">
+                                <button
+                                  className="text-sm font-bold text-surface-500 hover:text-brand-pink-600 hover:bg-brand-pink-50 w-6 h-6 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30"
+                                  disabled={sessionAdjustingId !== null || m.sessionsUsed <= 0}
+                                  onClick={() => handleAdjustSessions(m.id, -1)}
+                                >
+                                  -
+                                </button>
+                                <span className="text-xs font-bold text-surface-700 tracking-wider">
+                                  {sessionsLeft} / {m.maxSessions} {ar() ? "متبقية" : "left"}
+                                </span>
+                                <button
+                                  className="text-sm font-bold text-surface-500 hover:text-brand-pink-600 hover:bg-brand-pink-50 w-6 h-6 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30"
+                                  disabled={sessionAdjustingId !== null}
+                                  onClick={() => handleAdjustSessions(m.id, +1)}
+                                >
+                                  +
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 bg-white border border-surface-200 px-2 py-1 rounded-xl shadow-sm text-xs font-bold text-surface-700">
+                                <button
+                                  className="text-sm font-bold text-surface-500 hover:text-brand-pink-600 hover:bg-brand-pink-50 w-6 h-6 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30"
+                                  disabled={sessionAdjustingId !== null || m.sessionsUsed <= 0}
+                                  onClick={() => handleAdjustSessions(m.id, -1)}
+                                >
+                                  -
+                                </button>
+                                <span>{m.sessionsUsed} {ar() ? "جلسات مستخدمة" : "sessions used"}</span>
+                                <button
+                                  className="text-sm font-bold text-surface-500 hover:text-brand-pink-600 hover:bg-brand-pink-50 w-6 h-6 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30"
+                                  disabled={sessionAdjustingId !== null}
+                                  onClick={() => handleAdjustSessions(m.id, +1)}
+                                >
+                                  +
+                                </button>
+                              </div>
                             )}
                           </div>
+                          
                           {m.purchaseMode === 'installments' && m.installmentCount > 0 && (
-                            <div className="mt-1.5 flex gap-0.5">
+                            <div className="mt-3 flex gap-1">
                               {[...Array(m.installmentCount)].map((_: any, i: number) => (
-                                <div key={i} className={`h-1 w-6 rounded-full ${i < (m.installmentsPaid ?? 0) ? 'bg-emerald-500' : 'bg-surface-200'}`} />
+                                <div key={i} className={`h-1.5 flex-1 rounded-full ${i < (m.installmentsPaid ?? 0) ? 'bg-emerald-500' : 'bg-surface-200'}`} />
                               ))}
                             </div>
                           )}
@@ -1690,8 +1870,138 @@ function ClinicChangeRequestsQueue() {
   );
 }
 
+
+function EFormsViewer() {
+  const { getAuthHeader } = useAuth();
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedSub, setSelectedSub] = useState<any>(null);
+
+  const fetchSubmissions = async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch("/eforms/admin/submissions", { headers: getAuthHeader() });
+      setSubmissions(res.items || []);
+    } catch (e: any) { console.error(e); }
+    finally { setLoading(false); }
+  };
+
+  useEffect(() => { fetchSubmissions(); }, []);
+
+  const downloadPdf = async (subId: string) => {
+    try {
+      const headers = getAuthHeader();
+      const res = await fetch(`${(import.meta as any).env.VITE_API_URL || ""}/eforms/submissions/${subId}/pdf`, { headers: headers as any });
+      if (!res.ok) throw new Error("Failed to download PDF");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `form-${subId}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) { alert(e.message); }
+  };
+
+  return (
+    <div className="card-elevated p-5">
+      <div className="editorial-header justify-between">
+        <div className="flex items-center gap-3">
+          <span className="accent" />
+          <div>
+            <h3>{ar() ? "النماذج الإلكترونية الموقّعة" : "Signed eForms"}</h3>
+            <div className="meta">{ar() ? "عرض جميع النماذج الموقّعة من العملاء" : "View all signed forms from customers"}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 ms-auto">
+          {submissions.length > 0 && <span className="status-pill-pending"><span className="dot" aria-hidden="true" />{submissions.length} {ar() ? "نموذج" : "submissions"}</span>}
+          <button className="icon-btn" onClick={fetchSubmissions} aria-label={ar() ? "تحديث" : "Refresh"} title={ar() ? "تحديث" : "Refresh"}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          </button>
+        </div>
+      </div>
+      {loading ? <div className="shimmer h-32 rounded-2xl" /> : submissions.length === 0 ? (
+        <div className="text-center py-12">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center mb-3">
+            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+          </div>
+          <div className="text-sm font-bold text-surface-900">{ar() ? "لا توجد نماذج موقّعة" : "No signed forms"}</div>
+          <div className="text-xs text-surface-500 mt-1">{ar() ? "لم يتم تقديم أي نماذج بعد" : "No form submissions yet"}</div>
+        </div>
+      ) : (
+        <div className="space-y-1.5 mt-4">
+          {submissions.map((s: any) => (
+            <div key={s.id} className="queue-row group cursor-pointer" onClick={() => setSelectedSub(s)}>
+              <div className="avatar avatar-md bg-indigo-50 text-indigo-600" aria-hidden="true">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-surface-900 truncate">{s.formTitle || "Untitled Form"}</div>
+                <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العميل:" : "Customer:"} {s.userId} • {new Date(s.createdAt).toLocaleDateString()}</div>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {s.signatureRef && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{ar() ? "موقّع" : "Signed"}</span>}
+                <button className="icon-btn" onClick={(e) => { e.stopPropagation(); downloadPdf(s.id); }} title={ar() ? "تحميل PDF" : "Download PDF"}>
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {selectedSub && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-slide-up relative flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-surface-100 shrink-0">
+              <h3 className="text-xl font-bold text-surface-900">{selectedSub.formTitle || "Form Submission"}</h3>
+              <button className="text-surface-400 hover:text-surface-900 transition-colors" onClick={() => setSelectedSub(null)}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "العميل" : "Customer"}</span><span className="font-bold text-surface-900">{selectedSub.userId}</span></div>
+                <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "التاريخ" : "Date"}</span><span className="font-bold text-surface-900">{new Date(selectedSub.createdAt).toLocaleString()}</span></div>
+                <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "إصدار النموذج" : "Form Version"}</span><span className="font-bold text-surface-900">v{selectedSub.formVersion}</span></div>
+                <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "الحالة" : "Status"}</span><span className="font-bold text-emerald-600">{selectedSub.signatureRef ? (ar() ? "موقّع" : "Signed") : (ar() ? "مقدم" : "Submitted")}</span></div>
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-surface-700 mb-3">{ar() ? "الإجابات" : "Answers"}</h4>
+                <div className="space-y-2">
+                  {(selectedSub.formSnapshot || []).map((field: any) => {
+                    const answer = (selectedSub.answers || []).find((a: any) => a.key === field.key);
+                    if (field.type === "static_text") return null;
+                    return (
+                      <div key={field.key} className="bg-surface-50 p-3 rounded-xl">
+                        <span className="text-xs text-surface-400 block mb-0.5">{field.labelEn}{field.required ? " *" : ""}</span>
+                        <span className="text-sm font-medium text-surface-900">
+                          {field.type === "signature" ? (selectedSub.signatureRef ? (ar() ? "(موقّع)" : "(signed)") : "—")
+                            : field.type === "file_upload" ? (ar() ? "(ملف مرفق)" : "(file attached)")
+                            : answer?.value != null ? (Array.isArray(answer.value) ? answer.value.join(", ") : String(answer.value))
+                            : "—"}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+            <div className="px-6 pb-6 pt-4 border-t border-surface-100 shrink-0 flex gap-3">
+              <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm" onClick={() => setSelectedSub(null)}>{ar() ? "إغلاق" : "Close"}</button>
+              <button className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm text-sm" onClick={() => downloadPdf(selectedSub.id)}>{ar() ? "تحميل PDF" : "Download PDF"}</button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
+    </div>
+  );
+}
+
 export default function CsDashboard() {
   const { t } = useTranslation();
+  const { auth } = useAuth();
+  const isLegalOrAdmin = auth?.role === "legal" || auth?.role === "admin";
   const [activeNav, setActiveNav] = useState("home");
   const { data: kycData } = useKycQueue();
   const { data: paymentsData } = usePendingPayments();
@@ -1700,7 +2010,8 @@ export default function CsDashboard() {
 
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
-    { key: "kyc", icon: Icons.shield, label: t("kyc") },
+    ...(isLegalOrAdmin ? [{ key: "kyc", icon: Icons.shield, label: t("kyc") }] : []),
+    ...(isLegalOrAdmin ? [{ key: "eforms", icon: Icons.clipboard, label: ar() ? "النماذج الإلكترونية" : "eForms" }] : []),
     { key: "payments", icon: Icons.cash, label: t("payments") },
     { key: "customers", icon: Icons.users, label: ar() ? "العملاء" : "Customers" },
     { key: "memberships", icon: Icons.offers, label: ar() ? "الاشتراكات" : "Memberships" },
@@ -1712,12 +2023,13 @@ export default function CsDashboard() {
   ];
 
   return (
-    <DashboardShell navItems={navItems} activeKey={activeNav} onNavigate={setActiveNav} title={ar() ? "خدمة العملاء" : "Customer Service"} subtitle={ar() ? "إدارة التحققات والمدفوعات" : "Manage verifications, payments & bookings"}>
+    <DashboardShell navItems={navItems} activeKey={activeNav} onNavigate={setActiveNav} title={isLegalOrAdmin ? (ar() ? "المسؤول القانوني" : "Legal Officer") : (ar() ? "خدمة العملاء" : "Customer Service")} subtitle={isLegalOrAdmin ? (ar() ? "إدارة التحققات والنماذج والمدفوعات" : "Manage KYC, eForms, payments & bookings") : (ar() ? "إدارة المدفوعات والحجوزات" : "Manage payments, memberships & bookings")}>
       <div className="space-y-6 animate-fade-in">
         {activeNav === "home" && (
           <>
             {/* ── KPI Summary Row ── */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className={`grid gap-4 sm:grid-cols-2 ${isLegalOrAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+              {isLegalOrAdmin && (
               <div className="kpi-tile group" onClick={() => setActiveNav("kyc")}>
                 <div className="kpi-tile-icon amber">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
@@ -1726,6 +2038,7 @@ export default function CsDashboard() {
                 <div className="kpi-tile-value">{(kycData?.items || []).length}</div>
                 <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />{ar() ? "تتطلب مراجعة" : "needs review"}</div>
               </div>
+              )}
               <div className="kpi-tile group" onClick={() => setActiveNav("payments")}>
                 <div className="kpi-tile-icon pink">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
@@ -1753,8 +2066,8 @@ export default function CsDashboard() {
             </div>
 
             {/* ── Action Queues ── */}
-            <div className="grid gap-6 lg:grid-cols-3">
-              <KycQueue />
+            <div className={`grid gap-6 ${isLegalOrAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+              {isLegalOrAdmin && <KycQueue />}
               <PaymentQueue />
               <BookingRequestsQueue />
             </div>
@@ -1766,7 +2079,8 @@ export default function CsDashboard() {
             <ReferralActivityWidget />
           </>
         )}
-        {activeNav === "kyc" && <KycQueue />}
+        {activeNav === "kyc" && isLegalOrAdmin && <KycQueue />}
+        {activeNav === "eforms" && isLegalOrAdmin && <EFormsViewer />}
         {activeNav === "payments" && <PaymentQueue />}
         {activeNav === "memberships" && <CustomerMemberships />}
         {activeNav === "customers" && <CustomersManager />}

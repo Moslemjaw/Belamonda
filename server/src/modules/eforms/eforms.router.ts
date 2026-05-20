@@ -295,7 +295,7 @@ eformsRouter.delete("/admin/forms/:id", authRequired, requireRole(["admin"]), as
 });
 
 // ── Admin: list submissions ──
-eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "cs"]), async (req, res, next) => {
+eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "legal"]), async (req, res, next) => {
   try {
     const filter: Record<string, unknown> = {};
     if (typeof req.query.formId === "string" && mongoose.isValidObjectId(req.query.formId)) {
@@ -486,7 +486,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
 
     const isOwner = sub.userId === req.auth!.userId;
-    const isStaff = req.auth!.role === "admin" || req.auth!.role === "cs";
+    const isStaff = req.auth!.role === "admin" || req.auth!.role === "legal";
     if (!isOwner && !isStaff) return res.status(403).json({ error: "FORBIDDEN" });
 
     const doc = new PDFDocument({ size: "A4", margin: 50 });

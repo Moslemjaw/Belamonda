@@ -135,6 +135,12 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
       activatedAt: m.activatedAt ? new Date(m.activatedAt).toISOString() : undefined,
       expiresAt: m.expiresAt ? new Date(m.expiresAt).toISOString() : undefined,
       createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : undefined,
+      installmentSchedule: m.installmentSchedule,
+      nextInstallmentDueAt: m.nextInstallmentDueAt ? new Date(m.nextInstallmentDueAt).toISOString() : undefined,
+      cashbackBalanceKwd: m.cashbackBalanceKwd,
+      depositAmountKwd: m.depositAmountKwd,
+      depositPaidAt: m.depositPaidAt ? new Date(m.depositPaidAt).toISOString() : undefined,
+      reservationExpiresAt: m.reservationExpiresAt ? new Date(m.reservationExpiresAt).toISOString() : undefined,
     }));
 
     // Enrich payments with offer names
@@ -435,7 +441,7 @@ usersRouter.patch("/me", authRequired, async (req, res, next) => {
   }
 });
 
-usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs"]), async (req, res, next) => {
+usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
   try {
     const enrollmentSchema = z.object({
       offerId: z.string().min(1),

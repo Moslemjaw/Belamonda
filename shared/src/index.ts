@@ -1,5 +1,5 @@
 // ─── Roles ──────────────────────────────────────────
-export type Role = "customer" | "admin" | "cs" | "finance" | "clinicStaff";
+export type Role = "customer" | "admin" | "cs" | "finance" | "clinicStaff" | "legal";
 
 // ─── KYC ────────────────────────────────────────────
 export type VerificationStatus = "unverified" | "pending" | "approved" | "rejected";

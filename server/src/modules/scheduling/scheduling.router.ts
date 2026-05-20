@@ -319,7 +319,7 @@ async function canActOnClinic(
   actor: { userId: string; role: string },
   clinicId: string
 ): Promise<boolean> {
-  if (actor.role === "admin" || actor.role === "cs") return true;
+  if (actor.role === "admin" || actor.role === "cs" || actor.role === "legal") return true;
   if (actor.role !== "clinicStaff") return false;
   if (actor.userId.startsWith("impersonated_")) {
     const impersonatedClinicId = actor.userId.replace("impersonated_", "");
@@ -894,7 +894,7 @@ schedulingRouter.post("/me/requests/:id/cancel", authRequired, async (req, res) 
 });
 
 // ── Clinic / CS lists pending booking requests ─────────────────────────────
-schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "admin", "clinicStaff", "finance"]), async (req, res) => {
+schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "admin", "clinicStaff", "finance"]), async (req, res) => {
   const status = (typeof req.query.status === "string" ? req.query.status : "open") as BookingRequestStatus | "all" | "open";
   const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status };
   if (req.auth!.role === "clinicStaff") {
@@ -1045,7 +1045,7 @@ schedulingRouter.get("/clinic/financial-summary", authRequired, requireRole(["cl
   });
 });
 
-schedulingRouter.post("/requests/:id/conversation", authRequired, requireRole(["clinicStaff", "cs", "admin"]), async (req, res) => {
+schedulingRouter.post("/requests/:id/conversation", authRequired, requireRole(["clinicStaff", "cs", "legal", "admin"]), async (req, res) => {
   const breq = await bookingRequestsStore.get(req.params.id);
   if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
   if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
@@ -1056,7 +1056,7 @@ schedulingRouter.post("/requests/:id/conversation", authRequired, requireRole(["
 });
 
 // ── Clinic staff / CS proposes a slot in chat ─────────────────────────────
-schedulingRouter.post("/requests/:id/propose", authRequired, requireRole(["clinicStaff", "cs", "admin"]), async (req, res) => {
+schedulingRouter.post("/requests/:id/propose", authRequired, requireRole(["clinicStaff", "cs", "legal", "admin"]), async (req, res) => {
   const parsed = ProposeSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
   const breq = await bookingRequestsStore.get(req.params.id);
@@ -1094,7 +1094,7 @@ schedulingRouter.post("/requests/:id/propose", authRequired, requireRole(["clini
 });
 
 // ── Clinic staff / CS confirms the booking ──────────────────────────────────
-schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clinicStaff", "cs", "admin"]), async (req, res) => {
+schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clinicStaff", "cs", "legal", "admin"]), async (req, res) => {
   const breq = await bookingRequestsStore.get(req.params.id);
   if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
   if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
@@ -1259,7 +1259,7 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
 });
 
 // ── Clinic staff / CS rejects the booking ──────────────────────────────────
-schedulingRouter.post("/requests/:id/reject", authRequired, requireRole(["clinicStaff", "cs", "admin"]), async (req, res) => {
+schedulingRouter.post("/requests/:id/reject", authRequired, requireRole(["clinicStaff", "cs", "legal", "admin"]), async (req, res) => {
   const parsed = RejectSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
   const breq = await bookingRequestsStore.get(req.params.id);
@@ -1310,7 +1310,7 @@ schedulingRouter.post("/requests/:id/reject", authRequired, requireRole(["clinic
 });
 
 // ── CS direct-schedule (legacy / Mongo-aware) ─────────────────────────────
-schedulingRouter.post("/cs/schedule", authRequired, requireRole(["cs", "admin"]), async (req, res, next) => {
+schedulingRouter.post("/cs/schedule", authRequired, requireRole(["cs", "legal", "admin"]), async (req, res, next) => {
   try {
     const parsed = ScheduleSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
@@ -1367,7 +1367,7 @@ schedulingRouter.post("/cs/schedule", authRequired, requireRole(["cs", "admin"])
 schedulingRouter.post(
   "/cs/requests/:id/schedule",
   authRequired,
-  requireRole(["cs", "admin", "clinicStaff"]),
+  requireRole(["cs", "legal", "admin", "clinicStaff"]),
   async (req, res) => {
     const parsed = ProposeSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
@@ -1457,7 +1457,7 @@ schedulingRouter.post(
 
     const breqAfterCb = (await bookingRequestsStore.get(breq.id)) ?? breq;
     const finPreview = computeBookingRequestFinancials(breqAfterCb, offer);
-    const isCsOrAdmin = req.auth!.role === "cs" || req.auth!.role === "admin";
+    const isCsOrAdmin = req.auth!.role === "cs" || req.auth!.role === "legal" || req.auth!.role === "admin";
     const clinicTake = breqAfterCb.sessionPriceKwd && parseFloat(breqAfterCb.sessionPriceKwd) > 0 ? breqAfterCb.sessionPriceKwd : finPreview.clinicTakeKwd;
     const cashbackUsed = breqAfterCb.cashbackDeductedKwd && parseFloat(breqAfterCb.cashbackDeductedKwd) > 0 ? breqAfterCb.cashbackDeductedKwd : finPreview.cashbackDeductedKwd;
 
@@ -1494,7 +1494,7 @@ schedulingRouter.post(
 );
 
 // ── Clinic schedule view (Mongo-aware) ─────────────────────────────────────
-schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["clinicStaff", "admin", "cs"]), async (req, res, next) => {
+schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal"]), async (req, res, next) => {
   try {
     const from = typeof req.query.from === "string" ? req.query.from : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const to = typeof req.query.to === "string" ? req.query.to : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -1645,7 +1645,7 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
 });
 
 // ── Clinic staff: customer context for a booking request ──────────────────
-schedulingRouter.get("/clinic/requests/:id/customer-context", authRequired, requireRole(["clinicStaff", "admin", "cs"]), async (req, res, next) => {
+schedulingRouter.get("/clinic/requests/:id/customer-context", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal"]), async (req, res, next) => {
   try {
     const breq = await bookingRequestsStore.get(req.params.id);
     if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
@@ -1695,7 +1695,7 @@ const RescheduleSchema = z.object({
   notes: z.string().optional()
 });
 
-schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, requireRole(["clinicStaff", "admin", "cs"]), async (req, res, next) => {
+schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal"]), async (req, res, next) => {
   try {
     const parsed = RescheduleSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
@@ -1761,7 +1761,7 @@ schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin"]), as
 });
 
 // ── Admin / CS: manually adjust sessionsUsed on a membership ────────────────
-schedulingRouter.post("/admin/user-offers/:uoId/adjust-sessions", authRequired, requireRole(["cs", "admin"]), async (req, res, next) => {
+schedulingRouter.post("/admin/user-offers/:uoId/adjust-sessions", authRequired, requireRole(["cs", "legal", "admin"]), async (req, res, next) => {
   try {
     const delta = typeof req.body?.delta === "number" ? Math.round(req.body.delta) : 0;
     if (delta === 0 || Math.abs(delta) > 1) return res.status(400).json({ error: "INVALID_DELTA" });

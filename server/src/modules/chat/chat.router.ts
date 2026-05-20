@@ -211,7 +211,7 @@ const OpenDirectSchema = z.object({
   customerUserId: z.string().min(1),
   title: z.string().max(120).optional()
 });
-chatRouter.post("/conversations/direct", authRequired, requireRole(["cs", "admin"]), (req, res) => {
+chatRouter.post("/conversations/direct", authRequired, requireRole(["cs", "admin", "legal"]), (req, res) => {
   const parsed = OpenDirectSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
   const conv = chatStore.createConversation({

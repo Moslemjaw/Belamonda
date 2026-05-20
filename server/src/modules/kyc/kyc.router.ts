@@ -68,7 +68,7 @@ kycRouter.post("/submit", authRequired, async (req, res, next) => {
 });
 
 // CS queue view (SRS FR-03)
-kycRouter.get("/cs/queue", authRequired, requireRole(["cs", "admin"]), async (req, res, next) => {
+kycRouter.get("/cs/queue", authRequired, requireRole(["legal", "admin"]), async (req, res, next) => {
   try {
     const status = req.query.status;
     const parsedStatus =
@@ -81,7 +81,7 @@ kycRouter.get("/cs/queue", authRequired, requireRole(["cs", "admin"]), async (re
 });
 
 // CS approve (SRS FR-03) + wallet init (FR-10)
-kycRouter.post("/cs/:submissionId/approve", authRequired, requireRole(["cs", "admin"]), async (req, res, next) => {
+kycRouter.post("/cs/:submissionId/approve", authRequired, requireRole(["legal", "admin"]), async (req, res, next) => {
   try {
     const updated = await kycStore.approveSubmission(req.params.submissionId, req.auth!.userId);
     if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
@@ -103,7 +103,7 @@ kycRouter.post("/cs/:submissionId/approve", authRequired, requireRole(["cs", "ad
 });
 
 // CS reject with mandatory reason (SRS §4.1.2)
-kycRouter.post("/cs/:submissionId/reject", authRequired, requireRole(["cs", "admin"]), async (req, res, next) => {
+kycRouter.post("/cs/:submissionId/reject", authRequired, requireRole(["legal", "admin"]), async (req, res, next) => {
   try {
     const parsed = RejectSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });

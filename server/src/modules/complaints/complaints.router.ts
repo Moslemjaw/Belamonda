@@ -56,7 +56,7 @@ complaintsRouter.get("/me", authRequired, async (req, res, next) => {
 });
 
 // CS/Admin list all complaints
-complaintsRouter.get("/all", authRequired, requireRole(["cs", "admin"]), async (_req, res, next) => {
+complaintsRouter.get("/all", authRequired, requireRole(["cs", "admin", "legal"]), async (_req, res, next) => {
   try {
     const rows = await ComplaintModel.find({}).sort({ createdAt: -1 }).lean();
     const items = rows.map((c: any) => ({
@@ -74,7 +74,7 @@ complaintsRouter.get("/all", authRequired, requireRole(["cs", "admin"]), async (
 });
 
 // CS/Admin update complaint
-complaintsRouter.post("/:id/update", authRequired, requireRole(["cs", "admin"]), async (req, res, next) => {
+complaintsRouter.post("/:id/update", authRequired, requireRole(["cs", "admin", "legal"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
     const complaint = await ComplaintModel.findById(req.params.id);

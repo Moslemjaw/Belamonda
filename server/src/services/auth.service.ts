@@ -75,7 +75,7 @@ export async function registerCustomer(input: {
 export async function createStaffUserByAdmin(input: {
   username: string;
   password: string;
-  role: "admin" | "cs" | "finance" | "clinicStaff";
+  role: "admin" | "cs" | "finance" | "clinicStaff" | "legal";
   clinicId?: string;
 }) {
   const passwordHash = await bcrypt.hash(input.password, 10);
