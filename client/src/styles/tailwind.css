@@ -371,7 +371,7 @@
     @apply flex items-center gap-0.5 bg-surface-100/80 border border-surface-200/40 rounded-[14px] p-1 overflow-x-auto max-w-full no-scrollbar;
   }
   .mobile-switcher-btn {
-    @apply px-3 py-1.5 rounded-[10px] text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1 sm:gap-1.5 text-surface-600 active:scale-98;
+    @apply px-3 py-1.5 rounded-[10px] text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1 sm:gap-1.5 text-surface-600 active:scale-[0.98];
   }
   .mobile-switcher-btn.active {
     @apply bg-white text-surface-900 border border-surface-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.05)] font-bold;
