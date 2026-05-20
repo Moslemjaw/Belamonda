@@ -2942,6 +2942,92 @@ function InvoiceReviews() {
   );
 }
 
+function SubscriptionRequests() {
+  const { data, mutate } = useApi<{ items: any[] }>("/subscription-requests?status=pending");
+  const { getAuthHeader } = useAuth();
+  const [busy, setBusy] = useState<string|null>(null);
+
+  const handleAction = async (id: string, action: "approve" | "reject") => {
+    let reason = "";
+    if (action === "reject") {
+      reason = prompt(ar() ? "سبب الرفض:" : "Rejection Reason:") || "";
+      if (!reason) return;
+    }
+    setBusy(id);
+    try {
+      await apiFetch(`/subscription-requests/${id}/${action}`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ reason })
+      });
+      mutate();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const reqs = data?.items || [];
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-black text-surface-900">{ar() ? "طلبات الاشتراك (بيلاموندو برو)" : "Belmondo Pro Requests"}</h2>
+          <p className="text-surface-500">{ar() ? "مراجعة وتأكيد مدفوعات اشتراكات العملاء" : "Review and confirm customer subscription payments"}</p>
+        </div>
+        <div className="px-4 py-2 bg-amber-100 text-amber-800 rounded-full font-bold">
+          {reqs.length} {ar() ? "طلبات معلقة" : "Pending"}
+        </div>
+      </div>
+
+      {reqs.length === 0 ? (
+        <div className="card-elevated p-12 text-center text-surface-500">
+          {ar() ? "لا توجد طلبات اشتراك معلقة حالياً" : "No pending subscription requests"}
+        </div>
+      ) : (
+        <div className="grid gap-4">
+          {reqs.map(req => (
+            <div key={req.id} className="card-elevated p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-amber-400">
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-surface-100 flex items-center justify-center text-xl">👤</div>
+                  <div>
+                    <div className="font-bold text-surface-900">{req.userName}</div>
+                    <div className="text-sm text-surface-500">{req.userPhone}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4 text-sm font-medium">
+                  <span className="bg-surface-100 text-surface-700 px-3 py-1 rounded-full capitalize">{req.paymentOption}</span>
+                  <span className="text-amber-600 font-bold">{req.amountKwd} KWD</span>
+                  <span className="text-surface-400">{new Date(req.createdAt).toLocaleString()}</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  disabled={busy === req.id}
+                  onClick={() => handleAction(req.id, "reject")}
+                  className="btn-secondary text-red-600 hover:bg-red-50 hover:border-red-200"
+                >
+                  {busy === req.id ? "..." : (ar() ? "رفض" : "Reject")}
+                </button>
+                <button
+                  disabled={busy === req.id}
+                  onClick={() => handleAction(req.id, "approve")}
+                  className="btn-primary bg-amber-500 hover:bg-amber-600 shadow-glow"
+                >
+                  {busy === req.id ? "..." : (ar() ? "تأكيد الدفع والتفعيل" : "Mark Paid & Activate")}
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CsDashboard() {
   const { t } = useTranslation();
   const { auth } = useAuth();
@@ -2967,6 +3053,7 @@ export default function CsDashboard() {
     ...(isLegalOrAdmin ? [{ key: "invoice_reviews", icon: Icons.cash, label: ar() ? "مراجعة الفواتير" : "Invoice Reviews" }] : []),
     ...(isLegalOrAdmin ? [{ key: "eforms", icon: Icons.clipboard, label: ar() ? "النماذج الإلكترونية" : "eForms" }] : []),
     { key: "payments", icon: Icons.cash, label: t("payments") },
+    { key: "sub_requests", icon: <span className="text-xl">👑</span>, label: ar() ? "طلبات برو" : "Pro Requests" },
     { key: "customers", icon: Icons.users, label: ar() ? "العملاء" : "Customers" },
     { key: "memberships", icon: Icons.offers, label: ar() ? "الاشتراكات" : "Memberships" },
     { key: "clinic_changes", icon: Icons.clinic, label: ar() ? "تغيير العيادة" : "Clinic Changes" },
@@ -3048,6 +3135,7 @@ export default function CsDashboard() {
         {activeNav === "kyc" && isLegalOrAdmin && <KycQueue />}
         {activeNav === "invoice_reviews" && isLegalOrAdmin && <InvoiceReviews />}
         {activeNav === "eforms" && isLegalOrAdmin && <EFormsViewer />}
+        {activeNav === "sub_requests" && <SubscriptionRequests />}
         {activeNav === "payments" && <PaymentsManager />}
         {activeNav === "memberships" && <CustomerMemberships onTransfer={(id, clinicId) => {
           setClinicChangeModal({ type: 'membership', id, currentClinicId: clinicId, defaultFee: '10.000' });

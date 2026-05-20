@@ -761,13 +761,19 @@ function InvoiceUploader({ getAuthHeader, ar, isPro, onContactCS }: { getAuthHea
             <div className="space-y-4">
               <label className="block border-2 border-dashed border-surface-200 rounded-2xl p-8 text-center hover:border-amber-400 transition-colors cursor-pointer bg-surface-50">
                 <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleFileChange} />
-                <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mx-auto mb-4 text-2xl text-amber-500">
-                  {file ? "✅" : "📸"}
-                </div>
-                <h3 className="font-bold text-surface-900 mb-1">
-                  {file ? file.name : (ar ? "اضغط لرفع صورة الفاتورة" : "Click to upload invoice photo")}
-                </h3>
-                <p className="text-xs text-surface-500">{ar ? "JPEG, PNG, الحد الأقصى 5MB" : "JPEG, PNG, Max 5MB"}</p>
+                {file ? (
+                  <div className="space-y-3">
+                    <img src={URL.createObjectURL(file)} alt="Preview" className="max-h-48 rounded-xl mx-auto shadow-md border border-surface-200" />
+                    <h3 className="font-bold text-surface-900 text-sm">{file.name}</h3>
+                    <p className="text-xs text-amber-600 font-medium">{ar ? "اضغط لتغيير الصورة" : "Click to change photo"}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mx-auto mb-4 text-2xl text-amber-500">📸</div>
+                    <h3 className="font-bold text-surface-900 mb-1">{ar ? "اضغط لرفع صورة الفاتورة" : "Click to upload invoice photo"}</h3>
+                    <p className="text-xs text-surface-500">{ar ? "JPEG, PNG, الحد الأقصى 5MB" : "JPEG, PNG, Max 5MB"}</p>
+                  </>
+                )}
               </label>
             </div>
             
@@ -836,6 +842,19 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
 }) {
   const [option, setOption] = useState<"monthly"|"advance">("monthly");
   const [busy, setBusy] = useState(false);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [submitted, setSubmitted] = useState(false);
+
+  const fetchRequests = async () => {
+    try {
+      const res = await apiFetch("/users/me/subscription", { headers: getAuthHeader() });
+      if (res.items) setRequests(res.items);
+    } catch (e) {}
+  };
+
+  useEffect(() => { fetchRequests(); }, []);
+
+  const pendingRequest = requests.find(r => r.status === "pending");
 
   const subscribe = async () => {
     setBusy(true);
@@ -845,8 +864,8 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
         headers: getAuthHeader(),
         body: JSON.stringify({ paymentOption: option })
       });
-      alert(ar ? "تم الاشتراك بنجاح!" : "Subscribed successfully!");
-      window.location.reload();
+      setSubmitted(true);
+      fetchRequests();
     } catch (e: any) {
       alert(e.message);
     } finally {
@@ -881,6 +900,19 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
               <div className="font-bold text-surface-900">{expiresAt ? new Date(expiresAt).toLocaleDateString() : "—"}</div>
             </div>
           </div>
+        </div>
+      ) : pendingRequest || submitted ? (
+        <div className="card-elevated p-8 text-center space-y-6 border-2 border-orange-300">
+          <div className="w-20 h-20 bg-gradient-to-br from-orange-400 to-amber-500 rounded-3xl mx-auto flex items-center justify-center text-white text-4xl shadow-glow-lg">⏳</div>
+          <h2 className="text-2xl font-black text-surface-900">{ar ? "طلبك قيد المراجعة" : "Your Request is Pending"}</h2>
+          <p className="text-surface-600 max-w-md mx-auto">{ar ? "تم إرسال طلب الاشتراك بنجاح. سيقوم فريق خدمة العملاء بمراجعته وتأكيد الدفع قريباً." : "Your subscription request has been submitted successfully. Our CS team will review it and confirm payment soon."}</p>
+          {pendingRequest && (
+            <div className="inline-flex items-center gap-3 bg-orange-50 border border-orange-200 px-6 py-3 rounded-xl">
+              <span className="font-bold text-orange-700">{pendingRequest.paymentOption === "advance" ? "37.500" : "12.500"} KWD</span>
+              <span className="text-orange-500">•</span>
+              <span className="text-sm text-orange-600 capitalize">{pendingRequest.paymentOption}</span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-6 relative">
@@ -924,12 +956,33 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
         </div>
       )}
 
-      {currentPlan !== "pro" && (
+      {currentPlan !== "pro" && !pendingRequest && !submitted && (
         <div className="bg-surface-50 border border-surface-200 rounded-2xl p-6 text-center space-y-4">
-          <p className="text-sm text-surface-600 font-medium">{ar ? "ملاحظة: الاشتراك يتطلب التزام لمدة 3 أشهر كحد أدنى." : "Note: Subscription requires a minimum 3-month commitment."}</p>
+          <p className="text-sm text-surface-600 font-medium">{ar ? "ملاحظة: الاشتراك يتطلب التزام لمدة 3 أشهر كحد أدنى. بعد تقديم الطلب سيتواصل معك فريقنا لتأكيد الدفع." : "Note: Subscription requires a minimum 3-month commitment. After submitting, our team will contact you to confirm payment."}</p>
           <button disabled={busy} onClick={subscribe} className="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-glow-lg px-12 py-4 rounded-full text-white font-bold text-lg w-full md:w-auto">
-            {busy ? (ar ? "جاري الدفع..." : "Processing...") : (ar ? `تأكيد الدفع والتسجيل (${option === "monthly" ? "12.5" : "37.5"} د.ك)` : `Confirm & Pay (${option === "monthly" ? "12.5" : "37.5"} KWD)`)}
+            {busy ? (ar ? "جاري الإرسال..." : "Submitting...") : (ar ? `تقديم طلب الاشتراك (${option === "monthly" ? "12.5" : "37.5"} د.ك)` : `Submit Subscription Request (${option === "monthly" ? "12.5" : "37.5"} KWD)`)}
           </button>
+        </div>
+      )}
+
+      {requests.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="font-bold text-surface-900">{ar ? "سجل طلبات الاشتراك" : "Subscription Request History"}</h3>
+          <div className="space-y-3">
+            {requests.map(r => (
+              <div key={r.id} className="card-elevated p-4 flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-surface-900">{r.amountKwd} KWD <span className="text-sm text-surface-500 capitalize">({r.paymentOption})</span></div>
+                  <div className="text-xs text-surface-500">{new Date(r.createdAt).toLocaleDateString()}</div>
+                </div>
+                <div>
+                  {r.status === "pending" && <span className="text-xs px-3 py-1 bg-orange-100 text-orange-700 rounded-full font-bold">{ar ? "قيد المراجعة" : "Pending"}</span>}
+                  {r.status === "paid" && <span className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded-full font-bold">{ar ? "مدفوع ✓" : "Paid ✓"}</span>}
+                  {r.status === "rejected" && <span className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded-full font-bold">{ar ? "مرفوض" : "Rejected"}</span>}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

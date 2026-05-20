@@ -437,29 +437,151 @@ usersRouter.post("/me/subscription", authRequired, async (req, res, next) => {
       return res.status(400).json({ error: "Invalid payment option" });
     }
 
-    const monthsToAdd = paymentOption === "advance" ? 3 : 1;
+    const { SubscriptionRequestModel } = await import("../../models/subscriptionRequest.model.js");
+
+    // Check if user already has a pending request
+    const existing = await SubscriptionRequestModel.findOne({ userId: req.auth!.userId, status: "pending" });
+    if (existing) {
+      return res.status(400).json({ error: "You already have a pending subscription request." });
+    }
+
+    const amountKwd = paymentOption === "advance" ? "37.500" : "12.500";
+
+    const doc = await SubscriptionRequestModel.create({
+      userId: req.auth!.userId,
+      paymentOption,
+      amountKwd,
+      status: "pending"
+    });
+
+    return res.json({ success: true, request: doc });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Get my subscription request status
+usersRouter.get("/me/subscription", authRequired, async (req, res, next) => {
+  try {
+    const { SubscriptionRequestModel } = await import("../../models/subscriptionRequest.model.js");
+    const requests = await SubscriptionRequestModel.find({ userId: req.auth!.userId }).sort({ createdAt: -1 }).lean();
+    return res.json({
+      items: requests.map((r: any) => ({
+        id: r._id.toString(),
+        paymentOption: r.paymentOption,
+        amountKwd: r.amountKwd,
+        status: r.status,
+        rejectionReason: r.rejectionReason,
+        createdAt: r.createdAt,
+        reviewedAt: r.reviewedAt
+      }))
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// CS/Admin: Get all subscription requests queue
+usersRouter.get("/subscription-requests", authRequired, requireRole(["admin", "cs", "finance"]), async (req, res, next) => {
+  try {
+    const { SubscriptionRequestModel } = await import("../../models/subscriptionRequest.model.js");
+    const status = req.query.status as string || "pending";
+    const filter = status === "all" ? {} : { status };
+    const items = await SubscriptionRequestModel.find(filter).sort({ createdAt: -1 }).lean();
+
+    // Enrich with user info
+    const userIds = [...new Set(items.map((i: any) => i.userId))];
+    const users = await UserModel.find({ _id: { $in: userIds } }).select("username phone email").lean();
+    const userMap: Record<string, any> = {};
+    users.forEach((u: any) => { userMap[u._id.toString()] = u; });
+
+    return res.json({
+      items: items.map((r: any) => ({
+        id: r._id.toString(),
+        userId: r.userId,
+        userName: userMap[r.userId]?.username || "—",
+        userPhone: userMap[r.userId]?.phone || "—",
+        paymentOption: r.paymentOption,
+        amountKwd: r.amountKwd,
+        status: r.status,
+        rejectionReason: r.rejectionReason,
+        createdAt: r.createdAt,
+        reviewedAt: r.reviewedAt
+      }))
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// CS/Admin: Mark subscription as paid → activate Pro
+usersRouter.post("/subscription-requests/:id/approve", authRequired, requireRole(["admin", "cs"]), async (req, res, next) => {
+  try {
+    const { SubscriptionRequestModel } = await import("../../models/subscriptionRequest.model.js");
+    const { id } = req.params;
+
+    const doc = await SubscriptionRequestModel.findOneAndUpdate(
+      { _id: id, status: "pending" },
+      { status: "paid", reviewedBy: req.auth!.userId, reviewedAt: new Date() },
+      { new: true }
+    );
+
+    if (!doc) return res.status(404).json({ error: "Request not found or already processed" });
+
+    // Activate Pro subscription
+    const monthsToAdd = doc.paymentOption === "advance" ? 3 : 1;
     const expiresAt = new Date();
     expiresAt.setMonth(expiresAt.getMonth() + monthsToAdd);
 
     const commitmentEndsAt = new Date();
     commitmentEndsAt.setMonth(commitmentEndsAt.getMonth() + 3);
 
-    const user = await UserModel.findByIdAndUpdate(
-      req.auth!.userId,
-      {
-        $set: {
-          belmondoPlan: "pro",
-          belmondoProPaymentType: paymentOption,
-          belmondoProExpiresAt: expiresAt,
-          belmondoProCommitmentEndsAt: commitmentEndsAt
-        }
-      },
+    await UserModel.findByIdAndUpdate(doc.userId, {
+      $set: {
+        belmondoPlan: "pro",
+        belmondoProPaymentType: doc.paymentOption,
+        belmondoProExpiresAt: expiresAt,
+        belmondoProCommitmentEndsAt: commitmentEndsAt
+      }
+    });
+
+    const { PaymentModel } = await import("../../models/payment.model.js");
+    await PaymentModel.create({
+      userId: doc.userId,
+      amountKwd: doc.amountKwd,
+      grossAmountKwd: doc.amountKwd,
+      method: "other",
+      purpose: "manual_entry",
+      provider: "cs",
+      status: "completed",
+      isManual: true,
+      manualLabel: `Belmondo Pro Subscription (${doc.paymentOption})`,
+      confirmedBy: req.auth!.userId,
+      confirmedAt: new Date()
+    });
+
+    return res.json({ success: true, request: doc });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// CS/Admin: Reject subscription request
+usersRouter.post("/subscription-requests/:id/reject", authRequired, requireRole(["admin", "cs"]), async (req, res, next) => {
+  try {
+    const { SubscriptionRequestModel } = await import("../../models/subscriptionRequest.model.js");
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    const doc = await SubscriptionRequestModel.findOneAndUpdate(
+      { _id: id, status: "pending" },
+      { status: "rejected", rejectionReason: reason || "Rejected", reviewedBy: req.auth!.userId, reviewedAt: new Date() },
       { new: true }
     );
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!doc) return res.status(404).json({ error: "Request not found or already processed" });
 
-    res.json({ success: true, user });
+    return res.json({ success: true, request: doc });
   } catch (e) {
     next(e);
   }
