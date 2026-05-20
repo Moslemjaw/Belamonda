@@ -439,6 +439,7 @@ function PaymentQueue() {
 function PaymentsManager() {
   const { data, loading } = useAdminUserOffers();
   const [filterUser, setFilterUser] = useState("");
+  const [tab, setTab] = useState<"pending" | "overdue" | "upcoming" | "deposits">("pending");
 
   const items = data?.items || [];
   
@@ -464,6 +465,13 @@ function PaymentsManager() {
 
   if (loading) return <div className="card-elevated p-5"><div className="shimmer h-64 rounded-2xl" /></div>;
 
+  const tabs = [
+    { id: "pending", label: ar() ? "معلقة للاعتماد" : "Pending Verifications", count: undefined },
+    { id: "overdue", label: ar() ? "متأخرة" : "Overdue", count: overdueItems.filter(filterFn).length },
+    { id: "upcoming", label: ar() ? "قادمة" : "Upcoming", count: activeInstallments.filter(filterFn).length },
+    { id: "deposits", label: ar() ? "عربونات" : "Deposits", count: depositItems.filter(filterFn).length },
+  ];
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between gap-4 items-start sm:items-center">
@@ -483,9 +491,25 @@ function PaymentsManager() {
         </div>
       </div>
 
-      <PaymentQueue />
+      <div className="flex border-b border-surface-200 overflow-x-auto hide-scrollbar">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id as any)}
+            className={`whitespace-nowrap py-4 px-6 font-bold text-sm border-b-2 transition-colors flex items-center gap-2 ${tab === t.id ? 'border-brand-pink-500 text-brand-pink-600' : 'border-transparent text-surface-500 hover:text-surface-900 hover:border-surface-300'}`}
+          >
+            {t.label}
+            {t.count !== undefined && t.count > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-xs ${tab === t.id ? 'bg-brand-pink-100 text-brand-pink-700' : 'bg-surface-100 text-surface-600'}`}>{t.count}</span>
+            )}
+          </button>
+        ))}
+      </div>
 
-      {overdueItems.filter(filterFn).length > 0 && (
+      <div className="mt-6">
+        {tab === "pending" && <PaymentQueue />}
+
+        {tab === "overdue" && overdueItems.filter(filterFn).length > 0 && (
         <div className="card-elevated border border-red-200 shadow-sm overflow-hidden">
           <div className="bg-red-50/50 p-5 border-b border-red-100 flex justify-between items-center">
             <div className="flex items-center gap-3">
@@ -526,7 +550,8 @@ function PaymentsManager() {
         </div>
       )}
 
-      <div className="card-elevated border border-surface-200 shadow-sm overflow-hidden">
+      {tab === "upcoming" && (
+        <div className="card-elevated border border-surface-200 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-surface-100 flex justify-between items-center">
           <h3 className="font-bold text-surface-900 flex items-center gap-2">
             <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
@@ -574,8 +599,9 @@ function PaymentsManager() {
           </div>
         )}
       </div>
+      )}
 
-      {depositItems.filter(filterFn).length > 0 && (
+      {tab === "deposits" && depositItems.filter(filterFn).length > 0 && (
         <div className="card-elevated border border-surface-200 shadow-sm overflow-hidden">
           <div className="p-5 border-b border-surface-100 flex justify-between items-center">
             <h3 className="font-bold text-surface-900 flex items-center gap-2">
@@ -629,6 +655,7 @@ function PaymentsManager() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

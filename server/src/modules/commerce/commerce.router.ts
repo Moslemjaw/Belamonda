@@ -737,8 +737,8 @@ commerceRouter.get("/admin/user-offers", authRequired, requireRole(["admin", "cs
   try {
     const items = await userOfferService.listAllUserOffers();
 
-    const userIds = [...new Set(items.map((i) => i.userId).filter(Boolean))].filter((id) => mongoose.isValidObjectId(id));
-    const clinicIds = [...new Set(items.map((i) => i.clinicId).filter(Boolean))].filter((id) => mongoose.isValidObjectId(id));
+    const userIds = [...new Set(items.map((i) => String(i.userId || "")).filter(Boolean))];
+    const clinicIds = [...new Set(items.map((i) => String(i.clinicId || "")).filter(Boolean))];
 
     const [users, clinics] = await Promise.all([
       UserModel.find({ _id: { $in: userIds } }).select("fullName username email phone").lean(),
