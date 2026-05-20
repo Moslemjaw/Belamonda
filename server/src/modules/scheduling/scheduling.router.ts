@@ -1887,6 +1887,46 @@ schedulingRouter.post("/admin/sessions/:sessionId/change-clinic", authRequired, 
   }
 });
 
+schedulingRouter.post("/admin/requests/:requestId/change-clinic", authRequired, requireRole(["cs", "legal", "admin"]), async (req, res, next) => {
+  try {
+    const schema = z.object({
+      clinicId: z.string().min(1),
+      isPaid: z.boolean().default(false),
+      feeAmount: z.string().default("5.000")
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
+
+    const { clinicId, isPaid, feeAmount } = parsed.data;
+    if (!mongoose.isValidObjectId(clinicId)) return res.status(400).json({ error: "INVALID_CLINIC_ID" });
+
+    const breq = await BookingRequestModel.findById(req.params.requestId);
+    if (!breq) return res.status(404).json({ error: "REQUEST_NOT_FOUND" });
+
+    if (isPaid) {
+      const resAdjust = await kycStore.adjustUnlocked({
+        userId: breq.userId,
+        amountKwd: `-${feeAmount}`,
+        reason: `Clinic change fee for booking request: ${breq.shortId || breq._id}`,
+        createdById: req.auth!.userId
+      });
+      if (resAdjust && "error" in resAdjust) {
+        if (resAdjust.error === "UNLOCKED_BELOW_ZERO") {
+          return res.status(400).json({ error: "INSUFFICIENT_FUNDS" });
+        }
+        return res.status(400).json({ error: resAdjust.error });
+      }
+    }
+
+    breq.clinicId = new mongoose.Types.ObjectId(clinicId);
+    await breq.save();
+
+    return res.json({ ok: true, clinicId: String(breq.clinicId) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // `resolveUserOffer` retained for backwards compatibility — exposed for any
 // downstream callers that depend on the richer UserOfferRecord shape.
 export { resolveUserOffer };

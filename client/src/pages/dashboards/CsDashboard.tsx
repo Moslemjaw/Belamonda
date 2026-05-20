@@ -660,7 +660,7 @@ function PaymentsManager() {
   );
 }
 
-function BookingRequestsQueue() {
+function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string, clinicId: string) => void }) {
   const { getAuthHeader } = useAuth();
   const { data, refetch } = useBookingRequests("pending");
   const [processing, setProcessing] = useState<string | null>(null);
@@ -756,6 +756,9 @@ function BookingRequestsQueue() {
           </div>
           <div className="text-xs text-surface-400 mr-2">{new Date(b.createdAt).toLocaleTimeString()}</div>
           <div className="flex items-center gap-2">
+            <button className="text-[11px] font-bold text-brand-pink-600 bg-brand-pink-50 border border-brand-pink-200 hover:bg-brand-pink-100 px-3 py-1.5 rounded-xl transition-colors" onClick={() => onTransfer && onTransfer(b.id, b.clinicId || "")}>
+              {ar() ? "تغيير العيادة" : "Change Clinic"}
+            </button>
             <button className="bg-surface-100 hover:bg-surface-200 text-surface-700 font-medium px-3 py-1.5 rounded-xl text-xs transition-colors" onClick={() => setSelectedBooking(b)}>
               {ar() ? "عرض التفاصيل" : "View Details"}
             </button>
@@ -1301,7 +1304,7 @@ function CustomersManager() {
   const [grantError, setGrantError] = useState<string | null>(null);
 
   // Clinic Transfer modal states
-  const [clinicChangeModal, setClinicChangeModal] = useState<{ type: "membership" | "session"; id: string; currentClinicId: string; defaultFee: string } | null>(null);
+  const [clinicChangeModal, setClinicChangeModal] = useState<{ type: "membership" | "session" | "request"; id: string; currentClinicId: string; defaultFee: string } | null>(null);
   const [newClinicId, setNewClinicId] = useState("");
   const [isPaidTransfer, setIsPaidTransfer] = useState(false);
   const [transferFee, setTransferFee] = useState("10.000");
@@ -2287,6 +2290,8 @@ function CustomersManager() {
                       try {
                         const path = clinicChangeModal.type === "membership"
                           ? `/commerce/admin/user-offers/${clinicChangeModal.id}/change-clinic`
+                          : clinicChangeModal.type === "request"
+                          ? `/scheduling/admin/requests/${clinicChangeModal.id}/change-clinic`
                           : `/scheduling/admin/sessions/${clinicChangeModal.id}/change-clinic`;
 
                         await apiFetch(path, {
@@ -2839,7 +2844,13 @@ export default function CsDashboard() {
             <div className={`grid gap-6 ${isLegalOrAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
               {isLegalOrAdmin && <KycQueue />}
               <PaymentQueue />
-              <BookingRequestsQueue />
+              <BookingRequestsQueue onTransfer={(id, clinicId) => {
+                setClinicChangeModal({ type: 'request', id, currentClinicId: clinicId, defaultFee: '5.000' });
+                setNewClinicId(clinicId);
+                setIsPaidTransfer(false);
+                setTransferFee("5.000");
+                setTransferError(null);
+              }} />
             </div>
 
             {/* ── Customer Memberships (Full Width) ── */}
@@ -2869,7 +2880,13 @@ export default function CsDashboard() {
         {activeNav === "clinic_changes" && <ClinicChangeRequestsQueue />}
         {activeNav === "scheduling" && (
            <div className="space-y-6">
-              <BookingRequestsQueue />
+              <BookingRequestsQueue onTransfer={(id, clinicId) => {
+                setClinicChangeModal({ type: 'request', id, currentClinicId: clinicId, defaultFee: '5.000' });
+                setNewClinicId(clinicId);
+                setIsPaidTransfer(false);
+                setTransferFee("5.000");
+                setTransferError(null);
+              }} />
               <SchedulingTool />
            </div>
         )}
