@@ -20,6 +20,7 @@ function KycQueue() {
   const { getAuthHeader } = useAuth();
   const { data, loading, refetch } = useKycQueue();
   const [processing, setProcessing] = useState<string | null>(null);
+  const [viewingKyc, setViewingKyc] = useState<any>(null);
 
   const reviewKyc = async (submissionId: string, decision: "approve" | "reject") => {
     setProcessing(submissionId);
@@ -54,7 +55,7 @@ function KycQueue() {
         </div>
         <div className="flex items-center gap-2 ms-auto">
           {items.length > 0 && <span className="status-pill-pending"><span className="dot" aria-hidden="true" />{items.length} {ar() ? "معلق" : "pending"}</span>}
-          <button className="icon-btn" onClick={refetch} aria-label={ar() ? "تحديث القائمة" : "Refresh queue"} title={ar() ? "تحديث" : "Refresh"}>
+          <button className="icon-btn" onClick={() => refetch()} aria-label={ar() ? "تحديث القائمة" : "Refresh queue"} title={ar() ? "تحديث" : "Refresh"}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
           </button>
         </div>
@@ -89,6 +90,14 @@ function KycQueue() {
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   <button
+                    className="icon-btn"
+                    onClick={() => setViewingKyc(k)}
+                    aria-label={ar() ? `عرض وثائق ${k.userId}` : `View documents for ${k.userId}`}
+                    title={ar() ? "عرض الوثائق" : "View Documents"}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                  </button>
+                  <button
                     className="icon-btn-success"
                     disabled={processing === k.id}
                     onClick={() => reviewKyc(k.id, "approve")}
@@ -115,6 +124,47 @@ function KycQueue() {
             );
           })}
         </div>
+      )}
+
+      {viewingKyc && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-slide-up relative flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-surface-100 shrink-0">
+              <h3 className="text-xl font-bold text-surface-900 flex items-center gap-2">
+                {ar() ? "وثائق الهوية" : "Identity Documents"} - {viewingKyc.userId}
+              </h3>
+              <button className="text-surface-400 hover:text-surface-900 transition-colors" onClick={() => setViewingKyc(null)}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-surface-50 p-4 rounded-2xl border border-surface-100">
+                  <h4 className="text-sm font-bold text-surface-700 mb-3 text-center">{ar() ? "البطاقة المدنية (الجهة الأمامية)" : "Civil ID (Front)"}</h4>
+                  <img src={viewingKyc.civilIdFrontRef} alt="Civil ID Front" className="w-full h-auto rounded-lg shadow-sm" />
+                </div>
+                <div className="bg-surface-50 p-4 rounded-2xl border border-surface-100">
+                  <h4 className="text-sm font-bold text-surface-700 mb-3 text-center">{ar() ? "البطاقة المدنية (الجهة الخلفية)" : "Civil ID (Back)"}</h4>
+                  <img src={viewingKyc.civilIdBackRef} alt="Civil ID Back" className="w-full h-auto rounded-lg shadow-sm" />
+                </div>
+              </div>
+              <div className="bg-surface-50 p-4 rounded-2xl border border-surface-100 max-w-sm mx-auto">
+                <h4 className="text-sm font-bold text-surface-700 mb-3 text-center">{ar() ? "التوقيع" : "Signature"}</h4>
+                <img src={viewingKyc.signatureRef} alt="Signature" className="w-full h-auto rounded-lg shadow-sm bg-white" />
+              </div>
+            </div>
+            <div className="px-6 pb-6 pt-4 border-t border-surface-100 shrink-0 flex gap-3">
+              <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm" onClick={() => setViewingKyc(null)}>{ar() ? "إغلاق" : "Close"}</button>
+              <button
+                className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm text-sm"
+                disabled={processing === viewingKyc.id}
+                onClick={() => { reviewKyc(viewingKyc.id, "approve"); setViewingKyc(null); }}
+              >
+                {processing === viewingKyc.id ? "..." : ar() ? "قبول وتوثيق" : "Approve & Verify"}
+              </button>
+            </div>
+          </div>
+        </div>, document.body
       )}
     </div>
   );
@@ -716,7 +766,7 @@ function CustomerMemberships() {
         </h3>
         <div className="flex items-center gap-2">
           <span className="text-xs text-surface-500 font-medium">{filtered.length} / {allOffers.length}</span>
-          <button className="btn-ghost btn-sm" onClick={refetch}>↻</button>
+          <button className="btn-ghost btn-sm" onClick={() => refetch()}>↻</button>
         </div>
       </div>
 
@@ -1570,7 +1620,7 @@ function ClinicChangeRequestsQueue() {
         <h3 className="text-base font-bold text-surface-900">{ar() ? "طلبات تغيير العيادة" : "Clinic Change Requests"}</h3>
         <div className="flex items-center gap-2">
           <span className="badge-pink">{pending.length} {ar() ? "معلق" : "pending"}</span>
-          <button className="btn-ghost btn-sm" onClick={refetch}>↻</button>
+          <button className="btn-ghost btn-sm" onClick={() => refetch()}>↻</button>
         </div>
       </div>
 

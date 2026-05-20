@@ -286,7 +286,7 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="bucket" tick={{ fontSize: 11 }} stroke="#94a3b8" />
               <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" />
-              <Tooltip formatter={(v: number) => `${fmt(v)} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              <Tooltip formatter={(v: any) => `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Area type="monotone" dataKey="Revenue" stroke={COLORS.emerald} strokeWidth={2} fill="url(#revFill)" />
               <Area type="monotone" dataKey="Profit" stroke={COLORS.pink} strokeWidth={2} fill="url(#profitFill)" />
@@ -308,7 +308,7 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
                 <Pie data={methodPie} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={50} outerRadius={90} paddingAngle={2}>
                   {methodPie.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                 </Pie>
-                <Tooltip formatter={(v: number) => `${fmt(v)} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                <Tooltip formatter={(v: any) => `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
               </PieChart>
             </ResponsiveContainer>
@@ -325,7 +325,7 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                 <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" width={80} />
-                <Tooltip formatter={(v: number) => `${fmt(v)} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+                <Tooltip formatter={(v: any) => `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
                 <Bar dataKey="value" fill={COLORS.pink} radius={[0, 6, 6, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -342,7 +342,7 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" width={100} />
-              <Tooltip formatter={(v: number) => `${fmt(v)} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              <Tooltip formatter={(v: any) => `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
               <Bar dataKey="Revenue" fill={COLORS.indigo} radius={[0, 6, 6, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -692,7 +692,7 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" width={140} />
-              <Tooltip formatter={(v: number) => `${fmt(v)} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              <Tooltip formatter={(v: any) => `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="Revenue" fill={COLORS.emerald} radius={[0, 4, 4, 0]} />
               <Bar dataKey="Profit" fill={COLORS.pink} radius={[0, 4, 4, 0]} />
@@ -1239,10 +1239,10 @@ function ReliefTab({ from, to }: { from: string; to: string }) {
 // ===========================================================================
 
 function ProfileTab() {
-  const { getAuthHeader, user: ctxUser } = useAuth();
+  const { getAuthHeader, auth } = useAuth();
   const { data: meData, loading, refetch: refetchMe } = useApi<any>("/users/me");
 
-  const me = meData?.user ?? meData ?? ctxUser;
+  const me = meData?.user ?? meData ?? auth;
 
   const roleLabel: Record<string, string> = {
     admin: "Administrator", finance: "Finance Staff",

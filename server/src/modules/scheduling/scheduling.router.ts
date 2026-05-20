@@ -1598,12 +1598,15 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     if (parsed.data.status === "completed") {
       // sessionsUsed was already incremented at confirm time; just unlock cashback here
       cashbackUnlocked = offer.cashbackPerSessionKwd ?? "0.000";
-      await kycStore.unlockCashbackFromLocked({
-        userId: uo.userId,
-        amountKwd: cashbackUnlocked,
-        sessionId: session.id,
-        createdById: "system"
-      });
+      
+      if (parseFloat(cashbackUnlocked) > 0) {
+        await kycStore.rewardSessionCashback({
+          userId: uo.userId,
+          amountKwd: cashbackUnlocked,
+          sessionId: session.id,
+          createdById: "system"
+        });
+      }
     }
 
     const updated = await sessionsStore.mark({

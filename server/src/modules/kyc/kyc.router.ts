@@ -4,7 +4,21 @@ import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { kycStore } from "./kyc.store.js";
 import { notifyKycApproved, notifyKycRejected, notifyKycSubmitted } from "../notifications/notifications.service.js";
+import { v2 as cloudinary } from "cloudinary";
 
+cloudinary.config({
+  cloud_name: "dyxzbgiic",
+  api_key: "525168948871956",
+  api_secret: "q4Qf-Y32H9yVJYm-G-m1ufJ15Ns"
+});
+
+async function uploadToCloudinary(base64Image: string): Promise<string> {
+  if (!base64Image.startsWith("data:image")) return base64Image;
+  const result = await cloudinary.uploader.upload(base64Image, {
+    folder: "kyc_documents"
+  });
+  return result.secure_url;
+}
 const CheckboxesSchema = z.object({
   termsAndConditions: z.literal(true),
   dataPrivacyConsent: z.literal(true),
@@ -36,7 +50,19 @@ kycRouter.post("/submit", authRequired, async (req, res, next) => {
     // Ensure user exists in store (local MVP)
     await kycStore.ensureUser(req.auth!.userId, req.auth!.role);
 
-    const submission = await kycStore.createSubmission({ userId: req.auth!.userId, ...parsed.data });
+    // Upload to Cloudinary if they are base64
+    const frontUrl = await uploadToCloudinary(parsed.data.civilIdFrontRef);
+    const backUrl = await uploadToCloudinary(parsed.data.civilIdBackRef);
+    const sigUrl = await uploadToCloudinary(parsed.data.signatureRef);
+
+    const submission = await kycStore.createSubmission({ 
+      userId: req.auth!.userId, 
+      civilIdNumber: parsed.data.civilIdNumber,
+      civilIdFrontRef: frontUrl,
+      civilIdBackRef: backUrl,
+      signatureRef: sigUrl,
+      checkboxes: parsed.data.checkboxes 
+    });
     notifyKycSubmitted(req.auth!.userId);
     return res.status(201).json({ submission });
   } catch (e) {

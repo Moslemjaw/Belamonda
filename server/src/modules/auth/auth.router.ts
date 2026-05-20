@@ -10,7 +10,7 @@ export const authRouter = Router();
 
 const RegisterSchema = z.object({
   username: z.string().min(3).optional(),
-  email: z.string().email(),
+  email: z.string().email().or(z.literal("")).optional(),
   phone: z.string().min(6),
   fullName: z.string().min(2),
   gender: z.enum(["female", "male", "other"]).optional(),

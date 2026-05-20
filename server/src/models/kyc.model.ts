@@ -79,7 +79,7 @@ export const WalletModel = mongoose.models.Wallet ?? mongoose.model<WalletDoc>("
 export interface WalletTxnDoc extends Document {
   _id: Types.ObjectId;
   userId: string;
-  type: "unlock" | "deduction" | "adjustment" | "reversal" | "forfeited_due_to_ceiling" | "signup_bonus" | "offer_cashback_credit" | "installment_unlock";
+  type: "unlock" | "deduction" | "adjustment" | "reversal" | "forfeited_due_to_ceiling" | "signup_bonus" | "offer_cashback_credit" | "installment_unlock" | "session_reward";
   amountKwd: string;
   reference?: {
     kind: "session" | "userOffer" | "admin";
@@ -97,7 +97,7 @@ export interface WalletTxnDoc extends Document {
 const WalletTxnSchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
-    type: { type: String, enum: ["unlock", "deduction", "adjustment", "reversal", "forfeited_due_to_ceiling", "signup_bonus", "offer_cashback_credit", "installment_unlock"], required: true },
+    type: { type: String, enum: ["unlock", "deduction", "adjustment", "reversal", "forfeited_due_to_ceiling", "signup_bonus", "offer_cashback_credit", "installment_unlock", "session_reward"], required: true },
     amountKwd: { type: String, required: true },
     reference: {
       kind: { type: String, enum: ["session", "userOffer", "admin"] },

@@ -260,6 +260,43 @@ export const kycStore = {
   },
 
   /**
+   * Reward per-session cashback directly to the unlocked pool (e.g. Naomi Plus).
+   * Increases both ceiling and unlocked directly.
+   */
+  async rewardSessionCashback(input: { userId: string; amountKwd: string; sessionId: string; createdById: string }) {
+    const wallet = await WalletModel.findOne({ userId: input.userId });
+    if (!wallet) return { error: "NO_WALLET" as const };
+
+    const amount = parseKwd(input.amountKwd);
+    if (amount <= 0) return { ok: true as const, rewardedKwd: "0.000" };
+
+    const alreadyRewarded = await WalletTxnModel.exists({
+      userId: input.userId,
+      type: "session_reward",
+      "reference.id": input.sessionId
+    });
+    if (alreadyRewarded) return { ok: true as const, duplicate: true };
+
+    const unlocked = parseKwd(wallet.unlockedKwd);
+    const ceiling = parseKwd(wallet.ceilingKwd);
+
+    wallet.unlockedKwd = fmtKwd(unlocked + amount);
+    wallet.ceilingKwd = fmtKwd(ceiling + amount);
+    await wallet.save();
+
+    await WalletTxnModel.create({
+      userId: input.userId,
+      type: "session_reward",
+      amountKwd: fmtKwd(amount),
+      reference: { kind: "session", id: input.sessionId },
+      createdBy: { kind: "system", id: input.createdById },
+      reason: "Cashback earned from completing a session"
+    });
+
+    return { ok: true as const, rewardedKwd: fmtKwd(amount) };
+  },
+
+  /**
    * Unlock a portion of locked cashback (move from locked → unlocked).
    * Supports per-installment dedup via optional installmentNumber.
    */

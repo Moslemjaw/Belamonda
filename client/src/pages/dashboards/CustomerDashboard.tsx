@@ -445,10 +445,25 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
   const [kycError, setKycError] = useState<string | null>(null);
   const [form, setForm] = useState({
     civilId: "",
+    civilIdFront: "",
+    civilIdBack: "",
+    signature: "",
     terms1: false,
     terms2: false,
     terms3: false,
   });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: keyof typeof form) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      if (ev.target?.result) {
+        setForm(prev => ({ ...prev, [field]: ev.target!.result as string }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -467,9 +482,9 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
         headers: getAuthHeader(),
         body: JSON.stringify({
           civilIdNumber: form.civilId || "290100000012",
-          civilIdFrontRef: "front.png",
-          civilIdBackRef: "back.png",
-          signatureRef: "sig.png",
+          civilIdFrontRef: form.civilIdFront || "front.png",
+          civilIdBackRef: form.civilIdBack || "back.png",
+          signatureRef: form.signature || "sig.png",
           checkboxes: { termsAndConditions: true, dataPrivacyConsent: true, serviceLiabilityWaiver: true, age18Plus: true, paymentTermsAcknowledgment: true },
         }),
       });
@@ -531,16 +546,26 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
               <p className="text-sm text-surface-500 mt-1">{ar() ? "قم برفع صورة البطاقة المدنية من الجهتين" : "Upload the front and back of your Civil ID"}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="border-2 border-dashed border-brand-pink-200 bg-brand-pink-50/30 rounded-2xl p-6 text-center cursor-pointer hover:bg-brand-pink-50 transition-colors">
-                <span className="text-2xl mb-2 block">📷</span>
+              <label className="border-2 border-dashed border-brand-pink-200 bg-brand-pink-50/30 rounded-2xl p-6 text-center cursor-pointer hover:bg-brand-pink-50 transition-colors relative overflow-hidden group block">
+                <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, 'civilIdFront')} />
+                {form.civilIdFront ? (
+                  <img src={form.civilIdFront} alt="Front" className="w-full h-24 object-contain rounded-lg mb-2" />
+                ) : (
+                  <span className="text-2xl mb-2 block">📷</span>
+                )}
                 <span className="text-xs font-semibold text-brand-pink-600">{ar() ? "الجهة الأمامية" : "Front Side"}</span>
-              </div>
-              <div className="border-2 border-dashed border-brand-pink-200 bg-brand-pink-50/30 rounded-2xl p-6 text-center cursor-pointer hover:bg-brand-pink-50 transition-colors">
-                <span className="text-2xl mb-2 block">📷</span>
+              </label>
+              <label className="border-2 border-dashed border-brand-pink-200 bg-brand-pink-50/30 rounded-2xl p-6 text-center cursor-pointer hover:bg-brand-pink-50 transition-colors relative overflow-hidden group block">
+                <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, 'civilIdBack')} />
+                {form.civilIdBack ? (
+                  <img src={form.civilIdBack} alt="Back" className="w-full h-24 object-contain rounded-lg mb-2" />
+                ) : (
+                  <span className="text-2xl mb-2 block">📷</span>
+                )}
                 <span className="text-xs font-semibold text-brand-pink-600">{ar() ? "الجهة الخلفية" : "Back Side"}</span>
-              </div>
+              </label>
             </div>
-            <button className="btn-primary w-full btn-lg mt-4" onClick={() => setStep(3)}>{ar() ? "متابعة" : "Continue"}</button>
+            <button className="btn-primary w-full btn-lg mt-4" disabled={!form.civilIdFront || !form.civilIdBack} onClick={() => setStep(3)}>{ar() ? "متابعة" : "Continue"}</button>
           </div>
         )}
 
@@ -551,7 +576,18 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
                 <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
               <h2 className="text-xl font-bold text-surface-900">{ar() ? "الإقرار والتوقيع" : "Digital Signature & Terms"}</h2>
+              <p className="text-sm text-surface-500 mt-1">{ar() ? "يرجى إرفاق صورة التوقيع والموافقة على الشروط" : "Please attach your signature and agree to the terms"}</p>
             </div>
+            
+            <label className="block border-2 border-dashed border-brand-pink-200 bg-brand-pink-50/30 rounded-2xl p-6 text-center cursor-pointer hover:bg-brand-pink-50 transition-colors relative overflow-hidden group mb-4">
+              <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, 'signature')} />
+              {form.signature ? (
+                <img src={form.signature} alt="Signature" className="w-full h-24 object-contain rounded-lg mb-2" />
+              ) : (
+                <span className="text-2xl mb-2 block">✍️</span>
+              )}
+              <span className="text-xs font-semibold text-brand-pink-600">{ar() ? "رفع التوقيع" : "Upload Signature"}</span>
+            </label>
             
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-surface-200 space-y-4">
               <label className="flex items-start gap-3 cursor-pointer">
@@ -568,7 +604,7 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
               </label>
             </div>
 
-            <button className="btn-primary w-full btn-lg" onClick={submitKyc} disabled={submitting}>
+            <button className="btn-primary w-full btn-lg" onClick={submitKyc} disabled={submitting || !form.signature}>
               {submitting ? (ar() ? "جاري الإرسال..." : "Submitting...") : (ar() ? "اعتماد وإرسال" : "Sign & Submit")}
             </button>
           </div>
@@ -2382,7 +2418,7 @@ export default function CustomerDashboard() {
                           </div>
                           <div className="flex sm:flex-col items-center sm:items-end justify-between">
                             <div className="font-black text-brand-pink-500">{o.amount || "0 KWD"}</div>
-                            <div className="text-[10px] text-surface-400 mt-1">{new Date(o.createdAt).toLocaleDateString()}</div>
+                            <div className="text-[10px] text-surface-400 mt-1">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : ""}</div>
                           </div>
                         </div>
                       ))}

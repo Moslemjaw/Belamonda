@@ -31,7 +31,7 @@ export default function SignupPage() {
       setError(t("Please enter your full name", "يرجى إدخال اسمك الكامل"));
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError(t("Please enter a valid email", "يرجى إدخال بريد إلكتروني صحيح"));
       return;
     }
@@ -152,7 +152,7 @@ export default function SignupPage() {
             </div>
             <div>
               <label className="block text-xs font-bold text-surface-700 mb-1.5">
-                {t("Email", "البريد الإلكتروني")} <span className="text-brand-pink-500">*</span>
+                {t("Email", "البريد الإلكتروني")} <span className="text-surface-400 font-normal">({t("Optional", "اختياري")})</span>
               </label>
               <input
                 type="email"
@@ -162,7 +162,6 @@ export default function SignupPage() {
                 className="input-field"
                 dir="ltr"
                 autoComplete="email"
-                required
               />
             </div>
             <div>
