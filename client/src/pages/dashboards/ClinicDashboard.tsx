@@ -1377,7 +1377,9 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                   <div key={doc.label} className="bg-white rounded-xl border border-surface-200 overflow-hidden">
                     <div className="px-3 py-2 border-b border-surface-100 text-xs font-bold text-surface-600">{doc.label}</div>
                     <div className="p-2">
-                      <img src={`/uploads/${doc.ref}`} alt={doc.label} className="w-full h-32 object-contain rounded-lg bg-surface-50" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      <a href={doc.ref.startsWith('http') ? doc.ref : `/uploads/${doc.ref}`} target="_blank" rel="noreferrer" className="block w-full">
+                        <img src={doc.ref.startsWith('http') ? doc.ref : `/uploads/${doc.ref}`} alt={doc.label} className="w-full h-32 object-contain rounded-lg bg-surface-50 hover:opacity-90 transition-opacity" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      </a>
                     </div>
                   </div>
                 ))}

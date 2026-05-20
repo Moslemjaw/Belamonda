@@ -2352,13 +2352,17 @@ export function UserProfilePanel({
                         <div key={doc.label} className="bg-white rounded-xl border border-surface-200 overflow-hidden">
                           <div className="px-3 py-2 border-b border-surface-100 text-xs font-bold text-surface-600">{doc.label}</div>
                           <div className="p-3">
-                            <img
-                              src={`/uploads/${doc.ref}`}
-                              alt={doc.label}
-                              className="w-full h-36 object-contain rounded-lg bg-surface-50"
-                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                            />
-                            <div className="text-[10px] text-surface-400 mt-1 truncate font-mono">{doc.ref}</div>
+                            <a href={doc.ref.startsWith('http') ? doc.ref : `/uploads/${doc.ref}`} target="_blank" rel="noreferrer" className="block w-full">
+                              <img
+                                src={doc.ref.startsWith('http') ? doc.ref : `/uploads/${doc.ref}`}
+                                alt={doc.label}
+                                className="w-full h-36 object-contain rounded-lg bg-surface-50 hover:opacity-90 transition-opacity"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                              />
+                            </a>
+                            <a href={doc.ref.startsWith('http') ? doc.ref : `/uploads/${doc.ref}`} target="_blank" rel="noreferrer" className="text-[10px] text-surface-400 mt-1 truncate font-mono block hover:text-brand-pink-500 hover:underline">
+                              {doc.ref}
+                            </a>
                           </div>
                         </div>
                       ))}
