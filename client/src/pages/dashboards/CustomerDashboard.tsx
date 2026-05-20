@@ -680,7 +680,7 @@ function MyFormsSection() {
   );
 }
 
-function InvoiceUploader({ getAuthHeader, ar, isPro }: { getAuthHeader: () => Record<string, string> | undefined; ar: boolean; isPro: boolean }) {
+function InvoiceUploader({ getAuthHeader, ar, isPro, onContactCS }: { getAuthHeader: () => Record<string, string> | undefined; ar: boolean; isPro: boolean; onContactCS: () => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [amount, setAmount] = useState("");
   const [busy, setBusy] = useState(false);
@@ -818,8 +818,118 @@ function InvoiceUploader({ getAuthHeader, ar, isPro }: { getAuthHeader: () => Re
           <div className="relative z-10">
             <h3 className="text-2xl font-black text-surface-900 mb-2">{ar ? "خاصية مقفلة" : "Premium Feature"}</h3>
             <p className="text-surface-600 mb-6 max-w-sm mx-auto">{ar ? "هذه الخاصية حصرية لمشتركي بيلاموندو برو. اشترك الآن واربح 3 أضعاف قيمة فواتيرك كاش باك!" : "This feature is exclusive to Belmondo Pro members. Upgrade now to earn 3x cashback on all your invoices!"}</p>
-            <button className="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-glow-lg px-8 py-3 rounded-full text-white font-bold">{ar ? "تواصل معنا للترقية" : "Contact CS to Upgrade"}</button>
+            <button onClick={onContactCS} className="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-glow-lg px-8 py-3 rounded-full text-white font-bold">{ar ? "تواصل معنا للترقية" : "Contact CS to Upgrade"}</button>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmentEndsAt, paymentType }: {
+  getAuthHeader: () => Record<string, string> | undefined;
+  ar: boolean;
+  currentPlan?: string;
+  expiresAt?: string | null;
+  commitmentEndsAt?: string | null;
+  paymentType?: string;
+}) {
+  const [option, setOption] = useState<"monthly"|"advance">("monthly");
+  const [busy, setBusy] = useState(false);
+
+  const subscribe = async () => {
+    setBusy(true);
+    try {
+      await apiFetch("/users/me/subscription", {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ paymentOption: option })
+      });
+      alert(ar ? "تم الاشتراك بنجاح!" : "Subscribed successfully!");
+      window.location.reload();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8 animate-fade-in pb-20">
+      <div className="bg-gradient-to-br from-surface-900 via-amber-800 to-amber-600 rounded-3xl p-8 text-white shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+        <div className="relative z-10 space-y-4">
+          <div className="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center text-4xl shadow-inner mb-6">👑</div>
+          <h1 className="text-3xl sm:text-4xl font-black">{ar ? "بيلاموندو برو" : "Belmondo Pro"}</h1>
+          <p className="text-amber-100 text-lg max-w-xl">{ar ? "اشترك الآن واربح 3 أضعاف قيمة فواتيرك كاش باك، والمزيد من المزايا الحصرية!" : "Subscribe now to earn 3x cashback on all your invoices, plus more exclusive benefits!"}</p>
+        </div>
+      </div>
+
+      {currentPlan === "pro" ? (
+        <div className="card-elevated p-8 space-y-6 border-2 border-amber-400">
+          <div className="flex items-center gap-3 text-amber-600">
+            <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <h2 className="text-xl font-bold">{ar ? "أنت مشترك حالياً في برو" : "You are currently subscribed to Pro"}</h2>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div className="bg-surface-50 p-4 rounded-xl border border-surface-100">
+              <div className="text-sm text-surface-500 mb-1">{ar ? "طريقة الدفع" : "Payment Plan"}</div>
+              <div className="font-bold text-surface-900 capitalize">{paymentType}</div>
+            </div>
+            <div className="bg-surface-50 p-4 rounded-xl border border-surface-100">
+              <div className="text-sm text-surface-500 mb-1">{ar ? "ينتهي في" : "Expires At"}</div>
+              <div className="font-bold text-surface-900">{expiresAt ? new Date(expiresAt).toLocaleDateString() : "—"}</div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 gap-6 relative">
+          <div className={`card-elevated p-6 cursor-pointer border-2 transition-all ${option === "monthly" ? "border-amber-500 shadow-glow-lg ring-4 ring-amber-500/20" : "border-transparent hover:border-amber-200"}`} onClick={() => setOption("monthly")}>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-surface-900">{ar ? "دفع شهري" : "Monthly Plan"}</h3>
+                <p className="text-sm text-surface-500">{ar ? "يُجدد كل شهر" : "Billed monthly"}</p>
+              </div>
+              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${option === "monthly" ? "border-amber-500 bg-amber-500" : "border-surface-300"}`}>
+                {option === "monthly" && <div className="w-2 h-2 bg-white rounded-full"></div>}
+              </div>
+            </div>
+            <div className="text-3xl font-black text-amber-600 mb-4">12.5 <span className="text-lg font-bold text-amber-700/70">KWD / mo</span></div>
+            <ul className="space-y-3 text-sm text-surface-700 font-medium">
+              <li className="flex items-center gap-2"><span>✅</span> {ar ? "3 أضعاف كاش باك الفواتير" : "3x Invoice Cashback"}</li>
+              <li className="flex items-center gap-2"><span>✅</span> {ar ? "أولوية الدعم الفني" : "Priority Support"}</li>
+            </ul>
+          </div>
+
+          <div className={`card-elevated p-6 cursor-pointer border-2 transition-all ${option === "advance" ? "border-amber-500 shadow-glow-lg ring-4 ring-amber-500/20" : "border-transparent hover:border-amber-200"}`} onClick={() => setOption("advance")}>
+            <div className="absolute top-0 right-6 -translate-y-1/2 bg-gradient-to-r from-brand-pink-500 to-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">
+              {ar ? "مُوصى به" : "Recommended"}
+            </div>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-xl font-bold text-surface-900">{ar ? "دفع 3 أشهر مقدماً" : "3-Months Advance"}</h3>
+                <p className="text-sm text-surface-500">{ar ? "ادفع لثلاثة أشهر مرة واحدة" : "Pay for 3 months upfront"}</p>
+              </div>
+              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${option === "advance" ? "border-amber-500 bg-amber-500" : "border-surface-300"}`}>
+                {option === "advance" && <div className="w-2 h-2 bg-white rounded-full"></div>}
+              </div>
+            </div>
+            <div className="text-3xl font-black text-amber-600 mb-4">37.5 <span className="text-lg font-bold text-amber-700/70">KWD / 3mo</span></div>
+            <ul className="space-y-3 text-sm text-surface-700 font-medium">
+              <li className="flex items-center gap-2"><span>✅</span> {ar ? "3 أضعاف كاش باك الفواتير" : "3x Invoice Cashback"}</li>
+              <li className="flex items-center gap-2"><span>✅</span> {ar ? "أولوية الدعم الفني" : "Priority Support"}</li>
+              <li className="flex items-center gap-2"><span>✅</span> {ar ? "راحة بال لثلاثة أشهر" : "Peace of mind for 3 months"}</li>
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {currentPlan !== "pro" && (
+        <div className="bg-surface-50 border border-surface-200 rounded-2xl p-6 text-center space-y-4">
+          <p className="text-sm text-surface-600 font-medium">{ar ? "ملاحظة: الاشتراك يتطلب التزام لمدة 3 أشهر كحد أدنى." : "Note: Subscription requires a minimum 3-month commitment."}</p>
+          <button disabled={busy} onClick={subscribe} className="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-glow-lg px-12 py-4 rounded-full text-white font-bold text-lg w-full md:w-auto">
+            {busy ? (ar ? "جاري الدفع..." : "Processing...") : (ar ? `تأكيد الدفع والتسجيل (${option === "monthly" ? "12.5" : "37.5"} د.ك)` : `Confirm & Pay (${option === "monthly" ? "12.5" : "37.5"} KWD)`)}
+          </button>
         </div>
       )}
     </div>
@@ -1374,6 +1484,7 @@ export default function CustomerDashboard() {
               { key: "store", label: ar() ? "تصفح العضويات" : "Memberships", icon: CustomerIcons.offers },
               { key: "my-purchases", label: ar() ? "حجوزاتي" : "Bookings", icon: CustomerIcons.wallet },
               { key: "wallet", label: ar() ? "المحفظة" : "Wallet", icon: CustomerIcons.card },
+              { key: "subscription", label: ar() ? "الاشتراك" : "Subscription", icon: <span className="text-xl leading-none">👑</span> },
               { key: "profile", label: ar() ? "حسابي" : "Profile", icon: CustomerIcons.profile },
             ].map(tab => (
               <button
@@ -3384,6 +3495,9 @@ export default function CustomerDashboard() {
                 getAuthHeader={getAuthHeader} 
                 ar={ar()} 
                 isPro={cardData?.card?.belmondoPlan === "pro"} 
+                onContactCS={() => {
+                  setActiveTab("subscription");
+                }}
               />
             </section>
           )}
@@ -3559,6 +3673,16 @@ export default function CustomerDashboard() {
               </div>
             </section>
           )}
+
+          {activeTab === "subscription" && (
+            <SubscriptionPage 
+              getAuthHeader={getAuthHeader}
+              ar={ar()}
+              currentPlan={cardData?.card?.belmondoPlan}
+              expiresAt={cardData?.card?.belmondoProExpiresAt}
+              paymentType={cardData?.card?.belmondoProPaymentType}
+            />
+          )}
         </div>
       </main>
 
@@ -3569,6 +3693,7 @@ export default function CustomerDashboard() {
           { key: "store", label: ar() ? "العضويات" : "Memberships", icon: CustomerIcons.offers },
           { key: "my-purchases", label: ar() ? "حجوزاتي" : "Bookings", icon: CustomerIcons.wallet },
           { key: "wallet", label: ar() ? "محفظة" : "Wallet", icon: CustomerIcons.card },
+          { key: "subscription", label: ar() ? "اشتراك" : "Pro", icon: <span className="text-xl">👑</span> },
           { key: "profile", label: ar() ? "حسابي" : "Profile", icon: CustomerIcons.profile },
         ].map(tab => (
           <button

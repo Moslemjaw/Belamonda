@@ -430,6 +430,41 @@ usersRouter.get("/me", authRequired, async (req, res, next) => {
   }
 });
 
+usersRouter.post("/me/subscription", authRequired, async (req, res, next) => {
+  try {
+    const { paymentOption } = req.body;
+    if (paymentOption !== "monthly" && paymentOption !== "advance") {
+      return res.status(400).json({ error: "Invalid payment option" });
+    }
+
+    const monthsToAdd = paymentOption === "advance" ? 3 : 1;
+    const expiresAt = new Date();
+    expiresAt.setMonth(expiresAt.getMonth() + monthsToAdd);
+
+    const commitmentEndsAt = new Date();
+    commitmentEndsAt.setMonth(commitmentEndsAt.getMonth() + 3);
+
+    const user = await UserModel.findByIdAndUpdate(
+      req.auth!.userId,
+      {
+        $set: {
+          belmondoPlan: "pro",
+          belmondoProPaymentType: paymentOption,
+          belmondoProExpiresAt: expiresAt,
+          belmondoProCommitmentEndsAt: commitmentEndsAt
+        }
+      },
+      { new: true }
+    );
+
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    res.json({ success: true, user });
+  } catch (e) {
+    next(e);
+  }
+});
+
 usersRouter.patch("/me", authRequired, async (req, res, next) => {
   try {
     const parsed = z
