@@ -31,7 +31,6 @@ const SubmitKycSchema = z.object({
   civilIdNumber: z.string().regex(/^\d{12}$/),
   civilIdFrontRef: z.string().min(1),
   civilIdBackRef: z.string().min(1),
-  signatureRef: z.string().min(1),
   checkboxes: CheckboxesSchema
 });
 
@@ -53,14 +52,12 @@ kycRouter.post("/submit", authRequired, async (req, res, next) => {
     // Upload to Cloudinary if they are base64
     const frontUrl = await uploadToCloudinary(parsed.data.civilIdFrontRef);
     const backUrl = await uploadToCloudinary(parsed.data.civilIdBackRef);
-    const sigUrl = await uploadToCloudinary(parsed.data.signatureRef);
 
     const submission = await kycStore.createSubmission({ 
       userId: req.auth!.userId, 
       civilIdNumber: parsed.data.civilIdNumber,
       civilIdFrontRef: frontUrl,
       civilIdBackRef: backUrl,
-      signatureRef: sigUrl,
       checkboxes: parsed.data.checkboxes 
     });
     notifyKycSubmitted(req.auth!.userId);

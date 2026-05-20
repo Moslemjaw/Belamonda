@@ -102,7 +102,7 @@ export function createApp() {
       credentials: true
     })
   );
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "50mb" }));
 
   // Static-serve chat upload directory.
   app.use(

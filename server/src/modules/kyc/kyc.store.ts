@@ -67,7 +67,6 @@ export const kycStore = {
     civilIdNumber: string;
     civilIdFrontRef: string;
     civilIdBackRef: string;
-    signatureRef: string;
     checkboxes: KycCheckboxes;
   }) {
     const doc = await KycSubmissionModel.create({
@@ -76,7 +75,6 @@ export const kycStore = {
       civilIdNumberMasked: maskCivilId(input.civilIdNumber),
       civilIdFrontRef: input.civilIdFrontRef,
       civilIdBackRef: input.civilIdBackRef,
-      signatureRef: input.signatureRef,
       checkboxes: input.checkboxes
     });
 

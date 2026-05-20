@@ -447,7 +447,6 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
     civilId: "",
     civilIdFront: "",
     civilIdBack: "",
-    signature: "",
     terms1: false,
     terms2: false,
     terms3: false,
@@ -484,7 +483,6 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
           civilIdNumber: form.civilId || "290100000012",
           civilIdFrontRef: form.civilIdFront || "front.png",
           civilIdBackRef: form.civilIdBack || "back.png",
-          signatureRef: form.signature || "sig.png",
           checkboxes: { termsAndConditions: true, dataPrivacyConsent: true, serviceLiabilityWaiver: true, age18Plus: true, paymentTermsAcknowledgment: true },
         }),
       });
@@ -575,19 +573,9 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
               <div className="w-16 h-16 bg-brand-pink-100 text-brand-pink-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               </div>
-              <h2 className="text-xl font-bold text-surface-900">{ar() ? "الإقرار والتوقيع" : "Digital Signature & Terms"}</h2>
-              <p className="text-sm text-surface-500 mt-1">{ar() ? "يرجى إرفاق صورة التوقيع والموافقة على الشروط" : "Please attach your signature and agree to the terms"}</p>
+              <h2 className="text-xl font-bold text-surface-900">{ar() ? "الإقرار والشروط" : "Terms & Conditions"}</h2>
+              <p className="text-sm text-surface-500 mt-1">{ar() ? "يرجى الموافقة على الشروط" : "Please agree to the terms"}</p>
             </div>
-            
-            <label className="block border-2 border-dashed border-brand-pink-200 bg-brand-pink-50/30 rounded-2xl p-6 text-center cursor-pointer hover:bg-brand-pink-50 transition-colors relative overflow-hidden group mb-4">
-              <input type="file" accept="image/*" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, 'signature')} />
-              {form.signature ? (
-                <img src={form.signature} alt="Signature" className="w-full h-24 object-contain rounded-lg mb-2" />
-              ) : (
-                <span className="text-2xl mb-2 block">✍️</span>
-              )}
-              <span className="text-xs font-semibold text-brand-pink-600">{ar() ? "رفع التوقيع" : "Upload Signature"}</span>
-            </label>
             
             <div className="bg-white rounded-2xl p-5 shadow-sm border border-surface-200 space-y-4">
               <label className="flex items-start gap-3 cursor-pointer">
@@ -604,8 +592,8 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
               </label>
             </div>
 
-            <button className="btn-primary w-full btn-lg" onClick={submitKyc} disabled={submitting || !form.signature}>
-              {submitting ? (ar() ? "جاري الإرسال..." : "Submitting...") : (ar() ? "اعتماد وإرسال" : "Sign & Submit")}
+            <button className="btn-primary w-full btn-lg" onClick={submitKyc} disabled={submitting}>
+              {submitting ? (ar() ? "جاري الإرسال..." : "Submitting...") : (ar() ? "اعتماد وإرسال" : "Submit")}
             </button>
           </div>
         )}

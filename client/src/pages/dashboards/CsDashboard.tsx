@@ -148,10 +148,6 @@ function KycQueue() {
                   <img src={viewingKyc.civilIdBackRef} alt="Civil ID Back" className="w-full h-auto rounded-lg shadow-sm" />
                 </div>
               </div>
-              <div className="bg-surface-50 p-4 rounded-2xl border border-surface-100 max-w-sm mx-auto">
-                <h4 className="text-sm font-bold text-surface-700 mb-3 text-center">{ar() ? "التوقيع" : "Signature"}</h4>
-                <img src={viewingKyc.signatureRef} alt="Signature" className="w-full h-auto rounded-lg shadow-sm bg-white" />
-              </div>
             </div>
             <div className="px-6 pb-6 pt-4 border-t border-surface-100 shrink-0 flex gap-3">
               <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm" onClick={() => setViewingKyc(null)}>{ar() ? "إغلاق" : "Close"}</button>
