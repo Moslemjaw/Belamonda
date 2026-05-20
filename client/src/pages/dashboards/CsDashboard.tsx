@@ -2402,63 +2402,65 @@ function CustomersManager() {
         </div>
       ) : (
         <div className="card-elevated overflow-hidden">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{ar() ? "الاسم" : "Name"}</th>
-                <th>{ar() ? "الرقم" : "Phone/Contact"}</th>
-                <th>{ar() ? "الصلاحية" : "Role"}</th>
-                <th>{ar() ? "الحالة" : "Status"}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {usersLoading ? (
-                <tr><td colSpan={5} className="py-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</td></tr>
-              ) : filtered.map((u: any) => {
-                const name = getDisplayName(u);
-                const status = getStatus(u);
-                return (
-                  <tr key={u.id}>
-                    <td className="font-medium">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-brand-pink-50 flex items-center justify-center text-xs font-bold text-brand-pink-600 flex-shrink-0">
-                          {name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <div>{name}</div>
-                          <div className="flex flex-col gap-0.5 text-xs text-surface-400">
-                            {u.email && <span>{u.email}</span>}
-                            {u.civilIdNumberMasked && (
-                              <span className="font-mono text-[11px] text-surface-500">
-                                {ar() ? "المدني: " : "Civil ID: "}{u.civilIdNumberMasked}
-                              </span>
-                            )}
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{ar() ? "الاسم" : "Name"}</th>
+                  <th>{ar() ? "الرقم" : "Phone/Contact"}</th>
+                  <th>{ar() ? "الصلاحية" : "Role"}</th>
+                  <th>{ar() ? "الحالة" : "Status"}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {usersLoading ? (
+                  <tr><td colSpan={5} className="py-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</td></tr>
+                ) : filtered.map((u: any) => {
+                  const name = getDisplayName(u);
+                  const status = getStatus(u);
+                  return (
+                    <tr key={u.id}>
+                      <td className="font-medium">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-brand-pink-50 flex items-center justify-center text-xs font-bold text-brand-pink-600 flex-shrink-0">
+                            {name.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <div>{name}</div>
+                            <div className="flex flex-col gap-0.5 text-xs text-surface-400">
+                              {u.email && <span>{u.email}</span>}
+                              {u.civilIdNumberMasked && (
+                                <span className="font-mono text-[11px] text-surface-500">
+                                  {ar() ? "المدني: " : "Civil ID: "}{u.civilIdNumberMasked}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td>{u.phone || "—"}</td>
-                    <td><span className="badge-sage">Customer</span></td>
-                    <td><span className={getStatusBadge(status)}>{status}</span></td>
-                    <td className="text-right">
-                      <button className="text-brand-pink-600 hover:text-brand-pink-800 font-medium text-sm px-4 py-1.5 bg-brand-pink-50 rounded-lg transition-colors hover:bg-brand-pink-100"
-                        onClick={() => handleManage(u)}>
-                        {ar() ? "إدارة" : "Manage"}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {!usersLoading && filtered.length === 0 && (
-                <tr><td colSpan={5}><div className="empty-state">
-                  <div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></div>
-                  <div className="empty-state-title">{ar() ? "لا يوجد عملاء" : "No customers found"}</div>
-                  <div className="empty-state-sub">{ar() ? "جربي تعديل الفلاتر أو البحث." : "Try adjusting your filters or search."}</div>
-                </div></td></tr>
-              )}
-            </tbody>
-          </table>
+                      </td>
+                      <td>{u.phone || "—"}</td>
+                      <td><span className="badge-sage">Customer</span></td>
+                      <td><span className={getStatusBadge(status)}>{status}</span></td>
+                      <td className="text-right">
+                        <button className="text-brand-pink-600 hover:text-brand-pink-800 font-medium text-sm px-4 py-1.5 bg-brand-pink-50 rounded-lg transition-colors hover:bg-brand-pink-100"
+                          onClick={() => handleManage(u)}>
+                          {ar() ? "إدارة" : "Manage"}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {!usersLoading && filtered.length === 0 && (
+                  <tr><td colSpan={5}><div className="empty-state">
+                    <div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></div>
+                    <div className="empty-state-title">{ar() ? "لا يوجد عملاء" : "No customers found"}</div>
+                    <div className="empty-state-sub">{ar() ? "جربي تعديل الفلاتر أو البحث." : "Try adjusting your filters or search."}</div>
+                  </div></td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
@@ -2734,7 +2736,7 @@ function EFormsViewer() {
   const fetchSubmissions = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch("/eforms/admin/submissions", { headers: getAuthHeader() });
+      const res = await apiFetch("/eforms/admin/submissions", { headers: getAuthHeader() }) as any;
       setSubmissions(res.items || []);
     } catch (e: any) { console.error(e); }
     finally { setLoading(false); }
@@ -2861,7 +2863,7 @@ function InvoiceReviews() {
 
   const fetchItems = async () => {
     try {
-      const res = await apiFetch("/cashback-requests/legal/queue", { headers: getAuthHeader() });
+      const res = await apiFetch("/cashback-requests/legal/queue", { headers: getAuthHeader() }) as any;
       setItems(res.items || []);
     } catch (e) {}
     setLoading(false);
@@ -2943,7 +2945,7 @@ function InvoiceReviews() {
 }
 
 function SubscriptionRequests() {
-  const { data, mutate } = useApi<{ items: any[] }>("/subscription-requests?status=pending");
+  const { data, refetch: mutate } = useApi<{ items: any[] }>("/subscription-requests?status=pending");
   const { getAuthHeader } = useAuth();
   const [busy, setBusy] = useState<string|null>(null);
 
@@ -3172,15 +3174,17 @@ export default function CsDashboard() {
         {activeNav === "complaints" && (
           <div className="card-elevated overflow-hidden">
             <div className="p-5"><h3 className="text-base font-bold text-surface-900">{ar() ? "الشكاوى" : "Complaints"}</h3></div>
-            <table className="data-table">
-              <thead><tr><th>{ar() ? "الموضوع" : "Subject"}</th><th>{ar() ? "الفئة" : "Category"}</th><th>{ar() ? "الحالة" : "Status"}</th><th>{ar() ? "التاريخ" : "Date"}</th></tr></thead>
-              <tbody>
-                {(complaintsData?.items || []).map((c: any) => (
-                  <tr key={c.id}><td className="font-medium">{c.subject}</td><td><span className="badge-sage">{c.category}</span></td><td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{c.status}</span></td><td className="text-xs">{new Date(c.createdAt).toLocaleDateString()}</td></tr>
-                ))}
-                {(complaintsData?.items || []).length === 0 && <tr><td colSpan={4}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div className="empty-state-title">{ar() ? "لا شكاوى" : "No complaints"}</div><div className="empty-state-sub">{ar() ? "لم يتم تسجيل شكاوى ضمن هذه الفترة." : "No complaints logged in this period."}</div></div></td></tr>}
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="data-table">
+                <thead><tr><th>{ar() ? "الموضوع" : "Subject"}</th><th>{ar() ? "الفئة" : "Category"}</th><th>{ar() ? "الحالة" : "Status"}</th><th>{ar() ? "التاريخ" : "Date"}</th></tr></thead>
+                <tbody>
+                  {(complaintsData?.items || []).map((c: any) => (
+                    <tr key={c.id}><td className="font-medium">{c.subject}</td><td><span className="badge-sage">{c.category}</span></td><td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{c.status}</span></td><td className="text-xs">{new Date(c.createdAt).toLocaleDateString()}</td></tr>
+                  ))}
+                  {(complaintsData?.items || []).length === 0 && <tr><td colSpan={4}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div className="empty-state-title">{ar() ? "لا شكاوى" : "No complaints"}</div><div className="empty-state-sub">{ar() ? "لم يتم تسجيل شكاوى ضمن هذه الفترة." : "No complaints logged in this period."}</div></div></td></tr>}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
         {activeNav === "profile" && (

@@ -1063,30 +1063,32 @@ function SessionsManager() {
                   + {ar() ? "إضافة عيادة" : "Add Clinic"}
                 </button>
               </div>
-              <table className="data-table">
-                <thead><tr><th>{ar() ? "العيادة" : "Clinic"}</th><th>{ar() ? "السعر الأصلي" : "Original Price"}</th><th>{ar() ? "خصم الكاش باك" : "Cashback Deduction"}</th><th>{ar() ? "نمط الحجز" : "Booking Mode"}</th><th></th></tr></thead>
-                <tbody>
-                  {items.map((s: any) => (
-                    <tr key={s.id}>
-                      <td className="text-surface-700 font-medium">
-                        <span title={s.clinicId}>{resolveClinicName(s.clinicId)}</span>
-                      </td>
-                      <td className="text-brand-pink-600 font-bold">{s.priceKwd || "0.000"} KWD</td>
-                      <td className="text-blue-600 font-bold">{s.cashbackDeductionKwd || "0.000"} KWD</td>
-                      <td>
-                        {s.bookingMode === 'clinic_handles'
-                          ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">🏥 {ar() ? "العيادة تجدول" : "Clinic Schedules"}</span>
-                          : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-brand-pink-100 text-brand-pink-700">🎧 {ar() ? "بيلاموندو" : "Belamonda CS"}</span>
-                        }
-                      </td>
-                      <td className="text-right flex gap-2 justify-end">
-                        <button className="text-brand-pink-600 hover:text-brand-pink-800 text-sm font-bold bg-brand-pink-50 px-3 py-1 rounded-lg" onClick={() => editSession(s)}>{ar() ? "تعديل" : "Edit"}</button>
-                        <button className="text-red-500 hover:text-red-700 text-sm font-bold bg-red-50 px-3 py-1 rounded-lg" onClick={() => void deleteSession(s.id)}>{ar() ? "حذف" : "Delete"}</button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="overflow-x-auto">
+                <table className="data-table">
+                  <thead><tr><th>{ar() ? "العيادة" : "Clinic"}</th><th>{ar() ? "السعر الأصلي" : "Original Price"}</th><th>{ar() ? "خصم الكاش باك" : "Cashback Deduction"}</th><th>{ar() ? "نمط الحجز" : "Booking Mode"}</th><th></th></tr></thead>
+                  <tbody>
+                    {items.map((s: any) => (
+                      <tr key={s.id}>
+                        <td className="text-surface-700 font-medium">
+                          <span title={s.clinicId}>{resolveClinicName(s.clinicId)}</span>
+                        </td>
+                        <td className="text-brand-pink-600 font-bold">{s.priceKwd || "0.000"} KWD</td>
+                        <td className="text-blue-600 font-bold">{s.cashbackDeductionKwd || "0.000"} KWD</td>
+                        <td>
+                          {s.bookingMode === 'clinic_handles'
+                            ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-700">🏥 {ar() ? "العيادة تجدول" : "Clinic Schedules"}</span>
+                            : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-brand-pink-100 text-brand-pink-700">🎧 {ar() ? "بيلاموندو" : "Belamonda CS"}</span>
+                          }
+                        </td>
+                        <td className="text-right flex gap-2 justify-end">
+                          <button className="text-brand-pink-600 hover:text-brand-pink-800 text-sm font-bold bg-brand-pink-50 px-3 py-1 rounded-lg" onClick={() => editSession(s)}>{ar() ? "تعديل" : "Edit"}</button>
+                          <button className="text-red-500 hover:text-red-700 text-sm font-bold bg-red-50 px-3 py-1 rounded-lg" onClick={() => void deleteSession(s.id)}>{ar() ? "حذف" : "Delete"}</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           );
         })}
@@ -1415,26 +1417,28 @@ function TasksManager() {
       )}
 
       <div className="card-elevated overflow-hidden">
-        <table className="data-table">
-          <thead><tr><th></th><th>{ar() ? "العنوان" : "Title"}</th><th>{ar() ? "الجهة المكلفة" : "Assigned To"}</th><th>{ar() ? "الحالة" : "Status"}</th><th>{ar() ? "الموعد" : "Due"}</th></tr></thead>
-          <tbody>
-            {(data?.items || []).map((t: any) => (
-              <tr key={t.id} className="hover:bg-surface-50 transition-colors">
-                <td className="w-8"><div className={priorityColors[t.priority] || "priority-green"} /></td>
-                <td className="font-bold text-surface-800">{t.title}</td>
-                <td>
-                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-100 text-surface-700 text-xs font-medium">
-                     <svg className="w-3.5 h-3.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                     {(t.assignedDepartments || []).join(", ").toUpperCase()}
-                   </div>
-                </td>
-                <td><span className={t.status === "completed" ? "badge-green" : t.status === "in_progress" ? "badge-yellow" : "badge-gray"}>{t.status}</span></td>
-                <td className="text-xs text-surface-500 font-medium">{new Date(t.dueDate).toLocaleDateString()}</td>
-              </tr>
-            ))}
-            {(data?.items || []).length === 0 && <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></div><div className="empty-state-title">{ar() ? "لا توجد مهام حالية" : "No active tasks"}</div><div className="empty-state-sub">{ar() ? "لا توجد مهام تتطلب اهتمامك الآن." : "All caught up — nothing to action right now."}</div></div></td></tr>}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="data-table">
+            <thead><tr><th></th><th>{ar() ? "العنوان" : "Title"}</th><th>{ar() ? "الجهة المكلفة" : "Assigned To"}</th><th>{ar() ? "الحالة" : "Status"}</th><th>{ar() ? "الموعد" : "Due"}</th></tr></thead>
+            <tbody>
+              {(data?.items || []).map((t: any) => (
+                <tr key={t.id} className="hover:bg-surface-50 transition-colors">
+                  <td className="w-8"><div className={priorityColors[t.priority] || "priority-green"} /></td>
+                  <td className="font-bold text-surface-800">{t.title}</td>
+                  <td>
+                     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-100 text-surface-700 text-xs font-medium">
+                       <svg className="w-3.5 h-3.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                       {(t.assignedDepartments || []).join(", ").toUpperCase()}
+                     </div>
+                  </td>
+                  <td><span className={t.status === "completed" ? "badge-green" : t.status === "in_progress" ? "badge-yellow" : "badge-gray"}>{t.status}</span></td>
+                  <td className="text-xs text-surface-500 font-medium">{new Date(t.dueDate).toLocaleDateString()}</td>
+                </tr>
+              ))}
+              {(data?.items || []).length === 0 && <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></div><div className="empty-state-title">{ar() ? "لا توجد مهام حالية" : "No active tasks"}</div><div className="empty-state-sub">{ar() ? "لا توجد مهام تتطلب اهتمامك الآن." : "All caught up — nothing to action right now."}</div></div></td></tr>}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -1446,15 +1450,17 @@ function ComplaintsView() {
     <div>
       <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "الشكاوى" : "Complaints"}</h3>
       <div className="card-elevated overflow-hidden">
-        <table className="data-table">
-          <thead><tr><th>{ar() ? "الموضوع" : "Subject"}</th><th>{ar() ? "الفئة" : "Category"}</th><th>{ar() ? "الحالة" : "Status"}</th><th>{ar() ? "التاريخ" : "Date"}</th></tr></thead>
-          <tbody>
-            {(data?.items || []).map((c: any) => (
-              <tr key={c.id}><td className="font-medium">{c.subject}</td><td><span className="badge-sage">{c.category}</span></td><td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{c.status}</span></td><td className="text-xs">{new Date(c.createdAt).toLocaleDateString()}</td></tr>
-            ))}
-            {(data?.items || []).length === 0 && <tr><td colSpan={4}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div className="empty-state-title">{ar() ? "لا توجد شكاوى" : "No complaints"}</div><div className="empty-state-sub">{ar() ? "كل شيء على ما يرام." : "Everything looks healthy right now."}</div></div></td></tr>}
-          </tbody>
-        </table>
+        <div className="overflow-x-auto">
+          <table className="data-table">
+            <thead><tr><th>{ar() ? "الموضوع" : "Subject"}</th><th>{ar() ? "الفئة" : "Category"}</th><th>{ar() ? "الحالة" : "Status"}</th><th>{ar() ? "التاريخ" : "Date"}</th></tr></thead>
+            <tbody>
+              {(data?.items || []).map((c: any) => (
+                <tr key={c.id}><td className="font-medium">{c.subject}</td><td><span className="badge-sage">{c.category}</span></td><td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{c.status}</span></td><td className="text-xs">{new Date(c.createdAt).toLocaleDateString()}</td></tr>
+              ))}
+              {(data?.items || []).length === 0 && <tr><td colSpan={4}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div className="empty-state-title">{ar() ? "لا توجد شكاوى" : "No complaints"}</div><div className="empty-state-sub">{ar() ? "كل شيء على ما يرام." : "Everything looks healthy right now."}</div></div></td></tr>}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
@@ -2563,70 +2569,72 @@ function UsersManager() {
         />
       ) : (
         <div className="card-elevated overflow-hidden">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{ar() ? "الاسم" : "Name"}</th>
-                <th>{ar() ? "الرقم" : "Phone/Contact"}</th>
-                <th>{ar() ? "الصلاحية" : "Role"}</th>
-                <th>{ar() ? "الحالة" : "Status"}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((u: any) => (
-                <tr key={u.id}>
-                  <td className="font-medium">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-brand-pink-50 flex items-center justify-center text-xs font-bold text-brand-pink-600">
-                        {(u.name ?? "?").charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <div>{u.fullName || u.username || u.phone}</div>
-                        {u.fullName && u.username && (
-                          <div className="text-[11px] text-surface-400">@{u.username}</div>
-                        )}
-                      </div>
-                    </div>
-                  </td>
-                  <td>{u.phone}</td>
-                  <td>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] ?? "bg-surface-100 text-surface-600"}`}>
-                      {u.role}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${u.kyc ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
-                      {u.kyc ? (ar() ? "نشط" : "Active") : (ar() ? "معطّل" : "Disabled")}
-                    </span>
-                  </td>
-                  <td className="text-right">
-                    <button
-                      className="text-brand-pink-600 hover:text-brand-pink-800 font-medium text-sm px-4 py-1.5 bg-brand-pink-50 rounded-lg transition-colors hover:bg-brand-pink-100"
-                      onClick={() => openUser(u)}
-                    >
-                      {ar() ? "إدارة" : "Manage"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
                 <tr>
-                  <td colSpan={5}>
-                    <div className="empty-state">
-                      <div className="empty-state-icon">
-                        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
-                        </svg>
-                      </div>
-                      <div className="empty-state-title">{ar() ? "لا يوجد مستخدمين" : "No users found"}</div>
-                      <div className="empty-state-sub">{ar() ? "جربي تعديل الفلاتر أو البحث." : "Try adjusting your filters or search."}</div>
-                    </div>
-                  </td>
+                  <th>{ar() ? "الاسم" : "Name"}</th>
+                  <th>{ar() ? "الرقم" : "Phone/Contact"}</th>
+                  <th>{ar() ? "الصلاحية" : "Role"}</th>
+                  <th>{ar() ? "الحالة" : "Status"}</th>
+                  <th></th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtered.map((u: any) => (
+                  <tr key={u.id}>
+                    <td className="font-medium">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-brand-pink-50 flex items-center justify-center text-xs font-bold text-brand-pink-600">
+                          {(u.name ?? "?").charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div>{u.fullName || u.username || u.phone}</div>
+                          {u.fullName && u.username && (
+                            <div className="text-[11px] text-surface-400">@{u.username}</div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td>{u.phone}</td>
+                    <td>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] ?? "bg-surface-100 text-surface-600"}`}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${u.kyc ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+                        {u.kyc ? (ar() ? "نشط" : "Active") : (ar() ? "معطّل" : "Disabled")}
+                      </span>
+                    </td>
+                    <td className="text-right">
+                      <button
+                        className="text-brand-pink-600 hover:text-brand-pink-800 font-medium text-sm px-4 py-1.5 bg-brand-pink-50 rounded-lg transition-colors hover:bg-brand-pink-100"
+                        onClick={() => openUser(u)}
+                      >
+                        {ar() ? "إدارة" : "Manage"}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={5}>
+                      <div className="empty-state">
+                        <div className="empty-state-icon">
+                          <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                          </svg>
+                        </div>
+                        <div className="empty-state-title">{ar() ? "لا يوجد مستخدمين" : "No users found"}</div>
+                        <div className="empty-state-sub">{ar() ? "جربي تعديل الفلاتر أو البحث." : "Try adjusting your filters or search."}</div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
           <div className="px-4 py-2 border-t border-surface-100 text-xs text-surface-400">
             {filtered.length} {ar() ? "مستخدم" : "user(s)"}{filterRole !== "all" || filterStatus !== "all" || search ? ` ${ar() ? "من" : "of"} ${users.length}` : ""}
           </div>

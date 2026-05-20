@@ -75,20 +75,20 @@
 @layer components {
   /* Glass morphism card */
   .glass-card {
-    @apply rounded-2xl border border-white/60 bg-white/80 shadow-card backdrop-blur-xl;
-    transition: box-shadow var(--transition), transform var(--transition);
+    @apply rounded-2xl border border-white/60 bg-white/80 shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_20px_-3px_rgba(0,0,0,0.02)] backdrop-blur-xl;
+    transition: all var(--transition);
   }
   .glass-card:hover {
-    @apply shadow-card-hover;
+    @apply shadow-[0_4px_6px_-1px_rgba(0,0,0,0.04),0_16px_28px_-4px_rgba(0,0,0,0.05)];
   }
 
   /* Premium elevated card */
   .card-elevated {
-    @apply rounded-2xl border border-surface-200/80 bg-white shadow-card;
+    @apply rounded-2xl border border-surface-200/50 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_20px_-3px_rgba(0,0,0,0.02)];
     transition: all var(--transition);
   }
   .card-elevated:hover {
-    @apply shadow-card-hover -translate-y-0.5;
+    @apply shadow-[0_4px_6px_-1px_rgba(0,0,0,0.04),0_16px_28px_-4px_rgba(0,0,0,0.05)] -translate-y-0.5;
   }
 
   /* Brand gradient backgrounds */
@@ -113,28 +113,29 @@
   /* Button base */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200;
-    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply focus:outline-none focus:ring-4 focus:ring-brand-pink-50;
     @apply disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply active:scale-[0.98];
   }
   .btn-primary {
-    @apply btn bg-brand-pink-400 text-white hover:bg-brand-pink-500 focus:ring-brand-pink-400;
-    box-shadow: 0 2px 8px rgba(245, 154, 185, 0.3);
+    @apply btn bg-brand-pink-400 text-white hover:bg-brand-pink-500;
+    box-shadow: 0 2px 8px rgba(245, 154, 185, 0.2);
   }
   .btn-primary:hover {
-    box-shadow: 0 4px 16px rgba(245, 154, 185, 0.4);
-    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(245, 154, 185, 0.3);
+    transform: translateY(-0.5px);
   }
   .btn-secondary {
-    @apply btn border border-surface-300 bg-white text-surface-700 hover:bg-surface-50 focus:ring-surface-400;
+    @apply btn border border-surface-200 bg-white text-surface-700 hover:bg-surface-50 hover:border-surface-300;
   }
   .btn-ghost {
-    @apply btn text-surface-600 hover:bg-surface-100 focus:ring-surface-400;
+    @apply btn text-surface-600 hover:bg-surface-50;
   }
   .btn-sage {
-    @apply btn bg-brand-sage-300 text-surface-800 hover:bg-brand-sage-400 focus:ring-brand-sage-300;
+    @apply btn bg-brand-sage-300 text-surface-800 hover:bg-brand-sage-400 focus:ring-brand-sage-100;
   }
   .btn-danger {
-    @apply btn bg-red-500 text-white hover:bg-red-600 focus:ring-red-500;
+    @apply btn bg-red-500 text-white hover:bg-red-600 focus:ring-red-100;
   }
   .btn-sm {
     @apply px-3.5 py-1.5 text-xs rounded-lg;
@@ -145,13 +146,13 @@
 
   /* Input styles */
   .input-field {
-    @apply w-full rounded-xl border border-surface-300 bg-white px-4 py-2.5 text-sm text-surface-900;
+    @apply w-full rounded-xl border border-surface-200 bg-white px-4 py-2.5 text-sm text-surface-900;
     @apply placeholder:text-surface-400;
-    @apply focus:border-brand-pink-400 focus:outline-none focus:ring-2 focus:ring-brand-pink-400/20;
+    @apply focus:border-brand-pink-400 focus:outline-none focus:ring-4 focus:ring-brand-pink-50;
     transition: all var(--transition);
   }
   .input-field:hover {
-    @apply border-surface-400;
+    @apply border-surface-300;
   }
 
   /* Select styles */
@@ -166,28 +167,28 @@
 
   /* Badge */
   .badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }
   .badge-pink {
-    @apply badge bg-brand-pink-100 text-brand-pink-700;
+    @apply badge bg-brand-pink-50 text-brand-pink-700 border border-brand-pink-100/50;
   }
   .badge-sage {
-    @apply badge bg-brand-sage-100 text-brand-sage-700;
+    @apply badge bg-brand-sage-50 text-brand-sage-800 border border-brand-sage-100/50;
   }
   .badge-green {
-    @apply badge bg-emerald-100 text-emerald-700;
+    @apply badge bg-emerald-50/60 text-emerald-700 border border-emerald-100/50;
   }
   .badge-red {
-    @apply badge bg-red-100 text-red-700;
+    @apply badge bg-red-50/60 text-red-700 border border-red-100/50;
   }
   .badge-yellow {
-    @apply badge bg-amber-100 text-amber-700;
+    @apply badge bg-amber-50/60 text-amber-800 border border-amber-100/50;
   }
   .badge-blue {
-    @apply badge bg-blue-100 text-blue-700;
+    @apply badge bg-blue-50/60 text-blue-700 border border-blue-100/50;
   }
   .badge-gray {
-    @apply badge bg-surface-200 text-surface-600;
+    @apply badge bg-surface-100 text-surface-600 border border-surface-200/50;
   }
 
   /* Stat card (KPI) */
@@ -195,49 +196,49 @@
     @apply card-elevated p-5;
   }
   .stat-card .stat-label {
-    @apply text-xs font-medium text-surface-500 uppercase tracking-wider;
+    @apply text-xs font-semibold text-surface-500 uppercase tracking-wider;
   }
   .stat-card .stat-value {
-    @apply mt-1.5 text-xl sm:text-2xl font-bold text-surface-900;
+    @apply mt-1.5 text-xl sm:text-2xl font-black text-surface-900;
   }
   .stat-card .stat-change {
-    @apply mt-1 text-xs font-medium;
+    @apply mt-1 text-xs font-semibold;
   }
 
   /* ── Enhanced KPI Tile (Promage-inspired, brand-coloured) ── */
   .kpi-tile {
-    @apply relative bg-white border border-surface-100 rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5 cursor-pointer overflow-hidden;
+    @apply relative bg-white border border-surface-200/50 rounded-2xl p-5 transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_20px_-3px_rgba(0,0,0,0.02)] hover:shadow-[0_4px_6px_-1px_rgba(0,0,0,0.04),0_16px_28px_-4px_rgba(0,0,0,0.05)] hover:-translate-y-0.5 cursor-pointer overflow-hidden;
   }
   .kpi-tile-icon {
     @apply w-12 h-12 rounded-2xl flex items-center justify-center mb-4 shrink-0;
   }
-  .kpi-tile-icon.pink   { @apply bg-brand-pink-100 text-brand-pink-600; }
-  .kpi-tile-icon.teal   { @apply bg-brand-sage-100 text-brand-sage-700; }
-  .kpi-tile-icon.amber  { @apply bg-amber-100 text-amber-600; }
-  .kpi-tile-icon.blue   { @apply bg-blue-100 text-blue-600; }
-  .kpi-tile-icon.violet { @apply bg-violet-100 text-violet-600; }
-  .kpi-tile-icon.rose   { @apply bg-rose-100 text-rose-600; }
-  .kpi-tile-icon.emerald{ @apply bg-emerald-100 text-emerald-600; }
+  .kpi-tile-icon.pink   { @apply bg-brand-pink-50 text-brand-pink-600 border border-brand-pink-100/50; }
+  .kpi-tile-icon.teal   { @apply bg-brand-sage-50 text-brand-sage-700 border border-brand-sage-100/50; }
+  .kpi-tile-icon.amber  { @apply bg-amber-50 text-amber-600 border border-amber-100/50; }
+  .kpi-tile-icon.blue   { @apply bg-blue-50 text-blue-600 border border-blue-100/50; }
+  .kpi-tile-icon.violet { @apply bg-violet-50 text-violet-600 border border-violet-100/50; }
+  .kpi-tile-icon.rose   { @apply bg-rose-50 text-rose-600 border border-rose-100/50; }
+  .kpi-tile-icon.emerald{ @apply bg-emerald-50 text-emerald-600 border border-emerald-100/50; }
   .kpi-tile-label {
-    @apply text-xs font-bold text-surface-500 uppercase tracking-wider;
+    @apply text-xs font-bold text-surface-400 uppercase tracking-wider;
   }
   .kpi-tile-value {
-    @apply mt-1 text-2xl sm:text-3xl font-black text-surface-900 leading-none;
+    @apply mt-1.5 text-2xl sm:text-3xl font-black text-surface-900 leading-none;
   }
   .kpi-tile-sub {
-    @apply mt-2 text-xs font-medium text-surface-400 flex items-center gap-1;
+    @apply mt-2 text-xs font-semibold text-surface-400 flex items-center gap-1.5;
   }
   .kpi-tile-trend-up   { @apply text-emerald-600; }
   .kpi-tile-trend-down { @apply text-rose-600; }
 
   /* Sidebar nav */
   .sidebar-link {
-    @apply relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium text-surface-600;
-    @apply hover:bg-brand-pink-50 hover:text-brand-pink-700;
+    @apply relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-surface-600;
+    @apply hover:bg-brand-pink-50/40 hover:text-brand-pink-700;
     transition: all var(--transition);
   }
   .sidebar-link.active {
-    @apply bg-brand-pink-50 text-brand-pink-700 font-bold shadow-sm;
+    @apply bg-brand-pink-50/60 text-brand-pink-700 font-black shadow-sm;
   }
   .sidebar-link.active::before {
     content: '';
@@ -246,22 +247,35 @@
 
   /* Table */
   .data-table {
-    @apply w-full text-sm;
+    @apply w-full text-sm border-collapse;
+    min-width: 540px;
   }
   .data-table thead th {
-    @apply border-b border-surface-200 bg-surface-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-surface-500;
+    @apply border-b border-surface-100 bg-surface-50/50 px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-surface-500 whitespace-nowrap;
   }
   html[dir="rtl"] .data-table thead th {
     @apply text-right;
   }
   .data-table tbody td {
-    @apply border-b border-surface-100 px-4 py-3.5 text-surface-700;
+    @apply border-b border-surface-100/60 px-5 py-4 text-surface-700 font-medium;
   }
   .data-table tbody tr {
     transition: background var(--transition);
   }
   .data-table tbody tr:hover {
-    @apply bg-surface-50;
+    @apply bg-surface-50/30;
+  }
+  /* Mobile: tighter padding so tables feel less cramped in scroll containers */
+  @media (max-width: 767px) {
+    .data-table thead th {
+      @apply px-3 py-2.5 text-[10px];
+    }
+    .data-table tbody td {
+      @apply px-3 py-3 text-xs;
+    }
+    .data-table {
+      min-width: 480px;
+    }
   }
 
   /* Priority dots */
@@ -354,13 +368,13 @@
 
   /* Mobile content switchers (wallet/profile/purchases + shell mobile nav) */
   .mobile-switcher {
-    @apply flex items-center gap-1 bg-white border border-surface-200 rounded-2xl p-1 shadow-sm overflow-x-auto max-w-full no-scrollbar;
+    @apply flex items-center gap-0.5 bg-surface-100/80 border border-surface-200/40 rounded-[14px] p-1 overflow-x-auto max-w-full no-scrollbar;
   }
   .mobile-switcher-btn {
-    @apply px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 sm:gap-1.5 text-surface-600 hover:text-brand-pink-600 hover:bg-brand-pink-50;
+    @apply px-3 py-1.5 rounded-[10px] text-[11px] sm:text-xs font-semibold whitespace-nowrap transition-all duration-200 flex items-center gap-1 sm:gap-1.5 text-surface-600 active:scale-98;
   }
   .mobile-switcher-btn.active {
-    @apply bg-brand-pink-500 text-white shadow-sm;
+    @apply bg-white text-surface-900 border border-surface-200/50 shadow-[0_1px_2px_rgba(0,0,0,0.05)] font-bold;
   }
 
   /* Premium membership card — editorial */
@@ -528,5 +542,79 @@
   .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+
+  /* ── Mobile-first responsive helpers ── */
+
+  /* Scroll-snap for horizontal tab bars on mobile */
+  .scroll-snap-x {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scroll-snap-x > * {
+    scroll-snap-align: center;
+  }
+
+  /* Subtle scroll fade indicator for overflow-x-auto containers */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Touch-friendly tap targets */
+  @media (max-width: 767px) {
+    .card-elevated {
+      @apply rounded-xl;
+    }
+    .btn {
+      @apply py-3 text-sm;
+      min-height: 44px;
+    }
+    .btn-sm {
+      @apply py-2;
+      min-height: 36px;
+    }
+    .icon-btn {
+      @apply h-10 w-10;
+    }
+    .input-field, .select-field {
+      @apply py-3 text-sm;
+      min-height: 44px;
+    }
+    .badge {
+      @apply text-[10px] px-2 py-0.5;
+    }
+    .kpi-tile {
+      @apply p-4;
+    }
+    .kpi-tile-icon {
+      @apply w-10 h-10 mb-3 rounded-xl;
+    }
+    .kpi-tile-value {
+      @apply text-xl;
+    }
+    .stat-card {
+      @apply p-4;
+    }
+    .stat-card .stat-value {
+      @apply text-lg;
+    }
+    .empty-state {
+      @apply py-8 px-4;
+    }
+    .empty-state-icon {
+      @apply w-12 h-12;
+    }
+    /* Queue row mobile touch targets */
+    .queue-row {
+      @apply py-3;
+    }
+  }
+
+  /* Modal responsive: full-screen on mobile */
+  @media (max-width: 639px) {
+    .modal-content {
+      @apply rounded-t-2xl rounded-b-none max-h-[95vh] w-full max-w-full;
+      margin-top: auto;
+    }
   }
 }

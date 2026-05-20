@@ -154,6 +154,73 @@ function NotificationPanel({
   );
 }
 
+const getGroupForNavItem = (key: string, role: string, isAr: boolean): { name: string; order: number } => {
+  if (role === "admin") {
+    if (key === "home") return { name: isAr ? "نظرة عامة" : "Overview", order: 1 };
+    if (["offers", "categories", "treatments", "standalone"].includes(key)) {
+      return { name: isAr ? "إدارة الكتالوج" : "Catalog Management", order: 2 };
+    }
+    if (["users", "clinics", "bookings", "reservations"].includes(key)) {
+      return { name: isAr ? "العمليات والحجوزات" : "Operations & Bookings", order: 3 };
+    }
+    if (["eforms", "notices", "complaints", "share", "tasks", "audit"].includes(key)) {
+      return { name: isAr ? "الأدوات والتدقيق" : "Tools & Audits", order: 4 };
+    }
+    if (["settings", "notifications_settings"].includes(key)) {
+      return { name: isAr ? "التفضيلات" : "Preferences", order: 5 };
+    }
+  }
+
+  if (role === "cs") {
+    if (key === "home") return { name: isAr ? "نظرة عامة" : "Overview", order: 1 };
+    if (["customers", "memberships", "clinic_changes", "scheduling", "chat"].includes(key)) {
+      return { name: isAr ? "خدمات العملاء" : "Customer Services", order: 2 };
+    }
+    if (["payments", "invoice_reviews", "sub_requests"].includes(key)) {
+      return { name: isAr ? "المالية" : "Financials", order: 3 };
+    }
+    if (["kyc", "eforms"].includes(key)) {
+      return { name: isAr ? "القانونية والتحقق" : "Legal & KYC", order: 4 };
+    }
+    if (["complaints", "profile"].includes(key)) {
+      return { name: isAr ? "الحساب" : "Account", order: 5 };
+    }
+  }
+
+  if (role === "clinicStaff" || role === "clinic") {
+    if (key === "home") return { name: isAr ? "نظرة عامة" : "Overview", order: 1 };
+    if (["scanner", "requests", "schedule", "chat"].includes(key)) {
+      return { name: isAr ? "الخدمات" : "Services", order: 2 };
+    }
+    if (["invoices", "reports", "performance"].includes(key)) {
+      return { name: isAr ? "المالية والتقارير" : "Financials & Reports", order: 3 };
+    }
+    if (["profile"].includes(key)) {
+      return { name: isAr ? "الحساب" : "Account", order: 4 };
+    }
+  }
+
+  if (role === "finance") {
+    if (key === "home") return { name: isAr ? "نظرة عامة" : "Overview", order: 1 };
+    if (["payments", "invoices", "credit", "installments", "sub_requests", "relief", "manual"].includes(key)) {
+      return { name: isAr ? "المالية" : "Financials", order: 2 };
+    }
+    if (["clinics", "users", "customers", "analytics", "reports"].includes(key)) {
+      return { name: isAr ? "النظام والتقارير" : "System & Reports", order: 3 };
+    }
+    if (["profile"].includes(key)) {
+      return { name: isAr ? "الحساب" : "Account", order: 4 };
+    }
+  }
+
+  // Fallback for customer dashboard or other roles
+  if (key === "home") return { name: isAr ? "نظرة عامة" : "Overview", order: 1 };
+  if (["wallet", "appointments", "sessions"].includes(key)) {
+    return { name: isAr ? "الخدمات" : "Services", order: 2 };
+  }
+  return { name: isAr ? "أخرى" : "General", order: 99 };
+};
+
 export default function DashboardShell({
   navItems,
   activeKey,
@@ -216,6 +283,22 @@ export default function DashboardShell({
     clinicStaff: isAr ? "العيادة" : "Clinic Staff",
   };
 
+  // Grouping logic for navigation
+  const userRole = auth?.role || "";
+  const groupedItems: Record<string, { order: number; items: typeof navItems }> = {};
+  
+  navItems.forEach((item) => {
+    const groupInfo = getGroupForNavItem(item.key, userRole, isAr);
+    if (!groupedItems[groupInfo.name]) {
+      groupedItems[groupInfo.name] = { order: groupInfo.order, items: [] };
+    }
+    groupedItems[groupInfo.name].items.push(item);
+  });
+
+  const sortedGroupNames = Object.keys(groupedItems).sort(
+    (a, b) => groupedItems[a].order - groupedItems[b].order
+  );
+
   return (
     <div className="flex h-[100dvh] max-h-[100dvh] overflow-hidden bg-surface-50 text-[15px] lg:text-base">
       {/* Mobile overlay */}
@@ -240,19 +323,28 @@ export default function DashboardShell({
         </div>
 
         {/* Nav items */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {navItems.map((item) => (
-            <button
-              key={item.key}
-              onClick={() => {
-                onNavigate(item.key);
-                setSidebarOpen(false);
-              }}
-              className={`sidebar-link w-full ${activeKey === item.key ? "active" : ""}`}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </button>
+        <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-6">
+          {sortedGroupNames.map((groupName) => (
+            <div key={groupName} className="space-y-1.5">
+              <h3 className="px-3 text-[10px] font-bold text-surface-400 uppercase tracking-widest">
+                {groupName}
+              </h3>
+              <div className="space-y-0.5">
+                {groupedItems[groupName].items.map((item) => (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      onNavigate(item.key);
+                      setSidebarOpen(false);
+                    }}
+                    className={`sidebar-link w-full ${activeKey === item.key ? "active" : ""}`}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 

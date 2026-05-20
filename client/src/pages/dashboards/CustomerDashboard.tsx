@@ -689,7 +689,7 @@ function InvoiceUploader({ getAuthHeader, ar, isPro, onContactCS }: { getAuthHea
   
   const fetchHistory = async () => {
     try {
-      const res = await apiFetch("/cashback-requests/me", { headers: getAuthHeader() });
+      const res = await apiFetch("/cashback-requests/me", { headers: getAuthHeader() }) as any;
       if (res.items) setHistory(res.items);
     } catch (e) {}
   };
@@ -847,7 +847,7 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
 
   const fetchRequests = async () => {
     try {
-      const res = await apiFetch("/users/me/subscription", { headers: getAuthHeader() });
+      const res = await apiFetch("/users/me/subscription", { headers: getAuthHeader() }) as any;
       if (res.items) setRequests(res.items);
     } catch (e) {}
   };
@@ -1020,7 +1020,7 @@ export default function CustomerDashboard() {
   const { data: walletData, loading: wLoading } = useWallet({ lazy: activeTab !== "overview" && activeTab !== "wallet" && activeTab !== "my-purchases" });
   const { data: offersData, refetch: refetchMyOffers } = useMyOffers({ lazy: activeTab !== "overview" && activeTab !== "my-purchases" && activeTab !== "store" });
   const { data: reservationsData, refetch: refetchReservations } = useApi<{ items: any[] }>(activeTab === "my-purchases" ? "/checkout/me/reservations" : null, { deps: [activeTab] });
-  const { data: cardData, loading: cardLoading, error: cardError } = useApi<{ card: { displayName: string; memberSince: string | null; kycVerified: boolean; civilIdNumberMasked?: string | null; belmondoPlan?: string; belmondoProExpiresAt?: string | null; activeOffers: Array<{ offerId: string; offerName: string | null; activatedAt: string | null; expiresAt: string | null; sessionsUsed: number }>; activeSessionCount: number; recentSessions: Array<{ scheduledAt: string; status: string; completedAt: string | null }>; cashbackUnlockedKwd: string; cashbackLockedKwd: string; publicToken: string | undefined } }>(activeTab === "wallet" || activeTab === "overview" ? "/public/me/card" : null, { deps: [activeTab] });
+  const { data: cardData, loading: cardLoading, error: cardError } = useApi<{ card: { displayName: string; memberSince: string | null; kycVerified: boolean; civilIdNumberMasked?: string | null; belmondoPlan?: string; belmondoProExpiresAt?: string | null; belmondoProPaymentType?: string; activeOffers: Array<{ offerId: string; offerName: string | null; activatedAt: string | null; expiresAt: string | null; sessionsUsed: number }>; activeSessionCount: number; recentSessions: Array<{ scheduledAt: string; status: string; completedAt: string | null }>; cashbackUnlockedKwd: string; cashbackLockedKwd: string; publicToken: string | undefined } }>(activeTab === "wallet" || activeTab === "overview" ? "/public/me/card" : null, { deps: [activeTab] });
   const { data: sessionsData, refetch: refetchMySessions } = useApi<{ items: any[] }>(activeTab === "my-purchases" || activeTab === "overview" ? "/scheduling/me/sessions" : null, { deps: [activeTab] });
   const { data: myComplaintsData, refetch: refetchMyComplaints } = useApi<{ items: any[] }>(activeTab === "profile" ? "/complaints/me" : null, { deps: [activeTab] });
   const { data: notifData } = useNotifications({ lazy: activeTab !== "profile" });
@@ -3740,24 +3740,30 @@ export default function CustomerDashboard() {
       </main>
 
       {/* Mobile Bottom Tab Bar */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-surface-200 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] px-2 flex justify-around items-center z-40 shadow-lg supports-[backdrop-filter]:bg-white/85">
+      <nav className="lg:hidden fixed bottom-4 inset-x-4 bg-white/90 backdrop-blur-md border border-surface-200/50 rounded-2xl py-2 px-1 flex justify-around items-center z-40 shadow-[0_8px_30px_rgba(0,0,0,0.06)] backdrop-filter supports-[backdrop-filter]:bg-white/80">
         {[
-          { key: "overview", label: ar() ? "رئيسية" : "Home", icon: CustomerIcons.home },
+          { key: "overview", label: ar() ? "الرئيسية" : "Home", icon: CustomerIcons.home },
           { key: "store", label: ar() ? "العضويات" : "Memberships", icon: CustomerIcons.offers },
           { key: "my-purchases", label: ar() ? "حجوزاتي" : "Bookings", icon: CustomerIcons.wallet },
-          { key: "wallet", label: ar() ? "محفظة" : "Wallet", icon: CustomerIcons.card },
-          { key: "subscription", label: ar() ? "اشتراك" : "Pro", icon: <span className="text-xl">👑</span> },
+          { key: "wallet", label: ar() ? "المحفظة" : "Wallet", icon: CustomerIcons.card },
+          { key: "subscription", label: ar() ? "برو" : "Pro", icon: <span className="text-lg">👑</span> },
           { key: "profile", label: ar() ? "حسابي" : "Profile", icon: CustomerIcons.profile },
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 min-w-0 transition-colors ${activeTab === tab.key ? "text-brand-pink-500" : "text-surface-400"}`}
-          >
-            {tab.icon}
-            <span className="text-[9px] sm:text-[10px] font-medium leading-none">{tab.label}</span>
-          </button>
-        ))}
+        ].map(tab => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1.5 min-w-0 transition-all duration-200 active:scale-95 ${isActive ? "text-brand-pink-500 font-bold" : "text-surface-400 hover:text-surface-600"}`}
+            >
+              <div className={`transition-transform duration-200 ${isActive ? "scale-110" : "scale-100"}`}>
+                {tab.icon}
+              </div>
+              <span className="text-[9px] font-medium leading-none tracking-tight">{tab.label}</span>
+              <span className={`w-1 h-1 mt-0.5 rounded-full bg-brand-pink-500 transition-all duration-200 ${isActive ? "scale-100 opacity-100" : "scale-0 opacity-0"}`} />
+            </button>
+          );
+        })}
       </nav>
 
       {/* Package Checkout Modal */}
