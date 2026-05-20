@@ -736,7 +736,33 @@ commerceRouter.post("/admin/user-offers/:uoId/change-clinic", authRequired, requ
 commerceRouter.get("/admin/user-offers", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
   try {
     const items = await userOfferService.listAllUserOffers();
-    return res.json({ items });
+
+    const userIds = [...new Set(items.map((i) => i.userId).filter(Boolean))].filter((id) => mongoose.isValidObjectId(id));
+    const clinicIds = [...new Set(items.map((i) => i.clinicId).filter(Boolean))].filter((id) => mongoose.isValidObjectId(id));
+
+    const [users, clinics] = await Promise.all([
+      UserModel.find({ _id: { $in: userIds } }).select("fullName username email phone").lean(),
+      ClinicModel.find({ _id: { $in: clinicIds } }).select("nameEn nameAr").lean(),
+    ]);
+
+    const userMap = Object.fromEntries(users.map((u: any) => [u._id.toString(), u]));
+    const clinicMap = Object.fromEntries(clinics.map((c: any) => [c._id.toString(), c]));
+
+    const enriched = items.map((item) => {
+      const user: any = userMap[item.userId] || {};
+      const clinic: any = clinicMap[item.clinicId] || {};
+
+      return {
+        ...item,
+        userName: user.fullName || user.username || item.userId,
+        userPhone: user.phone || undefined,
+        userEmail: user.email || undefined,
+        clinicNameEn: clinic.nameEn || undefined,
+        clinicNameAr: clinic.nameAr || undefined,
+      };
+    });
+
+    return res.json({ items: enriched });
   } catch (e) {
     next(e);
   }

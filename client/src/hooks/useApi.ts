@@ -187,6 +187,12 @@ export function usePendingPayments(opts?: { lazy?: boolean }) {
   }>("/payments/cs/pending", opts);
 }
 
+export function useAdminUserOffers(opts?: { lazy?: boolean }) {
+  return useApi<{
+    items: Array<any>;
+  }>("/commerce/admin/user-offers", opts);
+}
+
 export function useNotifications(opts?: { lazy?: boolean }) {
   return useApi<{
     inbox: Array<{
