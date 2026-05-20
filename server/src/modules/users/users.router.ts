@@ -28,6 +28,10 @@ interface UserLean {
   createdAt?: Date;
   updatedAt?: Date;
   civilIdNumberMasked?: string;
+  belmondoPlan?: "basic" | "pro";
+  belmondoProExpiresAt?: Date;
+  belmondoProCommitmentEndsAt?: Date;
+  belmondoProPaymentType?: "monthly" | "advance";
 }
 
 interface ReferrerLean {
@@ -226,6 +230,10 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
         role: user.role,
         isActive: user.isActive !== false,
         createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : undefined,
+        belmondoPlan: user.belmondoPlan ?? "basic",
+        belmondoProExpiresAt: user.belmondoProExpiresAt ? new Date(user.belmondoProExpiresAt).toISOString() : undefined,
+        belmondoProCommitmentEndsAt: user.belmondoProCommitmentEndsAt ? new Date(user.belmondoProCommitmentEndsAt).toISOString() : undefined,
+        belmondoProPaymentType: user.belmondoProPaymentType
       },
       wallet: walletItem,
       kyc: kycItem,
@@ -656,3 +664,77 @@ usersRouter.patch("/admin/:id", authRequired, requireRole(["admin"]), async (req
     next(e);
   }
 });
+
+usersRouter.patch("/admin/:id/subscription", authRequired, requireRole(["admin", "cs"]), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "INVALID_ID" });
+
+    const parsed = z.object({
+      plan: z.enum(["basic", "pro"]),
+      paymentOption: z.enum(["monthly", "advance"]).optional(),
+      method: z.enum(["bank_transfer", "cash", "pos", "enet", "wallet", "other"]).optional()
+    }).safeParse(req.body);
+
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    
+    const { plan, paymentOption, method } = parsed.data;
+
+    const user = await UserModel.findById(id).lean<UserLean>();
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    if (plan === "pro") {
+      if (!paymentOption) return res.status(400).json({ error: "Payment option is required for Pro plan." });
+      if (!method) return res.status(400).json({ error: "Payment method is required." });
+
+      const amountKwd = paymentOption === "monthly" ? "12.500" : "37.500";
+      const now = new Date();
+      const expiresAt = new Date(now);
+      if (paymentOption === "monthly") {
+        expiresAt.setMonth(expiresAt.getMonth() + 1);
+      } else {
+        expiresAt.setMonth(expiresAt.getMonth() + 3);
+      }
+      
+      const commitmentEndsAt = new Date(now);
+      commitmentEndsAt.setMonth(commitmentEndsAt.getMonth() + 3);
+
+      // Create payment ledger record
+      await PaymentModel.create({
+        userId: id,
+        amountKwd,
+        grossAmountKwd: amountKwd,
+        cashbackAppliedKwd: "0.000",
+        method,
+        purpose: "manual_entry",
+        manualLabel: "Belmondo Pro Subscription",
+        status: "completed",
+        provider: "manual",
+        isManual: true,
+        confirmedBy: req.auth!.userId,
+        confirmedAt: now,
+        createdByUserId: req.auth!.userId
+      });
+
+      const updated = await UserModel.findByIdAndUpdate(id, {
+        belmondoPlan: "pro",
+        belmondoProPaymentType: paymentOption,
+        belmondoProExpiresAt: expiresAt,
+        belmondoProCommitmentEndsAt: commitmentEndsAt
+      }, { new: true }).lean<UserLean>();
+
+      return res.json({ success: true, user: updated });
+    } else {
+      // Downgrade to basic
+      const updated = await UserModel.findByIdAndUpdate(id, {
+        belmondoPlan: "basic",
+        $unset: { belmondoProPaymentType: "", belmondoProExpiresAt: "", belmondoProCommitmentEndsAt: "" }
+      }, { new: true }).lean<UserLean>();
+
+      return res.json({ success: true, user: updated });
+    }
+  } catch (e) {
+    next(e);
+  }
+});
+

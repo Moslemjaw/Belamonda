@@ -1357,6 +1357,32 @@ function CustomersManager() {
     }
   };
 
+  const [belmondoSaving, setBelmondoSaving] = useState(false);
+  const [belmondoPaymentOption, setBelmondoPaymentOption] = useState<"monthly"|"advance">("monthly");
+  const [belmondoPaymentMethod, setBelmondoPaymentMethod] = useState<string>("pos");
+
+  const handleUpdateSubscription = async (downgrade = false) => {
+    if (!selectedUser) return;
+    setBelmondoSaving(true);
+    try {
+      const body = downgrade ? { plan: "basic" } : {
+        plan: "pro",
+        paymentOption: belmondoPaymentOption,
+        method: belmondoPaymentMethod
+      };
+      await apiFetch(`/users/admin/${selectedUser.id}/subscription`, {
+        method: "PATCH",
+        headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      await handleManage(selectedUser);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setBelmondoSaving(false);
+    }
+  };
+
   const handleAdjustSessions = async (membershipId: string, delta: number) => {
     if (!selectedUser) return;
     setSessionAdjustingId(membershipId + (delta > 0 ? "_inc" : "_dec"));
@@ -1513,6 +1539,59 @@ function CustomersManager() {
                           </div>
                         ))}
                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Belmondo Subscription Card */}
+              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300 mb-6">
+                <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100 flex items-center gap-2">
+                  <span className="text-xl">💎</span>
+                  {ar() ? "اشتراك بيلاموندو" : "Belmondo Subscription"}
+                </h4>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-surface-700">{ar() ? "الخطة الحالية:" : "Current Plan:"}</span>
+                    {profile?.user?.belmondoPlan === "pro" ? (
+                      <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">Belmondo Pro</span>
+                    ) : (
+                      <span className="bg-surface-100 text-surface-600 text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">Basic</span>
+                    )}
+                  </div>
+                  
+                  {profile?.user?.belmondoPlan === "pro" ? (
+                    <div className="bg-amber-50 rounded-xl p-3 border border-amber-100 text-sm space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-amber-800">{ar() ? "طريقة الدفع:" : "Payment:"}</span>
+                        <span className="font-semibold text-amber-900 capitalize">{profile.user.belmondoProPaymentType}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-amber-800">{ar() ? "ينتهي في:" : "Expires At:"}</span>
+                        <span className="font-semibold text-amber-900">{profile.user.belmondoProExpiresAt ? new Date(profile.user.belmondoProExpiresAt).toLocaleDateString() : "—"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-amber-800">{ar() ? "نهاية الالتزام:" : "Commitment Ends:"}</span>
+                        <span className="font-semibold text-amber-900">{profile.user.belmondoProCommitmentEndsAt ? new Date(profile.user.belmondoProCommitmentEndsAt).toLocaleDateString() : "—"}</span>
+                      </div>
+                      <div className="pt-2 border-t border-amber-200/50 mt-2 flex gap-2">
+                        <button disabled={belmondoSaving} onClick={() => { setBelmondoPaymentOption("monthly"); handleUpdateSubscription(); }} className="btn-primary flex-1 btn-sm bg-amber-500 hover:bg-amber-600 text-xs border-none shadow-sm">{ar() ? "تجديد / تسجيل دفعة" : "Renew / Record Payment"}</button>
+                        <button disabled={belmondoSaving} onClick={() => handleUpdateSubscription(true)} className="btn-secondary flex-1 btn-sm text-xs text-red-500 hover:bg-red-50 border border-red-200">{ar() ? "إلغاء برو" : "Cancel Pro"}</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <select className="input-field text-sm bg-surface-50" value={belmondoPaymentOption} onChange={e => setBelmondoPaymentOption(e.target.value as any)}>
+                        <option value="monthly">{ar() ? "دفع شهري (12.5 د.ك)" : "Monthly (12.5 KWD)"}</option>
+                        <option value="advance">{ar() ? "دفع 3 أشهر مقدماً (37.5 د.ك)" : "3-Months Advance (37.5 KWD)"}</option>
+                      </select>
+                      <select className="input-field text-sm bg-surface-50" value={belmondoPaymentMethod} onChange={e => setBelmondoPaymentMethod(e.target.value)}>
+                        <option value="pos">POS</option>
+                        <option value="cash">Cash</option>
+                        <option value="bank_transfer">Bank Transfer</option>
+                      </select>
+                      <button disabled={belmondoSaving} onClick={() => handleUpdateSubscription()} className="btn-primary w-full bg-gradient-to-r from-amber-500 to-amber-600 border-none shadow-sm text-sm">{ar() ? "تفعيل بيلاموندو برو" : "Activate Belmondo Pro"}</button>
                     </div>
                   )}
                 </div>
@@ -2773,6 +2852,96 @@ function EFormsViewer() {
   );
 }
 
+function InvoiceReviews() {
+  const { getAuthHeader } = useAuth();
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const fetchItems = async () => {
+    try {
+      const res = await apiFetch("/cashback-requests/legal/queue", { headers: getAuthHeader() });
+      setItems(res.items || []);
+    } catch (e) {}
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchItems(); }, []);
+
+  const handleAction = async (id: string, action: "approve" | "reject") => {
+    if (action === "reject" && !rejectReason) return alert(ar() ? "يرجى كتابة سبب الرفض" : "Rejection reason required");
+    try {
+      await apiFetch(`/cashback-requests/legal/${id}/${action}`, {
+        method: "POST",
+        headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+        body: action === "reject" ? JSON.stringify({ reason: rejectReason }) : undefined
+      });
+      setSelectedId(null);
+      setRejectReason("");
+      fetchItems();
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
+  if (loading) return <div className="text-center py-12">Loading queue...</div>;
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-surface-900">{ar() ? "مراجعة فواتير الكاش باك" : "Invoice Cashback Reviews"}</h3>
+      </div>
+      
+      {items.length === 0 ? (
+        <div className="card-elevated p-12 text-center text-surface-500">{ar() ? "لا توجد طلبات فواتير معلقة" : "No pending invoice requests."}</div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {items.map(req => (
+            <div key={req.id} className="card-elevated p-4 flex flex-col gap-4 relative">
+              <a href={req.invoiceImageRef} target="_blank" rel="noreferrer" className="w-full h-48 bg-surface-100 rounded-xl overflow-hidden block group">
+                <img src={req.invoiceImageRef} alt="Invoice" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <div className="absolute top-6 right-6 bg-black/50 backdrop-blur text-white text-xs px-2 py-1 rounded-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                  {ar() ? "اضغط للتكبير" : "Click to enlarge"}
+                </div>
+              </a>
+              <div>
+                <div className="flex justify-between items-end mb-2">
+                  <div className="text-sm text-surface-500">{ar() ? "قيمة الفاتورة:" : "Invoice Amount:"}</div>
+                  <div className="font-bold text-surface-900">{req.invoiceAmountKwd} KWD</div>
+                </div>
+                <div className="flex justify-between items-end bg-amber-50 p-2.5 rounded-xl border border-amber-100 shadow-inner">
+                  <div className="text-sm font-bold text-amber-800">{ar() ? "مكافأة الكاش باك (3x):" : "Cashback Reward (3x):"}</div>
+                  <div className="font-black text-amber-600 text-lg">{req.cashbackAmountKwd} KWD</div>
+                </div>
+                <div className="text-xs text-surface-400 mt-3">{ar() ? "تاريخ الطلب:" : "Submitted:"} {new Date(req.createdAt).toLocaleString()}</div>
+                <div className="text-xs text-surface-400">{ar() ? "رقم المستخدم:" : "User ID:"} <span className="font-mono">{req.userId}</span></div>
+              </div>
+              
+              <div className="pt-4 border-t border-surface-100 space-y-3 mt-auto">
+                {selectedId === req.id ? (
+                  <div className="space-y-2 animate-fade-in">
+                    <input type="text" className="input-field text-sm" placeholder={ar() ? "سبب الرفض..." : "Rejection Reason..."} value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
+                    <div className="flex gap-2">
+                      <button onClick={() => handleAction(req.id, "reject")} className="btn-primary flex-1 btn-sm bg-red-500 hover:bg-red-600 border-none shadow-sm">{ar() ? "تأكيد الرفض" : "Confirm Reject"}</button>
+                      <button onClick={() => { setSelectedId(null); setRejectReason(""); }} className="btn-secondary flex-1 btn-sm text-surface-500">{ar() ? "إلغاء" : "Cancel"}</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={() => handleAction(req.id, "approve")} className="btn-primary flex-1 btn-sm bg-emerald-500 hover:bg-emerald-600 border-none shadow-sm">{ar() ? "موافقة" : "Approve"}</button>
+                    <button onClick={() => setSelectedId(req.id)} className="btn-secondary flex-1 btn-sm text-red-500 hover:bg-red-50 border border-red-200">{ar() ? "رفض" : "Reject"}</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CsDashboard() {
   const { t } = useTranslation();
   const { auth } = useAuth();
@@ -2795,6 +2964,7 @@ export default function CsDashboard() {
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
     ...(isLegalOrAdmin ? [{ key: "kyc", icon: Icons.shield, label: t("kyc") }] : []),
+    ...(isLegalOrAdmin ? [{ key: "invoice_reviews", icon: Icons.cash, label: ar() ? "مراجعة الفواتير" : "Invoice Reviews" }] : []),
     ...(isLegalOrAdmin ? [{ key: "eforms", icon: Icons.clipboard, label: ar() ? "النماذج الإلكترونية" : "eForms" }] : []),
     { key: "payments", icon: Icons.cash, label: t("payments") },
     { key: "customers", icon: Icons.users, label: ar() ? "العملاء" : "Customers" },
@@ -2876,6 +3046,7 @@ export default function CsDashboard() {
           </>
         )}
         {activeNav === "kyc" && isLegalOrAdmin && <KycQueue />}
+        {activeNav === "invoice_reviews" && isLegalOrAdmin && <InvoiceReviews />}
         {activeNav === "eforms" && isLegalOrAdmin && <EFormsViewer />}
         {activeNav === "payments" && <PaymentsManager />}
         {activeNav === "memberships" && <CustomerMemberships onTransfer={(id, clinicId) => {

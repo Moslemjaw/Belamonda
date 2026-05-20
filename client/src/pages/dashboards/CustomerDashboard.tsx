@@ -680,6 +680,152 @@ function MyFormsSection() {
   );
 }
 
+function InvoiceUploader({ getAuthHeader, ar, isPro }: { getAuthHeader: () => Record<string, string> | undefined; ar: boolean; isPro: boolean }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [success, setSuccess] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  
+  const fetchHistory = async () => {
+    try {
+      const res = await apiFetch("/cashback-requests/me", { headers: getAuthHeader() });
+      if (res.items) setHistory(res.items);
+    } catch (e) {}
+  };
+  
+  useEffect(() => {
+    if (isPro) fetchHistory();
+  }, [isPro]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const toBase64 = (f: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(f);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+  });
+
+  const submit = async () => {
+    if (!file || !amount) return alert(ar ? "يرجى إرفاق الفاتورة وكتابة القيمة" : "Please attach the invoice and enter the amount");
+    setBusy(true);
+    try {
+      const b64 = await toBase64(file);
+      await apiFetch("/cashback-requests/submit", {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ invoiceAmountKwd: amount, invoiceImageBase64: b64 })
+      });
+      setSuccess(true);
+      setFile(null);
+      setAmount("");
+      fetchHistory();
+      setTimeout(() => setSuccess(false), 5000);
+    } catch (e: any) {
+      alert(e.message || (ar ? "حدث خطأ" : "An error occurred"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <h2 className="text-xl font-bold text-surface-900">{ar ? "مسح الفواتير" : "Scan Your Invoices"}</h2>
+        <p className="text-sm text-surface-500 mt-1">{ar ? "اربح كاش باك 3 أضعاف قيمة فواتيرك مع بيلاموندو برو." : "Earn 3x cashback on your invoices with Belmondo Pro."}</p>
+      </div>
+
+      {isPro ? (
+        <>
+          <div className="card-elevated p-6 space-y-6">
+            <div className="bg-amber-50 text-amber-900 p-4 rounded-xl text-sm border border-amber-100 flex items-start gap-3">
+              <span className="text-xl">✨</span>
+              <div>
+                <strong>{ar ? "ميزة حصرية لـ Belmondo Pro" : "Pro Exclusive Feature"}</strong>
+                <p className="opacity-90 mt-1">{ar ? "ارفع فاتورتك وسيقوم فريقنا بمراجعتها لإضافة الكاش باك لمحفظتك!" : "Upload your invoice and our team will review it to add cashback to your wallet!"}</p>
+              </div>
+            </div>
+            
+            {success && (
+              <div className="bg-green-50 text-green-700 p-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                {ar ? "تم رفع الفاتورة بنجاح! سيتم مراجعتها قريباً." : "Invoice uploaded successfully! It will be reviewed soon."}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <label className="block border-2 border-dashed border-surface-200 rounded-2xl p-8 text-center hover:border-amber-400 transition-colors cursor-pointer bg-surface-50">
+                <input type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleFileChange} />
+                <div className="w-16 h-16 bg-white rounded-full shadow-sm flex items-center justify-center mx-auto mb-4 text-2xl text-amber-500">
+                  {file ? "✅" : "📸"}
+                </div>
+                <h3 className="font-bold text-surface-900 mb-1">
+                  {file ? file.name : (ar ? "اضغط لرفع صورة الفاتورة" : "Click to upload invoice photo")}
+                </h3>
+                <p className="text-xs text-surface-500">{ar ? "JPEG, PNG, الحد الأقصى 5MB" : "JPEG, PNG, Max 5MB"}</p>
+              </label>
+            </div>
+            
+            <div className="space-y-4">
+               <label className="block text-sm font-bold text-surface-900">{ar ? "قيمة الفاتورة (د.ك)" : "Invoice Amount (KWD)"}</label>
+               <input type="number" step="0.001" min="0" className="input-modern" placeholder={ar ? "مثال: 25.500" : "e.g. 25.500"} value={amount} onChange={e => setAmount(e.target.value)} />
+            </div>
+            
+            <button onClick={submit} disabled={busy || !file || !amount} className="btn-primary w-full shadow-glow-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 disabled:opacity-50">
+              {busy ? (ar ? "جاري الرفع..." : "Uploading...") : (ar ? "إرسال للمراجعة" : "Submit for Review")}
+            </button>
+          </div>
+
+          {history.length > 0 && (
+            <div>
+              <h3 className="font-bold text-surface-900 mb-4 px-2">{ar ? "سجل طلبات الكاش باك" : "Cashback Request History"}</h3>
+              <div className="space-y-3">
+                {history.map(req => (
+                  <div key={req.id} className="card-elevated p-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <a href={req.invoiceImageRef} target="_blank" rel="noreferrer" className="w-12 h-12 bg-surface-100 rounded-lg overflow-hidden shrink-0 border border-surface-200 block">
+                        <img src={req.invoiceImageRef} alt="Invoice" className="w-full h-full object-cover" />
+                      </a>
+                      <div>
+                        <div className="font-bold text-surface-900">{req.invoiceAmountKwd} KWD</div>
+                        <div className="text-xs text-surface-500">{new Date(req.createdAt).toLocaleDateString()}</div>
+                      </div>
+                    </div>
+                    <div className="text-right flex flex-col items-end">
+                      <div className="text-sm font-bold text-amber-600">{ar ? "+ كاش باك" : "+ Cashback"} {req.cashbackAmountKwd} KWD</div>
+                      {req.status === "pending" && <span className="text-xs px-2 py-0.5 mt-1 bg-orange-100 text-orange-700 rounded-full font-medium">{ar ? "قيد المراجعة" : "Pending"}</span>}
+                      {req.status === "accepted" && <span className="text-xs px-2 py-0.5 mt-1 bg-green-100 text-green-700 rounded-full font-medium">{ar ? "مقبول" : "Accepted"}</span>}
+                      {req.status === "rejected" && <span className="text-xs px-2 py-0.5 mt-1 bg-red-100 text-red-700 rounded-full font-medium">{ar ? "مرفوض" : "Rejected"}</span>}
+                      {req.status === "rejected" && req.rejectionReason && <div className="text-[10px] text-red-500 mt-1 max-w-[120px] truncate" title={req.rejectionReason}>{req.rejectionReason}</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="card-elevated p-8 text-center space-y-6 overflow-hidden relative mt-4">
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none"></div>
+          <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-3xl mx-auto flex items-center justify-center text-white text-3xl shadow-glow-lg transform -rotate-6">
+            💎
+          </div>
+          <div className="relative z-10">
+            <h3 className="text-2xl font-black text-surface-900 mb-2">{ar ? "خاصية مقفلة" : "Premium Feature"}</h3>
+            <p className="text-surface-600 mb-6 max-w-sm mx-auto">{ar ? "هذه الخاصية حصرية لمشتركي بيلاموندو برو. اشترك الآن واربح 3 أضعاف قيمة فواتيرك كاش باك!" : "This feature is exclusive to Belmondo Pro members. Upgrade now to earn 3x cashback on all your invoices!"}</p>
+            <button className="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-glow-lg px-8 py-3 rounded-full text-white font-bold">{ar ? "تواصل معنا للترقية" : "Contact CS to Upgrade"}</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CustomerDashboard() {
   const queryParams = new URLSearchParams(window.location.search);
   const urlInviteCode = queryParams.get("inviteCode");
@@ -688,7 +834,7 @@ export default function CustomerDashboard() {
   const { auth, logout, getAuthHeader } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [purchasesSubTab, setPurchasesSubTab] = useState<"packages" | "chat" | "reservations">("packages");
-  const [walletSubTab, setWalletSubTab] = useState<"cashback" | "history" | "card">("cashback");
+  const [walletSubTab, setWalletSubTab] = useState<"cashback" | "history" | "card" | "invoices">("cashback");
   const [profileSubTab, setProfileSubTab] = useState<"settings" | "forms" | "notifications" | "share" | "complaints">("settings");
   const [showKyc, setShowKyc] = useState(false);
   const [chatConvId, setChatConvId] = useState<string | undefined>(undefined);
@@ -711,7 +857,7 @@ export default function CustomerDashboard() {
   const { data: walletData, loading: wLoading } = useWallet({ lazy: activeTab !== "overview" && activeTab !== "wallet" && activeTab !== "my-purchases" });
   const { data: offersData, refetch: refetchMyOffers } = useMyOffers({ lazy: activeTab !== "overview" && activeTab !== "my-purchases" && activeTab !== "store" });
   const { data: reservationsData, refetch: refetchReservations } = useApi<{ items: any[] }>(activeTab === "my-purchases" ? "/checkout/me/reservations" : null, { deps: [activeTab] });
-  const { data: cardData, loading: cardLoading, error: cardError } = useApi<{ card: { displayName: string; memberSince: string | null; kycVerified: boolean; civilIdNumberMasked?: string | null; activeOffers: Array<{ offerId: string; offerName: string | null; activatedAt: string | null; expiresAt: string | null; sessionsUsed: number }>; activeSessionCount: number; recentSessions: Array<{ scheduledAt: string; status: string; completedAt: string | null }>; cashbackUnlockedKwd: string; cashbackLockedKwd: string; publicToken: string | undefined } }>(activeTab === "wallet" || activeTab === "overview" ? "/public/me/card" : null, { deps: [activeTab] });
+  const { data: cardData, loading: cardLoading, error: cardError } = useApi<{ card: { displayName: string; memberSince: string | null; kycVerified: boolean; civilIdNumberMasked?: string | null; belmondoPlan?: string; belmondoProExpiresAt?: string | null; activeOffers: Array<{ offerId: string; offerName: string | null; activatedAt: string | null; expiresAt: string | null; sessionsUsed: number }>; activeSessionCount: number; recentSessions: Array<{ scheduledAt: string; status: string; completedAt: string | null }>; cashbackUnlockedKwd: string; cashbackLockedKwd: string; publicToken: string | undefined } }>(activeTab === "wallet" || activeTab === "overview" ? "/public/me/card" : null, { deps: [activeTab] });
   const { data: sessionsData, refetch: refetchMySessions } = useApi<{ items: any[] }>(activeTab === "my-purchases" || activeTab === "overview" ? "/scheduling/me/sessions" : null, { deps: [activeTab] });
   const { data: myComplaintsData, refetch: refetchMyComplaints } = useApi<{ items: any[] }>(activeTab === "profile" ? "/complaints/me" : null, { deps: [activeTab] });
   const { data: notifData } = useNotifications({ lazy: activeTab !== "profile" });
@@ -1520,6 +1666,7 @@ export default function CustomerDashboard() {
               { id: "cashback", label: ar() ? "محفظة الكاش باك" : "Cashback Wallet", icon: "💎" },
               { id: "history",  label: ar() ? "سجل المدفوعات"   : "Payment History", icon: "🧾" },
               { id: "card",     label: ar() ? "بطاقتي الرقمية"  : "My Digital Card", icon: "🪪" },
+              { id: "invoices", label: ar() ? "مسح الفواتير"    : "Scan Invoices",   icon: "📸" },
             ],
             "profile": [
               { id: "settings",      label: ar() ? "الإعدادات"     : "Settings",      icon: "⚙️" },
@@ -3164,13 +3311,13 @@ export default function CustomerDashboard() {
               ) : (
                                 <div className="max-w-md mx-auto lg:mx-0">
                   {/* Visa-style Membership Card */}
-                  <div className="relative rounded-2xl shadow-2xl overflow-hidden aspect-[1.586/1] bg-gradient-to-br from-surface-900 via-brand-pink-900 to-brand-pink-700 text-white p-6 flex flex-col justify-between mb-8 group">
+                  <div className={`relative rounded-2xl shadow-2xl overflow-hidden aspect-[1.586/1] text-white p-6 flex flex-col justify-between mb-8 group ${cardData.card.belmondoPlan === "pro" ? "bg-gradient-to-br from-surface-900 via-amber-800 to-amber-600 border-[3px] border-amber-400 shadow-[0_0_40px_rgba(251,191,36,0.3)]" : "bg-gradient-to-br from-surface-900 via-brand-pink-900 to-brand-pink-700"}`}>
                     {/* Glossy overlay */}
                     <div className="absolute inset-0 bg-gradient-to-tr from-white/0 via-white/10 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none"></div>
                     
                     <div className="flex justify-between items-start z-10">
-                      <div className="text-xs font-bold uppercase tracking-[0.2em] text-brand-pink-200/80">
-                        {ar() ? "بطاقة العضوية" : "Membership Card"}
+                      <div className={`text-xs font-bold uppercase tracking-[0.2em] ${cardData.card.belmondoPlan === "pro" ? "text-amber-200 drop-shadow-md" : "text-brand-pink-200/80"}`}>
+                        {cardData.card.belmondoPlan === "pro" ? (ar() ? "بيلاموندو برو" : "BELMONDO PRO") : (ar() ? "بطاقة العضوية" : "Membership Card")}
                       </div>
                       {/* QR Code on the card (top right) */}
                       {cardData.card.publicToken && (
@@ -3228,6 +3375,16 @@ export default function CustomerDashboard() {
                   {sysAlert}
                 </div>
               )}
+            </section>
+          )}
+
+          {activeTab === "wallet" && walletSubTab === "invoices" && (
+            <section id="sec-invoices" className="animate-fade-in scroll-mt-24">
+              <InvoiceUploader 
+                getAuthHeader={getAuthHeader} 
+                ar={ar()} 
+                isPro={cardData?.card?.belmondoPlan === "pro"} 
+              />
             </section>
           )}
 

@@ -29,6 +29,8 @@ interface UserCardFields {
   publicToken?: string;
   createdAt?: Date;
   civilIdNumberMasked?: string;
+  belmondoPlan?: string;
+  belmondoProExpiresAt?: Date;
 }
 
 interface PopulatedOffer extends Omit<UserOfferDoc, "offerId"> {
@@ -89,7 +91,9 @@ async function buildFullCardData(user: UserCardFields) {
     })),
     cashbackUnlockedKwd: wallet?.unlockedKwd ?? "0.000",
     cashbackLockedKwd: wallet?.lockedKwd ?? "0.000",
-    publicToken: user.publicToken
+    publicToken: user.publicToken,
+    belmondoPlan: user.belmondoPlan ?? "basic",
+    belmondoProExpiresAt: user.belmondoProExpiresAt ? new Date(user.belmondoProExpiresAt).toISOString().slice(0, 10) : null
   };
 }
 
@@ -151,7 +155,7 @@ publicRouter.get("/me/card", authRequired, async (req, res, next) => {
     const userId = req.auth!.userId;
 
     let user = await UserModel.findById(userId)
-      .select("_id username fullName publicToken createdAt role civilIdNumberMasked")
+      .select("_id username fullName publicToken createdAt role civilIdNumberMasked belmondoPlan belmondoProExpiresAt")
       .lean<UserCardFields>();
 
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
@@ -181,7 +185,7 @@ publicRouter.get("/admin/customer/:userId/card", authRequired, requireRole(["adm
     if (!mongoose.isValidObjectId(userId)) return res.status(400).json({ error: "INVALID_ID" });
 
     let user = await UserModel.findById(userId)
-      .select("_id username fullName publicToken createdAt role civilIdNumberMasked")
+      .select("_id username fullName publicToken createdAt role civilIdNumberMasked belmondoPlan belmondoProExpiresAt")
       .lean<UserCardFields>();
 
     if (!user || user.role !== "customer") return res.status(404).json({ error: "NOT_FOUND" });
@@ -214,7 +218,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     if (!token || token.length < 10) return res.status(400).json({ error: "INVALID_TOKEN" });
 
     const user = await UserModel.findOne({ publicToken: token })
-      .select("_id username fullName role publicToken createdAt phone email")
+      .select("_id username fullName role publicToken createdAt phone email belmondoPlan belmondoProExpiresAt")
       .lean<UserCardFields & { phone?: string; email?: string }>();
 
     if (!user || user.role !== "customer") return res.status(404).json({ error: "CUSTOMER_NOT_FOUND" });

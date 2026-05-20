@@ -22,6 +22,10 @@ export interface UserDoc extends Document {
   createdAt: Date;
   updatedAt: Date;
   shortId?: string;
+  belmondoPlan?: "basic" | "pro";
+  belmondoProExpiresAt?: Date;
+  belmondoProCommitmentEndsAt?: Date;
+  belmondoProPaymentType?: "monthly" | "advance";
 }
 
 const UserSchema = new Schema(
@@ -45,7 +49,11 @@ const UserSchema = new Schema(
     publicToken: { type: String },
     verificationStatus: { type: String, enum: ["unverified", "pending", "approved", "rejected"], default: "unverified" },
     civilIdNumberMasked: { type: String },
-    shortId: { type: String, trim: true, unique: true, sparse: true }
+    shortId: { type: String, trim: true, unique: true, sparse: true },
+    belmondoPlan: { type: String, enum: ["basic", "pro"], default: "basic" },
+    belmondoProExpiresAt: { type: Date },
+    belmondoProCommitmentEndsAt: { type: Date },
+    belmondoProPaymentType: { type: String, enum: ["monthly", "advance"] }
   },
   { timestamps: true }
 );

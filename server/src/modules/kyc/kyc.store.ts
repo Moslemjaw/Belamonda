@@ -293,6 +293,43 @@ export const kycStore = {
   },
 
   /**
+   * Reward cashback directly to the unlocked pool from an approved invoice.
+   * Increases both ceiling and unlocked directly.
+   */
+  async rewardInvoiceCashback(input: { userId: string; amountKwd: string; requestId: string; createdById: string }) {
+    const wallet = await WalletModel.findOne({ userId: input.userId });
+    if (!wallet) return { error: "NO_WALLET" as const };
+
+    const amount = parseKwd(input.amountKwd);
+    if (amount <= 0) return { ok: true as const, rewardedKwd: "0.000" };
+
+    const alreadyRewarded = await WalletTxnModel.exists({
+      userId: input.userId,
+      type: "invoice_reward" as any,
+      "reference.id": input.requestId
+    });
+    if (alreadyRewarded) return { ok: true as const, duplicate: true };
+
+    const unlocked = parseKwd(wallet.unlockedKwd);
+    const ceiling = parseKwd(wallet.ceilingKwd);
+
+    wallet.unlockedKwd = fmtKwd(unlocked + amount);
+    wallet.ceilingKwd = fmtKwd(ceiling + amount);
+    await wallet.save();
+
+    await WalletTxnModel.create({
+      userId: input.userId,
+      type: "invoice_reward" as any,
+      amountKwd: fmtKwd(amount),
+      reference: { kind: "invoice" as any, id: input.requestId },
+      createdBy: { kind: "system", id: input.createdById },
+      reason: "Cashback earned from approved invoice (Belmondo Pro)"
+    });
+
+    return { ok: true as const, rewardedKwd: fmtKwd(amount) };
+  },
+
+  /**
    * Unlock a portion of locked cashback (move from locked → unlocked).
    * Supports per-installment dedup via optional installmentNumber.
    */
