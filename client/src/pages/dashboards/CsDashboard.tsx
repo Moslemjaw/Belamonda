@@ -1050,17 +1050,52 @@ function CustomersManager() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(false);
+  
+  // Grant modal states
   const [showGrantModal, setShowGrantModal] = useState(false);
   const [grantType, setGrantType] = useState<"offer" | "session">("session");
   const [grantItem, setGrantItem] = useState("");
-  const [grantAmount, setGrantAmount] = useState("");
-  const [grantSessions, setGrantSessions] = useState("");
+  const [grantClinicId, setGrantClinicId] = useState("");
+  const [grantPaid, setGrantPaid] = useState(false);
+  const [grantPrice, setGrantPrice] = useState("0.000");
+  const [grantScheduledAt, setGrantScheduledAt] = useState("");
+  const [grantOfferId, setGrantOfferId] = useState("");
+  const [grantSessionsUsed, setGrantSessionsUsed] = useState(0);
+  const [grantCustomName, setGrantCustomName] = useState("");
+  const [grantCustomSessions, setGrantCustomSessions] = useState("10");
+  const [grantCustomPrice, setGrantCustomPrice] = useState("0.000");
+  const [grantMembershipType, setGrantMembershipType] = useState("free_sessions");
+  const [grantSaving, setGrantSaving] = useState(false);
+  const [grantError, setGrantError] = useState<string | null>(null);
+
+  // Clinic Transfer modal states
+  const [clinicChangeModal, setClinicChangeModal] = useState<{ type: "membership" | "session"; id: string; currentClinicId: string; defaultFee: string } | null>(null);
+  const [newClinicId, setNewClinicId] = useState("");
+  const [isPaidTransfer, setIsPaidTransfer] = useState(false);
+  const [transferFee, setTransferFee] = useState("10.000");
+  const [transferSaving, setTransferSaving] = useState(false);
+  const [transferError, setTransferError] = useState<string | null>(null);
+
   const [freezing, setFreezing] = useState(false);
   const [cashAmt, setCashAmt] = useState("");
   const [cashReason, setCashReason] = useState("");
   const [cashSaving, setCashSaving] = useState(false);
   const [cashError, setCashError] = useState<string | null>(null);
   const [sessionAdjustingId, setSessionAdjustingId] = useState<string | null>(null);
+
+  // Dynamic public data
+  const { data: clinicsData } = useApi<{ items: any[] }>("/clinics");
+  const { data: offersData } = useApi<{ items: any[] }>("/offers");
+
+  const refetchProfile = async () => {
+    if (!selectedUser) return;
+    try {
+      const data: any = await apiFetch(`/users/admin/${selectedUser.id}/profile`, { headers: getAuthHeader() });
+      setProfile(data);
+    } catch (err) {
+      console.error("Refetch profile error:", err);
+    }
+  };
 
   const handleCashbackAdjust = async (sign: 1 | -1) => {
     if (!selectedUser) return;
@@ -1079,8 +1114,7 @@ function CustomersManager() {
       });
       setCashAmt("");
       setCashReason("");
-      const d = await apiFetch(`/users/admin/${selectedUser.id}/profile`, { headers: getAuthHeader() });
-      setProfile(d);
+      await refetchProfile();
     } catch (e: any) {
       setCashError(e.message);
     } finally {
@@ -1097,8 +1131,7 @@ function CustomersManager() {
         headers: getAuthHeader(),
         body: JSON.stringify({ delta }),
       });
-      const d = await apiFetch(`/users/admin/${selectedUser.id}/profile`, { headers: getAuthHeader() });
-      setProfile(d);
+      await refetchProfile();
     } catch (e: any) {
       alert(e.message);
     } finally {
@@ -1162,7 +1195,8 @@ function CustomersManager() {
   const filtered = users.filter(u =>
     getDisplayName(u).toLowerCase().includes(search.toLowerCase()) ||
     (u.phone || "").includes(search) ||
-    (u.email || "").toLowerCase().includes(search.toLowerCase())
+    (u.email || "").toLowerCase().includes(search.toLowerCase()) ||
+    (u.civilIdNumberMasked || "").includes(search)
   );
 
   const userStatus = selectedUser ? getStatus(selectedUser, profile) : "";
@@ -1172,7 +1206,7 @@ function CustomersManager() {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "العملاء (المرضى)" : "Customers (Patients)"}</h3>
         <div className="w-64">
-          <input className="input-field" placeholder={ar() ? "بحث بالاسم أو الهاتف..." : "Search name or phone..."} value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="input-field" placeholder={ar() ? "بحث بالاسم أو الهاتف أو المدني..." : "Search name, phone or Civil ID..."} value={search} onChange={e => setSearch(e.target.value)} />
         </div>
       </div>
 
@@ -1217,7 +1251,7 @@ function CustomersManager() {
                   </div>
                   <div>
                     <div className="text-xs text-surface-500">{ar() ? "الرقم المدني" : "Civil ID"}</div>
-                    <div className="font-mono text-sm text-surface-900">{profile?.kyc?.civilIdNumberMasked || "—"}</div>
+                    <div className="font-mono text-sm text-surface-900">{profile?.user?.civilIdNumberMasked || profile?.kyc?.civilIdNumberMasked || selectedUser.civilIdNumberMasked || "—"}</div>
                   </div>
                   <div>
                     <div className="text-xs text-surface-500">{ar() ? "حالة KYC" : "KYC Status"}</div>
@@ -1300,13 +1334,22 @@ function CustomersManager() {
                   <div className="grid gap-3 sm:grid-cols-1">
                     {profile.memberships.map((m: any) => {
                       const sessionsLeft = m.maxSessions != null ? m.maxSessions - (m.sessionsUsed ?? 0) : null;
+                      const clinic = (clinicsData?.items || []).find((c: any) => c.id === m.clinicId);
+                      const clinicName = clinic ? (ar() ? clinic.nameAr : clinic.nameEn) : null;
+
                       return (
                         <div key={m.id} className="bg-surface-50 p-5 rounded-2xl border border-surface-200 shadow-sm flex flex-col">
                           <div className="flex justify-between items-start gap-4">
                             <div>
-                              <div className="text-base font-bold text-surface-900">{m.offerName}</div>
-                              <div className="text-xs text-surface-500 mt-1">
-                                {m.paymentAmountKwd != null ? `${Number(m.paymentAmountKwd).toFixed(3)} KWD` : "—"} • {m.purchaseMode || "—"}
+                              <div className="text-base font-bold text-surface-900">{ar() && m.offerNameAr ? m.offerNameAr : m.offerName}</div>
+                              <div className="text-xs text-surface-500 mt-1 flex flex-col gap-0.5">
+                                <span>{m.paymentAmountKwd != null ? `${Number(m.paymentAmountKwd).toFixed(3)} KWD` : "—"} • {m.purchaseMode || "—"}</span>
+                                {clinicName && (
+                                  <span className="text-brand-pink-600 font-semibold flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                    {clinicName}
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <span className={`text-[10px] font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider ${
@@ -1421,6 +1464,57 @@ function CustomersManager() {
                               ))}
                             </div>
                           )}
+
+                          {/* CS/Admin Action Controls for Memberships */}
+                          {m.status === 'active' && (
+                            <div className="mt-4 pt-3 border-t border-dashed border-surface-200 flex justify-between items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setClinicChangeModal({
+                                    type: "membership",
+                                    id: m.id,
+                                    currentClinicId: m.clinicId || "",
+                                    defaultFee: "10.000"
+                                  });
+                                  setNewClinicId(m.clinicId || "");
+                                  setIsPaidTransfer(false);
+                                  setTransferFee("10.000");
+                                  setTransferError(null);
+                                }}
+                                className="flex items-center gap-1.5 text-xs text-brand-pink-600 hover:text-brand-pink-800 font-bold bg-brand-pink-50 hover:bg-brand-pink-100 px-3 py-1.5 rounded-xl transition-colors shadow-sm"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
+                                {ar() ? "نقل العيادة" : "Change Clinic"}
+                              </button>
+
+                              <button
+                                onClick={async () => {
+                                  const confirmCancel = window.confirm(
+                                    ar()
+                                      ? "هل أنتِ متأكدة من إلغاء هذا الاشتراك لهذا العميل؟"
+                                      : "Are you sure you want to cancel/delete this membership for this customer?"
+                                  );
+                                  if (!confirmCancel) return;
+                                  try {
+                                    await apiFetch(`/commerce/admin/user-offers/${m.id}`, {
+                                      method: "DELETE",
+                                      headers: getAuthHeader()
+                                    });
+                                    await refetchProfile();
+                                    alert(ar() ? "تم إلغاء الاشتراك بنجاح." : "Membership cancelled successfully.");
+                                  } catch (e: any) {
+                                    alert(e.message || "Failed to cancel membership");
+                                  }
+                                }}
+                                className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl transition-colors"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                {ar() ? "إلغاء الاشتراك" : "Cancel"}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1431,21 +1525,65 @@ function CustomersManager() {
               {/* Sessions & Payments */}
               <div className="grid gap-6 md:grid-cols-2">
                 <div className="bg-white rounded-xl p-5 border border-surface-200 shadow-sm">
-                  <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "الجلسات" : "Sessions"}</h4>
-                  {!(profile?.sessions?.length) ? (
-                    <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد جلسات" : "No sessions yet"}</div>
+                  <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100 flex items-center justify-between">
+                    {ar() ? "الجلسات المجدولة" : "Scheduled Sessions"}
+                    <span className="badge-pink text-xs">{(profile?.bookingSessions ?? []).length}</span>
+                  </h4>
+                  {!(profile?.bookingSessions?.length) ? (
+                    <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد جلسات مجدولة" : "No scheduled sessions"}</div>
                   ) : (
-                    <div className="space-y-2">
-                      {profile.sessions.slice(0, 6).map((s: any) => (
-                        <div key={s.id} className={`p-2.5 rounded-lg border text-xs flex justify-between items-center ${
-                          s.status === 'completed' ? 'border-emerald-100 bg-emerald-50' :
-                          s.status === 'scheduled' ? 'border-blue-100 bg-blue-50' :
-                          'border-surface-100 bg-surface-50'
-                        }`}>
-                          <span className="font-medium text-surface-700 capitalize">{s.status?.replace(/_/g, ' ')}</span>
-                          <span className="text-surface-400">{s.requestedAt ? new Date(s.requestedAt).toLocaleDateString() : "—"}</span>
-                        </div>
-                      ))}
+                    <div className="space-y-3">
+                      {profile.bookingSessions.map((s: any) => {
+                        const clinic = (clinicsData?.items || []).find((c: any) => c.id === s.clinicId);
+                        const clinicName = clinic ? (ar() ? clinic.nameAr : clinic.nameEn) : null;
+                        return (
+                          <div key={s.id} className="bg-surface-50 p-4 rounded-2xl border border-surface-200 shadow-sm flex flex-col gap-2">
+                            <div className="flex justify-between items-start gap-4">
+                              <div>
+                                <div className="text-sm font-bold text-surface-900">{ar() && s.offerNameAr ? s.offerNameAr : s.offerName}</div>
+                                <div className="text-[11px] text-surface-500 mt-1 flex flex-col gap-0.5">
+                                  <span>{s.scheduledAt ? new Date(s.scheduledAt).toLocaleString() : "—"}</span>
+                                  {clinicName && (
+                                    <span className="text-brand-pink-600 font-semibold flex items-center gap-1">
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                                      {clinicName}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg uppercase ${
+                                s.status === 'completed' ? 'text-emerald-600 bg-emerald-50' :
+                                s.status === 'scheduled' ? 'text-blue-600 bg-blue-50' :
+                                'text-surface-600 bg-surface-100'
+                              }`}>
+                                {s.status}
+                              </span>
+                            </div>
+                            
+                            {s.status === 'scheduled' && (
+                              <div className="flex justify-end pt-2 border-t border-surface-100 mt-1">
+                                <button
+                                  onClick={() => {
+                                    setClinicChangeModal({
+                                      type: "session",
+                                      id: s.id,
+                                      currentClinicId: s.clinicId || "",
+                                      defaultFee: "5.000"
+                                    });
+                                    setNewClinicId(s.clinicId || "");
+                                    setIsPaidTransfer(false);
+                                    setTransferFee("5.000");
+                                    setTransferError(null);
+                                  }}
+                                  className="flex items-center gap-1.5 text-xs text-brand-pink-600 hover:text-brand-pink-800 font-bold bg-brand-pink-50 hover:bg-brand-pink-100 px-3 py-1.5 rounded-xl transition-colors"
+                                >
+                                  {ar() ? "نقل العيادة" : "Change Clinic"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -1486,71 +1624,463 @@ function CustomersManager() {
             </button>
           </div>
 
-          {/* Grant Modal */}
+          {/* Upgraded Grant Modal */}
           {showGrantModal && createPortal(
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-              <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-slide-up relative">
-                <button className="absolute top-5 right-5 text-surface-400 hover:text-surface-900 transition-colors" onClick={() => setShowGrantModal(false)}>
+              <div className="bg-white rounded-3xl p-6 w-full max-w-lg shadow-2xl animate-slide-up relative flex flex-col max-h-[90vh]">
+                <button
+                  className="absolute top-5 right-5 text-surface-400 hover:text-surface-900 transition-colors"
+                  onClick={() => setShowGrantModal(false)}
+                >
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
-                <h3 className="text-xl font-bold text-surface-900 mb-6 flex items-center gap-2">
-                  <svg className="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4M12 20V4" /></svg>
-                  {ar() ? "منح عرض أو جلسة" : "Grant Offer / Session"}
-                </h3>
-                <p className="text-sm text-surface-500 -mt-3 mb-5">{getDisplayName(selectedUser)}</p>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "نوع المنحة" : "Grant Type"}</label>
-                    <div className="flex gap-4">
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" checked={grantType === "session"} onChange={() => setGrantType("session")} className="text-purple-500 focus:ring-purple-400" />
-                        <span className="text-sm font-medium">{ar() ? "جلسة مجانية" : "Free Session"}</span>
-                      </label>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" checked={grantType === "offer"} onChange={() => setGrantType("offer")} className="text-purple-500 focus:ring-purple-400" />
-                        <span className="text-sm font-medium">{ar() ? "باقة / عرض" : "Package / Offer"}</span>
-                      </label>
-                    </div>
-                  </div>
-                  {grantType === "session" ? (
+                
+                <div className="overflow-y-auto flex-1 pr-1">
+                  <h3 className="text-xl font-bold text-surface-900 mb-4 flex items-center gap-2">
+                    <svg className="w-6 h-6 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4M12 20V4" /></svg>
+                    {ar() ? "منح عرض أو جلسة" : "Grant Offer / Session"}
+                  </h3>
+                  <p className="text-sm text-surface-500 -mt-2 mb-5 font-medium">
+                    {ar() ? "العميل: " : "Patient: "} <span className="text-brand-pink-600 font-bold">{getDisplayName(selectedUser)}</span>
+                  </p>
+
+                  <div className="space-y-4">
+                    {/* Grant Type */}
                     <div>
-                      <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اختر الجلسة" : "Select Session"}</label>
-                      <select className="select-field w-full" value={grantItem} onChange={e => setGrantItem(e.target.value)}>
-                        <option value="">-- {ar() ? "اختر الجلسة" : "Select"} --</option>
-                        {allTreatments.map(t => <option key={t.id} value={t.nameEn}>{ar() ? t.nameAr : t.nameEn}</option>)}
+                      <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "نوع المنحة" : "Grant Type"}</label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={grantType === "session"}
+                            onChange={() => {
+                              setGrantType("session");
+                              setGrantItem("");
+                              setGrantClinicId("");
+                              setGrantPaid(false);
+                              setGrantPrice("0.000");
+                              setGrantScheduledAt("");
+                              setGrantError(null);
+                            }}
+                            className="text-purple-500 focus:ring-purple-400"
+                          />
+                          <span className="text-sm font-medium">{ar() ? "جلسة مجدولة" : "Scheduled Session"}</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            checked={grantType === "offer"}
+                            onChange={() => {
+                              setGrantType("offer");
+                              setGrantOfferId("");
+                              setGrantClinicId("");
+                              setGrantSessionsUsed(0);
+                              setGrantCustomName("");
+                              setGrantCustomSessions("10");
+                              setGrantCustomPrice("0.000");
+                              setGrantMembershipType("free_sessions");
+                              setGrantError(null);
+                            }}
+                            className="text-purple-500 focus:ring-purple-400"
+                          />
+                          <span className="text-sm font-medium">{ar() ? "باقة / اشتراك" : "Membership / Package"}</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Clinic Selection */}
+                    <div>
+                      <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "العيادة المستهدفة" : "Target Clinic"}</label>
+                      <select
+                        className="select-field w-full"
+                        value={grantClinicId}
+                        onChange={e => setGrantClinicId(e.target.value)}
+                      >
+                        <option value="">-- {ar() ? "اختر العيادة" : "Select Clinic"} --</option>
+                        {(clinicsData?.items || []).map((c: any) => (
+                          <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>
+                        ))}
                       </select>
                     </div>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اسم الباقة / العرض" : "Offer / Package Name"}</label>
-                        <input type="text" className="input-field" placeholder={ar() ? "مثال: باقة الليزر الذهبية" : "e.g. Golden Laser Package"} value={grantItem} onChange={e => setGrantItem(e.target.value)} />
-                      </div>
-                      <div className="flex gap-4">
-                        <div className="flex-1">
-                          <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "عدد الجلسات" : "No. of Sessions"}</label>
-                          <input type="number" className="input-field" placeholder="0" value={grantSessions} onChange={e => setGrantSessions(e.target.value)} />
+
+                    {grantType === "session" ? (
+                      /* Session Grant Form */
+                      <>
+                        <div>
+                          <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اختر نوع الجلسة / العلاج" : "Select Session / Treatment"}</label>
+                          <select
+                            className="select-field w-full"
+                            value={grantItem}
+                            onChange={e => setGrantItem(e.target.value)}
+                          >
+                            <option value="">-- {ar() ? "اختر العلاج" : "Select Treatment"} --</option>
+                            {allTreatments.map(t => (
+                              <option key={t.id} value={t.nameEn}>{ar() ? t.nameAr : t.nameEn}</option>
+                            ))}
+                          </select>
                         </div>
-                        <div className="flex-1">
-                          <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "القيمة (اختياري)" : "Value (Optional)"}</label>
-                          <input type="text" className="input-field" placeholder="0.000" value={grantAmount} onChange={e => setGrantAmount(e.target.value)} />
+
+                        <div className="flex gap-4">
+                          <div className="flex-1">
+                            <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "الدفع" : "Payment Mode"}</label>
+                            <div className="flex gap-4 mt-2">
+                              <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  checked={!grantPaid}
+                                  onChange={() => { setGrantPaid(false); setGrantPrice("0.000"); }}
+                                  className="text-purple-500 focus:ring-purple-400"
+                                />
+                                <span className="text-xs font-semibold">{ar() ? "مجانية" : "Free"}</span>
+                              </label>
+                              <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  checked={grantPaid}
+                                  onChange={() => setGrantPaid(true)}
+                                  className="text-purple-500 focus:ring-purple-400"
+                                />
+                                <span className="text-xs font-semibold">{ar() ? "مدفوعة" : "Paid"}</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          {grantPaid && (
+                            <div className="flex-1 animate-slide-down">
+                              <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "السعر (د.ك)" : "Price (KWD)"}</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.001"
+                                className="input-field"
+                                value={grantPrice}
+                                onChange={e => setGrantPrice(e.target.value)}
+                              />
+                            </div>
+                          )}
                         </div>
+
+                        <div>
+                          <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "موعد الجلسة (اختياري)" : "Appointment Time (Optional)"}</label>
+                          <input
+                            type="datetime-local"
+                            className="input-field w-full"
+                            value={grantScheduledAt}
+                            onChange={e => setGrantScheduledAt(e.target.value)}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      /* Membership/Offer Grant Form */
+                      <>
+                        <div>
+                          <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اختر العرض / الباقة" : "Select Package"}</label>
+                          <select
+                            className="select-field w-full"
+                            value={grantOfferId}
+                            onChange={e => setGrantOfferId(e.target.value)}
+                          >
+                            <option value="">-- {ar() ? "اختر عرضاً" : "Select Offer"} --</option>
+                            <option value="custom">★ {ar() ? "عرض مخصص..." : "Custom Offer..."}</option>
+                            {(offersData?.items || []).map((o: any) => (
+                              <option key={o.id} value={o.id}>{ar() ? o.nameAr || o.name : o.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {grantOfferId === "custom" && (
+                          <div className="bg-surface-50 p-4 rounded-2xl border border-surface-200/60 space-y-3 animate-slide-down">
+                            <div>
+                              <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "اسم الباقة المخصصة" : "Custom Name"}</label>
+                              <input
+                                type="text"
+                                className="input-field bg-white"
+                                placeholder={ar() ? "مثال: باقة العناية الفائقة" : "e.g. Premium Care Package"}
+                                value={grantCustomName}
+                                onChange={e => setGrantCustomName(e.target.value)}
+                              />
+                            </div>
+
+                            <div className="flex gap-3">
+                              <div className="flex-1">
+                                <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "عدد الجلسات" : "Sessions"}</label>
+                                <input
+                                  type="number"
+                                  className="input-field bg-white"
+                                  value={grantCustomSessions}
+                                  onChange={e => setGrantCustomSessions(e.target.value)}
+                                />
+                              </div>
+                              <div className="flex-1">
+                                <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "السعر (د.ك)" : "Price (KWD)"}</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.001"
+                                  className="input-field bg-white"
+                                  value={grantCustomPrice}
+                                  onChange={e => setGrantCustomPrice(e.target.value)}
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "نوع الاشتراك" : "Membership Type"}</label>
+                              <select
+                                className="select-field bg-white w-full"
+                                value={grantMembershipType}
+                                onChange={e => setGrantMembershipType(e.target.value)}
+                              >
+                                <option value="free_sessions">{ar() ? "جلسات مجانية" : "Free Sessions"}</option>
+                                <option value="cashback">{ar() ? "كاش باك" : "Cashback"}</option>
+                              </select>
+                            </div>
+                          </div>
+                        )}
+
+                        <div>
+                          <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "جلسات مستخدمة سابقاً (بدءاً من)" : "Sessions Already Used"}</label>
+                          <input
+                            type="number"
+                            min="0"
+                            className="input-field w-full"
+                            value={grantSessionsUsed}
+                            onChange={e => setGrantSessionsUsed(Number(e.target.value))}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {grantError && (
+                      <div className="text-xs text-red-500 font-semibold bg-red-50 p-3 rounded-xl border border-red-200">
+                        {grantError}
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
-                <div className="mt-8 flex gap-3">
-                  <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors" onClick={() => setShowGrantModal(false)}>{ar() ? "إلغاء" : "Cancel"}</button>
-                  <button className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm" disabled={!grantItem}
-                    onClick={() => {
-                      setShowGrantModal(false);
-                      setGrantItem(""); setGrantSessions(""); setGrantAmount("");
-                    }}>
-                    {ar() ? "منح وتأكيد" : "Grant & Confirm"}
+
+                <div className="mt-6 pt-4 border-t border-surface-100 flex gap-3 shrink-0">
+                  <button
+                    className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm"
+                    onClick={() => setShowGrantModal(false)}
+                    disabled={grantSaving}
+                  >
+                    {ar() ? "إلغاء" : "Cancel"}
+                  </button>
+                  <button
+                    className="flex-1 bg-purple-500 hover:bg-purple-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm text-sm"
+                    disabled={grantSaving || !grantClinicId || (grantType === "session" ? !grantItem : !grantOfferId)}
+                    onClick={async () => {
+                      setGrantSaving(true);
+                      setGrantError(null);
+                      try {
+                        if (grantType === "session") {
+                          const body = {
+                            userId: selectedUser.id,
+                            clinicId: grantClinicId,
+                            treatmentName: grantItem,
+                            isPaid: grantPaid,
+                            priceKwd: Number(grantPrice).toFixed(3),
+                            scheduledAt: grantScheduledAt || undefined
+                          };
+                          await apiFetch("/scheduling/admin/grant-session", {
+                            method: "POST",
+                            headers: getAuthHeader(),
+                            body: JSON.stringify(body)
+                          });
+                        } else {
+                          const body = {
+                            userId: selectedUser.id,
+                            offerId: grantOfferId,
+                            clinicId: grantClinicId,
+                            sessionsUsed: Number(grantSessionsUsed),
+                            customName: grantOfferId === "custom" ? grantCustomName : undefined,
+                            customSessions: grantOfferId === "custom" ? Number(grantCustomSessions) : undefined,
+                            customPrice: grantOfferId === "custom" ? Number(grantCustomPrice).toFixed(3) : undefined,
+                            membershipType: grantOfferId === "custom" ? grantMembershipType : undefined
+                          };
+                          await apiFetch("/commerce/admin/grant-membership", {
+                            method: "POST",
+                            headers: getAuthHeader(),
+                            body: JSON.stringify(body)
+                          });
+                        }
+
+                        await refetchProfile();
+                        setShowGrantModal(false);
+                      } catch (e: any) {
+                        setGrantError(e.message || "Failed to grant");
+                      } finally {
+                        setGrantSaving(false);
+                      }
+                    }}
+                  >
+                    {grantSaving ? "…" : (ar() ? "منح وتأكيد" : "Grant & Confirm")}
                   </button>
                 </div>
               </div>
-            </div>, document.body
+            </div>,
+            document.body
+          )}
+
+          {/* Clinic Change Modal */}
+          {clinicChangeModal && createPortal(
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+              <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-slide-up relative">
+                <button
+                  className="absolute top-5 right-5 text-surface-400 hover:text-surface-900 transition-colors"
+                  onClick={() => setClinicChangeModal(null)}
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+                <h3 className="text-xl font-bold text-surface-900 mb-6 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                  {ar() ? "تغيير عيادة الاشتراك / الجلسة" : "Change Clinic"}
+                </h3>
+                <p className="text-xs text-surface-500 -mt-3 mb-5">
+                  {ar() ? "تغيير عيادة تقديم الخدمة للمريض." : "Transfer the service clinic for the patient."}
+                </p>
+
+                <div className="space-y-4">
+                  {/* Select Clinic */}
+                  <div>
+                    <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "العيادة الجديدة" : "New Clinic"}</label>
+                    <select
+                      className="select-field w-full"
+                      value={newClinicId}
+                      onChange={e => setNewClinicId(e.target.value)}
+                    >
+                      <option value="">-- {ar() ? "اختر العيادة" : "Select Clinic"} --</option>
+                      {(clinicsData?.items || []).map((c: any) => (
+                        <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Fee mode selection */}
+                  <div>
+                    <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "رسوم تغيير العيادة" : "Transfer Fee"}</label>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="isPaidTransfer"
+                          checked={!isPaidTransfer}
+                          onChange={() => {
+                            setIsPaidTransfer(false);
+                            setTransferFee("0.000");
+                            setTransferError(null);
+                          }}
+                          className="text-brand-pink-500 focus:ring-brand-pink-400"
+                        />
+                        <span className="text-sm font-medium">{ar() ? "مجاني (إعفاء)" : "Free (Waive)"}</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="isPaidTransfer"
+                          checked={isPaidTransfer}
+                          onChange={() => {
+                            setIsPaidTransfer(true);
+                            setTransferFee(clinicChangeModal.defaultFee);
+                            setTransferError(null);
+                          }}
+                          className="text-brand-pink-500 focus:ring-brand-pink-400"
+                        />
+                        <span className="text-sm font-medium">{ar() ? "مدفوع (خصم رسوم)" : "Paid (Charge Fee)"}</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Custom Transfer Fee Input */}
+                  {isPaidTransfer && (
+                    <div className="animate-slide-down">
+                      <label className="text-xs font-bold text-surface-700 block mb-1.5">{ar() ? "مبلغ الرسوم (د.ك)" : "Fee Amount (KWD)"}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.001"
+                        className="input-field w-full text-sm bg-surface-50"
+                        value={transferFee}
+                        onChange={e => {
+                          setTransferFee(e.target.value);
+                          setTransferError(null);
+                        }}
+                      />
+                      <div className="text-[11px] text-surface-400 mt-1 flex justify-between">
+                        <span>{ar() ? "الرصيد المتاح للمريض:" : "Patient's available balance:"}</span>
+                        <span className="font-bold text-brand-pink-600">
+                          {Number(profile?.wallet?.unlockedKwd ?? 0).toFixed(3)} KWD
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {transferError && (
+                    <div className="text-xs text-red-500 font-semibold bg-red-50 p-3 rounded-xl border border-red-200 animate-pulse">
+                      {transferError}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-8 flex gap-3">
+                  <button
+                    className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm"
+                    onClick={() => setClinicChangeModal(null)}
+                    disabled={transferSaving}
+                  >
+                    {ar() ? "إلغاء" : "Cancel"}
+                  </button>
+                  <button
+                    className="flex-1 bg-brand-pink-500 hover:bg-brand-pink-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm text-sm"
+                    disabled={transferSaving || !newClinicId}
+                    onClick={async () => {
+                      setTransferSaving(true);
+                      setTransferError(null);
+
+                      // Balance check on frontend
+                      const unlockedBalance = Number(profile?.wallet?.unlockedKwd ?? 0);
+                      const fee = isPaidTransfer ? Number(transferFee) : 0;
+                      if (isPaidTransfer && unlockedBalance < fee) {
+                        setTransferError(
+                          ar()
+                            ? "الرصيد المتاح في محفظة المريض غير كافٍ لدفع رسوم التحويل!"
+                            : "Patient's available wallet balance is insufficient to pay the transfer fee!"
+                        );
+                        setTransferSaving(false);
+                        return;
+                      }
+
+                      try {
+                        const path = clinicChangeModal.type === "membership"
+                          ? `/commerce/admin/user-offers/${clinicChangeModal.id}/change-clinic`
+                          : `/scheduling/admin/sessions/${clinicChangeModal.id}/change-clinic`;
+
+                        await apiFetch(path, {
+                          method: "POST",
+                          headers: getAuthHeader(),
+                          body: JSON.stringify({
+                            clinicId: newClinicId,
+                            isPaid: isPaidTransfer,
+                            feeAmount: isPaidTransfer ? Number(transferFee).toFixed(3) : "0.000"
+                          })
+                        });
+
+                        await refetchProfile();
+                        setClinicChangeModal(null);
+                      } catch (e: any) {
+                        setTransferError(e.message || "Failed to transfer clinic");
+                      } finally {
+                        setTransferSaving(false);
+                      }
+                    }}
+                  >
+                    {transferSaving ? "…" : (ar() ? "تأكيد ونقل" : "Confirm & Transfer")}
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
           )}
         </div>
       ) : (
@@ -1580,7 +2110,14 @@ function CustomersManager() {
                         </div>
                         <div>
                           <div>{name}</div>
-                          {u.email && <div className="text-xs text-surface-400">{u.email}</div>}
+                          <div className="flex flex-col gap-0.5 text-xs text-surface-400">
+                            {u.email && <span>{u.email}</span>}
+                            {u.civilIdNumberMasked && (
+                              <span className="font-mono text-[11px] text-surface-500">
+                                {ar() ? "المدني: " : "Civil ID: "}{u.civilIdNumberMasked}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>

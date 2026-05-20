@@ -110,7 +110,7 @@ async function run() {
       const passwordHash = await bcrypt.hash(password, 10);
       const cleanPhone = phone.replace(/[^\d+]/g, "") || undefined;
       const isVerified = nationalId && nationalId.length > 5;
-      const maskedId = nationalId ? nationalId.slice(0, 3) + "***" + nationalId.slice(-3) : undefined;
+      const maskedId = nationalId || undefined;
 
       let user: any = null;
       // Try to find existing user by username

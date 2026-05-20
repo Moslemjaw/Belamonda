@@ -11,6 +11,7 @@ import { OfferModel } from "../../models/offer.model.js";
 import { PaymentModel } from "../../models/payment.model.js";
 import { BookingRequestModel } from "../../models/bookingRequest.model.js";
 import { KycSubmissionModel, WalletModel, WalletTxnModel } from "../../models/kyc.model.js";
+import { BookingSessionModel } from "../../models/bookingSession.model.js";
 
 export const usersRouter = Router();
 
@@ -26,6 +27,7 @@ interface UserLean {
   referredBy?: mongoose.Types.ObjectId;
   createdAt?: Date;
   updatedAt?: Date;
+  civilIdNumberMasked?: string;
 }
 
 interface ReferrerLean {
@@ -39,7 +41,7 @@ interface UserPatch {
   clinicId?: mongoose.Types.ObjectId;
 }
 
-const STAFF_ROLES = ["admin", "cs", "finance"] as const;
+const STAFF_ROLES = ["admin", "cs", "finance", "legal"] as const;
 
 usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (req, res, next) => {
   try {
@@ -83,6 +85,7 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
       role: u.role,
       clinicId: u.clinicId ? String(u.clinicId) : undefined,
       isActive: u.isActive !== false,
+      civilIdNumberMasked: u.civilIdNumberMasked,
       createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : undefined,
       updatedAt: u.updatedAt ? new Date(u.updatedAt).toISOString() : undefined,
       referredByUsername: u.referredBy ? (referrerMap[String(u.referredBy)] ?? null) : null
@@ -99,20 +102,24 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
     const { id } = req.params;
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "INVALID_ID" });
 
-    const [user, wallet, txns, kyc, memberships, payments, sessions] = await Promise.all([
+    const [user, wallet, txns, kyc, memberships, payments, sessions, bookingSessions] = await Promise.all([
       UserModel.findById(id).lean<UserLean>(),
       WalletModel.findOne({ userId: id }).lean(),
       WalletTxnModel.find({ userId: id }).sort({ createdAt: -1 }).limit(200).lean(),
       KycSubmissionModel.find({ userId: id }).sort({ createdAt: -1 }).limit(5).lean(),
       UserOfferModel.find({ $or: [{ userId: id }, { sharedWith: id }] }).sort({ createdAt: -1 }).lean(),
       PaymentModel.find({ userId: id }).sort({ createdAt: -1 }).limit(200).lean(),
-      BookingRequestModel.find({ userId: id }).sort({ createdAt: -1 }).limit(200).lean()
+      BookingRequestModel.find({ userId: id }).sort({ createdAt: -1 }).limit(200).lean(),
+      BookingSessionModel.find({ userId: id }).sort({ scheduledAt: -1 }).lean()
     ]);
 
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
 
-    // Enrich memberships with offer names
-    const offerIds = [...new Set(memberships.map((m: any) => String(m.offerId)).filter(Boolean))];
+    // Enrich memberships & scheduled sessions with offer names
+    const offerIds = [...new Set([
+      ...memberships.map((m: any) => String(m.offerId)),
+      ...bookingSessions.map((s: any) => String(s.offerId))
+    ].filter(Boolean))];
     const offers = offerIds.length
       ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr maxSessions").lean<{ _id: mongoose.Types.ObjectId; name: string; nameAr?: string; maxSessions?: number }[]>()
       : [];
@@ -173,6 +180,18 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
       requestedAt: s.createdAt ? new Date(s.createdAt).toISOString() : undefined,
     }));
 
+    const bookingSessionsList = bookingSessions.map((s: any) => ({
+      id: String(s._id),
+      status: s.status,
+      clinicId: s.clinicId ? String(s.clinicId) : undefined,
+      userOfferId: s.userOfferId ? String(s.userOfferId) : undefined,
+      offerId: s.offerId ? String(s.offerId) : undefined,
+      offerName: offerMap[String(s.offerId)]?.name ?? "—",
+      offerNameAr: offerMap[String(s.offerId)]?.nameAr,
+      scheduledAt: s.scheduledAt ? new Date(s.scheduledAt).toISOString() : undefined,
+      shortId: s.shortId,
+    }));
+
     const kycItem = kyc.length > 0 ? {
       id: String((kyc[0] as any)._id),
       status: (kyc[0] as any).status,
@@ -213,6 +232,7 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
       memberships: membershipItems,
       payments: paymentItems,
       sessions: sessionItems,
+      bookingSessions: bookingSessionsList,
     });
   } catch (e) {
     next(e);

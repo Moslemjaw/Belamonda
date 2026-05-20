@@ -28,6 +28,7 @@ interface UserCardFields {
   role: string;
   publicToken?: string;
   createdAt?: Date;
+  civilIdNumberMasked?: string;
 }
 
 interface PopulatedOffer extends Omit<UserOfferDoc, "offerId"> {
@@ -70,6 +71,7 @@ async function buildFullCardData(user: UserCardFields) {
   return {
     userId,
     displayName,
+    civilIdNumberMasked: user.civilIdNumberMasked ?? kycUser?.civilIdNumberMasked ?? null,
     memberSince: user.createdAt ? new Date(user.createdAt).toISOString().slice(0, 10) : null,
     kycVerified: kycUser?.verificationStatus === "approved",
     activeOffers: activeOffers.map((o) => ({
@@ -149,7 +151,7 @@ publicRouter.get("/me/card", authRequired, async (req, res, next) => {
     const userId = req.auth!.userId;
 
     let user = await UserModel.findById(userId)
-      .select("_id username fullName publicToken createdAt role")
+      .select("_id username fullName publicToken createdAt role civilIdNumberMasked")
       .lean<UserCardFields>();
 
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
@@ -179,7 +181,7 @@ publicRouter.get("/admin/customer/:userId/card", authRequired, requireRole(["adm
     if (!mongoose.isValidObjectId(userId)) return res.status(400).json({ error: "INVALID_ID" });
 
     let user = await UserModel.findById(userId)
-      .select("_id username fullName publicToken createdAt role")
+      .select("_id username fullName publicToken createdAt role civilIdNumberMasked")
       .lean<UserCardFields>();
 
     if (!user || user.role !== "customer") return res.status(404).json({ error: "NOT_FOUND" });

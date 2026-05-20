@@ -1781,6 +1781,112 @@ schedulingRouter.post("/admin/user-offers/:uoId/adjust-sessions", authRequired, 
   }
 });
 
+schedulingRouter.post("/admin/grant-session", authRequired, requireRole(["cs", "legal", "admin"]), async (req, res, next) => {
+  try {
+    const schema = z.object({
+      userId: z.string().min(1),
+      clinicId: z.string().min(1),
+      treatmentName: z.string().min(1),
+      isPaid: z.boolean().default(false),
+      priceKwd: z.string().default("0.000"),
+      scheduledAt: z.string().optional()
+    });
+
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
+
+    const { userId, clinicId, treatmentName, isPaid, priceKwd, scheduledAt } = parsed.data;
+
+    let offer = await OfferModel.findOne({ name: treatmentName, status: "hidden", offerKind: "treatment" });
+    if (!offer) {
+      offer = await OfferModel.create({
+        name: treatmentName,
+        type: "A",
+        offerKind: "treatment",
+        status: "hidden",
+        active: true,
+        maxSessions: 1,
+        subscriptionPriceKwd: priceKwd,
+        category: "all"
+      });
+    }
+
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+
+    const uo = await UserOfferModel.create({
+      userId,
+      offerId: offer._id,
+      clinicId: new mongoose.Types.ObjectId(clinicId),
+      status: "active",
+      purchaseMode: "full",
+      isStandalone: true,
+      sessionsUsed: 0,
+      activatedAt: now,
+      expiresAt,
+      paymentAmountKwd: priceKwd,
+      paymentMethod: isPaid ? "cash" : "free",
+      paymentConfirmedBy: req.auth!.userId,
+      paymentConfirmedAt: now
+    });
+
+    const schedDate = scheduledAt ? new Date(scheduledAt) : now;
+    const session = await BookingSessionModel.create({
+      userOfferId: uo._id,
+      userId,
+      offerId: offer._id,
+      clinicId: new mongoose.Types.ObjectId(clinicId),
+      scheduledAt: schedDate,
+      status: "scheduled",
+      scheduledBy: req.auth!.userId,
+    });
+
+    return res.status(201).json({ ok: true, userOfferId: String(uo._id), sessionId: String(session._id) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+schedulingRouter.post("/admin/sessions/:sessionId/change-clinic", authRequired, requireRole(["cs", "legal", "admin"]), async (req, res, next) => {
+  try {
+    const schema = z.object({
+      clinicId: z.string().min(1),
+      isPaid: z.boolean().default(false),
+      feeAmount: z.string().default("5.000")
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
+
+    const { clinicId, isPaid, feeAmount } = parsed.data;
+    if (!mongoose.isValidObjectId(clinicId)) return res.status(400).json({ error: "INVALID_CLINIC_ID" });
+
+    const session = await BookingSessionModel.findById(req.params.sessionId);
+    if (!session) return res.status(404).json({ error: "SESSION_NOT_FOUND" });
+
+    if (isPaid) {
+      const resAdjust = await kycStore.adjustUnlocked({
+        userId: session.userId,
+        amountKwd: `-${feeAmount}`,
+        reason: `Clinic change fee for session: ${session.shortId || session._id}`,
+        createdById: req.auth!.userId
+      });
+      if (resAdjust && "error" in resAdjust) {
+        if (resAdjust.error === "UNLOCKED_BELOW_ZERO") {
+          return res.status(400).json({ error: "INSUFFICIENT_FUNDS" });
+        }
+        return res.status(400).json({ error: resAdjust.error });
+      }
+    }
+
+    session.clinicId = new mongoose.Types.ObjectId(clinicId);
+    await session.save();
+
+    return res.json({ ok: true, clinicId: String(session.clinicId) });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // `resolveUserOffer` retained for backwards compatibility — exposed for any
 // downstream callers that depend on the richer UserOfferRecord shape.
 export { resolveUserOffer };

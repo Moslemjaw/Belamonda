@@ -26,9 +26,7 @@ function fmtKwd(mils: number) {
 }
 
 function maskCivilId(civilId: string) {
-  const digits = civilId.replace(/\D/g, "");
-  const last4 = digits.slice(-4).padStart(4, "*");
-  return `********${last4}`;
+  return civilId;
 }
 
 export const kycStore = {

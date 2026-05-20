@@ -365,6 +365,22 @@ commerceRouter.post("/me/user-offers/:uoId/change-clinic", authRequired, require
   }
 });
 
+/** Customer cancels their own active membership. */
+commerceRouter.delete("/me/user-offers/:id", authRequired, requireRole(["customer"]), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "INVALID_ID" });
+    const uo = await UserOfferModel.findOne({ _id: id, userId: req.auth!.userId });
+    if (!uo) return res.status(404).json({ error: "Membership not found or not owned by you" });
+    const result = await userOfferService.cancelUserOffer(id);
+    if (result === "not_found") return res.status(404).json({ error: "Membership not found" });
+    if (result === "already_cancelled") return res.status(409).json({ error: "Already cancelled" });
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ─── Clinic Change Requests (clinicLocked offers) ─────────────────────────────
 
 const ClinicChangeRequestSchema = z.object({
@@ -607,39 +623,62 @@ commerceRouter.post("/cs/clinic-change-requests/:id/reject", authRequired, requi
   }
 });
 
-commerceRouter.post("/admin/grant-membership", authRequired, requireRole(["admin"]), async (req, res, next) => {
+commerceRouter.post("/admin/grant-membership", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
   try {
     const schema = z.object({
       userId: z.string().min(1),
       offerId: z.string().min(1),
       clinicId: z.string().min(1),
       sessionsUsed: z.number().int().min(0).default(0),
+      customName: z.string().optional(),
+      customSessions: z.number().optional(),
+      customPrice: z.string().optional(),
+      membershipType: z.string().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
 
-    const { userId, offerId, clinicId, sessionsUsed } = parsed.data;
+    const { userId, offerId, clinicId, sessionsUsed, customName, customSessions, customPrice, membershipType } = parsed.data;
 
-    if (!mongoose.isValidObjectId(offerId) || !mongoose.isValidObjectId(clinicId))
-      return res.status(400).json({ error: "INVALID_ID" });
+    if (!mongoose.isValidObjectId(clinicId))
+      return res.status(400).json({ error: "INVALID_CLINIC_ID" });
 
-    const [user, offer, clinic] = await Promise.all([
-      UserModel.findById(userId).lean(),
-      OfferModel.findById(offerId).lean() as Promise<InstanceType<typeof OfferModel> | null>,
-      ClinicModel.findById(clinicId).lean(),
-    ]);
-
+    const user = await UserModel.findById(userId).lean();
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
-    if (!offer) return res.status(404).json({ error: "OFFER_NOT_FOUND" });
+
+    const clinic = await ClinicModel.findById(clinicId).lean();
     if (!clinic) return res.status(404).json({ error: "CLINIC_NOT_FOUND" });
 
+    let finalOfferId = offerId;
+    let validityDays = 365;
+
+    if (offerId === "custom") {
+      const createdOffer = await OfferModel.create({
+        name: customName || "Custom Package",
+        type: "A",
+        offerKind: membershipType === "cashback" ? "cashback" : "treatment",
+        membershipType: membershipType || "free_sessions",
+        status: "hidden",
+        active: true,
+        maxSessions: customSessions || 10,
+        subscriptionPriceKwd: customPrice || "0.000",
+        category: "all"
+      });
+      finalOfferId = String(createdOffer._id);
+    } else {
+      if (!mongoose.isValidObjectId(offerId))
+        return res.status(400).json({ error: "INVALID_OFFER_ID" });
+      const offer = await OfferModel.findById(offerId).lean();
+      if (!offer) return res.status(404).json({ error: "OFFER_NOT_FOUND" });
+      validityDays = (offer as any).validityDays ?? 365;
+    }
+
     const now = new Date();
-    const validityDays = (offer as any).validityDays ?? 365;
     const expiresAt = new Date(now.getTime() + validityDays * 24 * 60 * 60 * 1000);
 
     const uo = await UserOfferModel.create({
       userId: String(userId),
-      offerId: new mongoose.Types.ObjectId(offerId),
+      offerId: new mongoose.Types.ObjectId(finalOfferId),
       clinicId: new mongoose.Types.ObjectId(clinicId),
       status: "active",
       purchaseMode: "full",
@@ -649,6 +688,46 @@ commerceRouter.post("/admin/grant-membership", authRequired, requireRole(["admin
     });
 
     return res.status(201).json({ ok: true, id: String(uo._id) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+commerceRouter.post("/admin/user-offers/:uoId/change-clinic", authRequired, requireRole(["cs", "legal", "admin"]), async (req, res, next) => {
+  try {
+    const schema = z.object({
+      clinicId: z.string().min(1),
+      isPaid: z.boolean().default(false),
+      feeAmount: z.string().default("10.000")
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
+
+    const { clinicId, isPaid, feeAmount } = parsed.data;
+    if (!mongoose.isValidObjectId(clinicId)) return res.status(400).json({ error: "INVALID_CLINIC_ID" });
+
+    const uo = await UserOfferModel.findById(req.params.uoId);
+    if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
+
+    if (isPaid) {
+      const resAdjust = await kycStore.adjustUnlocked({
+        userId: uo.userId,
+        amountKwd: `-${feeAmount}`,
+        reason: `Clinic change fee for membership: ${uo.shortId || uo._id}`,
+        createdById: req.auth!.userId
+      });
+      if (resAdjust && "error" in resAdjust) {
+        if (resAdjust.error === "UNLOCKED_BELOW_ZERO") {
+          return res.status(400).json({ error: "INSUFFICIENT_FUNDS" });
+        }
+        return res.status(400).json({ error: resAdjust.error });
+      }
+    }
+
+    uo.clinicId = new mongoose.Types.ObjectId(clinicId);
+    await uo.save();
+
+    return res.json({ ok: true, clinicId: String(uo.clinicId) });
   } catch (e) {
     next(e);
   }

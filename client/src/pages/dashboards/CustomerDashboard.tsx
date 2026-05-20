@@ -711,7 +711,7 @@ export default function CustomerDashboard() {
   const { data: walletData, loading: wLoading } = useWallet({ lazy: activeTab !== "overview" && activeTab !== "wallet" && activeTab !== "my-purchases" });
   const { data: offersData, refetch: refetchMyOffers } = useMyOffers({ lazy: activeTab !== "overview" && activeTab !== "my-purchases" && activeTab !== "store" });
   const { data: reservationsData, refetch: refetchReservations } = useApi<{ items: any[] }>(activeTab === "my-purchases" ? "/checkout/me/reservations" : null, { deps: [activeTab] });
-  const { data: cardData, loading: cardLoading, error: cardError } = useApi<{ card: { displayName: string; memberSince: string | null; kycVerified: boolean; activeOffers: Array<{ offerId: string; offerName: string | null; activatedAt: string | null; expiresAt: string | null; sessionsUsed: number }>; activeSessionCount: number; recentSessions: Array<{ scheduledAt: string; status: string; completedAt: string | null }>; cashbackUnlockedKwd: string; cashbackLockedKwd: string; publicToken: string | undefined } }>(activeTab === "wallet" || activeTab === "overview" ? "/public/me/card" : null, { deps: [activeTab] });
+  const { data: cardData, loading: cardLoading, error: cardError } = useApi<{ card: { displayName: string; memberSince: string | null; kycVerified: boolean; civilIdNumberMasked?: string | null; activeOffers: Array<{ offerId: string; offerName: string | null; activatedAt: string | null; expiresAt: string | null; sessionsUsed: number }>; activeSessionCount: number; recentSessions: Array<{ scheduledAt: string; status: string; completedAt: string | null }>; cashbackUnlockedKwd: string; cashbackLockedKwd: string; publicToken: string | undefined } }>(activeTab === "wallet" || activeTab === "overview" ? "/public/me/card" : null, { deps: [activeTab] });
   const { data: sessionsData, refetch: refetchMySessions } = useApi<{ items: any[] }>(activeTab === "my-purchases" || activeTab === "overview" ? "/scheduling/me/sessions" : null, { deps: [activeTab] });
   const { data: myComplaintsData, refetch: refetchMyComplaints } = useApi<{ items: any[] }>(activeTab === "profile" ? "/complaints/me" : null, { deps: [activeTab] });
   const { data: notifData } = useNotifications({ lazy: activeTab !== "profile" });
@@ -1750,7 +1750,7 @@ export default function CustomerDashboard() {
                               </div>
                             )}
 
-                            {o.clinicLocked && o.clinicId && (() => {
+                            {o.clinicId && (() => {
                                const clinic = (clinicsPublic?.items || []).find(c => c.id === o.clinicId);
                                const clinicName = ar() ? (clinic as any)?.nameAr || clinic?.nameEn || o.clinicId : clinic?.nameEn || (clinic as any)?.nameAr || o.clinicId;
                                const sessionPrice = (o.branchSessionPrices || []).find((b: any) => b.clinicId === o.clinicId)?.sessionPriceKwd;
@@ -2378,6 +2378,37 @@ export default function CustomerDashboard() {
                                 {ar() ? "رفضت ENET الطلب. جرّبي خطة دفع أخرى." : "ENET declined. Try a different payment plan."}
                               </div>
                             )}
+
+                            {uo.status === "active" && (
+                              <div className="flex justify-end pt-2 border-t border-surface-50 mt-3">
+                                <button
+                                  onClick={async () => {
+                                    const confirmCancel = window.confirm(
+                                      ar()
+                                        ? "هل أنت متأكد من رغبتك في إلغاء هذا الاشتراك؟"
+                                        : "Are you sure you want to cancel this membership?"
+                                    );
+                                    if (!confirmCancel) return;
+                                    try {
+                                      await apiFetch(`/commerce/me/user-offers/${uo.id}`, {
+                                        method: "DELETE",
+                                        headers: getAuthHeader()
+                                      });
+                                      await refetchMyOffers();
+                                      alert(ar() ? "تم إلغاء الاشتراك بنجاح." : "Membership cancelled successfully.");
+                                    } catch (e: any) {
+                                      alert(e.message || "Failed to cancel membership");
+                                    }
+                                  }}
+                                  className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl transition-colors"
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                  </svg>
+                                  {ar() ? "إلغاء الاشتراك" : "Cancel Membership"}
+                                </button>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -2912,7 +2943,7 @@ export default function CustomerDashboard() {
                     </div>
                   </div>
                   {/* Email row */}
-                  <div className="flex items-center justify-between py-4 last:pb-0">
+                  <div className="flex items-center justify-between py-4">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="w-7 h-7 rounded-lg bg-surface-100 flex items-center justify-center shrink-0">
                         <svg className="w-3.5 h-3.5 text-surface-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
@@ -2927,6 +2958,20 @@ export default function CustomerDashboard() {
                       </div>
                     </div>
                   </div>
+                  {/* Civil ID row (Only visible if Civil ID is present in cardData) */}
+                  {cardData?.card?.civilIdNumberMasked && (
+                    <div className="flex items-center justify-between py-4 last:pb-0">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div className="w-7 h-7 rounded-lg bg-surface-100 flex items-center justify-center shrink-0">
+                          <svg className="w-3.5 h-3.5 text-surface-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.333 0 4 .667 4 2v1H5v-1c0-1.333 2.667-2 4-2z"/></svg>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-0.5">{ar() ? "الرقم المدني" : "Civil ID"}</div>
+                          <div className="font-semibold text-surface-900 text-sm font-mono">{cardData.card.civilIdNumberMasked}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2946,6 +2991,11 @@ export default function CustomerDashboard() {
                       <div className={`font-black text-lg ${kycStatus === 'approved' ? 'text-emerald-700' : 'text-amber-700'}`}>
                         {kycStatus === 'approved' ? (ar() ? "✓ هويتك موثقة" : "✓ Identity Verified") : (ar() ? "هويتك غير موثقة" : "Identity Unverified")}
                       </div>
+                      {kycStatus === 'approved' && cardData?.card?.civilIdNumberMasked && (
+                        <div className="text-xs text-emerald-800/80 mt-1 font-mono font-bold">
+                          {ar() ? `الرقم المدني: ${cardData.card.civilIdNumberMasked}` : `Civil ID: ${cardData.card.civilIdNumberMasked}`}
+                        </div>
+                      )}
                       {kycStatus === 'unverified' && (
                         <p className="text-xs text-amber-700/80 mt-1.5 max-w-xs leading-relaxed">{ar() ? "أكملي التوثيق لتفعيل الدفع، شراء الباقات، وإدارة الكاش باك." : "Complete verification to enable payments, packages, and cashback."}</p>
                       )}
