@@ -580,7 +580,7 @@ usersRouter.patch("/admin/:id", authRequired, requireRole(["admin"]), async (req
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
     const parsed = z
       .object({
-        role: z.enum(["customer", "admin", "cs", "finance", "clinicStaff"]).optional(),
+        role: z.enum(["customer", "admin", "cs", "finance", "clinicStaff", "legal"]).optional(),
         isActive: z.boolean().optional(),
         clinicId: z.string().optional()
       })
