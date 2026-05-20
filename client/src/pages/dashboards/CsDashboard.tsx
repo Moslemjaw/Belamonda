@@ -915,7 +915,7 @@ function BookingRequestsQueue() {
 }
 
 
-function CustomerMemberships() {
+function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, clinicId: string) => void }) {
   const { getAuthHeader } = useAuth();
   const { data, loading, refetch } = useApi<{ items: any[] }>("/commerce/admin/user-offers");
   const [cancellingId, setCancellingId] = useState<string | null>(null);
@@ -1055,7 +1055,15 @@ function CustomerMemberships() {
                         {isExpanded ? "▲" : "▼"}
                       </button>
                       {canCancel && !isConfirming && (
-                        <button className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition-colors font-medium" onClick={() => setConfirmId(o.id)}>{ar() ? "إلغاء" : "Cancel"}</button>
+                        <>
+                          <button 
+                            className="text-[11px] font-bold text-brand-pink-600 bg-brand-pink-50 border border-brand-pink-200 hover:bg-brand-pink-100 px-2.5 py-1 rounded-lg transition-colors" 
+                            onClick={() => onTransfer && onTransfer(o.id, o.clinicId || "")}
+                          >
+                            {ar() ? "تغيير العيادة" : "Change Clinic"}
+                          </button>
+                          <button className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition-colors font-medium" onClick={() => setConfirmId(o.id)}>{ar() ? "إلغاء" : "Cancel"}</button>
+                        </>
                       )}
                       {isConfirming && (
                         <div className="flex items-center gap-1.5">
@@ -2835,7 +2843,13 @@ export default function CsDashboard() {
             </div>
 
             {/* ── Customer Memberships (Full Width) ── */}
-            <CustomerMemberships />
+            <CustomerMemberships onTransfer={(id, clinicId) => {
+              setClinicChangeModal({ type: 'membership', id, currentClinicId: clinicId, defaultFee: '10.000' });
+              setNewClinicId(clinicId);
+              setIsPaidTransfer(false);
+              setTransferFee("10.000");
+              setTransferError(null);
+            }} />
 
             {/* ── Referral Activity ── */}
             <ReferralActivityWidget />
@@ -2844,7 +2858,13 @@ export default function CsDashboard() {
         {activeNav === "kyc" && isLegalOrAdmin && <KycQueue />}
         {activeNav === "eforms" && isLegalOrAdmin && <EFormsViewer />}
         {activeNav === "payments" && <PaymentsManager />}
-        {activeNav === "memberships" && <CustomerMemberships />}
+        {activeNav === "memberships" && <CustomerMemberships onTransfer={(id, clinicId) => {
+          setClinicChangeModal({ type: 'membership', id, currentClinicId: clinicId, defaultFee: '10.000' });
+          setNewClinicId(clinicId);
+          setIsPaidTransfer(false);
+          setTransferFee("10.000");
+          setTransferError(null);
+        }} />}
         {activeNav === "customers" && <CustomersManager />}
         {activeNav === "clinic_changes" && <ClinicChangeRequestsQueue />}
         {activeNav === "scheduling" && (

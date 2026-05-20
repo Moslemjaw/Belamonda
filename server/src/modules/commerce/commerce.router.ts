@@ -724,10 +724,26 @@ commerceRouter.post("/admin/user-offers/:uoId/change-clinic", authRequired, requ
       }
     }
 
+    const pendingReqs = await BookingRequestModel.find({ userOfferId: uo._id, status: "pending" });
+    if (pendingReqs.length > 0) {
+      await BookingRequestModel.deleteMany({ _id: { $in: pendingReqs.map((r) => r._id) } });
+    }
+
+    const scheduledSessions = await BookingSessionModel.find({ userOfferId: uo._id, status: "scheduled" });
+    if (scheduledSessions.length > 0) {
+      await BookingSessionModel.deleteMany({ _id: { $in: scheduledSessions.map((s) => s._id) } });
+      const decrementAmount = scheduledSessions.length;
+      if ((uo.sessionsUsed ?? 0) >= decrementAmount) {
+        uo.sessionsUsed = (uo.sessionsUsed ?? 0) - decrementAmount;
+      } else {
+        uo.sessionsUsed = 0;
+      }
+    }
+
     uo.clinicId = new mongoose.Types.ObjectId(clinicId);
     await uo.save();
 
-    return res.json({ ok: true, clinicId: String(uo.clinicId) });
+    return res.json({ ok: true, clinicId: String(uo.clinicId), deletedSessions: scheduledSessions.length });
   } catch (e) {
     next(e);
   }
