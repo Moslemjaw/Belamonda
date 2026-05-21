@@ -765,9 +765,12 @@ function ReportsTab({ from, to }: { from: string; to: string }) {
   const reports = [
     { kind: "payments", icon: "💳", name: ar() ? "كل المدفوعات" : "All Payments", desc: ar() ? "سجل كامل لكل العمليات" : "Complete transaction ledger" },
     { kind: "offers", icon: "📦", name: ar() ? "تقرير العروض" : "Offers Report", desc: ar() ? "الإيرادات حسب العرض" : "Revenue by offer" },
-    { kind: "users", icon: "👥", name: ar() ? "تقرير العملاء" : "Customers Report", desc: ar() ? "القيمة الدائمة وعدد المشتريات" : "LTV & purchase count" },
-    { kind: "referrals", icon: "🔗", name: ar() ? "تقرير الإحالات" : "Referrals Report", desc: ar() ? "أداء أكواد الإحالة" : "Referral code performance" },
+    { kind: "users", icon: "👥", name: ar() ? "تقرير العملاء الشامل" : "Comprehensive Customers", desc: ar() ? "القيمة الدائمة وعدد المشتريات والنشاط" : "LTV, purchase count & activity" },
+    { kind: "referrals", icon: "🔗", name: ar() ? "تقرير الإحالات" : "Referrals Report", desc: ar() ? "أداء أكواد الإحالة والعمولات" : "Referral code performance" },
     { kind: "installments", icon: "📅", name: ar() ? "تقرير الأقساط" : "Installments Report", desc: ar() ? "المدفوعة والقادمة والمتأخرة" : "Paid, upcoming and late" },
+    { kind: "clinics", icon: "🏥", name: ar() ? "أداء العيادات" : "Clinics Performance", desc: ar() ? "الاستخدام والإيرادات وجلسات التخلف" : "Utilization, revenue & no-shows" },
+    { kind: "dormant", icon: "💤", name: ar() ? "العملاء الخاملون" : "Dormant Customers", desc: ar() ? "العملاء الذين لم يزوروا العيادة مؤخراً" : "Customers with no recent visits" },
+    { kind: "health", icon: "⚙️", name: ar() ? "تقرير صحة النظام" : "System Health Report", desc: ar() ? "نظرة عامة على البيانات والتشغيل" : "General data & operational overview" },
   ];
 
   const downloadCsv = async (kind: string) => {

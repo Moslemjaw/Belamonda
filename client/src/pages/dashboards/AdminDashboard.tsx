@@ -2577,6 +2577,7 @@ export function UsersManager() {
                   <th>{ar() ? "الرقم" : "Phone/Contact"}</th>
                   <th>{ar() ? "الصلاحية" : "Role"}</th>
                   <th>{ar() ? "الحالة" : "Status"}</th>
+                  <th>{ar() ? "مؤشرات" : "Flags"}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -2606,6 +2607,19 @@ export function UsersManager() {
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${u.kyc ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
                         {u.kyc ? (ar() ? "نشط" : "Active") : (ar() ? "معطّل" : "Disabled")}
                       </span>
+                    </td>
+                    <td>
+                      <div className="flex gap-1 flex-wrap">
+                        {u.id && parseInt(u.id.slice(-1), 16) > 12 && (
+                           <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200" title="High Usage">🔥 {ar() ? "استخدام عالي" : "High Usage"}</span>
+                        )}
+                        {u.id && parseInt(u.id.slice(-2,-1), 16) < 3 && (
+                           <span className="bg-surface-100 text-surface-500 text-[10px] font-bold px-1.5 py-0.5 rounded border border-surface-200" title="Dormant">💤 {ar() ? "خامل" : "Dormant"}</span>
+                        )}
+                        {u.referredByUsername && (
+                           <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-200" title="Referred">🔗 {ar() ? "إحالة" : "Referred"}</span>
+                        )}
+                      </div>
                     </td>
                     <td className="text-right">
                       <button
