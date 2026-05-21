@@ -2059,7 +2059,7 @@ export default function CustomerDashboard() {
                               </div>
                             )}
 
-                            {o.clinicId && (() => {
+                            {o.clinicId && !isCashback && (() => {
                                const clinic = (clinicsPublic?.items || []).find(c => c.id === o.clinicId);
                                const clinicName = ar() ? (clinic as any)?.nameAr || clinic?.nameEn || o.clinicId : clinic?.nameEn || (clinic as any)?.nameAr || o.clinicId;
                                const sessionPrice = (o.branchSessionPrices || []).find((b: any) => b.clinicId === o.clinicId)?.sessionPriceKwd;
