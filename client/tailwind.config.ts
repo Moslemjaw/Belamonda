@@ -69,6 +69,8 @@ export default {
         "slide-in-right": "slideInRight 0.3s ease-out",
         "pulse-soft": "pulseSoft 2s ease-in-out infinite",
         shimmer: "shimmer 2s linear infinite",
+        "slide-up-sheet": "slideUpSheet 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+        "pulse-glow": "pulseGlow 2.5s infinite ease-in-out",
       },
       keyframes: {
         fadeIn: {
@@ -90,6 +92,14 @@ export default {
         shimmer: {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
+        },
+        slideUpSheet: {
+          "0%": { transform: "translateY(100%)" },
+          "100%": { transform: "translateY(0)" },
+        },
+        pulseGlow: {
+          "0%, 100%": { opacity: "1", transform: "scale(1)", boxShadow: "0 0 15px rgba(245, 154, 185, 0.4)" },
+          "50%": { opacity: "0.8", transform: "scale(1.05)", boxShadow: "0 0 25px rgba(245, 154, 185, 0.7)" },
         },
       },
     },

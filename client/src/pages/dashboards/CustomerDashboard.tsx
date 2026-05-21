@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../../app/AuthContext";
@@ -996,6 +997,7 @@ export default function CustomerDashboard() {
   const { t } = useTranslation();
   const { auth, logout, getAuthHeader } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [purchasesSubTab, setPurchasesSubTab] = useState<"packages" | "chat" | "reservations">("packages");
   const [walletSubTab, setWalletSubTab] = useState<"cashback" | "history" | "card" | "invoices">("cashback");
   const [profileSubTab, setProfileSubTab] = useState<"settings" | "forms" | "notifications" | "share" | "complaints">("settings");
@@ -3740,31 +3742,95 @@ export default function CustomerDashboard() {
       </main>
 
       {/* Mobile Bottom Tab Bar */}
-      <nav className="lg:hidden fixed bottom-4 inset-x-4 bg-white/90 backdrop-blur-md border border-surface-200/50 rounded-2xl py-2 px-1 flex justify-around items-center z-40 shadow-[0_8px_30px_rgba(0,0,0,0.06)] backdrop-filter supports-[backdrop-filter]:bg-white/80">
-        {[
-          { key: "overview", label: ar() ? "الرئيسية" : "Home", icon: CustomerIcons.home },
-          { key: "store", label: ar() ? "العضويات" : "Memberships", icon: CustomerIcons.offers },
-          { key: "my-purchases", label: ar() ? "حجوزاتي" : "Bookings", icon: CustomerIcons.wallet },
-          { key: "wallet", label: ar() ? "المحفظة" : "Wallet", icon: CustomerIcons.card },
-          { key: "subscription", label: ar() ? "برو" : "Pro", icon: <span className="text-lg">👑</span> },
-          { key: "profile", label: ar() ? "حسابي" : "Profile", icon: CustomerIcons.profile },
-        ].map(tab => {
-          const isActive = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex flex-col items-center justify-center gap-1 flex-1 py-1.5 min-w-0 transition-all duration-200 active:scale-95 ${isActive ? "text-brand-pink-500 font-bold" : "text-surface-400 hover:text-surface-600"}`}
-            >
-              <div className={`transition-transform duration-200 ${isActive ? "scale-110" : "scale-100"}`}>
-                {tab.icon}
-              </div>
-              <span className="text-[9px] font-medium leading-none tracking-tight">{tab.label}</span>
-              <span className={`w-1 h-1 mt-0.5 rounded-full bg-brand-pink-500 transition-all duration-200 ${isActive ? "scale-100 opacity-100" : "scale-0 opacity-0"}`} />
-            </button>
-          );
-        })}
+      <nav className="lg:hidden fixed bottom-5 inset-x-4 bg-white/95 backdrop-blur-xl border border-surface-200/60 rounded-3xl p-1.5 flex justify-between items-center z-40 shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
+        {/* Left Side */}
+        <div className="flex items-center flex-1 justify-around">
+          <button onClick={() => setActiveTab("overview")} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all duration-200 active:scale-95 ${activeTab === "overview" ? "text-brand-pink-500 font-bold" : "text-surface-400 hover:text-surface-600"}`}>
+            <div className={`transition-transform duration-200 ${activeTab === "overview" ? "scale-110" : "scale-100"}`}>{CustomerIcons.home}</div>
+            <span className="text-[10px] font-medium leading-none">{ar() ? "الرئيسية" : "Home"}</span>
+          </button>
+          <button onClick={() => setActiveTab("my-purchases")} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all duration-200 active:scale-95 ${activeTab === "my-purchases" ? "text-brand-pink-500 font-bold" : "text-surface-400 hover:text-surface-600"}`}>
+            <div className={`transition-transform duration-200 ${activeTab === "my-purchases" ? "scale-110" : "scale-100"}`}>{CustomerIcons.wallet}</div>
+            <span className="text-[10px] font-medium leading-none">{ar() ? "حجوزاتي" : "Bookings"}</span>
+          </button>
+        </div>
+
+        {/* Center PRO Button */}
+        <div className="relative px-2 -mt-6">
+          <button onClick={() => setActiveTab("subscription")} className="relative group w-14 h-14 rounded-full bg-brand-gradient flex items-center justify-center text-white shadow-glow border-4 border-white/90 backdrop-blur-sm transition-transform duration-300 active:scale-90 hover:shadow-glow-lg animate-pulse-glow">
+            <svg className="w-7 h-7 drop-shadow-md" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.8-6.3 4.8 2.3-7.4-6-4.6h7.6z"/></svg>
+            <span className="absolute -bottom-5 text-[9px] font-black tracking-wider text-brand-pink-600">PRO</span>
+          </button>
+        </div>
+
+        {/* Right Side */}
+        <div className="flex items-center flex-1 justify-around">
+          <button onClick={() => setActiveTab("wallet")} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all duration-200 active:scale-95 ${activeTab === "wallet" ? "text-brand-pink-500 font-bold" : "text-surface-400 hover:text-surface-600"}`}>
+            <div className={`transition-transform duration-200 ${activeTab === "wallet" ? "scale-110" : "scale-100"}`}>{CustomerIcons.card}</div>
+            <span className="text-[10px] font-medium leading-none">{ar() ? "المحفظة" : "Wallet"}</span>
+          </button>
+          <button onClick={() => setIsMobileMenuOpen(true)} className="flex flex-col items-center gap-1 flex-1 py-1 transition-all duration-200 active:scale-95 text-surface-400 hover:text-surface-600">
+            <svg className="w-5 h-5 mb-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h7" /></svg>
+            <span className="text-[10px] font-medium leading-none">{ar() ? "القائمة" : "Menu"}</span>
+          </button>
+        </div>
       </nav>
+
+      {/* Mobile Menu Drawer Portal */}
+      {isMobileMenuOpen && createPortal(
+        <div className="fixed inset-0 z-50 flex flex-col justify-end lg:hidden">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => setIsMobileMenuOpen(false)} />
+          <div className="relative bg-white rounded-t-3xl w-full max-h-[85vh] flex flex-col shadow-[0_-10px_40px_rgba(0,0,0,0.1)] animate-slide-up-sheet">
+            <div className="flex justify-center pt-3 pb-2" onClick={() => setIsMobileMenuOpen(false)}>
+              <div className="w-12 h-1.5 bg-surface-200 rounded-full" />
+            </div>
+            <div className="px-6 py-2 border-b border-surface-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-black text-surface-900 tracking-tight">Belamonda</h3>
+                <p className="text-xs text-surface-500 font-medium">{auth?.user?.displayName || "Guest"}</p>
+              </div>
+              <button className="icon-btn rounded-full" onClick={() => setIsMobileMenuOpen(false)}>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            
+            <div className="overflow-y-auto px-4 py-4 space-y-2 pb-safe">
+              {[
+                { tab: "store", sub: "", label: ar() ? "تصفح العضويات" : "Memberships & Store", icon: CustomerIcons.offers, color: "text-indigo-600", bg: "bg-indigo-50" },
+                { tab: "profile", sub: "settings", label: ar() ? "إعدادات الحساب" : "Profile Settings", icon: CustomerIcons.profile, color: "text-brand-pink-600", bg: "bg-brand-pink-50" },
+                { tab: "profile", sub: "forms", label: ar() ? "نماذجي الطبية" : "Medical E-Forms", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>, color: "text-emerald-600", bg: "bg-emerald-50" },
+                { tab: "profile", sub: "notifications", label: ar() ? "الإشعارات" : "Notifications", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>, color: "text-amber-600", bg: "bg-amber-50" },
+                { tab: "profile", sub: "share", label: ar() ? "شارك واربح" : "Share & Earn", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>, color: "text-blue-600", bg: "bg-blue-50" },
+                { tab: "profile", sub: "complaints", label: ar() ? "المساعدة والشكاوى" : "Help & Support", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>, color: "text-surface-600", bg: "bg-surface-100" },
+              ].map((item, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setActiveTab(item.tab);
+                    if (item.sub && item.tab === "profile") setProfileSubTab(item.sub as any);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl bg-white hover:bg-surface-50 border border-transparent hover:border-surface-200 transition-all text-left active:scale-[0.98]"
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.bg} ${item.color}`}>
+                    {item.icon}
+                  </div>
+                  <div className="flex-1 font-bold text-surface-900">{item.label}</div>
+                  <svg className="w-5 h-5 text-surface-300 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                </button>
+              ))}
+              <div className="h-px bg-surface-100 my-4" />
+              <button onClick={() => { logout(); setIsMobileMenuOpen(false); }} className="w-full flex items-center gap-4 px-4 py-3.5 rounded-2xl bg-white hover:bg-red-50 group transition-all text-left active:scale-[0.98]">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-red-50 text-red-600 group-hover:bg-red-100">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                </div>
+                <div className="flex-1 font-bold text-red-600">{t("logout")}</div>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Package Checkout Modal */}
       {selectedPkg && (
