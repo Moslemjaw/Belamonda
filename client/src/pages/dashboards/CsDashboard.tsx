@@ -1472,161 +1472,168 @@ function CustomersManager() {
       </div>
 
       {selectedUser ? (
-        <div className="card-elevated p-8 animate-slide-up relative bg-white/70 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.1)]">
-          <button className="absolute top-6 right-6 text-surface-400 hover:text-surface-900 bg-white hover:bg-surface-200 border border-surface-200 p-2 rounded-full transition-colors shadow-sm"
-            onClick={() => { setSelectedUser(null); setProfile(null); }}>
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
-
-          <div className="flex items-start gap-4 mb-8">
-            <div className="w-20 h-20 rounded-[1.25rem] bg-gradient-to-br from-brand-pink-100 to-brand-pink-50 flex items-center justify-center text-brand-pink-600 font-black text-3xl shadow-[0_4px_20px_rgba(236,72,153,0.2)]">
-              {getDisplayName(selectedUser).charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-surface-900">{getDisplayName(selectedUser)}</h2>
-              <div className="text-sm text-surface-500 mt-1">@{selectedUser.username} • {selectedUser.phone || "—"}</div>
-              <div className="mt-2 flex gap-2 flex-wrap">
-                <span className={getStatusBadge(userStatus)}>{userStatus}</span>
-                <span className="badge-sage">Customer</span>
-                {selectedUser.email && <span className="text-xs text-surface-400">{selectedUser.email}</span>}
+        <div className="card-elevated p-0 animate-slide-up relative bg-white/80 backdrop-blur-3xl border border-surface-200/50 shadow-[0_20px_60px_rgb(0,0,0,0.08)] rounded-3xl overflow-hidden">
+          {/* Premium Header */}
+          <div className="relative bg-gradient-to-br from-surface-900 via-surface-800 to-surface-900 px-8 pt-8 pb-6">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(236,72,153,0.15),transparent_70%)]"></div>
+            <button className="absolute top-5 right-5 text-white/50 hover:text-white bg-white/10 hover:bg-white/20 backdrop-blur-sm p-2 rounded-xl transition-all duration-200 z-10"
+              onClick={() => { setSelectedUser(null); setProfile(null); }}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            <div className="relative flex items-center gap-5">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-pink-400 to-brand-pink-600 flex items-center justify-center text-white font-black text-2xl shadow-[0_8px_24px_rgba(236,72,153,0.4)] ring-2 ring-white/20">
+                {getDisplayName(selectedUser).charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-bold text-white truncate">{getDisplayName(selectedUser)}</h2>
+                <div className="text-sm text-white/50 mt-0.5 truncate">@{selectedUser.username} • {selectedUser.phone || "—"}</div>
+                <div className="mt-2 flex gap-2 flex-wrap">
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white/10 backdrop-blur-sm text-white/90 border border-white/10">{userStatus}</span>
+                  <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-white/10 backdrop-blur-sm text-white/90 border border-white/10">Customer</span>
+                  {selectedUser.email && <span className="text-[10px] text-white/40 self-center truncate">{selectedUser.email}</span>}
+                </div>
               </div>
             </div>
           </div>
 
+          <div className="p-6 sm:p-8">
           {profileLoading ? (
-            <div className="py-12 text-center text-sm text-surface-400 animate-pulse">{ar() ? "جاري تحميل الملف الشخصي..." : "Loading profile..."}</div>
+            <div className="py-16 text-center text-sm text-surface-400 animate-pulse">{ar() ? "جاري تحميل الملف الشخصي..." : "Loading profile..."}</div>
           ) : (
           <div className="grid gap-6 lg:grid-cols-3 mb-8">
             <div className="lg:col-span-1 space-y-6">
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
-                <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "نظرة عامة" : "Overview"}</h4>
-                <div className="space-y-4">
-                  <div>
-                    <div className="text-xs text-surface-500">{ar() ? "الرصيد المتاح" : "Available Balance"}</div>
-                    <div className="text-xl font-black text-brand-pink-600">
+              <div className="bg-surface-50/80 rounded-2xl p-5 border border-surface-100 shadow-sm">
+                <h4 className="text-xs font-bold text-surface-400 uppercase tracking-wider mb-4">{ar() ? "نظرة عامة" : "Overview"}</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-white rounded-xl p-3 border border-surface-100 col-span-2">
+                    <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">{ar() ? "الرصيد المتاح" : "Available Balance"}</div>
+                    <div className="text-2xl font-black bg-gradient-to-r from-brand-pink-500 to-brand-pink-600 bg-clip-text text-transparent mt-1">
                       {profile?.wallet ? `${Number(profile.wallet.unlockedKwd ?? 0).toFixed(3)} KWD` : "—"}
                     </div>
                     {profile?.wallet?.lockedKwd > 0 && (
-                      <div className="text-xs text-surface-400 mt-0.5">{Number(profile.wallet.lockedKwd).toFixed(3)} KWD {ar() ? "مقفل" : "locked"}</div>
+                      <div className="text-[10px] text-surface-400 mt-1 font-medium">{Number(profile.wallet.lockedKwd).toFixed(3)} KWD {ar() ? "مقفل" : "locked"}</div>
                     )}
                   </div>
-                  <div>
-                    <div className="text-xs text-surface-500">{ar() ? "الرقم المدني" : "Civil ID"}</div>
-                    <div className="font-mono text-sm text-surface-900">{profile?.user?.civilIdNumberMasked || profile?.kyc?.civilIdNumberMasked || selectedUser.civilIdNumberMasked || "—"}</div>
+                  <div className="bg-white rounded-xl p-3 border border-surface-100">
+                    <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">{ar() ? "الرقم المدني" : "Civil ID"}</div>
+                    <div className="font-mono text-xs text-surface-800 mt-1.5 font-bold">{profile?.user?.civilIdNumberMasked || profile?.kyc?.civilIdNumberMasked || selectedUser.civilIdNumberMasked || "—"}</div>
                   </div>
-                  <div>
-                    <div className="text-xs text-surface-500">{ar() ? "حالة KYC" : "KYC Status"}</div>
-                    <div className="text-sm text-surface-900 capitalize">{profile?.kyc?.status ?? "Not submitted"}</div>
+                  <div className="bg-white rounded-xl p-3 border border-surface-100">
+                    <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">{ar() ? "حالة KYC" : "KYC Status"}</div>
+                    <div className="text-xs text-surface-800 capitalize mt-1.5 font-bold">{profile?.kyc?.status ?? "Not submitted"}</div>
                   </div>
-                  <div>
-                    <div className="text-xs text-surface-500">{ar() ? "البريد الإلكتروني" : "Email"}</div>
-                    <div className="text-sm text-surface-900">{selectedUser.email || "—"}</div>
+                  <div className="bg-white rounded-xl p-3 border border-surface-100">
+                    <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">{ar() ? "البريد" : "Email"}</div>
+                    <div className="text-xs text-surface-800 mt-1.5 font-bold truncate">{selectedUser.email || "—"}</div>
                   </div>
-                  <div className="pt-2 border-t border-surface-100">
-                    <div className="text-xs text-surface-500">{ar() ? "تاريخ التسجيل" : "Registered"}</div>
-                    <div className="text-sm text-surface-900">{selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : "—"}</div>
+                  <div className="bg-white rounded-xl p-3 border border-surface-100">
+                    <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider">{ar() ? "التسجيل" : "Registered"}</div>
+                    <div className="text-xs text-surface-800 mt-1.5 font-bold">{selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : "—"}</div>
                   </div>
-                  {profile?.wallet?.txns?.length > 0 && (
-                    <div className="pt-2 border-t border-surface-100">
-                      <div className="text-xs text-surface-500 mb-2">{ar() ? "آخر حركات المحفظة" : "Recent Wallet Txns"}</div>
-                      <div className="space-y-1.5">
-                        {profile.wallet.txns.slice(0, 4).map((t: any) => (
-                          <div key={t.id} className="flex justify-between items-center text-xs">
-                            <span className="text-surface-500 capitalize">{t.type?.replace(/_/g, ' ')}</span>
-                            <span className={`font-bold ${t.amountKwd >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
-                              {t.amountKwd >= 0 ? '+' : ''}{Number(t.amountKwd).toFixed(3)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
+                {profile?.wallet?.txns?.length > 0 && (
+                  <div className="mt-4 pt-3 border-t border-surface-100">
+                    <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-2.5">{ar() ? "آخر حركات المحفظة" : "Recent Wallet Txns"}</div>
+                    <div className="space-y-1.5">
+                      {profile.wallet.txns.slice(0, 4).map((t: any) => (
+                        <div key={t.id} className="flex justify-between items-center text-xs bg-white px-3 py-1.5 rounded-lg border border-surface-50">
+                          <span className="text-surface-500 capitalize">{t.type?.replace(/_/g, ' ')}</span>
+                          <span className={`font-bold ${t.amountKwd >= 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                            {t.amountKwd >= 0 ? '+' : ''}{Number(t.amountKwd).toFixed(3)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Belmondo Subscription Card */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300 mb-6">
-                <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100 flex items-center gap-2">
-                  <span className="text-xl">💎</span>
-                  {ar() ? "اشتراك بيلاموندو" : "Belmondo Subscription"}
+              <div className={`relative overflow-hidden rounded-2xl p-5 border shadow-sm transition-all duration-300 mb-6 ${profile?.user?.belmondoPlan === "pro" ? "bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200/50" : "bg-surface-50/80 border-surface-100"}`}>
+                {profile?.user?.belmondoPlan === "pro" && (
+                  <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-br from-amber-400 to-orange-400 blur-3xl opacity-20 pointer-events-none"></div>
+                )}
+                <h4 className="text-xs font-bold uppercase tracking-wider mb-4 flex items-center gap-1.5 text-surface-400">
+                  <svg className={`w-4 h-4 ${profile?.user?.belmondoPlan === "pro" ? "text-amber-500" : "text-surface-400"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.8-6.3 4.8 2.3-7.4-6-4.6h7.6z"/></svg>
+                  {ar() ? "اشتراك بيلاموندو" : "Belamonda Subscription"}
                 </h4>
                 
-                <div className="space-y-4">
+                <div className="space-y-4 relative">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-bold text-surface-700">{ar() ? "الخطة الحالية:" : "Current Plan:"}</span>
+                    <span className="text-[10px] font-bold text-surface-400 uppercase">{ar() ? "الخطة الحالية" : "Current Plan"}</span>
                     {profile?.user?.belmondoPlan === "pro" ? (
-                      <span className="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">Belmondo Pro</span>
+                      <span className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider shadow-sm">Belamonda Pro</span>
                     ) : (
-                      <span className="bg-surface-100 text-surface-600 text-xs font-bold px-2 py-1 rounded-md uppercase tracking-wider">Basic</span>
+                      <span className="bg-surface-200 text-surface-600 text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">Basic</span>
                     )}
                   </div>
                   
                   {profile?.user?.belmondoPlan === "pro" ? (
-                    <div className="bg-amber-50 rounded-xl p-3 border border-amber-100 text-sm space-y-2">
+                    <div className="bg-white/60 backdrop-blur-sm rounded-xl p-3 border border-amber-100/50 text-xs space-y-2 shadow-inner">
                       <div className="flex justify-between">
-                        <span className="text-amber-800">{ar() ? "طريقة الدفع:" : "Payment:"}</span>
-                        <span className="font-semibold text-amber-900 capitalize">{profile.user.belmondoProPaymentType}</span>
+                        <span className="text-surface-500 font-medium">{ar() ? "طريقة الدفع:" : "Payment:"}</span>
+                        <span className="font-bold text-surface-900 capitalize">{profile.user.belmondoProPaymentType}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-amber-800">{ar() ? "ينتهي في:" : "Expires At:"}</span>
-                        <span className="font-semibold text-amber-900">{profile.user.belmondoProExpiresAt ? new Date(profile.user.belmondoProExpiresAt).toLocaleDateString() : "—"}</span>
+                        <span className="text-surface-500 font-medium">{ar() ? "ينتهي في:" : "Expires At:"}</span>
+                        <span className="font-bold text-surface-900">{profile.user.belmondoProExpiresAt ? new Date(profile.user.belmondoProExpiresAt).toLocaleDateString() : "—"}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-amber-800">{ar() ? "نهاية الالتزام:" : "Commitment Ends:"}</span>
-                        <span className="font-semibold text-amber-900">{profile.user.belmondoProCommitmentEndsAt ? new Date(profile.user.belmondoProCommitmentEndsAt).toLocaleDateString() : "—"}</span>
+                        <span className="text-surface-500 font-medium">{ar() ? "نهاية الالتزام:" : "Commitment Ends:"}</span>
+                        <span className="font-bold text-surface-900">{profile.user.belmondoProCommitmentEndsAt ? new Date(profile.user.belmondoProCommitmentEndsAt).toLocaleDateString() : "—"}</span>
                       </div>
-                      <div className="pt-2 border-t border-amber-200/50 mt-2 flex gap-2">
-                        <button disabled={belmondoSaving} onClick={() => { setBelmondoPaymentOption("monthly"); handleUpdateSubscription(); }} className="btn-primary flex-1 btn-sm bg-surface-900 hover:bg-surface-800 text-xs shadow-md border-none">{ar() ? "تجديد / تسجيل دفعة" : "Renew / Record Payment"}</button>
-                        <button disabled={belmondoSaving} onClick={() => handleUpdateSubscription(true)} className="btn-secondary flex-1 btn-sm text-xs text-surface-600 hover:text-red-600 hover:bg-red-50 border border-surface-200 hover:border-red-200">{ar() ? "إلغاء برو" : "Cancel Pro"}</button>
+                      <div className="pt-3 border-t border-amber-200/30 mt-3 flex gap-2">
+                        <button disabled={belmondoSaving} onClick={() => { setBelmondoPaymentOption("monthly"); handleUpdateSubscription(); }} className="flex-1 bg-surface-900 hover:bg-surface-800 text-white py-2 rounded-xl text-xs font-bold shadow-sm transition-colors">{ar() ? "تجديد / تسجيل دفعة" : "Renew / Record Payment"}</button>
+                        <button disabled={belmondoSaving} onClick={() => handleUpdateSubscription(true)} className="flex-[0.5] text-surface-500 hover:text-red-600 hover:bg-red-50 border border-surface-200 hover:border-red-200 bg-white py-2 rounded-xl text-xs font-bold transition-colors">{ar() ? "إلغاء" : "Cancel"}</button>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      <select className="input-field text-sm bg-surface-50" value={belmondoPaymentOption} onChange={e => setBelmondoPaymentOption(e.target.value as any)}>
+                    <div className="bg-white rounded-xl p-4 border border-surface-100 shadow-sm space-y-3">
+                      <select className="select-field text-xs w-full py-2 bg-surface-50" value={belmondoPaymentOption} onChange={e => setBelmondoPaymentOption(e.target.value as any)}>
                         <option value="monthly">{ar() ? "دفع شهري (12.5 د.ك)" : "Monthly (12.5 KWD)"}</option>
                         <option value="advance">{ar() ? "دفع 3 أشهر مقدماً (37.5 د.ك)" : "3-Months Advance (37.5 KWD)"}</option>
                       </select>
-                      <select className="input-field text-sm bg-surface-50" value={belmondoPaymentMethod} onChange={e => setBelmondoPaymentMethod(e.target.value)}>
+                      <select className="select-field text-xs w-full py-2 bg-surface-50" value={belmondoPaymentMethod} onChange={e => setBelmondoPaymentMethod(e.target.value)}>
                         <option value="pos">POS</option>
                         <option value="cash">Cash</option>
                         <option value="bank_transfer">Bank Transfer</option>
                       </select>
-                      <button disabled={belmondoSaving} onClick={() => handleUpdateSubscription()} className="btn-primary w-full bg-gradient-to-r from-amber-500 to-amber-600 border-none shadow-sm text-sm">{ar() ? "تفعيل بيلاموندو برو" : "Activate Belmondo Pro"}</button>
+                      <button disabled={belmondoSaving} onClick={() => handleUpdateSubscription()} className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold py-2.5 rounded-xl shadow-glow text-xs transition-all">{ar() ? "تفعيل بيلاموندو برو" : "Activate Belamonda Pro"}</button>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Adjust Cashback card */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
-                <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <div className="bg-surface-50/80 rounded-2xl p-5 border border-surface-100 shadow-sm">
+                <h4 className="text-xs font-bold text-surface-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                   {ar() ? "تعديل الكاش باك" : "Adjust Cashback"}
                 </h4>
-                <div className="space-y-3">
+                <div className="bg-white rounded-xl p-4 border border-surface-100 shadow-sm space-y-3">
                   <div className="flex gap-2">
                     <input
                       type="number"
                       min="0"
                       step="0.001"
                       placeholder={ar() ? "المبلغ (د.ك)" : "Amount KWD"}
-                      className="input-field flex-1 text-sm bg-surface-50"
+                      className="input-field flex-1 text-xs py-2 bg-surface-50"
                       value={cashAmt}
                       onChange={e => setCashAmt(e.target.value)}
                     />
                     <input
                       type="text"
                       placeholder={ar() ? "السبب (مطلوب)" : "Reason (required)"}
-                      className="input-field flex-[1.5] text-sm bg-surface-50"
+                      className="input-field flex-[1.5] text-xs py-2 bg-surface-50"
                       value={cashReason}
                       onChange={e => setCashReason(e.target.value)}
                     />
                   </div>
                   <div className="flex gap-2">
-                    <button className="btn-primary btn-sm flex-1 bg-emerald-500 hover:bg-emerald-600 border-none py-2 text-xs font-bold shadow-sm" disabled={cashSaving} onClick={() => void handleCashbackAdjust(1)}>
+                    <button className="flex-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 py-2 rounded-xl text-[11px] font-bold transition-colors" disabled={cashSaving} onClick={() => void handleCashbackAdjust(1)}>
                       {cashSaving ? "…" : (ar() ? "+ إضافة كاش باك" : "+ Add Cashback")}
                     </button>
-                    <button className="btn-secondary btn-sm flex-1 text-red-500 hover:bg-red-50 hover:border-red-200 py-2 text-xs font-bold" disabled={cashSaving} onClick={() => void handleCashbackAdjust(-1)}>
+                    <button className="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 rounded-xl text-[11px] font-bold transition-colors" disabled={cashSaving} onClick={() => void handleCashbackAdjust(-1)}>
                       {cashSaving ? "…" : (ar() ? "- خصم كاش باك" : "- Deduct Cashback")}
                     </button>
                   </div>
@@ -1637,13 +1644,19 @@ function CustomersManager() {
 
             <div className="lg:col-span-2 space-y-6">
               {/* Memberships */}
-              <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
-                <h4 className="font-bold text-surface-900 mb-4 flex items-center justify-between pb-2 border-b border-surface-100">
+              <div className="bg-surface-50/80 rounded-2xl p-5 border border-surface-100 shadow-sm">
+                <h4 className="text-xs font-bold text-surface-400 uppercase tracking-wider mb-4 flex items-center justify-between">
                   {ar() ? "الاشتراكات والعروض" : "Memberships & Offers"}
-                  <span className="badge-pink text-xs">{(profile?.memberships ?? []).length}</span>
+                  <span className="bg-brand-pink-100 text-brand-pink-700 text-[10px] px-2 py-0.5 rounded-md">{(profile?.memberships ?? []).length}</span>
                 </h4>
                 {!(profile?.memberships?.length) ? (
-                  <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد اشتراكات" : "No memberships"}</div>
+                  <div className="bg-white rounded-xl p-8 border border-surface-100 flex flex-col items-center justify-center text-center">
+                    <div className="w-12 h-12 bg-brand-pink-50 rounded-full flex items-center justify-center mb-3">
+                      <svg className="w-6 h-6 text-brand-pink-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                    </div>
+                    <div className="text-sm font-bold text-surface-900">{ar() ? "لا توجد اشتراكات" : "No active memberships"}</div>
+                    <div className="text-xs text-surface-400 mt-1">{ar() ? "قم بمنح عرض أو جلسة للبدء" : "Grant an offer or session to start"}</div>
+                  </div>
                 ) : (
                   <div className="grid gap-3 sm:grid-cols-1">
                     {profile.memberships.map((m: any) => {
@@ -1839,13 +1852,16 @@ function CustomersManager() {
 
               {/* Sessions & Payments */}
               <div className="grid gap-6 md:grid-cols-2">
-                <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
-                  <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100 flex items-center justify-between">
+                <div className="bg-surface-50/80 rounded-2xl p-5 border border-surface-100 shadow-sm">
+                  <h4 className="text-xs font-bold text-surface-400 uppercase tracking-wider mb-4 flex items-center justify-between">
                     {ar() ? "الجلسات المجدولة" : "Scheduled Sessions"}
-                    <span className="badge-pink text-xs">{(profile?.bookingSessions ?? []).length}</span>
+                    <span className="bg-blue-50 text-blue-600 text-[10px] px-2 py-0.5 rounded-md font-bold">{(profile?.bookingSessions ?? []).length}</span>
                   </h4>
                   {!(profile?.bookingSessions?.length) ? (
-                    <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد جلسات مجدولة" : "No scheduled sessions"}</div>
+                    <div className="bg-white rounded-xl p-8 border border-surface-100 flex flex-col items-center justify-center text-center h-[140px]">
+                      <svg className="w-8 h-8 text-surface-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      <div className="text-xs font-bold text-surface-400">{ar() ? "لا توجد جلسات مجدولة" : "No scheduled sessions"}</div>
+                    </div>
                   ) : (
                     <div className="space-y-3">
                       {profile.bookingSessions.map((s: any) => {
@@ -1903,10 +1919,16 @@ function CustomersManager() {
                   )}
                 </div>
 
-                <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-white shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] transition-all duration-300">
-                  <h4 className="font-bold text-surface-900 mb-4 pb-2 border-b border-surface-100">{ar() ? "المدفوعات الأخيرة" : "Recent Payments"}</h4>
+                <div className="bg-surface-50/80 rounded-2xl p-5 border border-surface-100 shadow-sm">
+                  <h4 className="text-xs font-bold text-surface-400 uppercase tracking-wider mb-4 flex items-center justify-between">
+                    {ar() ? "المدفوعات الأخيرة" : "Recent Payments"}
+                    <span className="bg-emerald-50 text-emerald-600 text-[10px] px-2 py-0.5 rounded-md font-bold">{(profile?.payments ?? []).length}</span>
+                  </h4>
                   {!(profile?.payments?.length) ? (
-                    <div className="text-center text-sm text-surface-400 py-6">{ar() ? "لا توجد مدفوعات" : "No payments yet"}</div>
+                    <div className="bg-white rounded-xl p-8 border border-surface-100 flex flex-col items-center justify-center text-center h-[140px]">
+                      <svg className="w-8 h-8 text-surface-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                      <div className="text-xs font-bold text-surface-400">{ar() ? "لا توجد مدفوعات" : "No payments yet"}</div>
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       {profile.payments.slice(0, 6).map((p: any) => (
@@ -1926,13 +1948,14 @@ function CustomersManager() {
           </div>
           )}
 
-          <div className="border-t border-surface-200 pt-6 flex gap-3 flex-wrap">
-            <button className="btn-primary flex items-center gap-2 bg-purple-500 hover:bg-purple-600 border-none shadow-sm" onClick={() => setShowGrantModal(true)}>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+          <div className="mt-8 pt-6 border-t border-surface-200 flex gap-3 flex-wrap bg-surface-50/50 -mx-6 sm:-mx-8 px-6 sm:px-8 pb-2 rounded-b-3xl">
+            <button className="flex items-center gap-2 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-all text-sm" onClick={() => setShowGrantModal(true)}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
               {ar() ? "منح عرض / جلسة" : "Grant Offer / Session"}
             </button>
-            <button className="btn-secondary text-red-500 hover:bg-red-50 hover:border-red-200 border-surface-200 flex items-center gap-2"
+            <button className={`flex items-center gap-2 py-3 px-6 rounded-xl font-bold border transition-all text-sm ${freezing ? 'opacity-50 cursor-not-allowed' : selectedUser.isActive ? 'bg-white border-red-200 text-red-500 hover:bg-red-50' : 'bg-white border-surface-200 text-surface-600 hover:bg-surface-50'}`}
               onClick={handleFreeze} disabled={freezing}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
               {freezing ? "..." : selectedUser.isActive
                 ? (ar() ? "تجميد الحساب" : "Freeze Account")
                 : (ar() ? "إلغاء التجميد" : "Unfreeze Account")}
@@ -2399,6 +2422,7 @@ function CustomersManager() {
             </div>,
             document.body
           )}
+          </div>
         </div>
       ) : (
         <div className="card-elevated overflow-hidden">
