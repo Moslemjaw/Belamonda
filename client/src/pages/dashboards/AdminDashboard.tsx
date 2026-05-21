@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
-import { useApi, useKycQueue, usePendingPayments, useComplaints, useProducts, useFinanceSnapshot, useAdminReservations, type ReservationItem } from "../../hooks/useApi";
+import { useApi, useKycQueue, usePendingPayments, useComplaints, useProducts, useFinanceSnapshot, useAdminReservations, type ReservationItem, invalidateCache } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL, SITE_BASE_URL } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { allTreatments } from "../../lib/treatments";
@@ -247,6 +247,14 @@ function OffersManager() {
   const saveOffer = async () => {
     if (!form.nameEn) return;
     const clinicId = form.clinicId || "";
+    if (!form.requireBranchSelection && !clinicId) {
+      alert(
+        ar()
+          ? "الرجاء تحديد العيادة الأساسية. هذا مطلوب عند تعطيل اختيار الفرع."
+          : "Please select a Primary Clinic. This is required when branch selection is disabled."
+      );
+      return;
+    }
     try {
       const url = editingId ? `/offers/admin/${editingId}` : "/offers/admin";
       const method = editingId ? "PATCH" : "POST";
@@ -310,6 +318,9 @@ function OffersManager() {
           featured: false
         })
       });
+      invalidateCache("/offers");
+      invalidateCache("/session-types");
+      invalidateCache("/commerce");
       setShowForm(false);
       refresh();
     } catch (e: any) {
