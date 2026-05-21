@@ -2395,7 +2395,7 @@ const ROLE_COLORS: Record<string, string> = {
   user: "bg-surface-100 text-surface-600",
 };
 
-function UsersManager() {
+export function UsersManager() {
   const { auth, login, getAuthHeader, impersonateUser } = useAuth();
   const canExport = auth?.role === "admin" || auth?.role === "finance";
   const [selectedUser, setSelectedUser] = useState<any>(null);

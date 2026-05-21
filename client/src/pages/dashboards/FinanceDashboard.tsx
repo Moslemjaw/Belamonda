@@ -34,7 +34,7 @@ import {
 } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL } from "../../lib/api";
 import i18n from "../../app/i18n";
-import { UserProfilePanel } from "./AdminDashboard";
+import { UserProfilePanel, UsersManager } from "./AdminDashboard";
 
 const ar = () => i18n.language === "ar";
 
@@ -211,16 +211,13 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
   const totals = ts?.totals;
 
   const revenue = snapshot?.revenueKwd ?? totals?.revenueKwd ?? "0.000";
-  const profit = snapshot?.profitKwd ?? totals?.profitKwd ?? "0.000";
   const cashbackApplied = snapshot?.cashbackAppliedKwd ?? totals?.cashbackKwd ?? "0.000";
   const cashbackLiability = snapshot?.cashback?.netLiabilityKwd ??
     fmt(parseKwd(snapshot?.totalCashbackLocked) + parseKwd(snapshot?.totalCashbackUnlocked) - parseKwd(snapshot?.totalCashbackUtilized));
-  const margin = parseKwd(revenue) > 0 ? (parseKwd(profit) / parseKwd(revenue)) * 100 : 0;
 
   const chartData = useMemo(() => points.map(p => ({
     bucket: p.bucket,
     Revenue: parseKwd(p.revenueKwd),
-    Profit: parseKwd(p.profitKwd),
     Cashback: parseKwd(p.cashbackKwd),
   })), [points]);
 
@@ -242,9 +239,8 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
   return (
     <div className="space-y-5">
       {/* KPIs */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <KpiCard label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={`${revenue} KWD`} sub={`${totals?.transactions ?? 0} ${ar() ? "معاملة" : "transactions"}`} color="text-emerald-600" icon="💰" />
-        <KpiCard label={ar() ? "صافي الربح المقدر" : "Estimated Profit"} value={`${profit} KWD`} sub={`${margin.toFixed(1)}% ${ar() ? "هامش" : "margin"}`} color="text-brand-pink-600" icon="📈" />
         <KpiCard label={ar() ? "الكاش باك المطبق" : "Cashback Applied"} value={`${cashbackApplied} KWD`} sub={ar() ? "من الإيرادات" : "off revenue"} color="text-amber-600" icon="🎁" />
         <KpiCard label={ar() ? "التزام الكاش باك" : "Cashback Liability"} value={`${cashbackLiability} KWD`} sub={ar() ? "صافي مستحق" : "net outstanding"} color="text-indigo-600" icon="⚖️" />
       </div>
@@ -261,7 +257,7 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
       <div className="card-elevated p-5 border border-surface-200 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-base font-bold text-surface-900">{ar() ? "تطور الإيرادات والربح" : "Revenue & Profit Trend"}</h3>
+            <h3 className="text-base font-bold text-surface-900">{ar() ? "تطور الإيرادات" : "Revenue Trend"}</h3>
             <p className="text-xs text-surface-500 mt-0.5">{ar() ? `مجمعة حسب ${period === "daily" ? "اليوم" : period === "weekly" ? "الأسبوع" : period === "monthly" ? "الشهر" : "السنة"}` : `Bucketed by ${period}`}</p>
           </div>
           <div className="text-xs text-surface-500">{points.length} {ar() ? "نقطة" : "points"}</div>
@@ -278,10 +274,6 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
                   <stop offset="0%" stopColor={COLORS.emerald} stopOpacity={0.4} />
                   <stop offset="100%" stopColor={COLORS.emerald} stopOpacity={0} />
                 </linearGradient>
-                <linearGradient id="profitFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLORS.pink} stopOpacity={0.4} />
-                  <stop offset="100%" stopColor={COLORS.pink} stopOpacity={0} />
-                </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="bucket" tick={{ fontSize: 11 }} stroke="#94a3b8" />
@@ -289,7 +281,6 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
               <Tooltip formatter={(v: any) => `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 12 }} />
               <Area type="monotone" dataKey="Revenue" stroke={COLORS.emerald} strokeWidth={2} fill="url(#revFill)" />
-              <Area type="monotone" dataKey="Profit" stroke={COLORS.pink} strokeWidth={2} fill="url(#profitFill)" />
               <Line type="monotone" dataKey="Cashback" stroke={COLORS.amber} strokeWidth={2} dot={false} />
             </AreaChart>
           </ResponsiveContainer>
@@ -392,12 +383,11 @@ function PaymentsTab({ from, to }: { from: string; to: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard label={ar() ? "المحصّل" : "Collected"} value={`${summary?.totalCollectedKwd ?? "0.000"} KWD`} color="text-emerald-600" />
         <KpiCard label={ar() ? "العضويات" : "Memberships"} value={`${summary?.membershipRevenueKwd ?? "0.000"} KWD`} color="text-brand-pink-600" />
         <KpiCard label={ar() ? "الجلسات" : "Sessions"} value={`${summary?.sessionRevenueKwd ?? "0.000"} KWD`} color="text-indigo-600" />
         <KpiCard label={ar() ? "كاش باك" : "Cashback"} value={`${summary?.cashbackAppliedKwd ?? "0.000"} KWD`} color="text-amber-600" />
-        <KpiCard label={ar() ? "صافي الربح" : "Net Profit"} value={`${summary?.profitKwd ?? "0.000"} KWD`} color="text-emerald-700" />
       </div>
 
       <div className="card-elevated p-5 border border-surface-200 shadow-sm">
@@ -550,115 +540,9 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
 // ===========================================================================
 
 function CustomersTab({ from, to }: { from: string; to: string }) {
-  const { impersonateUser } = useAuth();
-  const [search, setSearch] = useState("");
-  const [selectedUser, setSelectedUser] = useState<any>(null);
-  const { data, loading } = useRevenueByUser({ from, to });
-  const items = (data?.items ?? []).filter(u =>
-    !search ||
-    u.userId.toLowerCase().includes(search.toLowerCase()) ||
-    (u.displayName ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    (u.email ?? "").toLowerCase().includes(search.toLowerCase()) ||
-    (u.phone ?? "").includes(search)
-  );
-
-  const totalLtv = items.reduce((sum, u) => sum + parseKwd(u.ltvKwd), 0);
-  const avgLtv = items.length > 0 ? totalLtv / items.length : 0;
-
   return (
-    <div className="space-y-5">
-      {selectedUser ? (
-        <UserProfilePanel
-          user={selectedUser}
-          onClose={() => setSelectedUser(null)}
-          onRoleChange={() => {}}
-          onStatusChange={() => {}}
-          onLoginAs={() => void impersonateUser(selectedUser.id).catch(e => alert(e.message))}
-        />
-      ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <KpiCard label={ar() ? "عدد العملاء" : "Customers"} value={String(items.length)} color="text-indigo-600" />
-            <KpiCard label={ar() ? "إجمالي LTV" : "Total LTV"} value={`${fmt(totalLtv)} KWD`} color="text-emerald-600" />
-            <KpiCard label={ar() ? "متوسط LTV" : "Avg LTV"} value={`${fmt(avgLtv)} KWD`} color="text-brand-pink-600" />
-          </div>
-
-          <div className="card-elevated p-5 border border-surface-200 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
-          <h3 className="text-base font-bold text-surface-900">{ar() ? "أفضل العملاء" : "Top Customers by Revenue"}</h3>
-          <div className="relative">
-            <input type="text" placeholder={ar() ? "ابحث عن عميل..." : "Search customer..."}
-              className="input-field pl-10 w-full sm:w-64 text-sm"
-              value={search} onChange={e => setSearch(e.target.value)} />
-            <svg className="w-5 h-5 absolute left-3 top-2.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-        </div>
-
-        {loading && items.length === 0 ? (
-          <div className="text-sm text-surface-400 py-8 text-center">{ar() ? "جاري التحميل..." : "Loading..."}</div>
-        ) : items.length === 0 ? (
-          <div className="text-sm text-surface-400 py-8 text-center">{ar() ? "لا يوجد عملاء" : "No customers"}</div>
-        ) : (
-          <div className="overflow-x-auto rounded-xl border border-surface-200">
-            <table className="data-table text-sm">
-              <thead>
-                <tr className="bg-surface-50">
-                  <th>{ar() ? "العميل" : "Customer"}</th>
-                  <th className="text-center">{ar() ? "المشتريات" : "Purchases"}</th>
-                  <th className="text-right">{ar() ? "القيمة الدائمة" : "LTV"}</th>
-                  <th className="text-right">{ar() ? "كاش باك مستخدم" : "Cashback Used"}</th>
-                  <th className="text-center">{ar() ? "معلق" : "Pending"}</th>
-                  <th className="text-center"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map(u => (
-                  <tr key={u.userId}>
-                    <td>
-                      <div className="font-bold text-surface-900">{u.displayName}</div>
-                      <div className="text-xs text-surface-500 font-mono">{u.userId}</div>
-                      {(u.email || u.phone) && <div className="text-[10px] text-surface-400">{u.email || u.phone}</div>}
-                    </td>
-                    <td className="text-center">
-                      <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-xs font-bold">{u.purchasesCount}</span>
-                    </td>
-                    <td className="text-right font-bold text-emerald-700">{u.ltvKwd} KWD</td>
-                    <td className="text-right text-amber-600 font-medium">{u.cashbackUsedKwd} KWD</td>
-                    <td className="text-center">
-                      {u.pendingPayments > 0 ? (
-                        <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md text-xs font-bold">{u.pendingPayments}</span>
-                      ) : (
-                        <span className="text-surface-400 text-xs">—</span>
-                      )}
-                    </td>
-                    <td className="text-center">
-                      <button 
-                        onClick={() => setSelectedUser({
-                          id: u.userId,
-                          username: u.displayName,
-                          fullName: u.displayName,
-                          email: u.email,
-                          phone: u.phone,
-                          role: "customer",
-                          kyc: true,
-                          status: "Active"
-                        })}
-                        className="bg-brand-pink-50 text-brand-pink-600 hover:bg-brand-pink-100 font-bold px-3 py-1.5 rounded-lg text-xs transition-colors"
-                      >
-                        {ar() ? "إدارة" : "Manage"}
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-      </>
-      )}
+    <div className="space-y-5 animate-fade-in">
+      <UsersManager />
     </div>
   );
 }
@@ -670,15 +554,115 @@ function CustomersTab({ from, to }: { from: string; to: string }) {
 function AnalyticsTab({ from, to }: { from: string; to: string }) {
   const { data: offers, loading: offersLoading } = useRevenueByOffer({ from, to });
   const { data: referrals, loading: refLoading } = useRevenueByReferral({ from, to });
+  const { data: ts } = useFinanceTimeseries("daily", { from, to });
 
   const offerChart = useMemo(() => (offers?.items ?? []).slice(0, 8).map(o => ({
     name: o.offerName.length > 24 ? o.offerName.slice(0, 22) + "…" : o.offerName,
     Revenue: parseKwd(o.revenueKwd),
-    Profit: parseKwd(o.profitKwd),
+    Sales: o.salesCount,
   })), [offers]);
+
+  // Daily performance data for the last 7 visible points
+  const dailyPerf = useMemo(() => {
+    const pts = ts?.points ?? [];
+    return pts.slice(-14).map(p => ({
+      date: p.bucket,
+      Revenue: parseKwd(p.revenueKwd),
+      Cashback: parseKwd(p.cashbackKwd),
+      Txns: p.transactions,
+    }));
+  }, [ts]);
+
+  // Revenue composition: membership vs session
+  const totalOfferRevenue = (offers?.items ?? []).reduce((s, o) => s + parseKwd(o.revenueKwd), 0);
+  const totalOfferSales = (offers?.items ?? []).reduce((s, o) => s + o.salesCount, 0);
+  const topOffer = (offers?.items ?? []).sort((a, b) => parseKwd(b.revenueKwd) - parseKwd(a.revenueKwd))[0];
 
   return (
     <div className="space-y-5">
+
+      {/* Top-line analytics KPIs */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <KpiCard label={ar() ? "إجمالي إيرادات العروض" : "Total Offer Revenue"} value={`${fmt(totalOfferRevenue)} KWD`} color="text-emerald-600" icon="📦" />
+        <KpiCard label={ar() ? "إجمالي المبيعات" : "Total Sales"} value={String(totalOfferSales)} color="text-indigo-600" icon="🛒" />
+        <KpiCard label={ar() ? "عدد العروض" : "Active Offers"} value={String((offers?.items ?? []).length)} color="text-blue-600" icon="📋" />
+        <KpiCard label={ar() ? "أفضل عرض" : "Top Offer"} value={topOffer ? `${fmt(parseKwd(topOffer.revenueKwd))} KWD` : "—"} sub={topOffer?.offerName ?? ""} color="text-brand-pink-600" icon="🏆" />
+      </div>
+
+      {/* Daily Performance Chart — Revenue vs Cashback */}
+      <div className="card-elevated p-5 border border-surface-200 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-base font-bold text-surface-900">{ar() ? "الأداء اليومي" : "Daily Performance"}</h3>
+            <p className="text-xs text-surface-500 mt-0.5">{ar() ? "الإيرادات والكاش باك والمعاملات يومياً" : "Revenue, cashback & transactions per day"}</p>
+          </div>
+          <span className="text-xs text-surface-400">{dailyPerf.length} {ar() ? "يوم" : "days"}</span>
+        </div>
+        {dailyPerf.length === 0 ? (
+          <div className="h-56 flex items-center justify-center text-sm text-surface-400">{ar() ? "لا توجد بيانات" : "No data"}</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <BarChart data={dailyPerf} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="dailyRevGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={COLORS.emerald} stopOpacity={0.9} />
+                  <stop offset="100%" stopColor={COLORS.emerald} stopOpacity={0.5} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#94a3b8" />
+              <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" />
+              <Tooltip formatter={(v: any, name: string) => name === "Txns" ? v : `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="Revenue" fill="url(#dailyRevGrad)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="Cashback" fill={COLORS.amber} radius={[4, 4, 0, 0]} opacity={0.7} />
+              <Line type="monotone" dataKey="Txns" stroke={COLORS.indigo} strokeWidth={2} dot={{ r: 3 }} yAxisId={0} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Daily Performance Table */}
+      {dailyPerf.length > 0 && (
+        <div className="card-elevated p-5 border border-surface-200 shadow-sm">
+          <h3 className="text-sm font-bold text-surface-900 mb-3">{ar() ? "جدول الأداء اليومي" : "Daily Performance Table"}</h3>
+          <div className="overflow-x-auto rounded-xl border border-surface-200">
+            <table className="data-table text-xs">
+              <thead>
+                <tr className="bg-surface-50">
+                  <th>{ar() ? "التاريخ" : "Date"}</th>
+                  <th className="text-right">{ar() ? "الإيرادات" : "Revenue"}</th>
+                  <th className="text-right">{ar() ? "كاش باك" : "Cashback"}</th>
+                  <th className="text-center">{ar() ? "المعاملات" : "Txns"}</th>
+                  <th>{ar() ? "مؤشر" : "Indicator"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...dailyPerf].reverse().map(d => {
+                  const avgRev = dailyPerf.reduce((s, x) => s + x.Revenue, 0) / dailyPerf.length;
+                  const isHigh = d.Revenue > avgRev * 1.2;
+                  const isLow = d.Revenue < avgRev * 0.5 && d.Revenue > 0;
+                  return (
+                    <tr key={d.date}>
+                      <td className="font-medium text-surface-900 whitespace-nowrap">{d.date}</td>
+                      <td className="text-right font-bold text-emerald-700">{fmt(d.Revenue)} KWD</td>
+                      <td className="text-right text-amber-600">{fmt(d.Cashback)} KWD</td>
+                      <td className="text-center"><span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold">{d.Txns}</span></td>
+                      <td>
+                        {isHigh && <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full text-[10px] font-bold">🔥 Above Avg</span>}
+                        {isLow && <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full text-[10px] font-bold">⚠️ Below Avg</span>}
+                        {!isHigh && !isLow && d.Revenue > 0 && <span className="text-surface-400 text-[10px]">— Normal</span>}
+                        {d.Revenue === 0 && <span className="text-surface-300 text-[10px]">No activity</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* Offers Chart */}
       <div className="card-elevated p-5 border border-surface-200 shadow-sm">
         <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "أفضل العروض من حيث الإيرادات" : "Top Offers by Revenue"}</h3>
@@ -692,10 +676,9 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" width={140} />
-              <Tooltip formatter={(v: any) => `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              <Tooltip formatter={(v: any, name: string) => name === "Sales" ? v : `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="Revenue" fill={COLORS.emerald} radius={[0, 4, 4, 0]} />
-              <Bar dataKey="Profit" fill={COLORS.pink} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -713,12 +696,11 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
                 <th className="text-center">{ar() ? "المبيعات" : "Sales"}</th>
                 <th className="text-right">{ar() ? "الإيرادات" : "Revenue"}</th>
                 <th className="text-right">{ar() ? "كاش باك" : "Cashback"}</th>
-                <th className="text-right">{ar() ? "صافي الربح" : "Profit"}</th>
               </tr>
             </thead>
             <tbody>
               {(offers?.items ?? []).length === 0 ? (
-                <tr><td colSpan={6}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div><div className="empty-state-title">{ar() ? "لا توجد بيانات" : "No data yet"}</div><div className="empty-state-sub">{ar() ? "ستظهر النتائج هنا بمجرد توفرها." : "Results will appear here once available."}</div></div></td></tr>
+                <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div><div className="empty-state-title">{ar() ? "لا توجد بيانات" : "No data yet"}</div><div className="empty-state-sub">{ar() ? "ستظهر النتائج هنا بمجرد توفرها." : "Results will appear here once available."}</div></div></td></tr>
               ) : (offers?.items ?? []).map(o => (
                 <tr key={o.offerId}>
                   <td className="font-medium">{o.offerName}</td>
@@ -726,7 +708,6 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
                   <td className="text-center"><span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-xs font-bold">{o.salesCount}</span></td>
                   <td className="text-right font-bold text-emerald-700">{o.revenueKwd}</td>
                   <td className="text-right text-amber-600">{o.cashbackKwd}</td>
-                  <td className="text-right font-bold text-brand-pink-600">{o.profitKwd}</td>
                 </tr>
               ))}
             </tbody>
@@ -783,7 +764,7 @@ function ReportsTab({ from, to }: { from: string; to: string }) {
 
   const reports = [
     { kind: "payments", icon: "💳", name: ar() ? "كل المدفوعات" : "All Payments", desc: ar() ? "سجل كامل لكل العمليات" : "Complete transaction ledger" },
-    { kind: "offers", icon: "📦", name: ar() ? "تقرير العروض" : "Offers Report", desc: ar() ? "الإيرادات والربح حسب العرض" : "Revenue & profit by offer" },
+    { kind: "offers", icon: "📦", name: ar() ? "تقرير العروض" : "Offers Report", desc: ar() ? "الإيرادات حسب العرض" : "Revenue by offer" },
     { kind: "users", icon: "👥", name: ar() ? "تقرير العملاء" : "Customers Report", desc: ar() ? "القيمة الدائمة وعدد المشتريات" : "LTV & purchase count" },
     { kind: "referrals", icon: "🔗", name: ar() ? "تقرير الإحالات" : "Referrals Report", desc: ar() ? "أداء أكواد الإحالة" : "Referral code performance" },
     { kind: "installments", icon: "📅", name: ar() ? "تقرير الأقساط" : "Installments Report", desc: ar() ? "المدفوعة والقادمة والمتأخرة" : "Paid, upcoming and late" },
@@ -1000,20 +981,30 @@ function ClinicsTab({ from, to }: { from: string; to: string }) {
     !search ||
     c.clinicNameEn.toLowerCase().includes(search.toLowerCase()) ||
     c.clinicNameAr.includes(search)
-  );
+  ).map(c => {
+    // Enhance data with calculated metrics
+    const utilization = c.totalSessions > 0 ? (c.completedSessions / c.totalSessions) * 100 : 0;
+    const remainingSessions = Math.max(0, c.totalSessions - c.completedSessions);
+    const avgSessionValue = c.totalSessions > 0 ? parseKwd(c.revenueKwd) / c.totalSessions : 0;
+    const deferredRevenue = remainingSessions * avgSessionValue;
+    return { ...c, utilization, deferredRevenue };
+  });
 
-  const totalSessions = (data?.items ?? []).reduce((s, c) => s + c.totalSessions, 0);
-  const totalCompleted = (data?.items ?? []).reduce((s, c) => s + c.completedSessions, 0);
-  const totalMemberships = (data?.items ?? []).reduce((s, c) => s + c.activeMemberships, 0);
-  const totalRevenue = (data?.items ?? []).reduce((s, c) => s + parseKwd(c.revenueKwd), 0);
+  const totalSessions = items.reduce((s, c) => s + c.totalSessions, 0);
+  const totalCompleted = items.reduce((s, c) => s + c.completedSessions, 0);
+  const totalMemberships = items.reduce((s, c) => s + c.activeMemberships, 0);
+  const totalRevenue = items.reduce((s, c) => s + parseKwd(c.revenueKwd), 0);
+  const totalDeferred = items.reduce((s, c) => s + c.deferredRevenue, 0);
+  const avgUtilization = items.length > 0 ? items.reduce((s, c) => s + c.utilization, 0) / items.length : 0;
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard label={ar() ? "إجمالي العيادات" : "Total Clinics"} value={String(data?.items.length ?? 0)} color="text-indigo-600" icon="🏥" />
         <KpiCard label={ar() ? "إجمالي الجلسات" : "Total Sessions"} value={String(totalSessions)} color="text-blue-600" icon="📅" />
-        <KpiCard label={ar() ? "جلسات مكتملة" : "Completed"} value={String(totalCompleted)} color="text-emerald-600" icon="✅" />
+        <KpiCard label={ar() ? "متوسط الاستخدام" : "Avg Utilization"} value={`${avgUtilization.toFixed(1)}%`} color="text-emerald-600" icon="📈" />
         <KpiCard label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={`${fmt(totalRevenue)} KWD`} color="text-brand-pink-600" icon="💰" />
+        <KpiCard label={ar() ? "إيرادات مؤجلة (مقدرة)" : "Deferred (Est.)"} value={`${fmt(totalDeferred)} KWD`} color="text-amber-600" icon="⏳" />
       </div>
 
       <div className="card-elevated border border-surface-200 shadow-sm overflow-hidden">
@@ -1038,12 +1029,12 @@ function ClinicsTab({ from, to }: { from: string; to: string }) {
           <div className="py-12 text-center text-sm text-surface-400">{ar() ? "لا توجد عيادات" : "No clinics found"}</div>
         ) : (
           <div>
-            <div className="hidden sm:grid grid-cols-[2.2fr_1fr_1fr_1.1fr_1fr_1fr_28px] gap-4 px-6 py-3 bg-surface-50 border-b border-surface-100 text-[10px] uppercase tracking-wider font-bold text-surface-500">
+            <div className="hidden sm:grid grid-cols-[2fr_1fr_1.5fr_1.2fr_1.2fr_1fr_28px] gap-4 px-6 py-3 bg-surface-50 border-b border-surface-100 text-[10px] uppercase tracking-wider font-bold text-surface-500">
               <div>{ar() ? "العيادة" : "Clinic"}</div>
-              <div className="text-center">{ar() ? "الجلسات" : "Sessions"}</div>
-              <div className="text-center">{ar() ? "مكتملة" : "Completed"}</div>
-              <div className="text-right">{ar() ? "الإيرادات" : "Revenue"}</div>
               <div className="text-center">{ar() ? "عضويات" : "Memberships"}</div>
+              <div className="text-center">{ar() ? "الاستخدام" : "Utilization"}</div>
+              <div className="text-right">{ar() ? "الإيرادات" : "Revenue"}</div>
+              <div className="text-right">{ar() ? "المؤجل" : "Deferred"}</div>
               <div className="text-center">{ar() ? "فواتير" : "Invoices"}</div>
               <div />
             </div>
@@ -1051,31 +1042,36 @@ function ClinicsTab({ from, to }: { from: string; to: string }) {
             {items.map(c => (
               <div key={c.clinicId}>
                 <div
-                  className={`grid grid-cols-[1fr_auto] sm:grid-cols-[2.2fr_1fr_1fr_1.1fr_1fr_1fr_28px] gap-4 px-6 py-4 border-b border-surface-100 hover:bg-surface-50 transition-colors cursor-pointer items-center ${expandedId === c.clinicId ? "bg-brand-pink-50/20" : ""}`}
+                  className={`grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_1.5fr_1.2fr_1.2fr_1fr_28px] gap-4 px-6 py-4 border-b border-surface-100 hover:bg-surface-50 transition-colors cursor-pointer items-center ${expandedId === c.clinicId ? "bg-brand-pink-50/20" : ""}`}
                   onClick={() => setExpandedId(expandedId === c.clinicId ? null : c.clinicId)}
                 >
                   <div>
                     <div className="font-bold text-surface-900 text-sm">{ar() ? (c.clinicNameAr || c.clinicNameEn) : c.clinicNameEn}</div>
                     {c.clinicNameAr && !ar() && <div className="text-xs text-surface-400 mt-0.5">{c.clinicNameAr}</div>}
                     <div className="sm:hidden text-xs text-surface-500 mt-1 flex gap-3 flex-wrap">
-                      <span>{c.completedSessions}/{c.totalSessions} sessions</span>
+                      <span>{c.utilization.toFixed(0)}% used</span>
                       <span className="text-emerald-700 font-bold">{c.revenueKwd} KWD</span>
                     </div>
                   </div>
                   <div className="hidden sm:block text-center">
-                    <span className="font-bold text-surface-900">{c.totalSessions}</span>
-                    <div className="text-[10px] text-surface-400">{c.scheduledSessions} upcoming</div>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-brand-pink-50 text-brand-pink-700 text-xs font-bold">{c.activeMemberships}</span>
                   </div>
-                  <div className="hidden sm:block text-center">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 text-xs font-bold">{c.completedSessions}</span>
-                    {c.noShowSessions > 0 && <div className="text-[10px] text-red-400 mt-0.5">{c.noShowSessions} no-show</div>}
+                  <div className="hidden sm:flex flex-col justify-center gap-1">
+                    <div className="flex justify-between text-[10px] font-bold text-surface-500">
+                      <span>{c.completedSessions}/{c.totalSessions}</span>
+                      <span className={c.utilization > 80 ? "text-emerald-600" : c.utilization < 30 ? "text-amber-600" : ""}>{c.utilization.toFixed(0)}%</span>
+                    </div>
+                    <div className="w-full bg-surface-200 rounded-full h-1.5 overflow-hidden">
+                      <div className={`h-full rounded-full ${c.utilization > 80 ? "bg-emerald-500" : c.utilization < 30 ? "bg-amber-500" : "bg-indigo-500"}`} style={{ width: `${Math.min(100, c.utilization)}%` }} />
+                    </div>
                   </div>
                   <div className="hidden sm:block text-right">
                     <span className="font-bold text-emerald-700">{c.revenueKwd}</span>
                     <div className="text-[10px] text-surface-400">KWD</div>
                   </div>
-                  <div className="hidden sm:block text-center">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-brand-pink-50 text-brand-pink-700 text-xs font-bold">{c.activeMemberships}</span>
+                  <div className="hidden sm:block text-right">
+                    <span className="font-bold text-amber-600">{fmt(c.deferredRevenue)}</span>
+                    <div className="text-[10px] text-surface-400">KWD</div>
                   </div>
                   <div className="hidden sm:block text-center">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${c.paidInvoices === c.totalInvoices && c.totalInvoices > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
