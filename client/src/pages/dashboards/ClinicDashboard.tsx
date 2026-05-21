@@ -1625,10 +1625,14 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
     let isStopped = false;
 
     if (showScanner) {
-      html5QrCode = new Html5Qrcode("qr-reader");
+      html5QrCode = new Html5Qrcode("qr-reader", { verbose: false });
       html5QrCode.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        { fps: 15, qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
+          const minDim = Math.min(viewfinderWidth, viewfinderHeight);
+          const size = Math.floor(minDim * 0.75);
+          return { width: size, height: size };
+        }, aspectRatio: 1.0 },
         (decodedText) => {
           if (isStopped) return;
           isStopped = true;
