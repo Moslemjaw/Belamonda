@@ -3946,14 +3946,34 @@ export default function CustomerDashboard() {
                <div className="text-xs text-surface-500 mb-1">{ar() ? "الخدمة / الباقة المختارة" : "Selected Service / Package"}</div>
                <div className="font-bold text-surface-900">{showBookingModal.treatmentName || showBookingModal.offerName || showBookingModal.offerId || "Booking"}</div>
                {(() => {
-                 const gross = parseFloat(showBookingModal.priceKwd || "0") || (parseFloat(showBookingModal.finalPrice || "0") + parseFloat(showBookingModal.cashbackKwd || "0"));
-                 const cb = parseFloat(showBookingModal.cashbackKwd || "0");
-                 const pay = Math.max(0, gross - cb);
-                 return gross > 0 ? (
+                 const relatedOffer = showBookingModal.applicableCashbackOfferId ? offers.find(o => o.id === showBookingModal.applicableCashbackOfferId) : null;
+                 
+                 const basePrice = parseFloat(showBookingModal.priceKwd || "0");
+                 const finalPrice = parseFloat(showBookingModal.finalPrice || "0") || basePrice;
+                 const discountAmt = Math.max(0, basePrice - finalPrice);
+                 
+                 // If paying with a package cashback wallet
+                 if (relatedOffer && parseFloat(relatedOffer.cashbackBalanceKwd || '0') > 0) {
+                    const available = parseFloat(relatedOffer.cashbackBalanceKwd || '0');
+                    const applied = Math.min(available, finalPrice);
+                    const pay = Math.max(0, finalPrice - applied);
+                    return finalPrice > 0 ? (
+                      <div className="rounded-xl border border-surface-200 bg-white p-3 space-y-1.5 text-xs">
+                        <div className="flex justify-between"><span className="text-surface-500">{ar() ? "سعر الجلسة" : "Session price"}</span><span className="font-bold">{finalPrice.toFixed(3)} KWD</span></div>
+                        {applied > 0 && <div className="flex justify-between"><span className="text-surface-500">{ar() ? "رصيد الباقة المستخدم" : "Package Balance Applied"}</span><span className="font-bold text-amber-700">− {applied.toFixed(3)} KWD</span></div>}
+                        <div className="flex justify-between border-t border-surface-100 pt-1.5"><span className="font-semibold text-emerald-800">{ar() ? "تدفعين في العيادة" : "You pay at clinic"}</span><span className="font-black text-emerald-800">{pay.toFixed(3)} KWD</span></div>
+                      </div>
+                    ) : null;
+                 }
+                 
+                 // Normal booking (with or without discount)
+                 const earnedCb = parseFloat(showBookingModal.cashbackKwd || "0");
+                 return basePrice > 0 ? (
                    <div className="rounded-xl border border-surface-200 bg-white p-3 space-y-1.5 text-xs">
-                     <div className="flex justify-between"><span className="text-surface-500">{ar() ? "سعر الجلسة" : "Session price"}</span><span className="font-bold">{gross.toFixed(3)} KWD</span></div>
-                     {cb > 0 && <div className="flex justify-between"><span className="text-surface-500">{ar() ? "كاش باك" : "Cashback"}</span><span className="font-bold text-amber-700">− {cb.toFixed(3)} KWD</span></div>}
-                     <div className="flex justify-between border-t border-surface-100 pt-1.5"><span className="font-semibold text-emerald-800">{ar() ? "تدفعين في العيادة" : "You pay at clinic"}</span><span className="font-black text-emerald-800">{pay.toFixed(3)} KWD</span></div>
+                     <div className="flex justify-between"><span className="text-surface-500">{ar() ? "سعر الجلسة" : "Session price"}</span><span className="font-bold">{basePrice.toFixed(3)} KWD</span></div>
+                     {discountAmt > 0 && <div className="flex justify-between"><span className="text-surface-500">{ar() ? "خصم الباقة" : "Membership Discount"}</span><span className="font-bold text-amber-700">− {discountAmt.toFixed(3)} KWD</span></div>}
+                     <div className="flex justify-between border-t border-surface-100 pt-1.5"><span className="font-semibold text-emerald-800">{ar() ? "تدفعين في العيادة" : "You pay at clinic"}</span><span className="font-black text-emerald-800">{finalPrice.toFixed(3)} KWD</span></div>
+                     {earnedCb > 0 && <div className="flex justify-between pt-1"><span className="text-surface-400">{ar() ? "كاش باك مكتسب" : "Cashback earned"}</span><span className="font-bold text-brand-pink-600">+{earnedCb.toFixed(3)} KWD</span></div>}
                    </div>
                  ) : null;
                })()}
