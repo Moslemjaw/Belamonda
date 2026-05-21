@@ -60,7 +60,7 @@ const UserSchema = new Schema(
 
 UserSchema.index({ username: 1 }, { unique: true, sparse: true });
 UserSchema.index({ email: 1 }, { unique: true, sparse: true });
-UserSchema.index({ phone: 1 }, { unique: true, sparse: true });
+UserSchema.index({ phone: 1 }, { sparse: true });
 UserSchema.index({ role: 1, clinicId: 1 });
 UserSchema.index({ publicToken: 1 }, { unique: true, sparse: true });
 

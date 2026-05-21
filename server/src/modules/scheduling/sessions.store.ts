@@ -14,6 +14,9 @@ export type SessionRecord = {
   markedBy?: string; // clinic staff id
   notes?: string;
   cashbackUnlockedKwd?: string;
+  extraItems?: { name: string; priceKwd: string; qty: number }[];
+  totalBillKwd?: string;
+  finalPaidKwd?: string;
 };
 
 import { BookingSessionModel } from "../../models/bookingSession.model.js";
@@ -32,7 +35,10 @@ function mapDoc(doc: any): SessionRecord {
     completedAt: doc.completedAt ? doc.completedAt.toISOString() : undefined,
     markedBy: doc.markedBy,
     notes: doc.notes,
-    cashbackUnlockedKwd: doc.cashbackUnlockedKwd
+    cashbackUnlockedKwd: doc.cashbackUnlockedKwd,
+    extraItems: doc.extraItems,
+    totalBillKwd: doc.totalBillKwd,
+    finalPaidKwd: doc.finalPaidKwd
   };
 }
 
@@ -107,6 +113,9 @@ export const sessionsStore = {
     markedBy: string;
     notes?: string;
     cashbackUnlockedKwd?: string;
+    extraItems?: { name: string; priceKwd: string; qty: number }[];
+    totalBillKwd?: string;
+    finalPaidKwd?: string;
   }): Promise<SessionRecord | null> {
     const update: any = {
       status: input.status,
@@ -116,6 +125,9 @@ export const sessionsStore = {
     if (input.status === "completed") {
       update.completedAt = new Date();
       if (input.cashbackUnlockedKwd) update.cashbackUnlockedKwd = input.cashbackUnlockedKwd;
+      if (input.extraItems) update.extraItems = input.extraItems;
+      if (input.totalBillKwd) update.totalBillKwd = input.totalBillKwd;
+      if (input.finalPaidKwd) update.finalPaidKwd = input.finalPaidKwd;
     }
     const doc = await BookingSessionModel.findByIdAndUpdate(
       input.sessionId,

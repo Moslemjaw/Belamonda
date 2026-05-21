@@ -13,6 +13,7 @@ const ClinicSchema = new Schema(
     contactPhone: { type: String, trim: true },
     contactEmail: { type: String, trim: true },
     categoryTags: { type: [String], default: [] },
+    products: { type: [{ name: String, priceKwd: String }], default: [] },
     operatingHours: {
       open: { type: String, match: /^\d{2}:\d{2}$/ },
       close: { type: String, match: /^\d{2}:\d{2}$/ }

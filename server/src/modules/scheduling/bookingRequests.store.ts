@@ -37,6 +37,9 @@ export type BookingRequestRecord = {
   clinicPaymentMarkedBy?: string;
   notes?: string;
   conversationId?: string;
+  extraItems?: { name: string; priceKwd: string; qty: number }[];
+  totalBillKwd?: string;
+  finalPaidKwd?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -74,6 +77,9 @@ function mapDoc(doc: any): BookingRequestRecord {
     clinicPaymentMarkedBy: doc.clinicPaymentMarkedBy,
     notes: doc.notes,
     conversationId: doc.conversationId,
+    extraItems: doc.extraItems,
+    totalBillKwd: doc.totalBillKwd,
+    finalPaidKwd: doc.finalPaidKwd,
     createdAt: doc.createdAt.toISOString(),
     updatedAt: doc.updatedAt.toISOString(),
   };

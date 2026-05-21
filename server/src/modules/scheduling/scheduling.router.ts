@@ -52,7 +52,9 @@ const CancelSchema = z.object({ reason: z.string().max(500).optional() });
 
 const MarkSchema = z.object({
   status: z.enum(["completed", "no_show", "cancelled"]),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  extraItems: z.array(z.object({ name: z.string(), priceKwd: z.string(), qty: z.number() })).optional(),
+  cashbackToDeductKwd: z.string().optional()
 });
 
 // ── Mongo/legacy-aware loaders (from Task #2) ─────────────────────────────
@@ -1191,8 +1193,15 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   return res.status(201).json({ request: updated, session });
 });
 
+const MarkPaidSchema = z.object({
+  extraItems: z.array(z.object({ name: z.string(), priceKwd: z.string(), qty: z.number() })).optional(),
+  cashbackToDeductKwd: z.string().optional()
+});
+
 // ── Clinic marks a booking request payment as paid ──────────────────────────
 schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res) => {
+  const parsed = MarkPaidSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
   const breq = await bookingRequestsStore.get(req.params.id);
   if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
   if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
@@ -1230,10 +1239,34 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
     await bookingRequestsStore.update(breq.id, { sessionPaymentId: payDoc.id });
   }
 
+  if (parsed.data.cashbackToDeductKwd && parseFloat(parsed.data.cashbackToDeductKwd) > 0) {
+    const deductionAmount = parseFloat(parsed.data.cashbackToDeductKwd).toFixed(3);
+    const resAdjust = await kycStore.deductUnlocked({
+      userId: breq.userId,
+      amountKwd: deductionAmount,
+      reference: { kind: "session", id: breq.id },
+      createdBy: { kind: "admin", id: req.auth!.userId }
+    });
+    if ("error" in resAdjust) {
+      return res.status(400).json({ error: resAdjust.error });
+    }
+  }
+
+  let totalBillKwd: string | undefined;
+  let finalPaidKwd: string | undefined;
+  
+  const extraSum = parsed.data.extraItems?.reduce((sum, item) => sum + parseFloat(item.priceKwd) * item.qty, 0) || 0;
+  totalBillKwd = extraSum.toFixed(3);
+  const cbDeduct = parseFloat(parsed.data.cashbackToDeductKwd || "0");
+  finalPaidKwd = Math.max(0, extraSum - cbDeduct).toFixed(3);
+
   const updated = await bookingRequestsStore.update(breq.id, {
     clinicPaymentStatus: "paid",
     clinicPaymentMarkedAt: new Date().toISOString(),
-    clinicPaymentMarkedBy: req.auth!.userId
+    clinicPaymentMarkedBy: req.auth!.userId,
+    extraItems: parsed.data.extraItems,
+    totalBillKwd,
+    finalPaidKwd
   });
 
   if (updated?.conversationId) {
@@ -1609,12 +1642,37 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
       }
     }
 
+    if (parsed.data.status === "completed" && parsed.data.cashbackToDeductKwd && parseFloat(parsed.data.cashbackToDeductKwd) > 0) {
+      const deductionAmount = parseFloat(parsed.data.cashbackToDeductKwd).toFixed(3);
+      const resAdjust = await kycStore.deductUnlocked({
+        userId: session.userId,
+        amountKwd: deductionAmount,
+        reference: { kind: "session", id: session.id },
+        createdBy: { kind: "admin", id: req.auth!.userId }
+      });
+      if ("error" in resAdjust) {
+        return res.status(400).json({ error: resAdjust.error });
+      }
+    }
+
+    let totalBillKwd: string | undefined;
+    let finalPaidKwd: string | undefined;
+    if (parsed.data.status === "completed") {
+       const extraSum = parsed.data.extraItems?.reduce((sum, item) => sum + parseFloat(item.priceKwd) * item.qty, 0) || 0;
+       totalBillKwd = extraSum.toFixed(3);
+       const cbDeduct = parseFloat(parsed.data.cashbackToDeductKwd || "0");
+       finalPaidKwd = Math.max(0, extraSum - cbDeduct).toFixed(3);
+    }
+
     const updated = await sessionsStore.mark({
       sessionId: session.id,
       status: parsed.data.status,
       markedBy: req.auth!.userId,
       notes: parsed.data.notes,
-      cashbackUnlockedKwd: parsed.data.status === "completed" ? cashbackUnlocked : undefined
+      cashbackUnlockedKwd: parsed.data.status === "completed" ? cashbackUnlocked : undefined,
+      extraItems: parsed.data.extraItems,
+      totalBillKwd,
+      finalPaidKwd
     });
 
     if (updated?.status === "completed") {

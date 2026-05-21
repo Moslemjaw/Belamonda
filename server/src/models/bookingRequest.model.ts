@@ -50,7 +50,10 @@ const BookingRequestSchema = new Schema(
     clinicPaymentMarkedAt: { type: Date },
     clinicPaymentMarkedBy: { type: String },
     notes: { type: String },
-    conversationId: { type: String }
+    conversationId: { type: String },
+    extraItems: { type: [{ name: String, priceKwd: String, qty: Number }], default: [] },
+    totalBillKwd: { type: String },
+    finalPaidKwd: { type: String }
   },
   { timestamps: true }
 );

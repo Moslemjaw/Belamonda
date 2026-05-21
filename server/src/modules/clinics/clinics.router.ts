@@ -134,6 +134,28 @@ clinicsRouter.patch("/me", authRequired, requireRole(["clinicStaff", "admin"]), 
   }
 });
 
+const ProductsSchema = z.array(z.object({
+  name: z.string().min(1),
+  priceKwd: z.string().regex(/^\d+(\.\d{1,3})?$/)
+}));
+
+clinicsRouter.post("/me/products", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res, next) => {
+  try {
+    const clinicId = req.auth!.clinicId?.toString();
+    if (!clinicId) return res.status(400).json({ error: "NO_CLINIC_LINKED" });
+    const parsed = ProductsSchema.safeParse(req.body.products);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    
+    const { ClinicModel } = await import("../../models/clinic.model.js");
+    const clinic = await ClinicModel.findByIdAndUpdate(clinicId, { $set: { products: parsed.data } }, { new: true });
+    if (!clinic) return res.status(404).json({ error: "NOT_FOUND" });
+    
+    return res.json({ products: clinic.products });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Public single-clinic lookup (used by checkout for branch confirmation).
 // Registered last so it doesn't shadow `/admin` and `/admin/:clinicId`.
 clinicsRouter.get("/:clinicId", async (req, res, next) => {

@@ -17,7 +17,8 @@ export type CategoryLike = {
   updatedAt: Date | string;
 };
 
-export function idString(id: Types.ObjectId | string): string {
+export function idString(id: Types.ObjectId | string | undefined | null): string {
+  if (!id) return "";
   return typeof id === "string" ? id : id.toString();
 }
 

@@ -321,6 +321,15 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
       }));
     }
 
+    let clinicProducts: any[] = [];
+    if (clinicId) {
+      const { ClinicModel } = await import("../../models/clinic.model.js");
+      const clinic = await ClinicModel.findById(clinicId).lean();
+      if (clinic && clinic.products) {
+        clinicProducts = clinic.products;
+      }
+    }
+
     return res.json({
       card: {
         ...card,
@@ -332,7 +341,40 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
       payments: paymentItems,
       clinicSessions,
       clinicBookings,
+      clinicProducts,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+import { z } from "zod";
+
+const AdjustWalletSchema = z.object({
+  userId: z.string().min(1),
+  amountKwd: z.string().min(1),
+  reason: z.string().min(1)
+});
+
+publicRouter.post("/clinic/wallet/adjust", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res, next) => {
+  try {
+    const parsed = AdjustWalletSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
+
+    const { userId, amountKwd, reason } = parsed.data;
+
+    const resAdjust = await kycStore.adjustUnlocked({
+      userId,
+      amountKwd,
+      reason,
+      createdById: req.auth!.userId
+    });
+
+    if (resAdjust && "error" in resAdjust) {
+      return res.status(400).json({ error: resAdjust.error });
+    }
+
+    return res.json({ ok: true, wallet: resAdjust.wallet });
   } catch (e) {
     next(e);
   }

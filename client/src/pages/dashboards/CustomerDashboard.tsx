@@ -1941,7 +1941,12 @@ export default function CustomerDashboard() {
                   </button>
                 </div>
                 {(() => {
-                  const activeOffers = offers.filter(o => !(o.maxSessions && o.sessionsUsed >= o.maxSessions) && !o.isStandalone);
+                  const activeOffers = offers.filter(o => 
+                    !(o.maxSessions && o.sessionsUsed >= o.maxSessions) && 
+                    !o.isStandalone &&
+                    o.status !== "expired" &&
+                    o.status !== "completed"
+                  );
                   return activeOffers.length === 0 ? (
                     <div className="bg-white border border-surface-200 border-dashed rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-10 text-center text-surface-500 flex flex-col items-center justify-center">
                       <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl sm:rounded-3xl bg-brand-gradient-soft text-brand-pink-600 flex items-center justify-center mb-3 sm:mb-4 shadow-sm">
@@ -2685,37 +2690,6 @@ export default function CustomerDashboard() {
                                 {ar() ? "رفضت ENET الطلب. جرّبي خطة دفع أخرى." : "ENET declined. Try a different payment plan."}
                               </div>
                             )}
-
-                            {uo.status === "active" && (
-                              <div className="flex justify-end pt-2 border-t border-surface-50 mt-3">
-                                <button
-                                  onClick={async () => {
-                                    const confirmCancel = window.confirm(
-                                      ar()
-                                        ? "هل أنت متأكد من رغبتك في إلغاء هذا الاشتراك؟"
-                                        : "Are you sure you want to cancel this membership?"
-                                    );
-                                    if (!confirmCancel) return;
-                                    try {
-                                      await apiFetch(`/commerce/me/user-offers/${uo.id}`, {
-                                        method: "DELETE",
-                                        headers: getAuthHeader()
-                                      });
-                                      await refetchMyOffers();
-                                      alert(ar() ? "تم إلغاء الاشتراك بنجاح." : "Membership cancelled successfully.");
-                                    } catch (e: any) {
-                                      alert(e.message || "Failed to cancel membership");
-                                    }
-                                  }}
-                                  className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl transition-colors"
-                                >
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                  {ar() ? "إلغاء الاشتراك" : "Cancel Membership"}
-                                </button>
-                              </div>
-                            )}
                           </div>
                         );
                       })}
@@ -2724,34 +2698,7 @@ export default function CustomerDashboard() {
                 </div>
               </div>
 
-              <div>
-                <h3 className="text-base font-bold text-surface-700 mb-3">{ar() ? "الباقات المشتراة" : "Purchased Packages"}</h3>
-                <div className="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
-                  {offers.length === 0 ? (
-                    <div className="p-8 text-center text-surface-400">{t("noData")}</div>
-                  ) : (
-                    <div className="divide-y divide-surface-100">
-                      {offers.map(o => (
-                        <div key={o.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-50 transition-colors">
-                          <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-brand-pink-50 text-brand-pink-500 shrink-0">
-                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                            </div>
-                            <div>
-                              <div className="font-bold text-surface-900 text-sm">{o.offerName || o.offerId || "Package"}</div>
-                              <div className="text-xs text-surface-500 mt-0.5">{ar() ? "طريقة الدفع:" : "Method:"} {o.method}</div>
-                            </div>
-                          </div>
-                          <div className="flex sm:flex-col items-center sm:items-end justify-between">
-                            <div className="font-black text-brand-pink-500">{o.amount || "0 KWD"}</div>
-                            <div className="text-[10px] text-surface-400 mt-1">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : ""}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+
               {/* Awaiting session payment requests */}
               {(() => {
                 const pendingPayments = (myRequestsData?.items ?? []).filter((r) => r.status === "awaiting_session_payment");
@@ -2902,6 +2849,36 @@ export default function CustomerDashboard() {
                           </div>
                         );
                       })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Purchased Packages (Moved here) */}
+              <div>
+                <h3 className="text-base font-bold text-surface-700 mb-3">{ar() ? "الباقات المشتراة" : "Purchased Packages"}</h3>
+                <div className="bg-white rounded-2xl shadow-sm border border-surface-200 overflow-hidden">
+                  {offers.length === 0 ? (
+                    <div className="p-8 text-center text-surface-400">{t("noData")}</div>
+                  ) : (
+                    <div className="divide-y divide-surface-100">
+                      {offers.map(o => (
+                        <div key={o.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-50 transition-colors">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 rounded-full flex items-center justify-center bg-brand-pink-50 text-brand-pink-500 shrink-0">
+                              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                            </div>
+                            <div>
+                              <div className="font-bold text-surface-900 text-sm">{o.offerName || o.offerId || "Package"}</div>
+                              <div className="text-xs text-surface-500 mt-0.5">{ar() ? "طريقة الدفع:" : "Method:"} {o.paymentMethod || o.method || o.purchaseMode || (ar() ? "خدمة العملاء / العيادة" : "Customer Service / Clinic")}</div>
+                            </div>
+                          </div>
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between">
+                            <div className="font-black text-brand-pink-500">{o.paymentAmountKwd || o.amount || o.subscriptionPriceKwd || o.totalSignupCashbackKwd || "0"} KWD</div>
+                            <div className="text-[10px] text-surface-400 mt-1">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : ""}</div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

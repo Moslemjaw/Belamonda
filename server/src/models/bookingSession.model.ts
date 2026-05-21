@@ -20,6 +20,9 @@ const BookingSessionSchema = new Schema(
     notes: { type: String },
     cashbackUnlockedKwd: { type: String, match: /^\d+(\.\d{3})$/ },
     paymentId: { type: Schema.Types.ObjectId, ref: "Payment" },
+    extraItems: { type: [{ name: String, priceKwd: String, qty: Number }], default: [] },
+    totalBillKwd: { type: String, match: /^\d+(\.\d{3})$/ },
+    finalPaidKwd: { type: String, match: /^\d+(\.\d{3})$/ },
     shortId: { type: String, trim: true, unique: true, sparse: true }
   },
   { timestamps: true }
