@@ -999,7 +999,8 @@ export default function CustomerDashboard() {
   const [activeTab, setActiveTab] = useState("overview");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [purchasesSubTab, setPurchasesSubTab] = useState<"packages" | "chat" | "reservations">("packages");
-  const [walletSubTab, setWalletSubTab] = useState<"cashback" | "history" | "card" | "invoices">("cashback");
+  const [walletSubTab, setWalletSubTab] = useState<"cashback" | "history" | "card">("cashback");
+  const [subscriptionSubTab, setSubscriptionSubTab] = useState<"status" | "invoices">("status");
   const [profileSubTab, setProfileSubTab] = useState<"settings" | "forms" | "notifications" | "share" | "complaints">("settings");
   const [showKyc, setShowKyc] = useState(false);
   const [chatConvId, setChatConvId] = useState<string | undefined>(undefined);
@@ -1825,39 +1826,29 @@ export default function CustomerDashboard() {
           );
         })()}
 
-        {/* Horizontal tabs for Wallet and Profile */}
-        {(activeTab === "wallet" || activeTab === "profile") && (() => {
-          const navMap: Record<string, Array<{id: string; label: string; icon: string}>> = {
-            "wallet": [
-              { id: "cashback", label: ar() ? "محفظة الكاش باك" : "Cashback Wallet", icon: "💎" },
-              { id: "history",  label: ar() ? "سجل المدفوعات"   : "Payment History", icon: "🧾" },
-              { id: "card",     label: ar() ? "بطاقتي الرقمية"  : "My Digital Card", icon: "🪪" },
-              { id: "invoices", label: ar() ? "مسح الفواتير"    : "Scan Invoices",   icon: "📸" },
-            ],
-            "profile": [
-              { id: "settings",      label: ar() ? "الإعدادات"     : "Settings",      icon: "⚙️" },
-              { id: "forms",         label: ar() ? "نماذجي"        : "My Forms",      icon: "📝" },
-              { id: "notifications", label: ar() ? "الإشعارات"     : "Notifications", icon: "🔔" },
-              { id: "share",         label: ar() ? "رابط الإحالة"  : "Referral Link", icon: "🔗" },
-              { id: "complaints",    label: ar() ? "الشكاوى والدعم": "Support",       icon: "💬" },
-            ],
-          };
-          const items = navMap[activeTab] || [];
-          const activeSubTab = activeTab === "wallet" ? walletSubTab : profileSubTab;
-          const setSubTab = activeTab === "wallet" ? setWalletSubTab : setProfileSubTab;
+        {/* Horizontal tabs for Wallet */}
+        {activeTab === "wallet" && (() => {
+          const items = [
+            { id: "cashback", label: ar() ? "محفظة الكاش باك" : "Cashback", icon: "💎" },
+            { id: "history",  label: ar() ? "سجل المدفوعات"   : "History", icon: "🧾" },
+            { id: "card",     label: ar() ? "بطاقتي الرقمية"  : "Digital Card", icon: "🪪" },
+          ];
           return (
-            <div className="mb-4 sm:mb-6 sticky top-[calc(env(safe-area-inset-top,0px)+3.25rem)] z-20 lg:static lg:z-auto pt-3 sm:pt-4 py-1.5 px-1 sm:px-0 bg-surface-50/95 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none">
-              <div className="mobile-switcher justify-center">
-                {items.map(it => (
-                  <button
-                    key={it.id}
-                    onClick={() => setSubTab(it.id as any)}
-                    className={`mobile-switcher-btn ${activeSubTab === it.id ? "active" : ""}`}
-                  >
-                    <span aria-hidden="true">{it.icon}</span>
-                    <span>{it.label}</span>
-                  </button>
-                ))}
+            <div className="mb-4 sm:mb-6 sticky top-[calc(env(safe-area-inset-top,0px)+3.25rem)] z-20 lg:static lg:z-auto pt-3 sm:pt-4 py-1.5 px-3 sm:px-0 bg-surface-50/95 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none transition-all">
+              <div className="flex bg-surface-200/60 p-1.5 rounded-[16px] max-w-md mx-auto shadow-inner border border-surface-200/30">
+                {items.map(it => {
+                  const isActive = walletSubTab === it.id;
+                  return (
+                    <button
+                      key={it.id}
+                      onClick={() => setWalletSubTab(it.id as any)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-[12px] text-xs font-bold transition-all duration-300 relative ${isActive ? "text-surface-900 shadow-sm bg-white" : "text-surface-500 hover:text-surface-700 hover:bg-surface-200/50"}`}
+                    >
+                      <span aria-hidden="true" className="text-sm">{it.icon}</span>
+                      <span className="truncate">{it.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           );
@@ -2510,23 +2501,26 @@ export default function CustomerDashboard() {
 
           {activeTab === "my-purchases" && (() => {
             const purchaseTabs = [
-              { id: "packages",     label: ar() ? "باقاتي وجلساتي"    : "My Packages",   icon: "📦" },
-              { id: "chat",         label: ar() ? "محادثات الحجوزات" : "Booking Chat",  icon: "💬" },
+              { id: "packages",     label: ar() ? "باقاتي وجلساتي"    : "Packages",   icon: "📦" },
+              { id: "chat",         label: ar() ? "محادثات الحجوزات" : "Chat",  icon: "💬" },
               { id: "reservations", label: ar() ? "حجوزات العربون"   : "Reservations",  icon: "📌" },
             ] as const;
             return (
-              <div className="mb-4 sm:mb-6 sticky top-[calc(env(safe-area-inset-top,0px)+2.75rem)] z-20 lg:static lg:z-auto pt-3 sm:pt-4 py-1 -mx-0.5 sm:mx-0 bg-surface-50/95 backdrop-blur-sm lg:bg-transparent lg:backdrop-blur-none">
-                <div className="mobile-switcher justify-center">
-                  {purchaseTabs.map(pt => (
-                    <button
-                      key={pt.id}
-                      onClick={() => setPurchasesSubTab(pt.id as any)}
-                      className={`mobile-switcher-btn ${purchasesSubTab === pt.id ? "active" : ""}`}
-                    >
-                      <span aria-hidden="true">{pt.icon}</span>
-                      <span>{pt.label}</span>
-                    </button>
-                  ))}
+              <div className="mb-4 sm:mb-6 sticky top-[calc(env(safe-area-inset-top,0px)+2.75rem)] z-20 lg:static lg:z-auto pt-3 sm:pt-4 py-1.5 px-3 sm:px-0 bg-surface-50/95 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none transition-all">
+                <div className="flex bg-surface-200/60 p-1.5 rounded-[16px] max-w-md mx-auto shadow-inner border border-surface-200/30">
+                  {purchaseTabs.map(pt => {
+                    const isActive = purchasesSubTab === pt.id;
+                    return (
+                      <button
+                        key={pt.id}
+                        onClick={() => setPurchasesSubTab(pt.id as any)}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-[12px] text-xs font-bold transition-all duration-300 relative ${isActive ? "text-surface-900 shadow-sm bg-white" : "text-surface-500 hover:text-surface-700 hover:bg-surface-200/50"}`}
+                      >
+                        <span aria-hidden="true" className="text-sm">{pt.icon}</span>
+                        <span className="truncate">{pt.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             );
@@ -3544,18 +3538,6 @@ export default function CustomerDashboard() {
             </section>
           )}
 
-          {activeTab === "wallet" && walletSubTab === "invoices" && (
-            <section id="sec-invoices" className="animate-fade-in scroll-mt-24">
-              <InvoiceUploader 
-                getAuthHeader={getAuthHeader} 
-                ar={ar()} 
-                isPro={cardData?.card?.belmondoPlan === "pro"} 
-                onContactCS={() => {
-                  setActiveTab("subscription");
-                }}
-              />
-            </section>
-          )}
 
           {activeTab === "profile" && profileSubTab === "forms" && (
             <section id="sec-forms" className="animate-fade-in scroll-mt-24">
@@ -3729,15 +3711,54 @@ export default function CustomerDashboard() {
             </section>
           )}
 
-          {activeTab === "subscription" && (
-            <SubscriptionPage 
-              getAuthHeader={getAuthHeader}
-              ar={ar()}
-              currentPlan={cardData?.card?.belmondoPlan}
-              expiresAt={cardData?.card?.belmondoProExpiresAt}
-              paymentType={cardData?.card?.belmondoProPaymentType}
-            />
-          )}
+          {activeTab === "subscription" && (() => {
+            const proTabs = [
+              { id: "status",   label: ar() ? "حالة الاشتراك" : "Status",   icon: "👑" },
+              { id: "invoices", label: ar() ? "مسح الفواتير"  : "Invoices", icon: "📸" },
+            ] as const;
+            return (
+              <div className="animate-fade-in">
+                <div className="mb-4 sm:mb-6 sticky top-[calc(env(safe-area-inset-top,0px)+2.75rem)] z-20 lg:static lg:z-auto pt-3 sm:pt-4 py-1.5 px-3 sm:px-0 bg-surface-50/95 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none transition-all">
+                  <div className="flex bg-surface-200/60 p-1.5 rounded-[16px] max-w-sm mx-auto shadow-inner border border-surface-200/30">
+                    {proTabs.map(pt => {
+                      const isActive = subscriptionSubTab === pt.id;
+                      return (
+                        <button
+                          key={pt.id}
+                          onClick={() => setSubscriptionSubTab(pt.id as any)}
+                          className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-[12px] text-xs font-bold transition-all duration-300 relative ${isActive ? "text-brand-pink-600 shadow-sm bg-white" : "text-surface-500 hover:text-surface-700 hover:bg-surface-200/50"}`}
+                        >
+                          <span aria-hidden="true" className="text-sm">{pt.icon}</span>
+                          <span className="truncate">{pt.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                
+                {subscriptionSubTab === "status" ? (
+                  <SubscriptionPage 
+                    getAuthHeader={getAuthHeader}
+                    ar={ar()}
+                    currentPlan={cardData?.card?.belmondoPlan}
+                    expiresAt={cardData?.card?.belmondoProExpiresAt}
+                    paymentType={cardData?.card?.belmondoProPaymentType}
+                  />
+                ) : (
+                  <section id="sec-invoices" className="animate-fade-in scroll-mt-24">
+                    <InvoiceUploader 
+                      getAuthHeader={getAuthHeader} 
+                      ar={ar()} 
+                      isPro={cardData?.card?.belmondoPlan === "pro"} 
+                      onContactCS={() => {
+                        setSubscriptionSubTab("status");
+                      }}
+                    />
+                  </section>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </main>
 
