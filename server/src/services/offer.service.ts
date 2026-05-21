@@ -524,8 +524,23 @@ export async function updateOffer(id: string, patch: Record<string, unknown>) {
   if (typeof patch.status === "string") {
     update.active = activeFromStatus(patch.status as OfferStatus);
   }
+  // Build $unset for fields explicitly set to null (unlimited sessions, no clinic, etc.)
+  const unsetFields: Record<string, 1> = {};
+  if ("maxSessions" in patch && patch.maxSessions == null) {
+    delete update.maxSessions;
+    unsetFields.maxSessions = 1;
+  }
+  if ("clinicId" in patch && (!patch.clinicId || patch.clinicId === "")) {
+    delete update.clinicId;
+    unsetFields.clinicId = 1;
+  }
 
-  const doc = await OfferModel.findByIdAndUpdate(id, { $set: update }, { new: true }).lean();
+  const mongoUpdate: Record<string, unknown> = { $set: update };
+  if (Object.keys(unsetFields).length > 0) {
+    mongoUpdate.$unset = unsetFields;
+  }
+
+  const doc = await OfferModel.findByIdAndUpdate(id, mongoUpdate, { new: true }).lean();
   if (!doc) return null;
   const slug = await primaryCategorySlugForOffer(doc as any);
   return serializeOffer(doc as any, slug);

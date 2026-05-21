@@ -45,7 +45,7 @@ const OfferBaseSchema = z.object({
 
   // Sessions & Booking
   validityDays: z.number().int().positive(),
-  maxSessions: z.number().int().positive().optional(),
+  maxSessions: z.number().int().positive().nullable().optional(),
   sessionIntervalDays: z.number().int().min(0).default(0),
   sessionExpiryMonths: z.number().int().min(0).default(0),
   maxBookingsPerWeek: z.number().int().positive().optional(),

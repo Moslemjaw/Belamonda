@@ -85,11 +85,11 @@ export function allowedPurchaseClinicIds(offer: { clinicId?: unknown; clinicIds?
 export function resolvePurchaseClinicObjectId(
   offer: { clinicId?: unknown; clinicIds?: unknown; clinicLocked?: unknown; requireBranchSelection?: unknown },
   inputClinicId?: string
-): mongoose.Types.ObjectId {
+): mongoose.Types.ObjectId | undefined {
   // No branch selection required — use the offer's primary clinicId automatically.
   if (offer.requireBranchSelection === false) {
     const id = offer.clinicId;
-    if (!id || !mongoose.isValidObjectId(String(id))) throw httpErr(400, "OFFER_MISSING_CLINIC");
+    if (!id || !mongoose.isValidObjectId(String(id))) return undefined;
     return new mongoose.Types.ObjectId(String(id));
   }
 

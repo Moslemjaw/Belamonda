@@ -247,14 +247,6 @@ function OffersManager() {
   const saveOffer = async () => {
     if (!form.nameEn) return;
     const clinicId = form.clinicId || "";
-    if (!form.requireBranchSelection && !clinicId) {
-      alert(
-        ar()
-          ? "الرجاء تحديد العيادة الأساسية. هذا مطلوب عند تعطيل اختيار الفرع."
-          : "Please select a Primary Clinic. This is required when branch selection is disabled."
-      );
-      return;
-    }
     try {
       const url = editingId ? `/offers/admin/${editingId}` : "/offers/admin";
       const method = editingId ? "PATCH" : "POST";
@@ -291,7 +283,7 @@ function OffersManager() {
           cashbackActivationFeeKwd: `${Number(form.cashbackActivationFee || "0").toFixed(3)}`,
           clinicTransferFeeKwd: `${Number(form.clinicTransferFee || "0").toFixed(3)}`,
           sessionIntervalDays: parseInt(form.sessionIntervalDays) || 0,
-          maxSessions: form.unlimitedSessions ? undefined : (parseInt(form.maxSessions) || undefined),
+          maxSessions: form.unlimitedSessions ? null : (parseInt(form.maxSessions) || null),
           allowFullPayment: !!form.allowFullPayment,
           allowInstallments: !!form.allowInstallments,
           maxInstallments: parseInt(form.maxInstallments) || 1,

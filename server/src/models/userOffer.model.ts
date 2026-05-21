@@ -18,7 +18,7 @@ const UserOfferSchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
     offerId: { type: Schema.Types.ObjectId, ref: "Offer", required: true },
-    clinicId: { type: Schema.Types.ObjectId, ref: "Clinic", required: true },
+    clinicId: { type: Schema.Types.ObjectId, ref: "Clinic", required: false },
     status: {
       type: String,
       enum: [
