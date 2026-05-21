@@ -324,7 +324,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     let clinicProducts: any[] = [];
     if (clinicId) {
       const { ClinicModel } = await import("../../models/clinic.model.js");
-      const clinic = await ClinicModel.findById(clinicId).lean();
+      const clinic = await ClinicModel.findById(clinicId).lean() as any;
       if (clinic && clinic.products) {
         clinicProducts = clinic.products;
       }
