@@ -1829,6 +1829,31 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
           <p className="text-sm text-surface-500 max-w-sm mx-auto">{ar() ? "أدخل رمز البطاقة أو امسح رمز QR من بطاقة العميل لعرض بياناته وجلساته." : "Enter the card token or scan the QR code from the customer's membership card to view their profile and sessions."}</p>
         </div>
       )}
+      <POSCheckoutModal 
+        isOpen={!!checkoutSession} 
+        onClose={() => setCheckoutSession(null)} 
+        baseAmountKwd={"0.000"} 
+        maxCashbackKwd={maxCashbackKwd}
+        clinicProducts={clinicProducts}
+        onSubmit={async (extraItems, cashbackToDeductKwd) => {
+          if (checkoutSession) {
+            await onMarkSession(checkoutSession.id, "completed", { extraItems, cashbackToDeductKwd });
+          }
+        }} 
+      />
+      <POSCheckoutModal 
+        isOpen={!!checkoutBooking} 
+        isBooking={true}
+        onClose={() => setCheckoutBooking(null)} 
+        baseAmountKwd={checkoutBooking?.clinicTakeKwd || checkoutBooking?.sessionPriceKwd || "0"} 
+        maxCashbackKwd={maxCashbackKwd}
+        clinicProducts={clinicProducts}
+        onSubmit={async (extraItems, cashbackToDeductKwd) => {
+          if (checkoutBooking) {
+            await onMarkPaid(checkoutBooking.id, { extraItems, cashbackToDeductKwd });
+          }
+        }} 
+      />
     </div>
   );
 }
@@ -2131,32 +2156,6 @@ export default function ClinicDashboard() {
         )}
 
       </div>
-
-      <POSCheckoutModal 
-        isOpen={!!checkoutSession} 
-        onClose={() => setCheckoutSession(null)} 
-        baseAmountKwd={"0.000"} 
-        maxCashbackKwd={maxCashbackKwd}
-        clinicProducts={clinicProducts}
-        onSubmit={async (extraItems, cashbackToDeductKwd) => {
-          if (checkoutSession) {
-            await onMarkSession(checkoutSession.id, "completed", { extraItems, cashbackToDeductKwd });
-          }
-        }} 
-      />
-      <POSCheckoutModal 
-        isOpen={!!checkoutBooking} 
-        isBooking={true}
-        onClose={() => setCheckoutBooking(null)} 
-        baseAmountKwd={checkoutBooking?.clinicTakeKwd || checkoutBooking?.sessionPriceKwd || "0"} 
-        maxCashbackKwd={maxCashbackKwd}
-        clinicProducts={clinicProducts}
-        onSubmit={async (extraItems, cashbackToDeductKwd) => {
-          if (checkoutBooking) {
-            await onMarkPaid(checkoutBooking.id, { extraItems, cashbackToDeductKwd });
-          }
-        }} 
-      />
     </DashboardShell>
   );
 }
