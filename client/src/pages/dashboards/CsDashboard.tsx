@@ -1576,8 +1576,8 @@ function CustomersManager() {
                         <span className="font-semibold text-amber-900">{profile.user.belmondoProCommitmentEndsAt ? new Date(profile.user.belmondoProCommitmentEndsAt).toLocaleDateString() : "—"}</span>
                       </div>
                       <div className="pt-2 border-t border-amber-200/50 mt-2 flex gap-2">
-                        <button disabled={belmondoSaving} onClick={() => { setBelmondoPaymentOption("monthly"); handleUpdateSubscription(); }} className="btn-primary flex-1 btn-sm bg-amber-500 hover:bg-amber-600 text-xs border-none shadow-sm">{ar() ? "تجديد / تسجيل دفعة" : "Renew / Record Payment"}</button>
-                        <button disabled={belmondoSaving} onClick={() => handleUpdateSubscription(true)} className="btn-secondary flex-1 btn-sm text-xs text-red-500 hover:bg-red-50 border border-red-200">{ar() ? "إلغاء برو" : "Cancel Pro"}</button>
+                        <button disabled={belmondoSaving} onClick={() => { setBelmondoPaymentOption("monthly"); handleUpdateSubscription(); }} className="btn-primary flex-1 btn-sm bg-surface-900 hover:bg-surface-800 text-xs shadow-md border-none">{ar() ? "تجديد / تسجيل دفعة" : "Renew / Record Payment"}</button>
+                        <button disabled={belmondoSaving} onClick={() => handleUpdateSubscription(true)} className="btn-secondary flex-1 btn-sm text-xs text-surface-600 hover:text-red-600 hover:bg-red-50 border border-surface-200 hover:border-red-200">{ar() ? "إلغاء برو" : "Cancel Pro"}</button>
                       </div>
                     </div>
                   ) : (
@@ -2443,7 +2443,7 @@ function CustomersManager() {
                       <td><span className="badge-sage">Customer</span></td>
                       <td><span className={getStatusBadge(status)}>{status}</span></td>
                       <td className="text-right">
-                        <button className="text-brand-pink-600 hover:text-brand-pink-800 font-medium text-sm px-4 py-1.5 bg-brand-pink-50 rounded-lg transition-colors hover:bg-brand-pink-100"
+                        <button className="btn-secondary btn-sm bg-white hover:bg-surface-50 text-surface-700 shadow-sm border border-surface-200 px-4"
                           onClick={() => handleManage(u)}>
                           {ar() ? "إدارة" : "Manage"}
                         </button>
@@ -3055,7 +3055,7 @@ export default function CsDashboard() {
     ...(isLegalOrAdmin ? [{ key: "invoice_reviews", icon: Icons.cash, label: ar() ? "مراجعة الفواتير" : "Invoice Reviews" }] : []),
     ...(isLegalOrAdmin ? [{ key: "eforms", icon: Icons.clipboard, label: ar() ? "النماذج الإلكترونية" : "eForms" }] : []),
     { key: "payments", icon: Icons.cash, label: t("payments") },
-    { key: "sub_requests", icon: <span className="text-xl">👑</span>, label: ar() ? "طلبات برو" : "Pro Requests" },
+    { key: "sub_requests", icon: <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.8-6.3 4.8 2.3-7.4-6-4.6h7.6z"/></svg>, label: ar() ? "طلبات برو" : "Pro Requests" },
     { key: "customers", icon: Icons.users, label: ar() ? "العملاء" : "Customers" },
     { key: "memberships", icon: Icons.offers, label: ar() ? "الاشتراكات" : "Memberships" },
     { key: "clinic_changes", icon: Icons.clinic, label: ar() ? "تغيير العيادة" : "Clinic Changes" },
