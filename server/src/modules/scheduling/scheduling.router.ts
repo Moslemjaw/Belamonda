@@ -924,7 +924,7 @@ schedulingRouter.post("/me/requests/:id/cancel", authRequired, async (req, res) 
 // ── Clinic / CS lists pending booking requests ─────────────────────────────
 schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "admin", "clinicStaff", "finance"]), async (req, res) => {
   const status = (typeof req.query.status === "string" ? req.query.status : "open") as BookingRequestStatus | "all" | "open";
-  const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status };
+  const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status, bookingRoute: "cs" };
   if (req.auth!.role === "clinicStaff") {
     const cid = await getUserClinicId(req.auth!.userId);
     if (cid) filter.clinicId = cid;
@@ -973,7 +973,7 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
     if (!clinicId) return res.json({ items: [] });
   }
   const status = (typeof req.query.status === "string" ? req.query.status : "open") as BookingRequestStatus | "all" | "open";
-  const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status };
+  const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status, bookingRoute: "clinic" };
   if (clinicId) filter.clinicId = clinicId;
   const items = await bookingRequestsStore.list(filter);
 

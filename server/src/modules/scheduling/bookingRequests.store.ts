@@ -118,6 +118,7 @@ export const bookingRequestsStore = {
     clinicId?: string;
     userId?: string;
     isStandalone?: boolean;
+    bookingRoute?: "cs" | "clinic";
   }): Promise<BookingRequestRecord[]> {
     const query: any = {};
     
@@ -131,6 +132,7 @@ export const bookingRequestsStore = {
     if (filter?.clinicId) query.clinicId = filter.clinicId;
     if (filter?.userId) query.userId = filter.userId;
     if (filter?.isStandalone !== undefined) query.isStandalone = filter.isStandalone;
+    if (filter?.bookingRoute) query.bookingRoute = filter.bookingRoute;
 
     const docs = await BookingRequestModel.find(query).sort({ createdAt: -1 });
     return docs.map(mapDoc);
