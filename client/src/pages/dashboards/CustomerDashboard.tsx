@@ -841,10 +841,18 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
   commitmentEndsAt?: string | null;
   paymentType?: string;
 }) {
-  const [option, setOption] = useState<"monthly"|"advance">("monthly");
+  const { data: plansData } = useApi<any[]>("/subscriptions/plans");
+  const plans = (plansData || []).filter(p => p.isActive);
+  const [option, setOption] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (plans.length > 0 && !option) {
+      setOption(plans[0]._id);
+    }
+  }, [plans, option]);
 
   const fetchRequests = async () => {
     try {
@@ -863,7 +871,7 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
       await apiFetch("/users/me/subscription", {
         method: "POST",
         headers: getAuthHeader(),
-        body: JSON.stringify({ paymentOption: option })
+        body: JSON.stringify({ planId: option })
       });
       setSubmitted(true);
       fetchRequests();
@@ -909,59 +917,45 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
           <p className="text-surface-600 max-w-md mx-auto">{ar ? "تم إرسال طلب الاشتراك بنجاح. سيقوم فريق خدمة العملاء بمراجعته وتأكيد الدفع قريباً." : "Your subscription request has been submitted successfully. Our CS team will review it and confirm payment soon."}</p>
           {pendingRequest && (
             <div className="inline-flex items-center gap-3 bg-orange-50 border border-orange-200 px-6 py-3 rounded-xl">
-              <span className="font-bold text-orange-700">{pendingRequest.paymentOption === "advance" ? "37.500" : "12.500"} KWD</span>
+              <span className="font-bold text-orange-700">{pendingRequest.amountKwd} KWD</span>
               <span className="text-orange-500">•</span>
-              <span className="text-sm text-orange-600 capitalize">{pendingRequest.paymentOption}</span>
+              <span className="text-sm text-orange-600 capitalize">{pendingRequest.paymentOption || "Processing..."}</span>
             </div>
           )}
         </div>
       ) : (
         <div className="grid md:grid-cols-2 gap-6 relative">
-          <div className={`card-elevated p-6 cursor-pointer border-2 transition-all ${option === "monthly" ? "border-amber-500 shadow-glow-lg ring-4 ring-amber-500/20" : "border-transparent hover:border-amber-200"}`} onClick={() => setOption("monthly")}>
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-surface-900">{ar ? "دفع شهري" : "Monthly Plan"}</h3>
-                <p className="text-sm text-surface-500">{ar ? "يُجدد كل شهر" : "Billed monthly"}</p>
+          {plans.map(plan => (
+            <div key={plan._id} className={`card-elevated p-6 cursor-pointer border-2 transition-all ${option === plan._id ? "border-amber-500 shadow-glow-lg ring-4 ring-amber-500/20" : "border-transparent hover:border-amber-200"}`} onClick={() => setOption(plan._id)}>
+              {plan.durationMonths >= 3 && (
+                <div className="absolute top-0 right-6 -translate-y-1/2 bg-gradient-to-r from-brand-pink-500 to-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">
+                  {ar ? "مُوصى به" : "Recommended"}
+                </div>
+              )}
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="text-xl font-bold text-surface-900">{ar ? plan.nameAr : plan.nameEn}</h3>
+                  <p className="text-sm text-surface-500">{ar ? `التزام ${plan.minimumCommitmentMonths} أشهر` : `${plan.minimumCommitmentMonths}-month commitment`}</p>
+                </div>
+                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${option === plan._id ? "border-amber-500 bg-amber-500" : "border-surface-300"}`}>
+                  {option === plan._id && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                </div>
               </div>
-              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${option === "monthly" ? "border-amber-500 bg-amber-500" : "border-surface-300"}`}>
-                {option === "monthly" && <div className="w-2 h-2 bg-white rounded-full"></div>}
-              </div>
+              <div className="text-3xl font-black text-amber-600 mb-4">{plan.price.toFixed(3)} <span className="text-lg font-bold text-amber-700/70">KWD</span></div>
+              <ul className="space-y-3 text-sm text-surface-700 font-medium">
+                <li className="flex items-center gap-2"><span>✅</span> {ar ? "3 أضعاف كاش باك الفواتير" : "3x Invoice Cashback"}</li>
+                <li className="flex items-center gap-2"><span>✅</span> {ar ? "أولوية الدعم الفني" : "Priority Support"}</li>
+              </ul>
             </div>
-            <div className="text-3xl font-black text-amber-600 mb-4">12.5 <span className="text-lg font-bold text-amber-700/70">KWD / mo</span></div>
-            <ul className="space-y-3 text-sm text-surface-700 font-medium">
-              <li className="flex items-center gap-2"><span>✅</span> {ar ? "3 أضعاف كاش باك الفواتير" : "3x Invoice Cashback"}</li>
-              <li className="flex items-center gap-2"><span>✅</span> {ar ? "أولوية الدعم الفني" : "Priority Support"}</li>
-            </ul>
-          </div>
-
-          <div className={`card-elevated p-6 cursor-pointer border-2 transition-all ${option === "advance" ? "border-amber-500 shadow-glow-lg ring-4 ring-amber-500/20" : "border-transparent hover:border-amber-200"}`} onClick={() => setOption("advance")}>
-            <div className="absolute top-0 right-6 -translate-y-1/2 bg-gradient-to-r from-brand-pink-500 to-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">
-              {ar ? "مُوصى به" : "Recommended"}
-            </div>
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="text-xl font-bold text-surface-900">{ar ? "دفع 3 أشهر مقدماً" : "3-Months Advance"}</h3>
-                <p className="text-sm text-surface-500">{ar ? "ادفع لثلاثة أشهر مرة واحدة" : "Pay for 3 months upfront"}</p>
-              </div>
-              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${option === "advance" ? "border-amber-500 bg-amber-500" : "border-surface-300"}`}>
-                {option === "advance" && <div className="w-2 h-2 bg-white rounded-full"></div>}
-              </div>
-            </div>
-            <div className="text-3xl font-black text-amber-600 mb-4">37.5 <span className="text-lg font-bold text-amber-700/70">KWD / 3mo</span></div>
-            <ul className="space-y-3 text-sm text-surface-700 font-medium">
-              <li className="flex items-center gap-2"><span>✅</span> {ar ? "3 أضعاف كاش باك الفواتير" : "3x Invoice Cashback"}</li>
-              <li className="flex items-center gap-2"><span>✅</span> {ar ? "أولوية الدعم الفني" : "Priority Support"}</li>
-              <li className="flex items-center gap-2"><span>✅</span> {ar ? "راحة بال لثلاثة أشهر" : "Peace of mind for 3 months"}</li>
-            </ul>
-          </div>
+          ))}
         </div>
       )}
 
       {currentPlan !== "pro" && !pendingRequest && !submitted && (
         <div className="bg-surface-50 border border-surface-200 rounded-2xl p-6 text-center space-y-4">
           <p className="text-sm text-surface-600 font-medium">{ar ? "ملاحظة: الاشتراك يتطلب التزام لمدة 3 أشهر كحد أدنى. بعد تقديم الطلب سيتواصل معك فريقنا لتأكيد الدفع." : "Note: Subscription requires a minimum 3-month commitment. After submitting, our team will contact you to confirm payment."}</p>
-          <button disabled={busy} onClick={subscribe} className="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-glow-lg px-12 py-4 rounded-full text-white font-bold text-lg w-full md:w-auto">
-            {busy ? (ar ? "جاري الإرسال..." : "Submitting...") : (ar ? `تقديم طلب الاشتراك (${option === "monthly" ? "12.5" : "37.5"} د.ك)` : `Submit Subscription Request (${option === "monthly" ? "12.5" : "37.5"} KWD)`)}
+          <button disabled={busy || !option} onClick={subscribe} className="btn-primary bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 shadow-glow-lg px-12 py-4 rounded-full text-white font-bold text-lg w-full md:w-auto">
+            {busy ? (ar ? "جاري الإرسال..." : "Submitting...") : (ar ? `تقديم طلب الاشتراك` : `Submit Subscription Request`)}
           </button>
         </div>
       )}
@@ -973,7 +967,7 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
             {requests.map(r => (
               <div key={r.id} className="card-elevated p-4 flex items-center justify-between">
                 <div>
-                  <div className="font-bold text-surface-900">{r.amountKwd} KWD <span className="text-sm text-surface-500 capitalize">({r.paymentOption})</span></div>
+                  <div className="font-bold text-surface-900">{r.amountKwd} KWD <span className="text-sm text-surface-500 capitalize">({r.paymentOption || "Plan"})</span></div>
                   <div className="text-xs text-surface-500">{new Date(r.createdAt).toLocaleDateString()}</div>
                 </div>
                 <div>

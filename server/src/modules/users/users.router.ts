@@ -362,12 +362,13 @@ usersRouter.get("/me", authRequired, async (req, res, next) => {
 
 usersRouter.post("/me/subscription", authRequired, async (req, res, next) => {
   try {
-    const { paymentOption } = req.body;
-    if (paymentOption !== "monthly" && paymentOption !== "advance") {
-      return res.status(400).json({ error: "Invalid payment option" });
+    const { planId, paymentOption } = req.body;
+    if (!planId && !paymentOption) {
+      return res.status(400).json({ error: "Invalid subscription option" });
     }
 
     const { SubscriptionRequestModel } = await import("../../models/subscriptionRequest.model.js");
+    const { SubscriptionPlanModel } = await import("../../models/subscriptionPlan.model.js");
 
     // Check if user already has a pending request
     const existing = await SubscriptionRequestModel.findOne({ userId: req.auth!.userId, status: "pending" });
@@ -375,11 +376,19 @@ usersRouter.post("/me/subscription", authRequired, async (req, res, next) => {
       return res.status(400).json({ error: "You already have a pending subscription request." });
     }
 
-    const amountKwd = paymentOption === "advance" ? "37.500" : "12.500";
+    let amountKwd = "0.000";
+    if (planId) {
+      const plan = await SubscriptionPlanModel.findById(planId).lean() as any;
+      if (!plan || !plan.isActive) return res.status(400).json({ error: "Invalid or inactive plan" });
+      amountKwd = plan.price.toFixed(3);
+    } else {
+      amountKwd = paymentOption === "advance" ? "37.500" : "12.500";
+    }
 
     const doc = await SubscriptionRequestModel.create({
       userId: req.auth!.userId,
       paymentOption,
+      planId,
       amountKwd,
       status: "pending"
     });
@@ -399,6 +408,7 @@ usersRouter.get("/me/subscription", authRequired, async (req, res, next) => {
       items: requests.map((r: any) => ({
         id: r._id.toString(),
         paymentOption: r.paymentOption,
+        planId: r.planId,
         amountKwd: r.amountKwd,
         status: r.status,
         rejectionReason: r.rejectionReason,
@@ -432,6 +442,7 @@ usersRouter.get("/subscription-requests", authRequired, requireRole(["admin", "c
         userName: userMap[r.userId]?.username || "—",
         userPhone: userMap[r.userId]?.phone || "—",
         paymentOption: r.paymentOption,
+        planId: r.planId,
         amountKwd: r.amountKwd,
         status: r.status,
         rejectionReason: r.rejectionReason,
@@ -448,6 +459,7 @@ usersRouter.get("/subscription-requests", authRequired, requireRole(["admin", "c
 usersRouter.post("/subscription-requests/:id/approve", authRequired, requireRole(["admin", "cs"]), async (req, res, next) => {
   try {
     const { SubscriptionRequestModel } = await import("../../models/subscriptionRequest.model.js");
+    const { SubscriptionPlanModel } = await import("../../models/subscriptionPlan.model.js");
     const { id } = req.params;
 
     const doc = await SubscriptionRequestModel.findOneAndUpdate(
@@ -458,22 +470,36 @@ usersRouter.post("/subscription-requests/:id/approve", authRequired, requireRole
 
     if (!doc) return res.status(404).json({ error: "Request not found or already processed" });
 
+    let monthsToAdd = doc.paymentOption === "advance" ? 3 : 1;
+    let commitMonths = 3;
+    let label = `Belmondo Pro Subscription (${doc.paymentOption || 'Legacy'})`;
+
+    if (doc.planId) {
+      const plan = await SubscriptionPlanModel.findById(doc.planId).lean() as any;
+      if (plan) {
+        monthsToAdd = plan.durationMonths;
+        commitMonths = plan.minimumCommitmentMonths;
+        label = `Belmondo Pro Subscription (${plan.nameEn})`;
+      }
+    }
+
     // Activate Pro subscription
-    const monthsToAdd = doc.paymentOption === "advance" ? 3 : 1;
     const expiresAt = new Date();
     expiresAt.setMonth(expiresAt.getMonth() + monthsToAdd);
 
     const commitmentEndsAt = new Date();
-    commitmentEndsAt.setMonth(commitmentEndsAt.getMonth() + 3);
+    commitmentEndsAt.setMonth(commitmentEndsAt.getMonth() + commitMonths);
 
-    await UserModel.findByIdAndUpdate(doc.userId, {
-      $set: {
-        belmondoPlan: "pro",
-        belmondoProPaymentType: doc.paymentOption,
-        belmondoProExpiresAt: expiresAt,
-        belmondoProCommitmentEndsAt: commitmentEndsAt
-      }
-    });
+    const updateQuery: any = {
+      belmondoPlan: "pro",
+      belmondoProExpiresAt: expiresAt,
+      belmondoProCommitmentEndsAt: commitmentEndsAt
+    };
+
+    if (doc.planId) updateQuery.belmondoProPlanId = doc.planId;
+    if (doc.paymentOption) updateQuery.belmondoProPaymentType = doc.paymentOption;
+
+    await UserModel.findByIdAndUpdate(doc.userId, { $set: updateQuery });
 
     const { PaymentModel } = await import("../../models/payment.model.js");
     await PaymentModel.create({
@@ -485,7 +511,7 @@ usersRouter.post("/subscription-requests/:id/approve", authRequired, requireRole
       provider: "cs",
       status: "completed",
       isManual: true,
-      manualLabel: `Belmondo Pro Subscription (${doc.paymentOption})`,
+      manualLabel: label,
       confirmedBy: req.auth!.userId,
       confirmedAt: new Date()
     });

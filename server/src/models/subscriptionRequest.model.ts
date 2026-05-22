@@ -3,7 +3,8 @@ import mongoose, { Schema, type Document, type Types } from "mongoose";
 export interface SubscriptionRequestDoc extends Document {
   _id: Types.ObjectId;
   userId: string;
-  paymentOption: "monthly" | "advance";
+  paymentOption?: "monthly" | "advance";
+  planId?: Types.ObjectId;
   amountKwd: string;
   status: "pending" | "paid" | "rejected";
   rejectionReason?: string;
@@ -16,7 +17,8 @@ export interface SubscriptionRequestDoc extends Document {
 const SubscriptionRequestSchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
-    paymentOption: { type: String, enum: ["monthly", "advance"], required: true },
+    paymentOption: { type: String, enum: ["monthly", "advance"] },
+    planId: { type: Schema.Types.ObjectId, ref: "SubscriptionPlan" },
     amountKwd: { type: String, required: true },
     status: {
       type: String,
