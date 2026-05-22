@@ -2363,7 +2363,9 @@ export default function CustomerDashboard() {
                        const actualDiscountPct = hasMembership ? t.discountPct : 0;
                        // Per-session cashback: prefer the session-specific override, then the offer's general rate.
                        const offerCashbackPerSession = parseFloat((applicableCashbackOffer as any)?.cashbackPerSessionKwd || "0");
-                       const actualCashbackKwd = hasMembership ? (baseCashbackKwd || offerCashbackPerSession) : 0;
+                       const maxAllowedCashbackKwd = hasMembership ? (baseCashbackKwd || offerCashbackPerSession) : 0;
+                       const walletUnlocked = wallet ? parseFloat(wallet.unlockedBalance || "0") : 0;
+                       const actualCashbackKwd = hasMembership ? Math.min(maxAllowedCashbackKwd, walletUnlocked) : 0;
 
                        const discountAmt = actualDiscountPct > 0 ? +(basePrice * actualDiscountPct / 100).toFixed(3) : 0;
                        const priceAfterDiscount = +(basePrice - discountAmt).toFixed(3);

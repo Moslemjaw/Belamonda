@@ -422,7 +422,7 @@ usersRouter.get("/me/subscription", authRequired, async (req, res, next) => {
 });
 
 // CS/Admin: Get all subscription requests queue
-usersRouter.get("/subscription-requests", authRequired, requireRole(["admin", "cs", "finance"]), async (req, res, next) => {
+usersRouter.get("/subscription-requests", authRequired, requireRole(["admin", "cs", "finance", "legal"]), async (req, res, next) => {
   try {
     const { SubscriptionRequestModel } = await import("../../models/subscriptionRequest.model.js");
     const status = req.query.status as string || "pending";
@@ -456,7 +456,7 @@ usersRouter.get("/subscription-requests", authRequired, requireRole(["admin", "c
 });
 
 // CS/Admin: Mark subscription as paid → activate Pro
-usersRouter.post("/subscription-requests/:id/approve", authRequired, requireRole(["admin", "cs"]), async (req, res, next) => {
+usersRouter.post("/subscription-requests/:id/approve", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
   try {
     const { SubscriptionRequestModel } = await import("../../models/subscriptionRequest.model.js");
     const { SubscriptionPlanModel } = await import("../../models/subscriptionPlan.model.js");
@@ -523,7 +523,7 @@ usersRouter.post("/subscription-requests/:id/approve", authRequired, requireRole
 });
 
 // CS/Admin: Reject subscription request
-usersRouter.post("/subscription-requests/:id/reject", authRequired, requireRole(["admin", "cs"]), async (req, res, next) => {
+usersRouter.post("/subscription-requests/:id/reject", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
   try {
     const { SubscriptionRequestModel } = await import("../../models/subscriptionRequest.model.js");
     const { id } = req.params;
