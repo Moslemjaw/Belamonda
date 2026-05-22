@@ -1773,20 +1773,28 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
     const ws = wb.addWorksheet(name, { views: [{ rightToLeft: rtl }] });
     const headerRow = ws.getRow(1);
     headerRow.values = headers;
-    headerRow.eachCell((c) => {
-      c.font = { bold: true };
-      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
+    styleHeaderRow(headerRow);
+
+    rows.forEach((r, idx) => {
+      const row = ws.getRow(idx + 2);
+      row.values = r;
+      styleDataRow(row, idx % 2 === 1);
     });
-    rows.forEach((r, idx) => { ws.getRow(idx + 2).values = r; });
-    
-    // Auto-fit columns roughly
+
+    // Auto-filter on header row
+    ws.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: headers.length },
+    };
+
+    // Auto-fit column widths
     headers.forEach((h, i) => {
       let max = h.length;
       rows.forEach(r => {
         const val = r[i] ? String(r[i]) : "";
         if (val.length > max) max = val.length;
       });
-      ws.getColumn(i + 1).width = Math.min(50, max + 2);
+      ws.getColumn(i + 1).width = clampColWidth(max + 2);
     });
   };
 
