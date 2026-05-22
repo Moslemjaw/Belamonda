@@ -3954,13 +3954,14 @@ export default function CustomerDashboard() {
                  
                  // If paying with a package cashback wallet
                  if (relatedOffer && parseFloat(relatedOffer.cashbackBalanceKwd || '0') > 0) {
-                    const available = parseFloat(relatedOffer.cashbackBalanceKwd || '0');
-                    const applied = Math.min(available, finalPrice);
+                    // Use the per-session cashback amount, NOT the entire wallet balance
+                    const perSessionCashback = parseFloat(showBookingModal.cashbackKwd || '0');
+                    const applied = Math.min(perSessionCashback, finalPrice);
                     const pay = Math.max(0, finalPrice - applied);
                     return finalPrice > 0 ? (
                       <div className="rounded-xl border border-surface-200 bg-white p-3 space-y-1.5 text-xs">
                         <div className="flex justify-between"><span className="text-surface-500">{ar() ? "سعر الجلسة" : "Session price"}</span><span className="font-bold">{finalPrice.toFixed(3)} KWD</span></div>
-                        {applied > 0 && <div className="flex justify-between"><span className="text-surface-500">{ar() ? "رصيد الباقة المستخدم" : "Package Balance Applied"}</span><span className="font-bold text-amber-700">− {applied.toFixed(3)} KWD</span></div>}
+                        {applied > 0 && <div className="flex justify-between"><span className="text-surface-500">{ar() ? "خصم الكاش باك" : "Membership Cashback"}</span><span className="font-bold text-amber-700">− {applied.toFixed(3)} KWD</span></div>}
                         <div className="flex justify-between border-t border-surface-100 pt-1.5"><span className="font-semibold text-emerald-800">{ar() ? "تدفعين في العيادة" : "You pay at clinic"}</span><span className="font-black text-emerald-800">{pay.toFixed(3)} KWD</span></div>
                       </div>
                     ) : null;
