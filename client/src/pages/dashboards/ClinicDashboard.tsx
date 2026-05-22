@@ -1262,7 +1262,7 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, walletBalanceKwd, ba
                     onChange={e => {
                       const p = clinicProducts.find(x => x.name === e.target.value);
                       if (p) {
-                        setNewItemName(p.name);
+                        setNewItemName(ar() ? (p.nameAr || p.name) : (p.nameEn || p.name));
                         setNewItemPrice(p.priceKwd);
                         setNewItemCbDeduction(p.cashbackDeductionKwd || "0");
                       } else {
@@ -1271,12 +1271,13 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, walletBalanceKwd, ba
                         setNewItemCbDeduction("");
                       }
                     }}
-                    value={newItemName}
+                    value={clinicProducts.find(x => (ar() ? (x.nameAr || x.name) : (x.nameEn || x.name)) === newItemName)?.name || ""}
                   >
                     <option value="">{ar() ? "-- اختر منتج / جلسة --" : "-- Select Product / Session --"}</option>
-                    {clinicProducts.map((p, idx) => (
-                      <option key={idx} value={p.name}>{p.name} - {parseFloat(p.priceKwd).toFixed(3)} KWD</option>
-                    ))}
+                    {clinicProducts.map((p, idx) => {
+                      const displayName = ar() ? (p.nameAr || p.name) : (p.nameEn || p.name);
+                      return <option key={idx} value={p.name}>{displayName} - {parseFloat(p.priceKwd).toFixed(3)} KWD</option>;
+                    })}
                   </select>
                   <button onClick={() => {
                     if (!newItemName.trim() || !newItemPrice || isNaN(Number(newItemPrice))) return;

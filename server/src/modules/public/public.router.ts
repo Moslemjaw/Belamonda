@@ -307,6 +307,29 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
 
     // Also check booking requests for mark-paid
     const { BookingRequestModel } = await import("../../models/bookingRequest.model.js");
+    let clinicProducts: any[] = [];
+    if (clinicId) {
+      const { ClinicSessionOfferingModel } = await import("../../models/clinicSessionOffering.model.js");
+      const { SessionTypeModel } = await import("../../models/sessionType.model.js");
+      
+      const offerings = await ClinicSessionOfferingModel.find({ clinicId, isActive: true }).lean();
+      const sessionTypeIds = offerings.map((o: any) => o.sessionTypeId);
+      const sessionTypes = await SessionTypeModel.find({ _id: { $in: sessionTypeIds } }).lean();
+      const stMap = new Map((sessionTypes as any[]).map((st) => [String(st._id), st]));
+
+      clinicProducts = offerings.map((o: any) => {
+        const st = stMap.get(String(o.sessionTypeId));
+        return {
+          id: String(o._id),
+          name: st ? (st.nameAr || st.nameEn) : "Unknown",
+          nameAr: st?.nameAr || "",
+          nameEn: st?.nameEn || "",
+          priceKwd: o.priceKwd || "0.000",
+          cashbackDeductionKwd: o.cashbackDeductionKwd || "0.000"
+        };
+      });
+    }
+
     let clinicBookings: any[] = [];
     if (clinicId) {
       const bookings = await BookingRequestModel.find({
@@ -329,36 +352,28 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         }; 
       });
 
-      clinicBookings = (bookings as any[]).map((b: any) => ({
-        id: String(b._id),
-        status: b.status,
-        clinicPaymentStatus: b.clinicPaymentStatus ?? "pending",
-        sessionPriceKwd: b.sessionPriceKwd ?? null,
-        clinicTakeKwd: b.clinicTakeKwd ?? null,
-        createdAt: b.createdAt ? new Date(b.createdAt).toISOString() : null,
-        cashbackDeductedKwd: b.cashbackDeductedKwd ?? null,
-        maxSessionCashbackKwd: b.cashbackDeductedKwd ?? bookingOfferMap[String(b.offerId)]?.cb ?? null,
-        offerName: b.standaloneName || bookingOfferMap[String(b.offerId)]?.name || null,
-      }));
-    }
+      clinicBookings = (bookings as any[]).map((b: any) => {
+        const standaloneName = b.standaloneName || bookingOfferMap[String(b.offerId)]?.name || null;
+        let maxCb = b.cashbackDeductedKwd ?? bookingOfferMap[String(b.offerId)]?.cb ?? null;
+        
+        // If the booking is missing a specific cashback deduction, try to look it up from the clinic products
+        if (!maxCb || parseFloat(maxCb) === 0) {
+          const matchedProduct = clinicProducts.find(p => p.name === standaloneName);
+          if (matchedProduct && matchedProduct.cashbackDeductionKwd) {
+            maxCb = matchedProduct.cashbackDeductionKwd;
+          }
+        }
 
-    let clinicProducts: any[] = [];
-    if (clinicId) {
-      const { ClinicSessionOfferingModel } = await import("../../models/clinicSessionOffering.model.js");
-      const { SessionTypeModel } = await import("../../models/sessionType.model.js");
-      
-      const offerings = await ClinicSessionOfferingModel.find({ clinicId, isActive: true }).lean();
-      const sessionTypeIds = offerings.map((o: any) => o.sessionTypeId);
-      const sessionTypes = await SessionTypeModel.find({ _id: { $in: sessionTypeIds } }).lean();
-      const stMap = new Map((sessionTypes as any[]).map((st) => [String(st._id), st]));
-
-      clinicProducts = offerings.map((o: any) => {
-        const st = stMap.get(String(o.sessionTypeId));
         return {
-          id: String(o._id),
-          name: st ? (st.nameAr || st.nameEn) : "Unknown",
-          priceKwd: o.priceKwd || "0.000",
-          cashbackDeductionKwd: o.cashbackDeductionKwd || "0.000"
+          id: String(b._id),
+          status: b.status,
+          clinicPaymentStatus: b.clinicPaymentStatus ?? "pending",
+          sessionPriceKwd: b.sessionPriceKwd ?? null,
+          clinicTakeKwd: b.clinicTakeKwd ?? null,
+          createdAt: b.createdAt ? new Date(b.createdAt).toISOString() : null,
+          cashbackDeductedKwd: b.cashbackDeductedKwd ?? null,
+          maxSessionCashbackKwd: maxCb,
+          offerName: standaloneName,
         };
       });
     }
