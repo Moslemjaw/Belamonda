@@ -400,8 +400,8 @@ async function ensureConversationFor(breqId: string): Promise<{ conv: ReturnType
 
   const participants = [
     { userId: breq.userId, role: "customer" as const, joinedAt: new Date().toISOString() },
-    ...(breq.isStandalone ? staffIds : []).map((id) => ({ userId: id, role: "clinicStaff" as const, joinedAt: new Date().toISOString() })),
-    ...(breq.isStandalone ? [] : csIds).map((id) => ({ userId: id, role: "cs" as const, joinedAt: new Date().toISOString() }))
+    ...(breq.bookingRoute === "clinic" ? staffIds : []).map((id) => ({ userId: id, role: "clinicStaff" as const, joinedAt: new Date().toISOString() })),
+    ...(breq.bookingRoute === "cs" ? csIds : []).map((id) => ({ userId: id, role: "cs" as const, joinedAt: new Date().toISOString() }))
   ];
   // De-duplicate
   const seen = new Set<string>();
@@ -580,7 +580,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         offerId: uo.offerId,
         clinicId: uo.clinicId,
         isStandalone: !!parsed.data.isStandalone,
-        bookingRoute: "cs",
+        bookingRoute: "clinic",
         membershipType: uo.membershipType ?? "none",
         hadCashback: cashbackDeducted > 0,
         standaloneName: parsed.data.standaloneName,
@@ -655,7 +655,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       offerId: uo.offerId,
       clinicId: uo.clinicId,
       isStandalone: !!parsed.data.isStandalone,
-      bookingRoute: "cs",
+      bookingRoute: "clinic",
       membershipType: uo.membershipType ?? "none",
       hadCashback: cashbackDeducted > 0 || !!parsed.data.cashbackAppliedKwd,
       sessionPriceKwd: sessionGross,
@@ -685,11 +685,13 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       });
     }
 
-    // csIds already fetched inside ensureConversationFor — reuse them, supplemented by cache
-    const csIds = convCsIds.length ? convCsIds : await findCsUserIds();
+    const additionalNotifyIds = breq.bookingRoute === "clinic" 
+      ? await findClinicStaffUserIds(breq.clinicId)
+      : (convCsIds.length ? convCsIds : await findCsUserIds());
+      
     notifyBookingUnderReview(req.auth!.userId, breq.id);
     notifyChatRelatedUsers({
-      userIds: Array.from(new Set([...csIds, ...financeIds])),
+      userIds: Array.from(new Set([...additionalNotifyIds, ...financeIds])),
       kind: "booking_under_review",
       body: `Booking request ${breq.id}: clinic=${breq.clinicId}, price=${breq.sessionPriceKwd ?? "0.000"} KWD, membership=${breq.membershipType ?? "none"}, cashback=${breq.cashbackDeductedKwd ?? "0.000"} KWD`,
       payload: {
@@ -819,10 +821,13 @@ schedulingRouter.post("/me/requests/:id/pay-session", authRequired, async (req, 
       });
     }
 
-    const csIds = convCsIds2.length ? convCsIds2 : await findCsUserIds();
+    const additionalNotifyIds = breq.bookingRoute === "clinic"
+      ? await findClinicStaffUserIds(breq.clinicId)
+      : (convCsIds2.length ? convCsIds2 : await findCsUserIds());
+
     notifyBookingUnderReview(req.auth!.userId, breq.id);
     notifyChatRelatedUsers({
-      userIds: Array.from(new Set([...csIds, ...financeIds])),
+      userIds: Array.from(new Set([...additionalNotifyIds, ...financeIds])),
       kind: "booking_under_review",
       body: `Paid booking request ${breq.id}: clinic=${breq.clinicId}, price=${breq.sessionPriceKwd ?? "0.000"} KWD, membership=${breq.membershipType ?? "none"}, cashback=${breq.cashbackDeductedKwd ?? "0.000"} KWD`,
       payload: {
