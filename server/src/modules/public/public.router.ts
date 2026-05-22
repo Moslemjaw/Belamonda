@@ -313,9 +313,17 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         userId,
         clinicId: mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId,
       })
-        .populate<{ offerId: { _id: any; cashbackPerSessionKwd?: string } }>("offerId", "cashbackPerSessionKwd")
         .sort({ createdAt: -1 })
         .limit(20).lean();
+
+      // BookingRequest.offerId is a String, not an ObjectId ref, so we manually look up offers
+      const bookingOfferIds = [...new Set((bookings as any[]).map((b: any) => b.offerId).filter(Boolean))];
+      const bookingOffers = bookingOfferIds.length
+        ? await OfferModel.find({ _id: { $in: bookingOfferIds } }).select("cashbackPerSessionKwd").lean()
+        : [];
+      const bookingOfferMap: Record<string, string> = {};
+      (bookingOffers as any[]).forEach((o: any) => { bookingOfferMap[String(o._id)] = o.cashbackPerSessionKwd ?? "0.000"; });
+
       clinicBookings = (bookings as any[]).map((b: any) => ({
         id: String(b._id),
         status: b.status,
@@ -323,7 +331,8 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         sessionPriceKwd: b.sessionPriceKwd ?? null,
         clinicTakeKwd: b.clinicTakeKwd ?? null,
         createdAt: b.createdAt ? new Date(b.createdAt).toISOString() : null,
-        maxSessionCashbackKwd: b.offerId?.cashbackPerSessionKwd ?? null,
+        cashbackDeductedKwd: b.cashbackDeductedKwd ?? null,
+        maxSessionCashbackKwd: bookingOfferMap[String(b.offerId)] ?? null,
       }));
     }
 

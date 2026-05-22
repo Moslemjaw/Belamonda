@@ -1183,11 +1183,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 
-function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, maxCashbackKwd, onSubmit, isBooking, clinicProducts }: {
+function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, walletBalanceKwd, baseCashbackKwd, onSubmit, isBooking, clinicProducts }: {
   isOpen: boolean;
   onClose: () => void;
   baseAmountKwd: string;
-  maxCashbackKwd: string;
+  walletBalanceKwd: string;
+  baseCashbackKwd: string;
   onSubmit: (extraItems: any[], cashbackToDeductKwd: string) => Promise<void>;
   isBooking?: boolean;
   clinicProducts?: {name: string; priceKwd: string; cashbackDeductionKwd?: string}[];
@@ -1201,17 +1202,16 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, maxCashbackKwd, onSu
   const [newItemCbDeduction, setNewItemCbDeduction] = useState("");
 
   const baseAmount = parseFloat(baseAmountKwd || "0");
-  const baseMaxCb = parseFloat(maxCashbackKwd || "0");
+  const walletBalance = parseFloat(walletBalanceKwd || "0");
+  const baseCb = parseFloat(baseCashbackKwd || "0");
   
   const extraSum = extraItems.reduce((sum, item) => sum + parseFloat(item.priceKwd || "0") * item.qty, 0);
   const extraCbSum = extraItems.reduce((sum, item) => sum + parseFloat(item.cashbackDeductionKwd || "0") * item.qty, 0);
   
   const totalBill = baseAmount + extraSum;
-  // If the baseMaxCb is already the full wallet balance, we still shouldn't exceed the wallet balance.
-  // But since maxCashbackKwd is now passed as the *capped* amount for the base session,
-  // we add the extra items' cb allowances to it. (We assume the wallet balance check happens in the backend or we can just trust the limit here).
-  // Actually, we should ideally know the absolute wallet balance, but for now we'll just sum the limits.
-  const maxCb = baseMaxCb + extraCbSum;
+  // Cashback = sum of per-session deductions, capped by wallet balance
+  const totalCbAllowance = baseCb + extraCbSum;
+  const maxCb = Math.min(totalCbAllowance, walletBalance);
   
   const applicableCashback = useCashback ? Math.min(totalBill, maxCb) : 0;
   const finalPay = Math.max(0, totalBill - applicableCashback);
@@ -1603,7 +1603,8 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
         isOpen={!!checkoutSession} 
         onClose={() => setCheckoutSession(null)} 
         baseAmountKwd={"0.000"} 
-        maxCashbackKwd={checkoutSession ? (parseFloat(checkoutSession.maxSessionCashbackKwd || "0") > 0 ? Math.min(parseFloat(maxCashbackKwd || "0"), parseFloat(checkoutSession.maxSessionCashbackKwd)).toString() : maxCashbackKwd) : "0"}
+        walletBalanceKwd={maxCashbackKwd}
+        baseCashbackKwd={checkoutSession?.maxSessionCashbackKwd || "0"}
         clinicProducts={clinicProducts}
         onSubmit={async (extraItems, cashbackToDeductKwd) => {
           if (checkoutSession) {
@@ -1616,7 +1617,8 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
         isBooking={true}
         onClose={() => setCheckoutBooking(null)} 
         baseAmountKwd={checkoutBooking?.clinicTakeKwd || checkoutBooking?.sessionPriceKwd || "0"} 
-        maxCashbackKwd={checkoutBooking ? (parseFloat(checkoutBooking.maxSessionCashbackKwd || "0") > 0 ? Math.min(parseFloat(maxCashbackKwd || "0"), parseFloat(checkoutBooking.maxSessionCashbackKwd)).toString() : maxCashbackKwd) : "0"}
+        walletBalanceKwd={maxCashbackKwd}
+        baseCashbackKwd={checkoutBooking?.maxSessionCashbackKwd || checkoutBooking?.cashbackDeductedKwd || "0"}
         clinicProducts={clinicProducts}
         onSubmit={async (extraItems, cashbackToDeductKwd) => {
           if (checkoutBooking) {
