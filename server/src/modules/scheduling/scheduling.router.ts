@@ -710,13 +710,32 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
 
 // ── Customer's own sessions ────────────────────────────────────────────────
 schedulingRouter.get("/me/sessions", authRequired, async (req, res) => {
-  const items = Array.from(await sessionsStore.listByUser(req.auth!.userId));
-  return res.json({ items });
+  const sessions = Array.from(await sessionsStore.listByUser(req.auth!.userId));
+  const enriched = await Promise.all(sessions.map(async (s) => {
+    let offerName = null;
+    const breq = await bookingRequestsStore.findBySessionId(s.id);
+    if (breq?.standaloneName) {
+      offerName = breq.standaloneName;
+    } else if (s.offerId) {
+      const offer = await loadOffer(s.offerId);
+      offerName = offer?.name ?? null;
+    }
+    return { ...s, offerName };
+  }));
+  return res.json({ items: enriched });
 });
 
 schedulingRouter.get("/me/requests", authRequired, async (req, res) => {
-  const items = await bookingRequestsStore.list({ userId: req.auth!.userId });
-  return res.json({ items });
+  const requests = await bookingRequestsStore.list({ userId: req.auth!.userId });
+  const enriched = await Promise.all(requests.map(async (r) => {
+    let offerName = r.standaloneName;
+    if (!offerName && r.offerId) {
+      const offer = await loadOffer(r.offerId);
+      offerName = offer?.name ?? undefined;
+    }
+    return { ...r, offerName };
+  }));
+  return res.json({ items: enriched });
 });
 
 /** Pre-booking quote: session price, cashback, and cash due at clinic. */

@@ -2765,7 +2765,7 @@ export default function CustomerDashboard() {
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-bold text-surface-900 text-sm">{ar() ? "طلب حجز" : "Booking Request"}</span>
+                                  <span className="font-bold text-surface-900 text-sm">{r.offerName || r.standaloneName || (ar() ? "طلب حجز" : "Booking Request")}</span>
                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${meta.color}`}>{ar() ? meta.labelAr : meta.label}</span>
                                 </div>
                                 <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold text-surface-700">{clinicName}</span></div>
@@ -2838,7 +2838,7 @@ export default function CustomerDashboard() {
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                               </div>
                               <div>
-                                <div className="font-bold text-surface-900 text-sm">{ar() ? "جلسة" : "Session"}</div>
+                                <div className="font-bold text-surface-900 text-sm">{b.offerName || b.standaloneName || (ar() ? "جلسة" : "Session")}</div>
                                 <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold text-surface-700">{clinicName}</span></div>
                               </div>
                             </div>
