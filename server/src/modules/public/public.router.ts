@@ -358,7 +358,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         
         // If the booking is missing a specific cashback deduction, try to look it up from the clinic products
         if (!maxCb || parseFloat(maxCb) === 0) {
-          const matchedProduct = clinicProducts.find(p => p.name === standaloneName);
+          const matchedProduct = clinicProducts.find(p => p.name === standaloneName || p.nameAr === standaloneName || p.nameEn === standaloneName);
           if (matchedProduct && matchedProduct.cashbackDeductionKwd) {
             maxCb = matchedProduct.cashbackDeductionKwd;
           }
