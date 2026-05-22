@@ -1604,7 +1604,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
         onClose={() => setCheckoutSession(null)} 
         baseAmountKwd={"0.000"} 
         walletBalanceKwd={maxCashbackKwd}
-        baseCashbackKwd={checkoutSession?.maxSessionCashbackKwd || "0"}
+        baseCashbackKwd={"0"} // The base session's cashback (if any) was already handled, only allow cashback on extra items
         clinicProducts={clinicProducts}
         onSubmit={async (extraItems, cashbackToDeductKwd) => {
           if (checkoutSession) {
@@ -1616,9 +1616,9 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
         isOpen={!!checkoutBooking} 
         isBooking={true}
         onClose={() => setCheckoutBooking(null)} 
-        baseAmountKwd={checkoutBooking?.clinicTakeKwd || checkoutBooking?.sessionPriceKwd || "0"} 
+        baseAmountKwd={checkoutBooking ? Math.max(0, parseFloat(checkoutBooking.clinicTakeKwd || checkoutBooking.sessionPriceKwd || "0") - parseFloat(checkoutBooking.cashbackDeductedKwd || "0")).toFixed(3) : "0.000"} 
         walletBalanceKwd={maxCashbackKwd}
-        baseCashbackKwd={checkoutBooking?.maxSessionCashbackKwd || checkoutBooking?.cashbackDeductedKwd || "0"}
+        baseCashbackKwd={"0"} // The base session's cashback was already applied online when booking
         clinicProducts={clinicProducts}
         onSubmit={async (extraItems, cashbackToDeductKwd) => {
           if (checkoutBooking) {
