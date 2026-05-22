@@ -28,6 +28,7 @@ type Offer = {
   cashbackEligible?: boolean;
   maxCashbackPerPurchaseKwd?: string;
   branchSubscriptionPrices?: { clinicId: string; priceKwd: string }[];
+  clinicOverrides?: { clinicId: string; sessionPriceKwd: string }[];
 };
 
 type Wallet = {
@@ -233,8 +234,14 @@ export default function CheckoutModal({
         const items = (listRaw as { items?: any[] }).items || [];
 
         if (isNewStyle) {
-          // Always show every active clinic — customer picks their own.
-          const active = items.filter((c: any) => c.active !== false && c.status !== "inactive");
+          // If clinicOverrides (branchSessionPrices) exist, only show those clinics
+          const overrideIds = (offer.clinicOverrides || []).map((o) => o.clinicId).filter(Boolean);
+          let active;
+          if (overrideIds.length > 0) {
+            active = items.filter((c: any) => overrideIds.includes(String(c.id)));
+          } else {
+            active = items.filter((c: any) => c.active !== false && c.status !== "inactive");
+          }
           if (cancelled) return;
           if (active.length) setAllowedClinics(active);
           else setBranchLoadError(ar ? "لا توجد عيادات متاحة حالياً." : "No clinics available right now.");
@@ -471,11 +478,17 @@ export default function CheckoutModal({
                         onChange={(e) => setSelectedClinicId(e.target.value)}
                       >
                         <option value="">{t("-- Select a clinic --", "-- اختر عيادة --")}</option>
-                        {allowedClinics.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {ar ? c.nameAr : c.nameEn}
-                          </option>
-                        ))}
+                        {allowedClinics.map((c) => {
+                          const override = (offer.clinicOverrides || []).find((o) => o.clinicId === c.id);
+                          const feeText = override && parseFloat(override.sessionPriceKwd) > 0
+                            ? (ar ? ` (${override.sessionPriceKwd} KWD/${ar ? "جلسة" : "session"})` : ` (${override.sessionPriceKwd} KWD/session)`)
+                            : "";
+                          return (
+                            <option key={c.id} value={c.id}>
+                              {ar ? c.nameAr : c.nameEn}{feeText}
+                            </option>
+                          );
+                        })}
                       </select>
                       <div className="text-[10px] text-surface-600 mt-1">
                         {offer.clinicLocked === true
