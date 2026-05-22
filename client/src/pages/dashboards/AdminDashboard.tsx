@@ -11,6 +11,7 @@ import { OfferTemplate, getOfferTemplates, saveOfferTemplates, upsertOfferTempla
 import { sharedClinics } from "../../lib/clinics";
 import { CategoriesAdminPanel } from "../../features/admin/CategoriesAdminPanel";
 import { EFormsAdminPanel } from "../../features/admin/EFormsAdminPanel";
+import { AdminSubscriptionsDashboard } from "./AdminSubscriptionsDashboard";
 import { SessionTypesAdminPanel } from "../../features/admin/SessionTypesAdminPanel";
 import ChatWidget from "../../components/ChatWidget";
 import AdminBookingsMonitor from "../../components/AdminBookingsMonitor";
@@ -3551,6 +3552,7 @@ export default function AdminDashboard() {
     { key: "share", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>, label: ar() ? "رابط الإحالة" : "Share Link" },
     { key: "notices", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>, label: ar() ? "إشعارات العيادات" : "Clinic Notices" },
     { key: "notifications_settings", icon: Icons.bell, label: ar() ? "إعدادات الإشعارات" : "Notifications" },
+    { key: "subscriptions", icon: Icons.cash, label: ar() ? "الاشتراكات" : "Subscriptions" },
     { key: "audit", icon: Icons.clipboard, label: ar() ? "سجل التدقيق" : "Audit Logs" },
     { key: "settings", icon: Icons.settings, label: t("settings") },
   ];
@@ -3735,6 +3737,7 @@ export default function AdminDashboard() {
         {activeNav === "share" && <ShareLinkPage />}
         {activeNav === "notices" && <NoticesAdminPanel />}
         {activeNav === "notifications_settings" && <NotificationSettingsPanel />}
+        {activeNav === "subscriptions" && <AdminSubscriptionsDashboard />}
         {activeNav === "audit" && <AuditLogViewer />}
         {activeNav === "settings" && <AdminSettings />}
       </div>

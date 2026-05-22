@@ -26,6 +26,7 @@ export interface UserDoc extends Document {
   belmondoProExpiresAt?: Date;
   belmondoProCommitmentEndsAt?: Date;
   belmondoProPaymentType?: "monthly" | "advance";
+  belmondoProPlanId?: Types.ObjectId;
 }
 
 const UserSchema = new Schema(
@@ -53,7 +54,8 @@ const UserSchema = new Schema(
     belmondoPlan: { type: String, enum: ["basic", "pro"], default: "basic" },
     belmondoProExpiresAt: { type: Date },
     belmondoProCommitmentEndsAt: { type: Date },
-    belmondoProPaymentType: { type: String, enum: ["monthly", "advance"] }
+    belmondoProPaymentType: { type: String, enum: ["monthly", "advance"] },
+    belmondoProPlanId: { type: Schema.Types.ObjectId, ref: "SubscriptionPlan" }
   },
   { timestamps: true }
 );

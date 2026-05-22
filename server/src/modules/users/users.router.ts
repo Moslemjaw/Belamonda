@@ -759,32 +759,35 @@ usersRouter.patch("/admin/:id/subscription", authRequired, requireRole(["admin",
 
     const parsed = z.object({
       plan: z.enum(["basic", "pro"]),
-      paymentOption: z.enum(["monthly", "advance"]).optional(),
+      planId: z.string().optional(),
       method: z.enum(["bank_transfer", "cash", "pos", "enet", "wallet", "other"]).optional()
     }).safeParse(req.body);
 
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
     
-    const { plan, paymentOption, method } = parsed.data;
+    const { plan, planId, method } = parsed.data;
 
     const user = await UserModel.findById(id).lean<UserLean>();
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
 
     if (plan === "pro") {
-      if (!paymentOption) return res.status(400).json({ error: "Payment option is required for Pro plan." });
+      if (!planId) return res.status(400).json({ error: "Plan ID is required for Pro plan." });
       if (!method) return res.status(400).json({ error: "Payment method is required." });
 
-      const amountKwd = paymentOption === "monthly" ? "12.500" : "37.500";
-      const now = new Date();
-      const expiresAt = new Date(now);
-      if (paymentOption === "monthly") {
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
-      } else {
-        expiresAt.setMonth(expiresAt.getMonth() + 3);
+      const { SubscriptionPlanModel } = await import("../../models/subscriptionPlan.model.js");
+      const subscriptionPlan = await SubscriptionPlanModel.findById(planId).lean() as any;
+      if (!subscriptionPlan || !subscriptionPlan.isActive) {
+         return res.status(400).json({ error: "Invalid or inactive subscription plan." });
       }
+
+      const amountKwd = subscriptionPlan.price.toFixed(3);
+      const now = new Date();
+      
+      const expiresAt = new Date(now);
+      expiresAt.setMonth(expiresAt.getMonth() + subscriptionPlan.durationMonths);
       
       const commitmentEndsAt = new Date(now);
-      commitmentEndsAt.setMonth(commitmentEndsAt.getMonth() + 3);
+      commitmentEndsAt.setMonth(commitmentEndsAt.getMonth() + subscriptionPlan.minimumCommitmentMonths);
 
       // Create payment ledger record
       await PaymentModel.create({
@@ -794,7 +797,7 @@ usersRouter.patch("/admin/:id/subscription", authRequired, requireRole(["admin",
         cashbackAppliedKwd: "0.000",
         method,
         purpose: "manual_entry",
-        manualLabel: "Belmondo Pro Subscription",
+        manualLabel: `Belmondo Pro Subscription (${subscriptionPlan.nameEn})`,
         status: "completed",
         provider: "manual",
         isManual: true,
@@ -805,7 +808,7 @@ usersRouter.patch("/admin/:id/subscription", authRequired, requireRole(["admin",
 
       const updated = await UserModel.findByIdAndUpdate(id, {
         belmondoPlan: "pro",
-        belmondoProPaymentType: paymentOption,
+        belmondoProPlanId: new mongoose.Types.ObjectId(planId),
         belmondoProExpiresAt: expiresAt,
         belmondoProCommitmentEndsAt: commitmentEndsAt
       }, { new: true }).lean<UserLean>();
@@ -815,7 +818,7 @@ usersRouter.patch("/admin/:id/subscription", authRequired, requireRole(["admin",
       // Downgrade to basic
       const updated = await UserModel.findByIdAndUpdate(id, {
         belmondoPlan: "basic",
-        $unset: { belmondoProPaymentType: "", belmondoProExpiresAt: "", belmondoProCommitmentEndsAt: "" }
+        $unset: { belmondoProPlanId: "", belmondoProPaymentType: "", belmondoProExpiresAt: "", belmondoProCommitmentEndsAt: "" }
       }, { new: true }).lean<UserLean>();
 
       return res.json({ success: true, user: updated });

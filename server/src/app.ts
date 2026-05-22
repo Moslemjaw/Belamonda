@@ -34,6 +34,7 @@ import { auditRouter } from "./modules/audit/audit.router.js";
 import { noticesRouter } from "./modules/notices/notices.router.js";
 import { settingsRouter } from "./modules/settings/settings.router.js";
 import { cashbackRequestsRouter } from "./modules/cashback-requests/cashbackRequests.router.js";
+import { subscriptionsRouter } from "./modules/subscriptions/subscriptions.router.js";
 
 /** First path segment for routes registered on this app — avoids SPA fallback stealing API/Socket.IO traffic. */
 const RESERVED_FIRST_SEGMENTS = new Set([
@@ -64,6 +65,7 @@ const RESERVED_FIRST_SEGMENTS = new Set([
   "notices",
   "settings",
   "cashback-requests",
+  "subscriptions",
   "health",
   "me",
   "socket.io"
@@ -144,6 +146,7 @@ export function createApp() {
   app.use("/notices", noticesRouter);
   app.use("/settings", settingsRouter);
   app.use("/cashback-requests", cashbackRequestsRouter);
+  app.use("/subscriptions", subscriptionsRouter);
 
   app.get("/health", (_req, res) => {
     res.json({ ok: true, service: "belamonda-api" });

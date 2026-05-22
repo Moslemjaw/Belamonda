@@ -1321,6 +1321,7 @@ function CustomersManager() {
   // Dynamic public data
   const { data: clinicsData } = useApi<{ items: any[] }>("/clinics");
   const { data: offersData } = useApi<{ items: any[] }>("/offers");
+  const { data: plansData } = useApi<any[]>("/subscriptions/plans");
 
   const refetchProfile = async () => {
     if (!selectedUser) return;
@@ -1358,7 +1359,7 @@ function CustomersManager() {
   };
 
   const [belmondoSaving, setBelmondoSaving] = useState(false);
-  const [belmondoPaymentOption, setBelmondoPaymentOption] = useState<"monthly"|"advance">("monthly");
+  const [belmondoPlanId, setBelmondoPlanId] = useState<string>("");
   const [belmondoPaymentMethod, setBelmondoPaymentMethod] = useState<string>("pos");
 
   const handleUpdateSubscription = async (downgrade = false) => {
@@ -1367,7 +1368,7 @@ function CustomersManager() {
     try {
       const body = downgrade ? { plan: "basic" } : {
         plan: "pro",
-        paymentOption: belmondoPaymentOption,
+        planId: belmondoPlanId || plansData?.[0]?._id,
         method: belmondoPaymentMethod
       };
       await apiFetch(`/users/admin/${selectedUser.id}/subscription`, {
@@ -1583,15 +1584,16 @@ function CustomersManager() {
                         <span className="font-bold text-surface-900">{profile.user.belmondoProCommitmentEndsAt ? new Date(profile.user.belmondoProCommitmentEndsAt).toLocaleDateString() : "—"}</span>
                       </div>
                       <div className="pt-3 border-t border-amber-200/30 mt-3 flex gap-2">
-                        <button disabled={belmondoSaving} onClick={() => { setBelmondoPaymentOption("monthly"); handleUpdateSubscription(); }} className="flex-1 bg-surface-900 hover:bg-surface-800 text-white py-2 rounded-xl text-xs font-bold shadow-sm transition-colors">{ar() ? "تجديد / تسجيل دفعة" : "Renew / Record Payment"}</button>
+                        <button disabled={belmondoSaving} onClick={() => { handleUpdateSubscription(); }} className="flex-1 bg-surface-900 hover:bg-surface-800 text-white py-2 rounded-xl text-xs font-bold shadow-sm transition-colors">{ar() ? "تجديد / تسجيل دفعة" : "Renew / Record Payment"}</button>
                         <button disabled={belmondoSaving} onClick={() => handleUpdateSubscription(true)} className="flex-[0.5] text-surface-500 hover:text-red-600 hover:bg-red-50 border border-surface-200 hover:border-red-200 bg-white py-2 rounded-xl text-xs font-bold transition-colors">{ar() ? "إلغاء" : "Cancel"}</button>
                       </div>
                     </div>
                   ) : (
                     <div className="bg-white rounded-xl p-4 border border-surface-100 shadow-sm space-y-3">
-                      <select className="select-field text-xs w-full py-2 bg-surface-50" value={belmondoPaymentOption} onChange={e => setBelmondoPaymentOption(e.target.value as any)}>
-                        <option value="monthly">{ar() ? "دفع شهري (12.5 د.ك)" : "Monthly (12.5 KWD)"}</option>
-                        <option value="advance">{ar() ? "دفع 3 أشهر مقدماً (37.5 د.ك)" : "3-Months Advance (37.5 KWD)"}</option>
+                      <select className="select-field text-xs w-full py-2 bg-surface-50" value={belmondoPlanId || plansData?.[0]?._id || ""} onChange={e => setBelmondoPlanId(e.target.value)}>
+                        {(plansData || []).filter(p => p.isActive).map(p => (
+                          <option key={p._id} value={p._id}>{ar() ? p.nameAr : p.nameEn} ({p.price.toFixed(3)} KWD)</option>
+                        ))}
                       </select>
                       <select className="select-field text-xs w-full py-2 bg-surface-50" value={belmondoPaymentMethod} onChange={e => setBelmondoPaymentMethod(e.target.value)}>
                         <option value="pos">POS</option>
