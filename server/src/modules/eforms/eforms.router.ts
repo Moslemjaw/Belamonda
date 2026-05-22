@@ -549,7 +549,20 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
           signatureHtml = `<div class="signature-box">Signature image could not be embedded</div>`;
         }
       } else {
-        signatureHtml = `<div class="signature-box">Signature file not found</div>`;
+        signatureHtml = `<div class="signature-box">
+          <div class="signature-title">Customer Signature / توقيع المشترك</div>
+          <div style="padding: 20px 0; color: #64748b; font-weight: 500;">
+            <svg style="width: 32px; height: 32px; margin: 0 auto 10px; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <br/>
+            Signature stored electronically.<br/><span style="font-size: 11px;">تم حفظ التوقيع إلكترونياً</span>
+          </div>
+          <div class="signature-meta">
+            Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}<br>
+            IP: ${sub.ip ?? "—"} | User Agent: ${sub.userAgent ?? "—"}
+          </div>
+        </div>`;
       }
     }
 
@@ -591,7 +604,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
         .field-label { flex: 0 0 35%; font-weight: 700; color: #334155; font-size: 14px; padding-left: 15px; }
         .field-value { flex: 1; font-size: 15px; font-weight: 500; color: #0f172a; }
         
-        .static-text { background: #f8fafc; padding: 20px; border-radius: 8px; font-size: 14px; color: #334155; margin: 30px 0; white-space: pre-line; line-height: 1.8; page-break-inside: auto; border-right: 4px solid #db2777; text-align: right; }
+        .static-text { background: #f8fafc; padding: 20px; border-radius: 8px; font-size: 14px; color: #334155; margin: 30px 0; white-space: pre-line; line-height: 1.8; page-break-inside: auto; border-left: 4px solid #db2777; text-align: start; unicode-bidi: plaintext; }
         
         .signature-box { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; margin-top: 40px; page-break-inside: avoid; background: #f1f5f9; }
         .signature-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; color: #0f172a; }
@@ -599,6 +612,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
         .signature-meta { font-size: 12px; color: #64748b; margin-top: 15px; direction: ltr; }
         
         .footer { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; direction: ltr; }
+        .badge { display: inline-block; padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 4px; background: #dbeafe; color: #1e40af; }
       </style>
     </head>
     <body>
