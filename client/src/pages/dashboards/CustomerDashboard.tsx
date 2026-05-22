@@ -4138,7 +4138,7 @@ export default function CustomerDashboard() {
                       clinicId: selectedClinicId,
                       isStandalone: isStandaloneBooking,
                       schedulingMode: isStandaloneBooking ? resolvedSchedulingMode : undefined,
-                      standaloneName: isStandaloneBooking ? (offer.offerName || offer.offerId || offer.treatmentName) : undefined,
+                      standaloneName: offer.treatmentName || offer.offerName || offer.offerId || undefined,
                       standalonePrice: isStandaloneBooking ? standalonePriceKwd : undefined,
                       notes: offer.treatmentName || offer.offerName || undefined,
                       sessionGrossKwd: offer.priceKwd != null ? Number(offer.priceKwd).toFixed(3) : undefined,

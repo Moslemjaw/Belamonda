@@ -583,6 +583,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         bookingRoute: "cs",
         membershipType: uo.membershipType ?? "none",
         hadCashback: cashbackDeducted > 0,
+        standaloneName: parsed.data.standaloneName,
         preferredAt: parsed.data.preferredAt,
         notes: parsed.data.notes
       });
@@ -659,6 +660,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       hadCashback: cashbackDeducted > 0 || !!parsed.data.cashbackAppliedKwd,
       sessionPriceKwd: sessionGross,
       cashbackDeductedKwd: finalCashbackDeducted,
+      standaloneName: parsed.data.standaloneName,
       preferredAt: parsed.data.preferredAt,
       notes: parsed.data.notes
     });
@@ -932,7 +934,7 @@ schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "
         customerPhone: userMap.get(it.userId)?.phone ?? null,
         clinicNameEn: c.nameEn,
         clinicNameAr: c.nameAr,
-        offerName: offer?.name ?? null,
+        offerName: it.standaloneName ?? offer?.name ?? null,
         ...financials,
       };
     })
@@ -976,7 +978,7 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
     const financials = computeBookingRequestFinancials(it, offer);
     return {
       ...it,
-      offerName: offer?.name ?? (it.offerId && !mongoose.isValidObjectId(it.offerId) ? (offersStore.get(it.offerId) as { name?: string } | undefined)?.name ?? null : null),
+      offerName: it.standaloneName ?? offer?.name ?? (it.offerId && !mongoose.isValidObjectId(it.offerId) ? (offersStore.get(it.offerId) as { name?: string } | undefined)?.name ?? null : null),
       ...financials,
     };
   });
@@ -1606,7 +1608,7 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
         ...s,
         customerName: (user as any)?.fullName ?? null,
         customerPhone: (user as any)?.phone ?? null,
-        offerName: (offerDoc as any)?.name ?? null,
+        offerName: breq?.standaloneName ?? (offerDoc as any)?.name ?? null,
         bookingRequestId: breq?._id?.toString() ?? null,
         clinicPaymentStatus: breq?.clinicPaymentStatus ?? "pending",
         eligibility: {
