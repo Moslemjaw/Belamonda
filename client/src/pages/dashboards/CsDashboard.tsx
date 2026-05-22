@@ -77,10 +77,10 @@ function KycQueue() {
               <div key={k.id} className="queue-row group">
                 <div className={`priority-${priority} shrink-0`} aria-hidden="true" />
                 <span className="sr-only">{priority === "red" ? (ar() ? "أولوية عالية" : "High priority") : priority === "yellow" ? (ar() ? "أولوية متوسطة" : "Medium priority") : (ar() ? "أولوية منخفضة" : "Low priority")}</span>
-                <div className="avatar avatar-md" aria-hidden="true">{k.userId?.charAt(0)?.toUpperCase()}</div>
+                <div className="avatar avatar-md" aria-hidden="true">{(k.userName || k.userId)?.charAt(0)?.toUpperCase()}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <div className="text-sm font-bold text-surface-900 truncate">{k.userId}</div>
+                    <div className="text-sm font-bold text-surface-900 truncate">{k.userName || k.userId}</div>
                     <span className="text-[10px] font-bold text-surface-400 bg-surface-100 px-1.5 py-0.5 rounded" title={new Date(k.createdAt).toLocaleString()}>{fmtAge(k.createdAt)}</span>
                   </div>
                   <div className="text-xs text-surface-500 mt-0.5 flex items-center gap-2">
@@ -131,7 +131,7 @@ function KycQueue() {
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-slide-up relative flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-surface-100 shrink-0">
               <h3 className="text-xl font-bold text-surface-900 flex items-center gap-2">
-                {ar() ? "وثائق الهوية" : "Identity Documents"} - {viewingKyc.userId}
+                {ar() ? "وثائق الهوية" : "Identity Documents"} - {viewingKyc.userName || viewingKyc.userId}
               </h3>
               <button className="text-surface-400 hover:text-surface-900 transition-colors" onClick={() => setViewingKyc(null)}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -1051,7 +1051,7 @@ function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, clinicI
                         {o.purchaseMode && <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-surface-50 text-surface-500 border border-surface-200">{o.purchaseMode}</span>}
                       </div>
                       <div className="text-sm font-bold text-surface-900">{o.offerName || (ar() ? "عرض" : "Offer")}</div>
-                      <div className="text-xs text-surface-400 mt-0.5 font-mono">{o.userId}</div>
+                      <div className="text-xs text-surface-400 mt-0.5 font-mono">{o.userName || o.userId}</div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <button className="text-xs font-medium text-surface-500 hover:text-surface-700 bg-surface-50 hover:bg-surface-100 px-2.5 py-1.5 rounded-lg transition-colors border border-surface-200" onClick={() => setExpandedId(isExpanded ? null : o.id)}>

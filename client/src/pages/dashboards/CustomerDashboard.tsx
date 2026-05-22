@@ -3990,10 +3990,20 @@ export default function CustomerDashboard() {
                <div className="text-xs text-surface-500 mb-1">{ar() ? "الخدمة / الباقة المختارة" : "Selected Service / Package"}</div>
                <div className="font-bold text-surface-900">{showBookingModal.treatmentName || showBookingModal.offerName || showBookingModal.offerId || "Booking"}</div>
                {(() => {
+                 const baseOffer = homeCatalogData?.items?.find((o: any) => o.id === showBookingModal.offerId) || showBookingModal;
+                 const overrides = baseOffer?.branchSessionPrices || baseOffer?.clinicOverrides || [];
+                 const currentClinicId = showBookingModal.clinicId;
+                 const activeOverride = overrides.find((b: any) => b.clinicId === currentClinicId);
+                 const effectiveBasePrice = activeOverride && parseFloat(activeOverride.sessionPriceKwd) > 0
+                    ? parseFloat(activeOverride.sessionPriceKwd)
+                    : parseFloat(showBookingModal.priceKwd) || 0;
+                 const actualDiscountPct = showBookingModal.discountPct || 0;
+                 const effectiveFinalPrice = +(effectiveBasePrice - (actualDiscountPct > 0 ? effectiveBasePrice * actualDiscountPct / 100 : 0)).toFixed(3);
+
                  const relatedOffer = showBookingModal.applicableCashbackOfferId ? offers.find(o => o.id === showBookingModal.applicableCashbackOfferId) : null;
                  
-                 const basePrice = parseFloat(showBookingModal.priceKwd || "0");
-                 const finalPrice = parseFloat(showBookingModal.finalPrice || "0") || basePrice;
+                 const basePrice = effectiveBasePrice;
+                 const finalPrice = effectiveFinalPrice;
                  const discountAmt = Math.max(0, basePrice - finalPrice);
                  
                  // If paying with a package cashback wallet
@@ -4032,24 +4042,40 @@ export default function CustomerDashboard() {
                   <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "العيادة المفضلة" : "Preferred Clinic"}</label>
                   {(() => {
                      const baseOffer = homeCatalogData?.items?.find((o: any) => o.id === showBookingModal.offerId) || showBookingModal;
+                     const overrides = baseOffer?.branchSessionPrices || baseOffer?.clinicOverrides || [];
                      const renderClinicOptions = () => {
                         const allowed = showBookingModal.standaloneClinicIds;
-                        const pool =
-                           Array.isArray(allowed) && allowed.length > 0
-                              ? (clinicsPublic?.items || []).filter((c: any) => allowed.includes(c.id))
-                              : (clinicsPublic?.items || []);
+                        let pool = (clinicsPublic?.items || []);
+                        
+                        if (overrides.length > 0) {
+                           const overrideClinicIds = overrides.map((b: any) => b.clinicId);
+                           pool = pool.filter((c: any) => overrideClinicIds.includes(c.id));
+                        } else if (Array.isArray(allowed) && allowed.length > 0) {
+                           pool = pool.filter((c: any) => allowed.includes(c.id));
+                        }
+
                         const clinicOptionsPool = pool.length > 0 ? pool : (clinicsPublic?.items || []);
                         return clinicOptionsPool.map((c: any) => {
-                           const override = baseOffer?.clinicOverrides?.find((b: any) => b.clinicId === c.id);
+                           const override = overrides.find((b: any) => b.clinicId === c.id);
                            const feeText = override && parseFloat(override.sessionPriceKwd) > 0 
-                              ? (ar() ? ` (+${override.sessionPriceKwd} د.ك للجلسة)` : ` (+${override.sessionPriceKwd} KWD/session)`) 
+                              ? (ar() ? ` (${override.sessionPriceKwd} د.ك)` : ` (${override.sessionPriceKwd} KWD)`) 
                               : "";
                            return <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}{feeText}</option>;
                         });
                      };
-                     const isPreAssigned = !!showBookingModal.userOfferId && !!showBookingModal.clinicId;
+                     
+                     const isPreAssigned = overrides.length === 0 && !!showBookingModal.userOfferId && !!showBookingModal.clinicId;
                      const isLaser = showBookingModal.category === "laser" && !!showBookingModal.clinicId;
                      const shouldDisable = isPreAssigned || isLaser;
+
+                     // Determine current price based on selected clinic
+                     const currentClinicId = showBookingModal.clinicId;
+                     const activeOverride = overrides.find((b: any) => b.clinicId === currentClinicId);
+                     const effectiveBasePrice = activeOverride && parseFloat(activeOverride.sessionPriceKwd) > 0
+                        ? parseFloat(activeOverride.sessionPriceKwd)
+                        : parseFloat(showBookingModal.priceKwd) || 0;
+                     const actualDiscountPct = showBookingModal.discountPct || 0;
+                     const effectiveFinalPrice = +(effectiveBasePrice - (actualDiscountPct > 0 ? effectiveBasePrice * actualDiscountPct / 100 : 0)).toFixed(3);
 
                      return shouldDisable ? (
                         <select className="select-field w-full bg-surface-50 opacity-80 cursor-not-allowed" disabled value={showBookingModal.clinicId}>
@@ -4063,26 +4089,28 @@ export default function CustomerDashboard() {
                            onChange={(e) => {
                              const newClinicId = e.target.value;
                              const t = dynamicTreatments?.find((dt: any) => dt.id === showBookingModal.treatmentId);
-                             if (t) {
+                             const override = overrides.find((b: any) => b.clinicId === newClinicId);
+                             
+                             let newBasePrice;
+                             if (override && parseFloat(override.sessionPriceKwd) > 0) {
+                               newBasePrice = parseFloat(override.sessionPriceKwd);
+                             } else if (t) {
                                const offeringsBy = (t.offeringsByClinic || {}) as Record<string, { priceKwd: number; cashbackKwd: number }>;
                                const clinicOffering = offeringsBy[newClinicId];
-                               const newBasePrice = clinicOffering?.priceKwd ?? t.priceKwd;
-                               const actualDiscountPct = showBookingModal.discountPct || 0;
-                               const discountAmt = actualDiscountPct > 0 ? +(newBasePrice * actualDiscountPct / 100).toFixed(3) : 0;
-                               const newFinalPrice = +(newBasePrice - discountAmt).toFixed(3);
-                               
-                               setShowBookingModal({
-                                 ...showBookingModal,
-                                 clinicId: newClinicId,
-                                 priceKwd: newBasePrice,
-                                 finalPrice: newFinalPrice
-                               });
+                               newBasePrice = clinicOffering?.priceKwd ?? t.priceKwd;
                              } else {
-                               setShowBookingModal({
-                                 ...showBookingModal,
-                                 clinicId: newClinicId
-                               });
+                               newBasePrice = parseFloat(showBookingModal.priceKwd) || 0;
                              }
+                             
+                             const discountAmt = actualDiscountPct > 0 ? +(newBasePrice * actualDiscountPct / 100).toFixed(3) : 0;
+                             const newFinalPrice = +(newBasePrice - discountAmt).toFixed(3);
+                             
+                             setShowBookingModal({
+                               ...showBookingModal,
+                               clinicId: newClinicId,
+                               priceKwd: newBasePrice,
+                               finalPrice: newFinalPrice
+                             });
                            }}
                         >
                            {renderClinicOptions()}
@@ -4101,12 +4129,21 @@ export default function CustomerDashboard() {
                   })()}
                </div>
 
-               {/* Cashback Usage Option */}
                {(() => {
+                  const baseOffer = homeCatalogData?.items?.find((o: any) => o.id === showBookingModal.offerId) || showBookingModal;
+                  const overrides = baseOffer?.branchSessionPrices || baseOffer?.clinicOverrides || [];
+                  const currentClinicId = showBookingModal.clinicId;
+                  const activeOverride = overrides.find((b: any) => b.clinicId === currentClinicId);
+                  const effectiveBasePrice = activeOverride && parseFloat(activeOverride.sessionPriceKwd) > 0
+                     ? parseFloat(activeOverride.sessionPriceKwd)
+                     : parseFloat(showBookingModal.priceKwd) || 0;
+                  const actualDiscountPct = showBookingModal.discountPct || 0;
+                  const effectiveFinalPrice = +(effectiveBasePrice - (actualDiscountPct > 0 ? effectiveBasePrice * actualDiscountPct / 100 : 0)).toFixed(3);
+
                   const relatedOffer = showBookingModal.applicableCashbackOfferId ? offers.find(o => o.id === showBookingModal.applicableCashbackOfferId) : null;
                   if (relatedOffer && parseFloat(relatedOffer.cashbackBalanceKwd || '0') > 0) {
                      const available = parseFloat(relatedOffer.cashbackBalanceKwd || '0');
-                     const cost = showBookingModal.finalPrice;
+                     const cost = effectiveFinalPrice;
                      const applied = Math.min(available, cost);
                      const remaining = cost - applied;
                      return (
@@ -4124,6 +4161,7 @@ export default function CustomerDashboard() {
                         </div>
                      );
                   }
+
                   
                   const isMembershipBooking = !!showBookingModal.userOfferId;
                   if (isMembershipBooking) return null;
@@ -4146,8 +4184,17 @@ export default function CustomerDashboard() {
                  // membership-based bookings. Only fall back to offer.id for true
                  // standalone bookings (temp_ prefix). Sending a temp_ id to the server
                  // resulted in USER_OFFER_NOT_FOUND (404).
-                 const isStandaloneBooking = !offer.userOfferId && (offer.id?.startsWith("temp_") || offer.method === "Standalone");
-                 const resolvedUserOfferId = offer.userOfferId || offer.id;
+                     const isStandaloneBooking = !offer.userOfferId && (offer.id?.startsWith("temp_") || offer.method === "Standalone");
+                     const resolvedUserOfferId = offer.userOfferId || offer.id;
+
+                     const baseOffer = homeCatalogData?.items?.find((o: any) => o.id === offer.offerId) || offer;
+                     const overrides = baseOffer?.branchSessionPrices || baseOffer?.clinicOverrides || [];
+                     const activeOverride = overrides.find((b: any) => b.clinicId === offer.clinicId);
+                     const effectiveBasePrice = activeOverride && parseFloat(activeOverride.sessionPriceKwd) > 0
+                        ? parseFloat(activeOverride.sessionPriceKwd)
+                        : parseFloat(offer.priceKwd) || 0;
+                     const actualDiscountPct = offer.discountPct || 0;
+                     const effectiveFinalPrice = +(effectiveBasePrice - (actualDiscountPct > 0 ? effectiveBasePrice * actualDiscountPct / 100 : 0)).toFixed(3);
 
                  const selectedClinicId = (document.getElementById('bookingClinicSelect') as HTMLSelectElement)?.value 
                    || offer.clinicId 
@@ -4186,7 +4233,7 @@ export default function CustomerDashboard() {
                       standaloneName: offer.treatmentName || offer.offerName || offer.offerId || undefined,
                       standalonePrice: isStandaloneBooking ? standalonePriceKwd : undefined,
                       notes: offer.treatmentName || offer.offerName || undefined,
-                      sessionGrossKwd: offer.priceKwd != null ? Number(offer.priceKwd).toFixed(3) : undefined,
+                      sessionGrossKwd: effectiveBasePrice > 0 ? effectiveBasePrice.toFixed(3) : undefined,
                       cashbackAppliedKwd: offer.cashbackKwd != null && Number(offer.cashbackKwd) > 0 ? Number(offer.cashbackKwd).toFixed(3) : undefined
                    })
                  });

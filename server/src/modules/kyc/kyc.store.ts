@@ -84,7 +84,22 @@ export const kycStore = {
   async listSubmissions(status?: "pending" | "approved" | "rejected") {
     const filter = status ? { status } : {};
     const docs = await KycSubmissionModel.find(filter).sort({ createdAt: -1 }).lean<KycSubmissionDoc[]>();
-    return docs.map(d => ({ ...d, id: d._id.toString(), createdAt: (d.createdAt as Date).toISOString() }));
+    
+    const userIds = [...new Set(docs.map(d => d.userId))];
+    const users = await UserModel.find({ _id: { $in: userIds } }).select("fullName username email phone").lean();
+    const userMap = Object.fromEntries(users.map((u: any) => [u._id.toString(), u]));
+
+    return docs.map(d => {
+      const user = userMap[d.userId] as any || {};
+      return {
+        ...d,
+        id: d._id.toString(),
+        createdAt: (d.createdAt as Date).toISOString(),
+        userName: user.fullName || user.username || d.userId,
+        userPhone: user.phone || undefined,
+        userEmail: user.email || undefined
+      };
+    });
   },
 
   async approveSubmission(id: string, reviewedBy: string) {
