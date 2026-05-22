@@ -118,6 +118,16 @@ export function resolvePurchaseClinicObjectId(
   return new mongoose.Types.ObjectId(inputClinicId);
 }
 
+/** Resolves the effective membership price, preferring the branch-specific override if one exists. */
+export function getEffectiveSubscriptionPrice(offer: OfferDoc, clinicId?: unknown): string {
+  if (clinicId && Array.isArray((offer as any).branchSubscriptionPrices)) {
+    const override = (offer as any).branchSubscriptionPrices.find((b: any) => b.clinicId === String(clinicId));
+    if (override) return override.priceKwd;
+  }
+  return offer.subscriptionPriceKwd;
+}
+
+
 /** Customer must be KYC-approved before purchasing. */
 async function assertCustomerCanPurchase(userId: string) {
   const user = await kycStore.getUser(userId);
@@ -340,7 +350,10 @@ export async function checkoutFull(input: {
   await assertRequiredEForm(input.userId, offer.fullPaymentEFormId);
   await assertNoPendingForms(input.userId, [{ kind: "offer", refId: String(offer._id) }]);
 
-  const cb = await applyCashback(offer.subscriptionPriceKwd, input.applyCashbackKwd ?? "0.000", input.userId, { eligible: offer.cashbackEligible !== false, capKwd: offer.maxCashbackPerPurchaseKwd });
+  const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
+  const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);
+
+  const cb = await applyCashback(effectivePrice, input.applyCashbackKwd ?? "0.000", input.userId, { eligible: offer.cashbackEligible !== false, capKwd: offer.maxCashbackPerPurchaseKwd });
 
   const pendingExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
@@ -350,7 +363,7 @@ export async function checkoutFull(input: {
   const uo = await UserOfferModel.create({
     userId: input.userId,
     offerId: offer._id,
-    clinicId: resolvePurchaseClinicObjectId(offer, input.clinicId),
+    clinicId: finalClinicId,
     status: "pending_payment",
     pendingExpiresAt,
     purchaseMode: "full",
@@ -372,7 +385,7 @@ export async function checkoutFull(input: {
       userOfferId: String(uo._id),
       amountKwd: "0.000",
       cashbackAppliedKwd: cb.cashbackAppliedKwd,
-      grossAmountKwd: offer.subscriptionPriceKwd,
+      grossAmountKwd: effectivePrice,
       method: "card_mock",
       purpose: "enrollment_full",
       provider: "mock",
@@ -428,7 +441,10 @@ export async function checkoutInstallments(input: {
     { kind: "installment_plan", refId: String(input.count) }
   ]);
 
-  const cb = await applyCashback(offer.subscriptionPriceKwd, input.applyCashbackKwd ?? "0.000", input.userId, { eligible: offer.cashbackEligible !== false, capKwd: offer.maxCashbackPerPurchaseKwd });
+  const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
+  const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);
+
+  const cb = await applyCashback(effectivePrice, input.applyCashbackKwd ?? "0.000", input.userId, { eligible: offer.cashbackEligible !== false, capKwd: offer.maxCashbackPerPurchaseKwd });
   const remainingTotal = mils(cb.netAmountKwd);
 
   const baseEach = Math.floor(remainingTotal / input.count);
@@ -454,7 +470,7 @@ export async function checkoutInstallments(input: {
   const uo = await UserOfferModel.create({
     userId: input.userId,
     offerId: offer._id,
-    clinicId: resolvePurchaseClinicObjectId(offer, input.clinicId),
+    clinicId: finalClinicId,
     status: "pending_payment",
     pendingExpiresAt,
     purchaseMode: "installments",
@@ -479,7 +495,7 @@ export async function checkoutInstallments(input: {
       userOfferId: String(uo._id),
       amountKwd: "0.000",
       cashbackAppliedKwd: cb.cashbackAppliedKwd,
-      grossAmountKwd: offer.subscriptionPriceKwd,
+      grossAmountKwd: effectivePrice,
       method: "card_mock",
       purpose: "enrollment_full",
       provider: "mock",
@@ -582,7 +598,10 @@ export async function checkoutEnet4(input: {
     { kind: "installment_plan", refId: "4_enet" }
   ]);
 
-  const cb = await applyCashback(offer.subscriptionPriceKwd, input.applyCashbackKwd ?? "0.000", input.userId, { eligible: offer.cashbackEligible !== false, capKwd: offer.maxCashbackPerPurchaseKwd });
+  const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
+  const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);
+
+  const cb = await applyCashback(effectivePrice, input.applyCashbackKwd ?? "0.000", input.userId, { eligible: offer.cashbackEligible !== false, capKwd: offer.maxCashbackPerPurchaseKwd });
   const now = new Date();
   const expiresAt = new Date(now.getTime() + offer.validityDays * 24 * 60 * 60 * 1000);
 
@@ -592,7 +611,7 @@ export async function checkoutEnet4(input: {
   const uo = await UserOfferModel.create({
     userId: input.userId,
     offerId: offer._id,
-    clinicId: resolvePurchaseClinicObjectId(offer, input.clinicId),
+    clinicId: finalClinicId,
     status: "enet_pending",
     purchaseMode: "enet",
     cashbackAppliedKwd: cb.cashbackAppliedKwd,
@@ -624,7 +643,7 @@ export async function checkoutEnet4(input: {
       userOfferId: String(uo._id),
       amountKwd: cb.netAmountKwd,
       cashbackAppliedKwd: "0.000",
-      grossAmountKwd: offer.subscriptionPriceKwd,
+      grossAmountKwd: effectivePrice,
       method: "enet",
       purpose: "enrollment_enet",
       provider: "enet",
@@ -648,7 +667,7 @@ export async function checkoutEnet4(input: {
     userOfferId: String(uo._id),
     amountKwd: cb.netAmountKwd,
     cashbackAppliedKwd: cb.cashbackAppliedKwd,
-    grossAmountKwd: offer.subscriptionPriceKwd,
+    grossAmountKwd: effectivePrice,
     method: "enet",
     purpose: "enrollment_enet",
     provider: "enet",
@@ -720,10 +739,13 @@ export async function reserveWithDeposit(input: {
   const isGroup = offer.membershipType === "group";
   const groupInviteCode = isGroup ? require("crypto").randomBytes(4).toString("hex").toUpperCase() : undefined;
 
+  const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
+  const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);
+
   const uo = await UserOfferModel.create({
     userId: input.userId,
     offerId: offer._id,
-    clinicId: resolvePurchaseClinicObjectId(offer, input.clinicId),
+    clinicId: finalClinicId,
     status: "pending_payment",
     pendingExpiresAt,
     purchaseMode: "deposit",
@@ -785,7 +807,8 @@ export async function convertReservation(input: {
     if ((offer.maxInstallments ?? 1) < 4) throw httpErr(400, "PLAN_NOT_ALLOWED");
   }
 
-  const totalGross = mils(offer.subscriptionPriceKwd);
+  const effectivePrice = getEffectiveSubscriptionPrice(offer, uo.clinicId);
+  const totalGross = mils(effectivePrice);
   const depositPaid = mils(uo.depositAmountKwd ?? "0.000");
   const balanceGross = Math.max(0, totalGross - depositPaid);
 

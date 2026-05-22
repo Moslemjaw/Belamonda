@@ -125,6 +125,10 @@ export function serializeOffer(doc: OfferDoc, categorySlug?: string | null) {
     cashbackEligible: doc.cashbackEligible ?? true,
     maxCashbackPerPurchaseKwd: doc.maxCashbackPerPurchaseKwd,
     isCashbackOnly: doc.isCashbackOnly ?? false,
+    branchSubscriptionPrices: ((doc as any).branchSubscriptionPrices ?? []).map((b: any) => ({
+      clinicId: b.clinicId,
+      priceKwd: b.priceKwd
+    })),
     createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : String(doc.createdAt)
   };
 }

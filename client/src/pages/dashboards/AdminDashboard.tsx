@@ -170,7 +170,7 @@ function OffersManager() {
 
   const eforms = formsData?.items || [];
 
-  const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[] };
+  const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[] };
   const [form, setForm] = useState(emptyForm);
 
   const offers = apiOffersData?.items || [];
@@ -239,6 +239,10 @@ function OffersManager() {
       clinicOverrides: (o.clinicOverrides || o.branchSessionPrices || []).map((x: any) => ({
         clinicId: x.clinicId || "",
         sessionPriceKwd: String(x.sessionPriceKwd ?? "0")
+      })),
+      branchSubscriptionPrices: (o.branchSubscriptionPrices || []).map((x: any) => ({
+        clinicId: x.clinicId || "",
+        priceKwd: String(x.priceKwd ?? "0")
       }))
     });
     setEditingId(o.id || o._id); 
@@ -256,6 +260,12 @@ function OffersManager() {
         .map((o) => ({
           clinicId: o.clinicId,
           sessionPriceKwd: `${Number(o.sessionPriceKwd).toFixed(3)}`
+        }));
+      const branchSubscriptionPrices = form.branchSubscriptionPrices
+        .filter((o) => o.clinicId && o.priceKwd !== "" && !Number.isNaN(Number(o.priceKwd)))
+        .map((o) => ({
+          clinicId: o.clinicId,
+          priceKwd: `${Number(o.priceKwd).toFixed(3)}`
         }));
       const payPerSession = branchSessionPrices.length > 0;
       const categoryIds =
@@ -306,6 +316,7 @@ function OffersManager() {
           enetEFormId: form.enetEFormId || undefined,
           payPerSession,
           branchSessionPrices,
+          branchSubscriptionPrices,
           status: "active",
           active: true,
           featured: false
@@ -528,6 +539,44 @@ function OffersManager() {
               }}>+ {ar() ? "إضافة رسوم لعيادة" : "Add Clinic Fee"}</button>
             </div>
           </div>
+
+          {/* Branch-Specific Membership Prices */}
+          {form.requireBranchSelection && (
+          <div className="border-t border-surface-100 pt-4 mt-4">
+            <h5 className="flex items-center gap-2.5 text-sm font-bold text-surface-900 mb-4 pb-3 border-b border-surface-100 before:content-[''] before:h-4 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-amber-400 before:to-orange-500 before:shrink-0">{ar() ? "أسعار العضوية حسب الفرع" : "Clinic-Specific Membership Prices"}</h5>
+            <p className="text-xs text-surface-500 mb-4">{ar() ? "حدد سعر اشتراك مخصص لكل فرع. إن لم يُحدد سعر خاص، سيُستخدم السعر الأساسي." : "Set a custom membership price for each branch. If no override is set, the base price is used."}</p>
+            
+            <div className="space-y-3">
+              {form.branchSubscriptionPrices.map((bsp, index) => (
+                <div key={index} className="flex gap-2 items-center">
+                  <select className="select-field flex-1" value={bsp.clinicId} onChange={e => {
+                     const updated = [...form.branchSubscriptionPrices];
+                     updated[index] = { ...updated[index], clinicId: e.target.value };
+                     setForm({...form, branchSubscriptionPrices: updated});
+                  }}>
+                    <option value="">{ar() ? "اختر العيادة..." : "Select Clinic..."}</option>
+                    {(clinicsData?.clinics || []).map((c: any) => (
+                       <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr : c.nameEn}</option>
+                    ))}
+                  </select>
+                  <input className="input-field w-32" type="number" step="0.001" placeholder="Price KWD" value={bsp.priceKwd} onChange={e => {
+                     const updated = [...form.branchSubscriptionPrices];
+                     updated[index] = { ...updated[index], priceKwd: e.target.value };
+                     setForm({...form, branchSubscriptionPrices: updated});
+                  }} />
+                  <button type="button" className="text-red-500 p-2 hover:bg-red-50 rounded-lg" onClick={() => {
+                     const updated = [...form.branchSubscriptionPrices];
+                     updated.splice(index, 1);
+                     setForm({...form, branchSubscriptionPrices: updated});
+                  }}>✕</button>
+                </div>
+              ))}
+              <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => {
+                 setForm({...form, branchSubscriptionPrices: [...form.branchSubscriptionPrices, { clinicId: "", priceKwd: form.price || "0" }]});
+              }}>+ {ar() ? "إضافة سعر لعيادة" : "Add Clinic Price"}</button>
+            </div>
+          </div>
+          )}
 
           <div className="border-t border-surface-100 pt-4 mt-4">
             <h5 className="flex items-center gap-2.5 text-sm font-bold text-surface-900 mb-4 pb-3 border-b border-surface-100 before:content-[''] before:h-4 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-brand-pink-500 before:to-brand-sage-300 before:shrink-0">{ar() ? "قواعد الكاش باك" : "Cashback Rules"}</h5>

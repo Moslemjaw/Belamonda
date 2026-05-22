@@ -4484,7 +4484,8 @@ export default function CustomerDashboard() {
             allowDeposit: !!checkoutPkg.allowDeposit,
             depositAmountKwd: checkoutPkg.depositAmountKwd || checkoutPkg.depositAmount || "0.000",
             cashbackEligible: checkoutPkg.cashbackEligible !== false,
-            maxCashbackPerPurchaseKwd: checkoutPkg.maxCashbackPerPurchaseKwd ?? null
+            maxCashbackPerPurchaseKwd: checkoutPkg.maxCashbackPerPurchaseKwd ?? null,
+            branchSubscriptionPrices: checkoutPkg.branchSubscriptionPrices || []
           }}
           inviteCode={pendingInviteCode}
           onClose={() => { setCheckoutPkg(null); setPendingInviteCode(null); }}

@@ -147,6 +147,16 @@ const OfferSchema = new Schema(
       ],
       default: []
     },
+    /** Per-branch membership/subscription price overrides. */
+    branchSubscriptionPrices: {
+      type: [
+        {
+          clinicId: { type: String, required: true },
+          priceKwd: { type: String, required: true, match: /^\d+(\.\d{3})$/ }
+        }
+      ],
+      default: []
+    },
 
     // ─── Cashback ────────────────────────────────────────────────────────────
     signupCashbackKwd: { type: String, default: "0.000", match: /^\d+(\.\d{3})$/ },

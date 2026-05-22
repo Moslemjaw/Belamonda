@@ -27,6 +27,7 @@ type Offer = {
   depositAmountKwd: string;
   cashbackEligible?: boolean;
   maxCashbackPerPurchaseKwd?: string;
+  branchSubscriptionPrices?: { clinicId: string; priceKwd: string }[];
 };
 
 type Wallet = {
@@ -295,7 +296,17 @@ export default function CheckoutModal({
     setForcePicker(false);
   }, [offer.id, isNewStyle, allowedBranchIds.join(",")]);
 
-  const grossKwd = mode === "deposit" ? offer.depositAmountKwd : offer.subscriptionPriceKwd;
+  // Resolve the effective subscription price — use branch override if available.
+  const effectiveSubscriptionPriceKwd = useMemo(() => {
+    const chosenId = needsBranchPicker ? selectedClinicId : (clinic?.id || allowedBranchIds[0] || "");
+    if (chosenId && offer.branchSubscriptionPrices?.length) {
+      const match = offer.branchSubscriptionPrices.find((b) => b.clinicId === chosenId);
+      if (match) return match.priceKwd;
+    }
+    return offer.subscriptionPriceKwd;
+  }, [selectedClinicId, clinic, needsBranchPicker, allowedBranchIds, offer.branchSubscriptionPrices, offer.subscriptionPriceKwd]);
+
+  const grossKwd = mode === "deposit" ? offer.depositAmountKwd : effectiveSubscriptionPriceKwd;
   const grossMils = parseKwd(grossKwd);
   const cashbackEligible = offer.cashbackEligible !== false;
   const offerCapMils = offer.maxCashbackPerPurchaseKwd ? parseKwd(offer.maxCashbackPerPurchaseKwd) : Infinity;
@@ -397,7 +408,7 @@ export default function CheckoutModal({
                   onClick={() => setMode("full")}
                   title={t("Full payment", "دفع كامل")}
                   desc={t("Pay the full amount today.", "دفع المبلغ كاملاً الآن.")}
-                  amount={`${offer.subscriptionPriceKwd} KWD`}
+                  amount={`${effectiveSubscriptionPriceKwd} KWD`}
                 />
               )}
               {offer.allowInstallments && offer.maxInstallments >= 2 && (
