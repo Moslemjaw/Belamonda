@@ -333,6 +333,16 @@ usersRouter.get("/admin/export/all", authRequired, requireRole(["admin", "financ
     const memberships = await UserOfferModel.find({}).sort({ createdAt: -1 }).lean();
     const txns = await WalletTxnModel.find({}).sort({ createdAt: -1 }).lean();
 
+    // Build user lookup map for enriching other sheets
+    const userMap: Record<string, { fullName: string; phone: string; username: string }> = {};
+    users.forEach((u) => {
+      userMap[String(u._id)] = {
+        fullName: u.fullName ?? u.username ?? "—",
+        phone: u.phone ?? "—",
+        username: u.username ?? "—",
+      };
+    });
+
     const offerIds = [...new Set([
       ...memberships.map((m: any) => String(m.offerId)),
       ...payments.map((p: any) => String(p.offerId))
@@ -348,9 +358,10 @@ usersRouter.get("/admin/export/all", authRequired, requireRole(["admin", "financ
     // Sheet 1: All Users
     const userRows = users.map((u) => ({
       "User ID": String(u._id),
+      "Full Name": u.fullName ?? "—",
       "Username": u.username ?? "—",
-      "Email": u.email ?? "—",
       "Phone": u.phone ?? "—",
+      "Email": u.email ?? "—",
       "Role": u.role ?? "—",
       "Status": u.isActive !== false ? "Active" : "Disabled",
       "Joined": u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—",
@@ -361,6 +372,8 @@ usersRouter.get("/admin/export/all", authRequired, requireRole(["admin", "financ
     const membershipRows = memberships.map((m: any) => ({
       "Membership ID": String(m._id),
       "User ID": m.userId,
+      "Full Name": userMap[m.userId]?.fullName ?? "—",
+      "Phone": userMap[m.userId]?.phone ?? "—",
       "Offer": offerMap[String(m.offerId)] ?? "—",
       "Status": m.status,
       "Purchase Mode": m.purchaseMode ?? "—",
@@ -377,6 +390,8 @@ usersRouter.get("/admin/export/all", authRequired, requireRole(["admin", "financ
     const paymentRows = payments.map((p: any) => ({
       "Payment ID": String(p._id),
       "User ID": p.userId,
+      "Full Name": userMap[p.userId]?.fullName ?? "—",
+      "Phone": userMap[p.userId]?.phone ?? "—",
       "Offer": offerMap[String(p.offerId)] ?? "—",
       "Amount (KWD)": p.amountKwd,
       "Gross (KWD)": p.grossAmountKwd ?? p.amountKwd,
@@ -393,6 +408,8 @@ usersRouter.get("/admin/export/all", authRequired, requireRole(["admin", "financ
     const txnRows = (txns as any[]).map((t) => ({
       "Txn ID": String(t._id),
       "User ID": t.userId,
+      "Full Name": userMap[t.userId]?.fullName ?? "—",
+      "Phone": userMap[t.userId]?.phone ?? "—",
       "Type": t.type,
       "Amount (KWD)": t.amountKwd,
       "Reason": t.reason ?? "—",

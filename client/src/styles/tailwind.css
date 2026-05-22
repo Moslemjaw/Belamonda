@@ -251,27 +251,30 @@
     min-width: 540px;
   }
   .data-table thead th {
-    @apply border-b border-surface-100 bg-surface-50/50 px-5 py-3.5 text-left text-xs font-bold uppercase tracking-wider text-surface-500 whitespace-nowrap;
+    @apply border-b-2 border-surface-200 bg-surface-50 px-6 py-4 text-left text-[11px] font-black uppercase tracking-widest text-surface-500 whitespace-nowrap;
   }
   html[dir="rtl"] .data-table thead th {
     @apply text-right;
   }
   .data-table tbody td {
-    @apply border-b border-surface-100/60 px-5 py-4 text-surface-700 font-medium;
+    @apply border-b border-surface-100/60 px-6 py-5 text-surface-700 font-medium;
   }
   .data-table tbody tr {
     transition: background var(--transition);
   }
+  .data-table tbody tr:nth-child(even) {
+    @apply bg-surface-50/40;
+  }
   .data-table tbody tr:hover {
-    @apply bg-surface-50/30;
+    @apply bg-brand-pink-50/30;
   }
   /* Mobile: tighter padding so tables feel less cramped in scroll containers */
   @media (max-width: 767px) {
     .data-table thead th {
-      @apply px-3 py-2.5 text-[10px];
+      @apply px-4 py-3 text-[10px];
     }
     .data-table tbody td {
-      @apply px-3 py-3 text-xs;
+      @apply px-4 py-3.5 text-xs;
     }
     .data-table {
       min-width: 480px;
