@@ -1801,37 +1801,104 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
     ])
   );
 
-  // 2. Subscriptions
+  // 2. Memberships
   addSheet(
-    "Subscriptions",
-    ["Membership ID", "User ID", "Customer Name", "Phone", "Offer", "Status", "Purchase Mode", "Sessions Used", "Total Installments", "Installments Paid", "Amount (KWD)", "Activated", "Created"],
+    "Memberships",
+    ["Membership ID", "User ID", "Customer Name", "Phone", "Offer", "Status", "Purchase Mode", "Sessions Used", "Total Installments", "Installments Paid", "Amount (KWD)", "Amount Left (KWD)", "Installment 1 Due", "Installment 2 Due", "Installment 3 Due", "Installment 4 Due", "Activated", "Created"],
     memberships.map((m: any) => {
       const u = userMap[m.userId] || {};
+      
+      let paidMils = 0;
+      const amtMils = parseKwd(m.paymentAmountKwd || "0");
+      let dates = ["", "", "", ""];
+      if (m.purchaseMode === "installments") {
+        const sched = m.installmentSchedule || [];
+        paidMils += parseKwd(m.depositAmountKwd || "0");
+        sched.forEach((s: any, i: number) => {
+          if (s.paid) paidMils += parseKwd(s.amountKwd || "0");
+          if (i < 4 && s.dueDate && !s.paid) {
+            dates[i] = new Date(s.dueDate).toISOString().slice(0, 10);
+          }
+        });
+      } else {
+        if (m.status === "active" || m.status === "expired" || m.status === "reserved") {
+           paidMils = m.purchaseMode === "deposit" ? parseKwd(m.depositAmountKwd || "0") : amtMils;
+        }
+      }
+      const balanceKwd = Math.max(0, amtMils - paidMils) / 1000;
+
       return [
         String(m._id), m.userId, u.fullName || u.username || "", u.phone || "",
         offerMap[String(m.offerId)] ?? "", m.status, m.purchaseMode ?? "",
         m.sessionsUsed ?? 0, m.installmentCount ?? "", m.installmentsPaid ?? 0,
         m.paymentAmountKwd ?? "",
+        balanceKwd.toFixed(3),
+        ...dates,
         m.activatedAt ? new Date(m.activatedAt).toISOString().slice(0, 10) : "",
         m.createdAt ? new Date(m.createdAt).toISOString().slice(0, 10) : ""
       ];
     })
   );
 
-  // 3. Sessions
+  // 3. Sessions (Pivot by Clinic)
+  const activeClinics = [...new Set(sessions.map((s: any) => String(s.clinicId)).filter(Boolean))];
+  const clinicHeaders = activeClinics.map(id => clinicMap[id] || id);
+  
+  const packageMemberships = memberships.filter((m: any) => !m.isStandalone);
+
+  const sessionPivot: Record<string, Record<string, number>> = {};
+  sessions.forEach((s: any) => {
+    if (s.status === "completed") {
+      const uoId = String(s.userOfferId);
+      const cId = String(s.clinicId);
+      if (!sessionPivot[uoId]) sessionPivot[uoId] = {};
+      sessionPivot[uoId][cId] = (sessionPivot[uoId][cId] || 0) + 1;
+    }
+  });
+
+  const sessionPivotRows = packageMemberships.map((m: any) => {
+    const u = userMap[m.userId] || {};
+    
+    let paidMils = 0;
+    const amtMils = parseKwd(m.paymentAmountKwd || "0");
+    if (m.purchaseMode === "installments") {
+      const sched = m.installmentSchedule || [];
+      paidMils += parseKwd(m.depositAmountKwd || "0");
+      sched.forEach((s: any) => { if (s.paid) paidMils += parseKwd(s.amountKwd || "0"); });
+    } else {
+      if (m.status === "active" || m.status === "expired" || m.status === "reserved") {
+         paidMils = m.purchaseMode === "deposit" ? parseKwd(m.depositAmountKwd || "0") : amtMils;
+      }
+    }
+    const paidKwd = (paidMils / 1000).toFixed(3);
+    const balanceKwd = Math.max(0, amtMils - paidMils) / 1000;
+    
+    const clinicCounts = activeClinics.map(cId => {
+      const count = sessionPivot[String(m._id)]?.[cId] || 0;
+      return count > 0 ? count : "";
+    });
+
+    return [
+      u.shortId || u.username || m.userId,
+      u.fullName || u.username || "",
+      u.phone || "",
+      offerMap[String(m.offerId)] ?? "",
+      m.purchaseMode ?? "",
+      m.paymentAmountKwd ?? "0.000",
+      paidKwd,
+      balanceKwd.toFixed(3),
+      m.sessionsUsed ?? 0,
+      ...clinicCounts
+    ];
+  });
+
   addSheet(
     "Sessions",
-    ["Session ID", "Date", "Customer Name", "Phone", "Clinic", "Offer", "Status", "Bill (KWD)", "Session Type", "Notes"],
-    sessions.map((s: any) => {
-      const u = userMap[s.userId] || {};
-      return [
-        String(s._id),
-        s.scheduledAt ? new Date(s.scheduledAt).toISOString().slice(0, 16).replace("T", " ") : "",
-        u.fullName || u.username || "", u.phone || "",
-        clinicMap[String(s.clinicId)] ?? "", offerMap[String(s.offerId)] ?? "",
-        s.status, s.finalPaidKwd || s.totalBillKwd || "0", s.sessionType || "", s.notes || ""
-      ];
-    })
+    [
+      "Customer ID", "Customer Name", "Phone", "Package Type", "Payment Type", "Total Amount (KWD)", "Paid Amount (KWD)", "Amount Left (KWD)", "Total Sessions Executed",
+      ...clinicHeaders
+    ],
+    sessionPivotRows
   );
 
   // 4. Payments
