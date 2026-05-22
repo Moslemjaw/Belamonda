@@ -1292,6 +1292,7 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
   finalPaidKwd = Math.max(0, basePrice + extraSum - cbToDeduct).toFixed(3);
 
   const updated = await bookingRequestsStore.update(breq.id, {
+    status: "confirmed",
     clinicPaymentStatus: "paid",
     clinicPaymentMarkedAt: new Date().toISOString(),
     clinicPaymentMarkedBy: req.auth!.userId,
