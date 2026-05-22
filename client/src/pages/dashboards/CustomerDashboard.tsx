@@ -840,6 +840,7 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
   expiresAt?: string | null;
   commitmentEndsAt?: string | null;
   paymentType?: string;
+  requireKyc: () => boolean;
 }) {
   const { data: plansData } = useApi<any[]>("/subscriptions/plans");
   const plans = (plansData || []).filter(p => p.isActive);
@@ -866,6 +867,7 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
   const pendingRequest = requests.find(r => r.status === "pending");
 
   const subscribe = async () => {
+    if (!requireKyc()) return;
     setBusy(true);
     try {
       await apiFetch("/users/me/subscription", {
@@ -1175,6 +1177,19 @@ export default function CustomerDashboard() {
   }, [selectedPkg]);
 
   const [kycStatus, setKycStatus] = useState<string>("checking");
+
+  const requireKyc = () => {
+    if (kycStatus === "unverified" || kycStatus === "pending") {
+      setShowKyc(true);
+      return false;
+    }
+    return true;
+  };
+
+  const attemptCheckout = (pkg: any) => {
+    if (!requireKyc()) return;
+    setCheckoutPkg(pkg);
+  };
   
   const { data: myProfile, refetch: refetchProfile } = useApi<{ user: { username?: string; email?: string; phone?: string; fullName?: string; gender?: string } }>("/users/me");
 
@@ -1512,6 +1527,35 @@ export default function CustomerDashboard() {
         </div>
       </header>
 
+      {/* Mobile KYC Banners (visible only on lg:hidden) */}
+      <div className="lg:hidden px-4 pt-4 -mb-2">
+        {kycStatus === "unverified" && (
+          <div className="bg-brand-pink-50 border border-brand-pink-200 rounded-xl px-4 py-3 shadow-sm flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-full bg-brand-pink-100 flex items-center justify-center shrink-0">
+                <svg className="w-5 h-5 text-brand-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+              </div>
+              <div className="min-w-0">
+                <div className="text-surface-900 font-bold text-sm truncate">{ar() ? "استكمال التوثيق مطلوب" : "Verification Required"}</div>
+                <div className="text-surface-600 text-[11px] leading-tight mt-0.5">{ar() ? "أكملي التوثيق لتفعيل الدفع والكاش باك." : "Complete verification to enable payments."}</div>
+              </div>
+            </div>
+            <button className="bg-brand-pink-600 text-white font-bold px-4 py-2 rounded-lg text-sm shadow-sm hover:bg-brand-pink-700 transition-colors w-full" onClick={() => setShowKyc(true)}>
+              {ar() ? "تحديث الآن" : "Update Profile"}
+            </button>
+          </div>
+        )}
+        {kycStatus === "pending" && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 shadow-sm flex items-center gap-3">
+            <svg className="w-6 h-6 text-blue-500 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+            <div className="min-w-0">
+              <div className="text-surface-900 font-bold text-sm truncate">{ar() ? "التحقق قيد المراجعة" : "Under Review"}</div>
+              <div className="text-surface-600 text-[11px] leading-tight mt-0.5">{ar() ? "يرجى الانتظار لحين اعتماد بياناتك." : "Please wait for approval."}</div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Desktop Sidebar (Optional, but kept minimal to feel like an app menu) */}
       <aside className="hidden lg:flex w-64 shrink-0 bg-white border-r border-surface-200 flex-col sticky top-0 h-screen z-30 overflow-y-auto">
         <div className="p-6 pb-2 border-b border-surface-100 flex items-center gap-3">
@@ -1798,7 +1842,7 @@ export default function CustomerDashboard() {
                                 setGroupModal(null);
                               });
                           } else {
-                            setCheckoutPkg(o);
+                            attemptCheckout(o);
                           }
                         }}
                       >
@@ -2232,9 +2276,8 @@ export default function CustomerDashboard() {
                                           className="w-full mt-3 bg-brand-pink-600 hover:bg-brand-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-lg"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            // Pass the existing pending userOffer to checkout so we don't create a new one
                                             const offerData = (homeCatalogData?.items || []).find((x: any) => x.id === o.offerId);
-                                            setCheckoutPkg({ ...(offerData || o), userOfferId: o.id, groupInviteCode: (o as any).groupInviteCode });
+                                            attemptCheckout({ ...(offerData || o), userOfferId: o.id, groupInviteCode: (o as any).groupInviteCode });
                                           }}
                                         >
                                           {ar() ? "اشترِ العضوية الآن" : "Purchase Membership Now"}
@@ -2454,6 +2497,7 @@ export default function CustomerDashboard() {
                                     className={`w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center justify-center gap-2 ${availableClinics.length > 0 ? hasMembership ? 'bg-brand-gradient text-white shadow-glow hover:opacity-90 hover:-translate-y-0.5' : 'bg-surface-900 text-white shadow-md hover:bg-surface-800 hover:shadow-lg hover:-translate-y-0.5' : 'bg-surface-100 text-surface-400 cursor-not-allowed'}`}
                                     disabled={availableClinics.length === 0}
                                     onClick={() => {
+                                      if (!requireKyc()) return;
                                       if (applicableCashbackOffer) {
                                         const hasUnpaidInstallments = applicableCashbackOffer.method === "Installments" && (applicableCashbackOffer.totalInstallments || 1) > (applicableCashbackOffer.paidInstallments || 0);
                                         const requireInstallmentPayment = localStorage.getItem('bel_require_installment_booking_v1') === 'true';
@@ -3713,7 +3757,9 @@ export default function CustomerDashboard() {
                     ar={ar()}
                     currentPlan={cardData?.card?.belmondoPlan}
                     expiresAt={cardData?.card?.belmondoProExpiresAt}
+                    commitmentEndsAt={(cardData?.card as any)?.belmondoProCommitmentEndsAt}
                     paymentType={cardData?.card?.belmondoProPaymentType}
+                    requireKyc={requireKyc}
                   />
                 ) : (
                   <section id="sec-invoices" className="animate-fade-in scroll-mt-24">
@@ -3916,7 +3962,11 @@ export default function CustomerDashboard() {
             <button
               className="bg-brand-pink-400 hover:bg-brand-pink-500 text-white font-bold w-full rounded-2xl py-3.5 transition-colors shadow-sm"
               onClick={() => {
-                setCheckoutPkg(selectedPkg);
+                if (requireKyc && kycStatus !== 'approved') {
+                   setShowKyc(true);
+                   return;
+                }
+                attemptCheckout(selectedPkg);
                 setSelectedPkg(null);
               }}
             >
