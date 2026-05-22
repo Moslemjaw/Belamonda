@@ -216,8 +216,12 @@ export default function CheckoutModal({
     for (const id of offer.clinicIds ?? []) {
       if (id) s.add(String(id));
     }
+    const sessionOverrideIds = (offer.clinicOverrides || []).map((o) => o.clinicId).filter(Boolean);
+    const subOverrideIds = (offer.branchSubscriptionPrices || []).map((o) => o.clinicId).filter(Boolean);
+    sessionOverrideIds.forEach((id) => s.add(id));
+    subOverrideIds.forEach((id) => s.add(id));
     return [...s];
-  }, [isNewStyle, offer.clinicId, offer.clinicIds]);
+  }, [isNewStyle, offer.clinicId, offer.clinicIds, offer.clinicOverrides, offer.branchSubscriptionPrices]);
 
   const showBranchSection = offer.requireBranchSelection !== false;
   const needsBranchPicker = showBranchSection && (isNewStyle || allowedBranchIds.length > 1 || forcePicker);
@@ -234,8 +238,11 @@ export default function CheckoutModal({
         const items = (listRaw as { items?: any[] }).items || [];
 
         if (isNewStyle) {
-          // If clinicOverrides (branchSessionPrices) exist, only show those clinics
-          const overrideIds = (offer.clinicOverrides || []).map((o) => o.clinicId).filter(Boolean);
+          // If clinicOverrides (branchSessionPrices) or branchSubscriptionPrices exist, only show those clinics
+          const sessionOverrideIds = (offer.clinicOverrides || []).map((o) => o.clinicId).filter(Boolean);
+          const subOverrideIds = (offer.branchSubscriptionPrices || []).map((o) => o.clinicId).filter(Boolean);
+          const overrideIds = Array.from(new Set([...sessionOverrideIds, ...subOverrideIds]));
+          
           let active;
           if (overrideIds.length > 0) {
             active = items.filter((c: any) => overrideIds.includes(String(c.id)));
