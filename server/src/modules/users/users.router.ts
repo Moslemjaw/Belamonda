@@ -328,96 +328,9 @@ usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "financ
 // All-users Excel export — admin / finance
 usersRouter.get("/admin/export/all", authRequired, requireRole(["admin", "finance"]), async (req, res, next) => {
   try {
-    const users = await UserModel.find({}).sort({ createdAt: -1 }).lean<UserLean[]>();
-    const payments = await PaymentModel.find({ status: "completed" }).sort({ createdAt: -1 }).lean();
-    const memberships = await UserOfferModel.find({}).sort({ createdAt: -1 }).lean();
-    const txns = await WalletTxnModel.find({}).sort({ createdAt: -1 }).lean();
+    const { exportComprehensiveReportXlsx } = await import("../reporting/analytics.service.js");
+    const buf = await exportComprehensiveReportXlsx({}, { rtl: true });
 
-    // Build user lookup map for enriching other sheets
-    const userMap: Record<string, { fullName: string; phone: string; username: string }> = {};
-    users.forEach((u) => {
-      userMap[String(u._id)] = {
-        fullName: u.fullName ?? u.username ?? "—",
-        phone: u.phone ?? "—",
-        username: u.username ?? "—",
-      };
-    });
-
-    const offerIds = [...new Set([
-      ...memberships.map((m: any) => String(m.offerId)),
-      ...payments.map((p: any) => String(p.offerId))
-    ].filter(Boolean))];
-    const offers = offerIds.length
-      ? await OfferModel.find({ _id: { $in: offerIds } }).select("name").lean<{ _id: mongoose.Types.ObjectId; name: string }[]>()
-      : [];
-    const offerMap: Record<string, string> = {};
-    offers.forEach((o) => { offerMap[String(o._id)] = o.name; });
-
-    const wb = XLSX.utils.book_new();
-
-    // Sheet 1: All Users
-    const userRows = users.map((u) => ({
-      "User ID": String(u._id),
-      "Full Name": u.fullName ?? "—",
-      "Username": u.username ?? "—",
-      "Phone": u.phone ?? "—",
-      "Email": u.email ?? "—",
-      "Role": u.role ?? "—",
-      "Status": u.isActive !== false ? "Active" : "Disabled",
-      "Joined": u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "—",
-    }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(userRows), "Users");
-
-    // Sheet 2: All Memberships
-    const membershipRows = memberships.map((m: any) => ({
-      "Membership ID": String(m._id),
-      "User ID": m.userId,
-      "Full Name": userMap[m.userId]?.fullName ?? "—",
-      "Phone": userMap[m.userId]?.phone ?? "—",
-      "Offer": offerMap[String(m.offerId)] ?? "—",
-      "Status": m.status,
-      "Purchase Mode": m.purchaseMode ?? "—",
-      "Sessions Used": m.sessionsUsed ?? 0,
-      "Installments Paid": m.installmentsPaid ?? 0,
-      "Total Installments": m.installmentCount ?? "—",
-      "Amount (KWD)": m.paymentAmountKwd ?? "—",
-      "Activated": m.activatedAt ? new Date(m.activatedAt).toLocaleDateString() : "—",
-      "Created": m.createdAt ? new Date(m.createdAt).toLocaleDateString() : "—",
-    }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(membershipRows), "Memberships");
-
-    // Sheet 3: All Payments
-    const paymentRows = payments.map((p: any) => ({
-      "Payment ID": String(p._id),
-      "User ID": p.userId,
-      "Full Name": userMap[p.userId]?.fullName ?? "—",
-      "Phone": userMap[p.userId]?.phone ?? "—",
-      "Offer": offerMap[String(p.offerId)] ?? "—",
-      "Amount (KWD)": p.amountKwd,
-      "Gross (KWD)": p.grossAmountKwd ?? p.amountKwd,
-      "Cashback Applied (KWD)": p.cashbackAppliedKwd ?? "0.000",
-      "Method": p.method,
-      "Purpose": p.purpose,
-      "Status": p.status,
-      "Confirmed At": p.confirmedAt ? new Date(p.confirmedAt).toLocaleDateString() : "—",
-      "Created": p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "—",
-    }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(paymentRows), "Payments");
-
-    // Sheet 4: Cashback Transactions
-    const txnRows = (txns as any[]).map((t) => ({
-      "Txn ID": String(t._id),
-      "User ID": t.userId,
-      "Full Name": userMap[t.userId]?.fullName ?? "—",
-      "Phone": userMap[t.userId]?.phone ?? "—",
-      "Type": t.type,
-      "Amount (KWD)": t.amountKwd,
-      "Reason": t.reason ?? "—",
-      "Date": t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—",
-    }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(txnRows), "Cashback Txns");
-
-    const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
     res.setHeader("Content-Disposition", `attachment; filename="belamonda_all_users_report.xlsx"`);
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     return res.send(buf);

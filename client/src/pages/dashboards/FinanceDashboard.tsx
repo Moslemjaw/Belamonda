@@ -763,14 +763,13 @@ function ReportsTab({ from, to }: { from: string; to: string }) {
   const [error, setError] = useState<string | null>(null);
 
   const reports = [
+    { kind: "comprehensive", icon: "📚", name: ar() ? "التقرير الشامل" : "Master Data Report", desc: ar() ? "بيانات مجمعة تشمل العملاء والمدفوعات والمزيد" : "Merged data: Users, Memberships, Sessions, Payments" },
     { kind: "payments", icon: "💳", name: ar() ? "كل المدفوعات" : "All Payments", desc: ar() ? "سجل كامل لكل العمليات" : "Complete transaction ledger" },
+    { kind: "subscriptions", icon: "👥", name: ar() ? "تقرير الاشتراكات" : "Subscriptions Report", desc: ar() ? "حالة الباقات والجلسات المتبقية" : "Memberships status & used sessions" },
     { kind: "offers", icon: "📦", name: ar() ? "تقرير العروض" : "Offers Report", desc: ar() ? "الإيرادات حسب العرض" : "Revenue by offer" },
-    { kind: "users", icon: "👥", name: ar() ? "تقرير العملاء الشامل" : "Comprehensive Customers", desc: ar() ? "القيمة الدائمة وعدد المشتريات والنشاط" : "LTV, purchase count & activity" },
     { kind: "referrals", icon: "🔗", name: ar() ? "تقرير الإحالات" : "Referrals Report", desc: ar() ? "أداء أكواد الإحالة والعمولات" : "Referral code performance" },
     { kind: "installments", icon: "📅", name: ar() ? "تقرير الأقساط" : "Installments Report", desc: ar() ? "المدفوعة والقادمة والمتأخرة" : "Paid, upcoming and late" },
     { kind: "clinics", icon: "🏥", name: ar() ? "أداء العيادات" : "Clinics Performance", desc: ar() ? "الاستخدام والإيرادات وجلسات التخلف" : "Utilization, revenue & no-shows" },
-    { kind: "dormant", icon: "💤", name: ar() ? "العملاء الخاملون" : "Dormant Customers", desc: ar() ? "العملاء الذين لم يزوروا العيادة مؤخراً" : "Customers with no recent visits" },
-    { kind: "health", icon: "⚙️", name: ar() ? "تقرير صحة النظام" : "System Health Report", desc: ar() ? "نظرة عامة على البيانات والتشغيل" : "General data & operational overview" },
   ];
 
   const downloadCsv = async (kind: string) => {
@@ -849,13 +848,15 @@ function ReportsTab({ from, to }: { from: string; to: string }) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => downloadCsv(r.kind)}
-                  disabled={downloading !== null}
-                  className="bg-surface-50 text-surface-700 hover:bg-surface-100 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap border border-surface-200"
-                >
-                  {downloading === r.kind ? (ar() ? "..." : "...") : "CSV"}
-                </button>
+                {r.kind !== "comprehensive" && (
+                  <button
+                    onClick={() => downloadCsv(r.kind)}
+                    disabled={downloading !== null}
+                    className="bg-surface-50 text-surface-700 hover:bg-surface-100 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap border border-surface-200"
+                  >
+                    {downloading === r.kind ? (ar() ? "..." : "...") : "CSV"}
+                  </button>
+                )}
                 <button
                   onClick={() => downloadXlsx(r.kind)}
                   disabled={downloading !== null}

@@ -108,17 +108,25 @@ reportingRouter.get("/finance/installments", authRequired, requireRole(FINANCE_R
 reportingRouter.get("/finance/export", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {
     const kind = str(req.query.kind) as any;
-    const allowed = ["payments", "offers", "users", "referrals", "installments", "clinics", "dormant", "health"];
+    const allowed = ["payments", "offers", "subscriptions", "referrals", "installments", "clinics", "comprehensive"];
     if (!allowed.includes(kind)) return res.status(400).json({ error: "INVALID_KIND" });
     const format = (str(req.query.format) || "csv").toLowerCase();
     if (format !== "csv" && format !== "xlsx") return res.status(400).json({ error: "INVALID_FORMAT" });
 
     if (format === "xlsx") {
-      const xlsx = await exportFinanceXlsx(kind, { from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
+      let xlsx;
+      if (kind === "comprehensive") {
+        const { exportComprehensiveReportXlsx } = await import("./analytics.service.js");
+        xlsx = await exportComprehensiveReportXlsx({ from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
+      } else {
+        xlsx = await exportFinanceXlsx(kind, { from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
+      }
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename="finance-${kind}-${new Date().toISOString().slice(0,10)}.xlsx"`);
       return res.send(xlsx);
     }
+
+    if (kind === "comprehensive") return res.status(400).json({ error: "CSV format not supported for comprehensive report" });
 
     const csv = await exportFinanceCsv(kind, { from: str(req.query.from), to: str(req.query.to) });
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
