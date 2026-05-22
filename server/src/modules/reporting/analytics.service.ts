@@ -809,73 +809,7 @@ export async function computeSystemHealthReport(filters: { from?: string; to?: s
   };
 }
 
-// CSV export — generates CSV string for a chosen report
-export async function exportFinanceCsv(kind: "payments" | "offers" | "subscriptions" | "referrals" | "installments" | "clinics" | "comprehensive", filters: { from?: string; to?: string }) {
-  const escape = (v: any) => {
-    if (v === null || v === undefined) return "";
-    const s = String(v);
-    if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
-  const toCsv = (headers: string[], rows: any[][]) =>
-    [headers.join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n");
 
-  if (kind === "payments") {
-    const data = await computePaymentsBreakdown({ from: filters.from, to: filters.to, limit: 500 });
-    return toCsv(
-      ["Date", "User", "Offer", "Clinic", "Method", "Purpose", "Session Type", "Amount KWD", "Cashback Applied", "Status", "Additional Treatments"],
-      data.items.map((p: any) => [
-        new Date(p.createdAt).toISOString(),
-        p.userId,
-        p.offerName ?? "",
-        p.clinicNameEn ?? "",
-        p.method,
-        p.purpose ?? "",
-        p.sessionType ?? "—",
-        p.amountKwd,
-        p.cashbackAppliedKwd ?? "0.000",
-        p.status,
-        p.additionalTreatments ?? "",
-      ]),
-    );
-  }
-  if (kind === "offers") {
-    const data = await computeRevenueByOffer({ from: filters.from, to: filters.to, limit: 200 });
-    return toCsv(
-      ["Offer", "Membership Type", "Sales", "Revenue KWD", "Cashback KWD", "Profit KWD"],
-      data.items.map((o) => [o.offerName, o.membershipType, o.salesCount, o.revenueKwd, o.cashbackKwd, o.profitKwd]),
-    );
-  }
-  if (kind === "subscriptions") {
-    const data = await computeDetailedCustomersReport({ from: filters.from, to: filters.to });
-    return toCsv(
-      ["Customer ID", "Customer Name", "Phone", "Service", "Clinic Name", "Expiry Date", "Reference", "Total Payment", "Paid Amount", "Balance", "Payment Type", "Deposit", "Installment 2", "Installment 3", "First Payment Date", "Second Payment Date", "Third Payment Date", "Notes", "Package Date"],
-      data.items.map((u) => [u.customerId, u.customerName, u.customerPhone, u.service, u.clinicName, u.expiryDate, u.reference, u.totalPaymentKwd, u.paidAmountKwd, u.balanceKwd, u.paymentType, u.depositAmount, u.installment2Amount, u.installment3Amount, u.firstPaymentDate, u.secondPaymentDate, u.thirdPaymentDate, u.notes, u.packageDate]),
-    );
-  }
-  if (kind === "referrals") {
-    const data = await computeRevenueByReferral({ from: filters.from, to: filters.to, limit: 200 });
-    return toCsv(
-      ["Referrer", "Referral Code", "Role", "Sales", "Revenue KWD"],
-      data.items.map((r) => [r.displayName, r.referralCode, r.role, r.salesCount, r.revenueKwd]),
-    );
-  }
-  if (kind === "installments") {
-    const data = await computeInstallmentsAnalytics({ from: filters.from, to: filters.to });
-    return toCsv(
-      ["User", "Customer Name", "Phone", "Offer", "Installment #", "Amount KWD", "Amount Left (KWD)", "Due Date", "Status"],
-      data.items.map((i: any) => [i.userId, i.customerName ?? "", i.customerPhone ?? "", i.offerName, i.installmentNumber, i.amountKwd, i.amountLeftKwd, i.dueDate ?? "", i.status]),
-    );
-  }
-  if (kind === "clinics") {
-    const data = await computeClinicSummaries({ from: filters.from, to: filters.to });
-    return toCsv(
-      ["Clinic Name", "Total Sessions", "Completed", "Scheduled", "No-Show", "Total Invoices", "Paid Invoices", "Revenue KWD"],
-      data.items.map((c: any) => [c.clinicNameEn, c.totalSessions, c.completedSessions, c.scheduledSessions, c.noShowSessions, c.totalInvoices, c.paidInvoices, c.revenueKwd]),
-    );
-  }
-  return "";
-}
 
 export type FinanceExportKind = "payments" | "offers" | "subscriptions" | "referrals" | "installments" | "clinics" | "comprehensive";
 
@@ -1396,65 +1330,6 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
 // CLINIC REPORT EXPORT — CSV and XLSX per clinic
 // ===========================================================================
 
-export async function exportClinicReportCsv(clinicId: string, filters: { from?: string; to?: string }) {
-  const data = await computeClinicDetail(clinicId, filters);
-  const escape = (v: any) => {
-    if (v === null || v === undefined) return "";
-    const s = String(v);
-    if (s.includes(",") || s.includes('"') || s.includes("\n")) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
-  const toCsv = (headers: string[], rows: any[][]) =>
-    [headers.join(","), ...rows.map((r) => r.map(escape).join(","))].join("\n");
-
-  const sessionsCsv = toCsv(
-    ["Date", "Customer", "Phone", "Status", "Cashback Unlocked (KWD)"],
-    data.sessions.map((s) => [
-      new Date(s.scheduledAt).toISOString().slice(0, 16).replace("T", " "),
-      s.customerName,
-      s.customerPhone ?? "",
-      s.status,
-      s.cashbackUnlockedKwd ?? "0.000",
-    ])
-  );
-
-  const invoicesCsv = toCsv(
-    ["Date", "Customer", "Phone", "Session Price (KWD)", "Cashback Applied (KWD)", "Clinic Payment", "Type", "Request Status"],
-    data.invoices.map((i) => [
-      new Date(i.createdAt).toISOString().slice(0, 10),
-      i.customerName,
-      i.customerPhone ?? "",
-      i.sessionPriceKwd ?? "—",
-      i.cashbackDeductedKwd ?? "0.000",
-      i.clinicPaymentStatus,
-      i.membershipType ?? "—",
-      i.status,
-    ])
-  );
-
-  const clinicName = data.clinic?.nameEn ?? clinicId;
-  const s = data.summary;
-  const summaryLines = [
-    `Clinic Report: ${clinicName}`,
-    `Generated: ${new Date().toISOString()}`,
-    "",
-    "SUMMARY",
-    `Total Sessions,${s.totalSessions}`,
-    `Completed Sessions,${s.completedSessions}`,
-    `No-Show Sessions,${s.noShowSessions}`,
-    `Scheduled Sessions,${s.scheduledSessions}`,
-    `Total Invoices,${s.totalInvoices}`,
-    `Paid Invoices,${s.paidInvoices}`,
-    `Pending Invoices,${s.pendingInvoices}`,
-    `Total Sales (Base KWD),${s.sessionRevenueKwd}`,
-    `Cashback Utilized (KWD),${s.cashbackTotalKwd}`,
-    `Net Revenue (KWD),${s.netRevenueKwd}`,
-    `Paid Revenue (KWD),${s.paidRevenueKwd}`,
-    `Pending Revenue (KWD),${s.pendingRevenueKwd}`,
-  ].join("\n");
-
-  return `${summaryLines}\n\nSESSIONS\n${sessionsCsv}\n\nINVOICES\n${invoicesCsv}`;
-}
 
 export async function exportClinicReportXlsx(clinicId: string, filters: { from?: string; to?: string }) {
   const data = await computeClinicDetail(clinicId, filters);
@@ -1544,18 +1419,11 @@ export async function exportClinicReportXlsx(clinicId: string, filters: { from?:
     "#",
     "الاسم",
     "نوع الباقة",
-    "عدد الجلسات بالباقة",
-    "الجلسات المنتهية",
-    "الجلسات المتبقية",
-    "المبلغ الإجمالي",
-    "المبلغ المدفوع",
-    "المبلغ المتبقي",
-    "حالة الدفع",
-    "تكلفة الجلسة",
+    "نوع الجلسة",
+    "منتج إضافي",
     "حالة الجلسة",
     "تاريخ الجلسة",
     "المركز",
-    "مندوب المبيعات",
     "الهاتف",
     "رقم الهوية",
     "تاريخ الباقة",
@@ -1566,65 +1434,37 @@ export async function exportClinicReportXlsx(clinicId: string, filters: { from?:
   ];
 
   const headerRow = ws.getRow(3);
-  headers.forEach((h, i) => {
-    const cell = headerRow.getCell(i + 1);
-    cell.value = h;
-    cell.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFCC0000" } };
-    cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-    cell.border = {
-      top: { style: "thin" }, bottom: { style: "thin" },
-      left: { style: "thin" }, right: { style: "thin" },
-    };
-  });
+  headerRow.values = headers;
+  styleHeaderRow(headerRow);
   headerRow.height = 30;
 
   // ── Data rows ──
   let rowIdx = 4;
   let counter = 1;
+  const rowsData: any[][] = [];
+  
   for (const s of sessions as any[]) {
     const user = userMap.get(s.userId) ?? {};
     const userOffer = userOfferMap.get(s.userOfferId?.toString()) ?? {} as any;
     const offer = offerMap.get(userOffer.offerId?.toString()) ?? {} as any;
 
-    const totalSessionsInPkg = offer.totalSessions ?? userOffer.sessionsUsed ?? 0;
-    const sessionsUsed = userOffer.sessionsUsed ?? 0;
-    const sessionsRemaining = Math.max(0, (totalSessionsInPkg as number) - sessionsUsed);
-
-    const totalPrice = parseFloat(userOffer.paymentAmountKwd ?? offer.subscriptionPriceKwd ?? "0");
-    const amountPaid = totalPrice; // They are fully paid per import
-    const remaining = 0;
-
-    let paymentStatus = "Fully Paid";
-    if (userOffer.purchaseMode === "installments") {
-      const paidCount = userOffer.installmentsPaid ?? 0;
-      const totalCount = userOffer.installmentCount ?? 0;
-      if (paidCount < totalCount) paymentStatus = "Installments";
-    }
-
-    const sessionCost = parseFloat(s.totalBillKwd ?? s.finalPaidKwd ?? "0");
+    const sessionType = offer.offerKind ?? offer.category ?? "—";
+    const extraItems = (s.extraItems || []).map((e: any) => `${e.name} (${e.qty})`).join(", ") || "—";
     const sessionStatus = s.status === "completed" ? "معتمد" : s.status === "no_show" ? "غير معتمد" : s.status;
     const sessionDate = s.scheduledAt ? new Date(s.scheduledAt).toISOString().slice(0, 10) : "";
     const packageDate = userOffer.activatedAt ? new Date(userOffer.activatedAt).toISOString().slice(0, 10) : (userOffer.createdAt ? new Date(userOffer.createdAt).toISOString().slice(0, 10) : "");
     const expiryDate = userOffer.expiresAt ? new Date(userOffer.expiresAt).toISOString().slice(0, 10) : "";
 
-    const row = ws.getRow(rowIdx);
+
     const values = [
       counter,
       user.fullName ?? user.username ?? s.userId,
       offer.name ?? "—",
-      totalSessionsInPkg,
-      sessionsUsed,
-      sessionsRemaining,
-      totalPrice.toFixed(3),
-      amountPaid.toFixed(3),
-      remaining.toFixed(3),
-      paymentStatus,
-      sessionCost.toFixed(3),
+      sessionType,
+      extraItems,
       sessionStatus,
       sessionDate,
       clinicNameAr || clinicNameEn,
-      "", // sales rep not stored on session
       user.phone ?? "",
       user.nationalId ?? "",
       packageDate,
@@ -1633,65 +1473,40 @@ export async function exportClinicReportXlsx(clinicId: string, filters: { from?:
       "", // password not exposed
       s.notes ?? "",
     ];
+    rowsData.push(values);
 
-    values.forEach((v, i) => {
-      const cell = row.getCell(i + 1);
-      cell.value = v;
-      cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-      cell.border = {
-        top: { style: "thin" }, bottom: { style: "thin" },
-        left: { style: "thin" }, right: { style: "thin" },
-      };
-    });
+    const row = ws.getRow(rowIdx);
+    row.values = values;
+    styleDataRow(row, rowIdx % 2 === 1);
 
-    // Alternate row colors
-    const bgColor = rowIdx % 2 === 0 ? "FFFFF2CC" : "FFFFFFFF";
-    values.forEach((_, i) => {
-      row.getCell(i + 1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: bgColor } };
-    });
-
-    // Color status cells
-    const statusCell = row.getCell(12);
+    // Color status cell (index 6 is "حالة الجلسة")
+    const statusCell = row.getCell(6);
     if (sessionStatus === "معتمد") {
       statusCell.font = { color: { argb: "FF008000" }, bold: true };
     } else if (sessionStatus === "غير معتمد") {
       statusCell.font = { color: { argb: "FFCC0000" }, bold: true };
     }
 
-    const payStatusCell = row.getCell(10);
-    if (paymentStatus === "Fully Paid") {
-      payStatusCell.font = { color: { argb: "FF008000" }, bold: true };
-    } else {
-      payStatusCell.font = { color: { argb: "FFCC6600" }, bold: true };
-    }
-
     rowIdx++;
     counter++;
   }
 
-  // ── Column widths ──
-  const widths = [5, 25, 18, 10, 10, 10, 12, 12, 12, 14, 10, 12, 14, 25, 12, 18, 18, 14, 14, 16, 16, 20];
-  widths.forEach((w, i) => {
-    ws.getColumn(i + 1).width = w;
-  });
+  // Auto-filter on header row
+  ws.autoFilter = {
+    from: { row: 3, column: 1 },
+    to: { row: 3, column: headers.length },
+  };
+
+  // Auto-fit column widths
+  setAutoWidths(ws, 3, 4);
 
   // — Invoices sheet —
   const wsI = wb.addWorksheet("Invoices");
   const invoiceHeaders = ["Date", "Customer", "Phone", "Session Price (KWD)", "Cashback Applied (KWD)", "Clinic Payment", "Type", "Status"];
   const iHeaderRow = wsI.getRow(1);
   iHeaderRow.values = invoiceHeaders;
-  iHeaderRow.eachCell((c) => {
-    c.font = { bold: true };
-    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
-  });
-  wsI.getColumn(1).width = 14;
-  wsI.getColumn(2).width = 24;
-  wsI.getColumn(3).width = 18;
-  wsI.getColumn(4).width = 20;
-  wsI.getColumn(5).width = 24;
-  wsI.getColumn(6).width = 16;
-  wsI.getColumn(7).width = 16;
-  wsI.getColumn(8).width = 18;
+  styleHeaderRow(iHeaderRow);
+
   data.invoices.forEach((inv, idx) => {
     const row = wsI.getRow(idx + 2);
     row.values = [
@@ -1704,7 +1519,15 @@ export async function exportClinicReportXlsx(clinicId: string, filters: { from?:
       inv.membershipType ?? "—",
       inv.status,
     ];
+    styleDataRow(row, idx % 2 === 1);
   });
+
+  wsI.autoFilter = {
+    from: { row: 1, column: 1 },
+    to: { row: 1, column: invoiceHeaders.length },
+  };
+  setAutoWidths(wsI, 1, 2);
+
 
   const bufXlsx = await wb.xlsx.writeBuffer();
   return Buffer.isBuffer(bufXlsx) ? bufXlsx : Buffer.from(bufXlsx as ArrayBuffer);

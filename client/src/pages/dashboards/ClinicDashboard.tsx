@@ -944,11 +944,6 @@ function ClinicReportsTab({ clinicId: _clinicId }: { clinicId: string }) {
           <p className="text-xs text-surface-500">{ar() ? "يتضمن جميع الجلسات والفواتير للفترة المحددة" : "Includes all sessions and invoices for the selected date range"}</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          <button onClick={() => download("csv")} disabled={downloading !== null || loading}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-surface-100 text-surface-800 hover:bg-surface-200 text-sm font-bold border border-surface-200 disabled:opacity-50 transition-colors">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            {downloading === "csv" ? (ar() ? "جاري التحميل..." : "Downloading...") : "CSV"}
-          </button>
           <button onClick={() => download("xlsx")} disabled={downloading !== null || loading}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-bold disabled:opacity-50 transition-colors shadow-sm">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
@@ -1000,31 +995,6 @@ function ClinicReportTable({ data, loading, from, to }: {
     inv.customerPhone?.includes(search) || inv.status?.includes(search.toLowerCase())
   );
 
-  const downloadTableCsv = () => {
-    let csv = "";
-    if (tab === "sessions") {
-      csv = ["Customer,Phone,Date,Time,Status,Cashback (KWD),Notes"]
-        .concat(filteredSessions.map(s =>
-          [s.customerName, s.customerPhone || "", fmtDate(s.scheduledAt), fmtTime(s.scheduledAt),
-           s.status, s.cashbackUnlockedKwd || "0", (s.notes || "").replace(/,/g, " ")].join(",")
-        )).join("\n");
-    } else {
-      csv = ["Customer,Phone,Date,Membership,Price (KWD),Cashback Deducted (KWD),Invoice Status,Payment Status"]
-        .concat(filteredInvoices.map(inv =>
-          [inv.customerName, inv.customerPhone || "", fmtDate(inv.createdAt),
-           inv.membershipType || "", inv.sessionPriceKwd || "0", inv.cashbackDeductedKwd || "0",
-           inv.status, inv.clinicPaymentStatus].join(",")
-        )).join("\n");
-    }
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${tab}-${from}-to-${to}.csv`;
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
-  };
-
   return (
     <div className="card-elevated border border-surface-200 shadow-sm rounded-xl overflow-hidden">
       {/* Header */}
@@ -1045,11 +1015,6 @@ function ClinicReportTable({ data, loading, from, to }: {
             placeholder={ar() ? "بحث..." : "Search..."}
             value={search} onChange={e => setSearch(e.target.value)}
           />
-          <button onClick={downloadTableCsv}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-100 hover:bg-surface-200 text-surface-700 text-xs font-bold border border-surface-200 transition-colors whitespace-nowrap">
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            {ar() ? "تنزيل CSV" : "Download CSV"}
-          </button>
         </div>
       </div>
 

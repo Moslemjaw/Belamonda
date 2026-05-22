@@ -13,11 +13,9 @@ import {
   computeRevenueByUser,
   computeRevenueByReferral,
   computeInstallmentsAnalytics,
-  exportFinanceCsv,
   exportFinanceXlsx,
   computeClinicSummaries,
   computeClinicDetail,
-  exportClinicReportCsv,
   exportClinicReportXlsx,
 } from "./analytics.service.js";
 
@@ -110,28 +108,18 @@ reportingRouter.get("/finance/export", authRequired, requireRole(FINANCE_ROLES),
     const kind = str(req.query.kind) as any;
     const allowed = ["payments", "offers", "subscriptions", "referrals", "installments", "clinics", "comprehensive"];
     if (!allowed.includes(kind)) return res.status(400).json({ error: "INVALID_KIND" });
-    const format = (str(req.query.format) || "csv").toLowerCase();
-    if (format !== "csv" && format !== "xlsx") return res.status(400).json({ error: "INVALID_FORMAT" });
-
-    if (format === "xlsx") {
-      let xlsx;
-      if (kind === "comprehensive") {
-        const { exportComprehensiveReportXlsx } = await import("./analytics.service.js");
-        xlsx = await exportComprehensiveReportXlsx({ from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
-      } else {
-        xlsx = await exportFinanceXlsx(kind, { from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
-      }
+    if (kind === "comprehensive") {
+      const { exportComprehensiveReportXlsx } = await import("./analytics.service.js");
+      const xlsx = await exportComprehensiveReportXlsx({ from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename="finance-${kind}-${new Date().toISOString().slice(0,10)}.xlsx"`);
+      return res.send(xlsx);
+    } else {
+      const xlsx = await exportFinanceXlsx(kind, { from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename="finance-${kind}-${new Date().toISOString().slice(0,10)}.xlsx"`);
       return res.send(xlsx);
     }
-
-    if (kind === "comprehensive") return res.status(400).json({ error: "CSV format not supported for comprehensive report" });
-
-    const csv = await exportFinanceCsv(kind, { from: str(req.query.from), to: str(req.query.to) });
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="finance-${kind}-${new Date().toISOString().slice(0,10)}.csv"`);
-    return res.send(csv);
   } catch (e) {
     next(e);
   }
@@ -203,21 +191,14 @@ reportingRouter.get("/finance/clinic-export", authRequired, requireRole(FINANCE_
   try {
     const clinicId = str(req.query.clinicId);
     if (!clinicId) return res.status(400).json({ error: "clinicId required" });
-    const format = (str(req.query.format) || "csv").toLowerCase();
     const filters = { from: str(req.query.from), to: str(req.query.to) };
     const clinicDetail = await computeClinicDetail(clinicId, filters);
     const clinicSlug = (clinicDetail.clinic?.nameEn ?? clinicId).replace(/\s+/g, "-").toLowerCase();
     const dateStr = new Date().toISOString().slice(0, 10);
-    if (format === "xlsx") {
-      const xlsx = await exportClinicReportXlsx(clinicId, filters);
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.xlsx"`);
-      return res.send(xlsx);
-    }
-    const csv = await exportClinicReportCsv(clinicId, filters);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.csv"`);
-    return res.send(csv);
+    const xlsx = await exportClinicReportXlsx(clinicId, filters);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.xlsx"`);
+    return res.send(xlsx);
   } catch (e) { next(e); }
 });
 
@@ -336,20 +317,13 @@ reportingRouter.get("/clinic/export", authRequired, requireRole(CLINIC_ROLES), a
   try {
     const clinicId = req.auth!.clinicId ?? str(req.query.clinicId);
     if (!clinicId) return res.status(400).json({ error: "No clinic associated with this account" });
-    const format = (str(req.query.format) || "csv").toLowerCase();
     const filters = { from: str(req.query.from), to: str(req.query.to) };
     const clinicDetail = await computeClinicDetail(clinicId, filters);
     const clinicSlug = (clinicDetail.clinic?.nameEn ?? clinicId).replace(/\s+/g, "-").toLowerCase();
     const dateStr = new Date().toISOString().slice(0, 10);
-    if (format === "xlsx") {
-      const xlsx = await exportClinicReportXlsx(clinicId, filters);
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.xlsx"`);
-      return res.send(xlsx);
-    }
-    const csv = await exportClinicReportCsv(clinicId, filters);
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.csv"`);
-    return res.send(csv);
+    const xlsx = await exportClinicReportXlsx(clinicId, filters);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.xlsx"`);
+    return res.send(xlsx);
   } catch (e) { next(e); }
 });

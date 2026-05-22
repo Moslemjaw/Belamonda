@@ -772,30 +772,6 @@ function ReportsTab({ from, to }: { from: string; to: string }) {
     { kind: "clinics", icon: "🏥", name: ar() ? "أداء العيادات" : "Clinics Performance", desc: ar() ? "الاستخدام والإيرادات وجلسات التخلف" : "Utilization, revenue & no-shows" },
   ];
 
-  const downloadCsv = async (kind: string) => {
-    setDownloading(kind); setError(null);
-    try {
-      const params = new URLSearchParams({ kind, from, to });
-      const res = await fetch(`${API_BASE_URL}/reporting/finance/export?${params.toString()}`, {
-        headers: { ...(getAuthHeader() ?? {}) },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `finance-${kind}-${new Date().toISOString().slice(0, 10)}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Download failed");
-    } finally {
-      setDownloading(null);
-    }
-  };
-
   const downloadXlsx = async (kind: string) => {
     setDownloading(kind); setError(null);
     try {
@@ -827,7 +803,7 @@ function ReportsTab({ from, to }: { from: string; to: string }) {
           <div>
             <h3 className="text-base font-bold text-surface-900">{ar() ? "تصدير التقارير المالية" : "Export Financial Reports"}</h3>
             <p className="text-xs text-surface-500 mt-1">
-              {ar() ? "ستُصدَّر التقارير بصيغة CSV (متوافق مع Excel) ضمن نطاق التاريخ المحدد أعلاه" : "Reports export as CSV (Excel-compatible) within the date range above"}
+              {ar() ? "ستُصدَّر التقارير بصيغة Excel (XLSX) ضمن نطاق التاريخ المحدد أعلاه" : "Reports export as Excel (XLSX) within the date range above"}
             </p>
           </div>
           <div className="text-[11px] text-surface-500 bg-surface-50 px-2 py-1 rounded-md whitespace-nowrap">
@@ -848,15 +824,6 @@ function ReportsTab({ from, to }: { from: string; to: string }) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {r.kind !== "comprehensive" && (
-                  <button
-                    onClick={() => downloadCsv(r.kind)}
-                    disabled={downloading !== null}
-                    className="bg-surface-50 text-surface-700 hover:bg-surface-100 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap border border-surface-200"
-                  >
-                    {downloading === r.kind ? (ar() ? "..." : "...") : "CSV"}
-                  </button>
-                )}
                 <button
                   onClick={() => downloadXlsx(r.kind)}
                   disabled={downloading !== null}
@@ -963,10 +930,6 @@ function ClinicRowDetail({ clinicId, from, to }: { clinicId: string; from: strin
 
       <div className="flex items-center gap-3 pt-1">
         <span className="text-xs text-surface-500 font-medium">{ar() ? "تحميل التقرير الكامل:" : "Download full report:"}</span>
-        <button onClick={() => download("csv")} disabled={downloading !== null}
-          className="px-3 py-1.5 rounded-lg bg-surface-100 text-surface-700 hover:bg-surface-200 text-xs font-bold border border-surface-200 disabled:opacity-50">
-          {downloading === "csv" ? "..." : "CSV"}
-        </button>
         <button onClick={() => download("xlsx")} disabled={downloading !== null}
           className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold disabled:opacity-50">
           {downloading === "xlsx" ? "..." : "XLSX"}
