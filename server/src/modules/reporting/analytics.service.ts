@@ -563,8 +563,20 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
   const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o.name]));
   const userMap = new Map(userDocs.map((u: any) => [u._id.toString(), { fullName: u.fullName as string, phone: u.phone as string }]));
 
+  // First pass: calculate total unpaid per userOfferId
+  const unpaidMap = new Map<string, number>();
+  for (const uo of offers as any[]) {
+    const id = uo._id.toString();
+    let unpaidMils = 0;
+    for (const inst of uo.installmentSchedule ?? []) {
+      if (!inst.paid) unpaidMils += parseKwd(inst.amountKwd);
+    }
+    unpaidMap.set(id, unpaidMils);
+  }
+
   for (const uo of offers as any[]) {
     const offerName = offerMap.get(uo.offerId?.toString()) ?? "—";
+    const amountLeftKwd = fmtKwd(unpaidMap.get(uo._id.toString()) ?? 0);
     for (const inst of uo.installmentSchedule ?? []) {
       const due = inst.dueDate ? new Date(inst.dueDate) : null;
       const paidAt = inst.paidAt ? new Date(inst.paidAt) : null;
@@ -587,6 +599,7 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
         offerName,
         installmentNumber: inst.number,
         amountKwd: inst.amountKwd,
+        amountLeftKwd,
         dueDate: inst.dueDate,
         paidAt: inst.paidAt,
         status: inst.paid ? "paid" : (due && due.getTime() < now.getTime() ? "late" : "upcoming"),
@@ -706,6 +719,58 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
   };
 }
 
+export async function computeDormantCustomersReport(filters: { from?: string; to?: string } = {}) {
+  // Dormant customers: users who haven't had a completed session or payment in the last 90 days.
+  // For simplicity if date range is given, use that as the "activity" window (if they have NO activity in this window).
+  // We'll return users who have 0 payments and 0 sessions in the target date range.
+  const dateFilter = buildDateFilter(filters.from, filters.to);
+  const activeQ: Record<string, unknown> = {};
+  if (dateFilter) activeQ.createdAt = dateFilter;
+
+  const [recentPayments, recentSessions] = await Promise.all([
+    PaymentModel.distinct("userId", { ...activeQ, status: "completed" }),
+    BookingSessionModel.distinct("userId", { ...activeQ, status: "completed" }),
+  ]);
+  const activeUserIds = new Set([...recentPayments, ...recentSessions].map(id => id.toString()));
+
+  const allUsers = await UserModel.find({ isActive: true, role: "customer" }).select("username fullName phone email createdAt").lean();
+  const dormant = allUsers.filter((u: any) => !activeUserIds.has(u._id.toString()));
+
+  return {
+    items: dormant.map((u: any) => ({
+      userId: u._id.toString(),
+      customerName: u.fullName || u.username,
+      phone: u.phone || "—",
+      email: u.email || "—",
+      joinedAt: u.createdAt ? new Date(u.createdAt).toISOString().slice(0, 10) : "—",
+    })).sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime())
+  };
+}
+
+export async function computeSystemHealthReport(filters: { from?: string; to?: string } = {}) {
+  const snapshot = await computeFinanceSnapshot(filters);
+  const usersCount = await UserModel.countDocuments();
+  const clinicsCount = await ClinicModel.countDocuments();
+  const offersCount = await OfferModel.countDocuments();
+
+  return {
+    items: [
+      { metric: "Total Users", value: String(usersCount) },
+      { metric: "Total Clinics", value: String(clinicsCount) },
+      { metric: "Total Offers", value: String(offersCount) },
+      { metric: "Revenue (KWD)", value: snapshot.revenueKwd },
+      { metric: "Profit (KWD)", value: snapshot.profitKwd },
+      { metric: "Pending Payments Count", value: String(snapshot.pendingPaymentsCount) },
+      { metric: "Pending Payments (KWD)", value: snapshot.pendingPaymentsKwd },
+      { metric: "Cashback Locked (KWD)", value: snapshot.cashback.lockedKwd },
+      { metric: "Cashback Unlocked (KWD)", value: snapshot.cashback.unlockedKwd },
+      { metric: "Cashback Utilized (KWD)", value: snapshot.cashback.utilizedKwd },
+      { metric: "Sessions Today", value: String(snapshot.sessionsToday) },
+      { metric: "Sessions This Month", value: String(snapshot.sessionsThisMonth) },
+    ]
+  };
+}
+
 // CSV export — generates CSV string for a chosen report
 export async function exportFinanceCsv(kind: "payments" | "offers" | "users" | "referrals" | "installments", filters: { from?: string; to?: string }) {
   const escape = (v: any) => {
@@ -758,14 +823,35 @@ export async function exportFinanceCsv(kind: "payments" | "offers" | "users" | "
   if (kind === "installments") {
     const data = await computeInstallmentsAnalytics({ from: filters.from, to: filters.to });
     return toCsv(
-      ["User", "Offer", "Installment #", "Amount KWD", "Due Date", "Status"],
-      data.items.map((i: any) => [i.userId, i.offerName, i.installmentNumber, i.amountKwd, i.dueDate ?? "", i.status]),
+      ["User", "Customer Name", "Phone", "Offer", "Installment #", "Amount KWD", "Amount Left (KWD)", "Due Date", "Status"],
+      data.items.map((i: any) => [i.userId, i.customerName ?? "", i.customerPhone ?? "", i.offerName, i.installmentNumber, i.amountKwd, i.amountLeftKwd, i.dueDate ?? "", i.status]),
+    );
+  }
+  if (kind === "clinics") {
+    const data = await computeClinicSummaries({ from: filters.from, to: filters.to });
+    return toCsv(
+      ["Clinic Name", "Total Sessions", "Completed", "Scheduled", "No-Show", "Total Invoices", "Paid Invoices", "Session Revenue KWD", "Paid Revenue KWD", "Pending Revenue KWD"],
+      data.items.map((c: any) => [c.nameEn, c.summary.totalSessions, c.summary.completedSessions, c.summary.scheduledSessions, c.summary.noShowSessions, c.summary.totalInvoices, c.summary.paidInvoices, c.summary.sessionRevenueKwd, c.summary.paidRevenueKwd, c.summary.pendingRevenueKwd]),
+    );
+  }
+  if (kind === "dormant") {
+    const data = await computeDormantCustomersReport({ from: filters.from, to: filters.to });
+    return toCsv(
+      ["Customer Name", "Phone", "Email", "Joined At"],
+      data.items.map((u: any) => [u.customerName, u.phone, u.email, u.joinedAt]),
+    );
+  }
+  if (kind === "health") {
+    const data = await computeSystemHealthReport({ from: filters.from, to: filters.to });
+    return toCsv(
+      ["Metric", "Value"],
+      data.items.map((i: any) => [i.metric, i.value]),
     );
   }
   return "";
 }
 
-type FinanceExportKind = "payments" | "offers" | "users" | "referrals" | "installments";
+type FinanceExportKind = "payments" | "offers" | "users" | "referrals" | "installments" | "clinics" | "dormant" | "health";
 
 function clampColWidth(n: number) {
   return Math.max(10, Math.min(44, n));
@@ -984,7 +1070,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         revenueKwd: Number.parseFloat(r.revenueKwd),
       })),
     );
-  } else {
+  } else if (kind === "installments") {
     const data = await computeInstallmentsAnalytics({ from: filters.from, to: filters.to });
     addTable(
       [
@@ -993,6 +1079,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         { key: "offerName", header: "Offer" },
         { key: "installmentNumber", header: "Installment #" },
         { key: "amountKwd", header: "Amount (KWD)", numFmt: "0.000" },
+        { key: "amountLeftKwd", header: "Amount Left (KWD)", numFmt: "0.000" },
         { key: "dueDate", header: "Due Date" },
         { key: "status", header: "Status" },
       ],
@@ -1002,9 +1089,58 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         offerName: i.offerName,
         installmentNumber: i.installmentNumber,
         amountKwd: Number.parseFloat(i.amountKwd ?? "0"),
+        amountLeftKwd: Number.parseFloat(i.amountLeftKwd ?? "0"),
         dueDate: i.dueDate ? new Date(i.dueDate).toISOString().slice(0, 10) : "",
         status: i.status,
       })),
+    );
+  } else if (kind === "clinics") {
+    const data = await computeClinicSummaries({ from: filters.from, to: filters.to });
+    addTable(
+      [
+        { key: "clinicName", header: "Clinic Name" },
+        { key: "totalSessions", header: "Total Sessions" },
+        { key: "completed", header: "Completed" },
+        { key: "scheduled", header: "Scheduled" },
+        { key: "noShow", header: "No-Show" },
+        { key: "totalInvoices", header: "Total Invoices" },
+        { key: "paidInvoices", header: "Paid Invoices" },
+        { key: "sessionRevenueKwd", header: "Session Revenue KWD" },
+        { key: "paidRevenueKwd", header: "Paid Revenue KWD" },
+        { key: "pendingRevenueKwd", header: "Pending Revenue KWD" },
+      ],
+      data.items.map((c: any) => ({
+        clinicName: c.nameEn,
+        totalSessions: c.summary.totalSessions,
+        completed: c.summary.completedSessions,
+        scheduled: c.summary.scheduledSessions,
+        noShow: c.summary.noShowSessions,
+        totalInvoices: c.summary.totalInvoices,
+        paidInvoices: c.summary.paidInvoices,
+        sessionRevenueKwd: c.summary.sessionRevenueKwd,
+        paidRevenueKwd: c.summary.paidRevenueKwd,
+        pendingRevenueKwd: c.summary.pendingRevenueKwd,
+      })),
+    );
+  } else if (kind === "dormant") {
+    const data = await computeDormantCustomersReport({ from: filters.from, to: filters.to });
+    addTable(
+      [
+        { key: "customerName", header: "Customer Name" },
+        { key: "phone", header: "Phone" },
+        { key: "email", header: "Email" },
+        { key: "joinedAt", header: "Joined At" },
+      ],
+      data.items,
+    );
+  } else if (kind === "health") {
+    const data = await computeSystemHealthReport({ from: filters.from, to: filters.to });
+    addTable(
+      [
+        { key: "metric", header: "Metric" },
+        { key: "value", header: "Value" },
+      ],
+      data.items,
     );
   }
 

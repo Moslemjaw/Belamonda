@@ -108,7 +108,7 @@ reportingRouter.get("/finance/installments", authRequired, requireRole(FINANCE_R
 reportingRouter.get("/finance/export", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {
     const kind = str(req.query.kind) as any;
-    const allowed = ["payments", "offers", "users", "referrals", "installments"];
+    const allowed = ["payments", "offers", "users", "referrals", "installments", "clinics", "dormant", "health"];
     if (!allowed.includes(kind)) return res.status(400).json({ error: "INVALID_KIND" });
     const format = (str(req.query.format) || "csv").toLowerCase();
     if (format !== "csv" && format !== "xlsx") return res.status(400).json({ error: "INVALID_FORMAT" });
