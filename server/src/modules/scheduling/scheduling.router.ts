@@ -647,7 +647,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     }
 
     // Cashback deducted: prefer client-provided value, then server-computed
-    const finalCashbackDeducted = cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined;
+    const finalCashbackDeducted = parsed.data.cashbackAppliedKwd ?? (cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined);
 
     const breq = await bookingRequestsStore.create({
       userOfferId: uo.id,

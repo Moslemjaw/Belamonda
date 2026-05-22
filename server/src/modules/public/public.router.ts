@@ -337,7 +337,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         clinicTakeKwd: b.clinicTakeKwd ?? null,
         createdAt: b.createdAt ? new Date(b.createdAt).toISOString() : null,
         cashbackDeductedKwd: b.cashbackDeductedKwd ?? null,
-        maxSessionCashbackKwd: bookingOfferMap[String(b.offerId)]?.cb ?? null,
+        maxSessionCashbackKwd: b.cashbackDeductedKwd ?? bookingOfferMap[String(b.offerId)]?.cb ?? null,
         offerName: b.standaloneName || bookingOfferMap[String(b.offerId)]?.name || null,
       }));
     }
