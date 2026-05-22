@@ -329,11 +329,23 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
 
     let clinicProducts: any[] = [];
     if (clinicId) {
-      const { ClinicModel } = await import("../../models/clinic.model.js");
-      const clinic = await ClinicModel.findById(clinicId).lean() as any;
-      if (clinic && clinic.products) {
-        clinicProducts = clinic.products;
-      }
+      const { ClinicSessionOfferingModel } = await import("../../models/clinicSessionOffering.model.js");
+      const { SessionTypeModel } = await import("../../models/sessionType.model.js");
+      
+      const offerings = await ClinicSessionOfferingModel.find({ clinicId, isActive: true }).lean();
+      const sessionTypeIds = offerings.map((o: any) => o.sessionTypeId);
+      const sessionTypes = await SessionTypeModel.find({ _id: { $in: sessionTypeIds } }).lean();
+      const stMap = new Map((sessionTypes as any[]).map((st) => [String(st._id), st]));
+
+      clinicProducts = offerings.map((o: any) => {
+        const st = stMap.get(String(o.sessionTypeId));
+        return {
+          id: String(o._id),
+          name: st ? (st.nameAr || st.nameEn) : "Unknown",
+          priceKwd: o.priceKwd || "0.000",
+          cashbackDeductionKwd: o.cashbackDeductionKwd || "0.000"
+        };
+      });
     }
 
     return res.json({

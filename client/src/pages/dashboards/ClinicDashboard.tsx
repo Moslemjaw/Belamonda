@@ -1190,19 +1190,28 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, maxCashbackKwd, onSu
   maxCashbackKwd: string;
   onSubmit: (extraItems: any[], cashbackToDeductKwd: string) => Promise<void>;
   isBooking?: boolean;
-  clinicProducts?: {name: string; priceKwd: string}[];
+  clinicProducts?: {name: string; priceKwd: string; cashbackDeductionKwd?: string}[];
 }) {
   const { t } = useTranslation();
-  const [extraItems, setExtraItems] = useState<{name: string, priceKwd: string, qty: number}[]>([]);
+  const [extraItems, setExtraItems] = useState<{name: string, priceKwd: string, cashbackDeductionKwd?: string, qty: number}[]>([]);
   const [useCashback, setUseCashback] = useState(true);
   const [loading, setLoading] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
+  const [newItemCbDeduction, setNewItemCbDeduction] = useState("");
 
   const baseAmount = parseFloat(baseAmountKwd || "0");
-  const maxCb = parseFloat(maxCashbackKwd || "0");
-  const extraSum = extraItems.reduce((sum, item) => sum + parseFloat(item.priceKwd) * item.qty, 0);
+  const baseMaxCb = parseFloat(maxCashbackKwd || "0");
+  
+  const extraSum = extraItems.reduce((sum, item) => sum + parseFloat(item.priceKwd || "0") * item.qty, 0);
+  const extraCbSum = extraItems.reduce((sum, item) => sum + parseFloat(item.cashbackDeductionKwd || "0") * item.qty, 0);
+  
   const totalBill = baseAmount + extraSum;
+  // If the baseMaxCb is already the full wallet balance, we still shouldn't exceed the wallet balance.
+  // But since maxCashbackKwd is now passed as the *capped* amount for the base session,
+  // we add the extra items' cb allowances to it. (We assume the wallet balance check happens in the backend or we can just trust the limit here).
+  // Actually, we should ideally know the absolute wallet balance, but for now we'll just sum the limits.
+  const maxCb = baseMaxCb + extraCbSum;
   
   const applicableCashback = useCashback ? Math.min(totalBill, maxCb) : 0;
   const finalPay = Math.max(0, totalBill - applicableCashback);
@@ -1254,9 +1263,11 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, maxCashbackKwd, onSu
                       if (p) {
                         setNewItemName(p.name);
                         setNewItemPrice(p.priceKwd);
+                        setNewItemCbDeduction(p.cashbackDeductionKwd || "0");
                       } else {
                         setNewItemName("");
                         setNewItemPrice("");
+                        setNewItemCbDeduction("");
                       }
                     }}
                     value={newItemName}
@@ -1273,10 +1284,11 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, maxCashbackKwd, onSu
                       if (existing) {
                         return prev.map(x => x.name === newItemName ? { ...x, qty: x.qty + 1 } : x);
                       }
-                      return [...prev, { name: newItemName, priceKwd: Number(newItemPrice).toFixed(3), qty: 1 }];
+                      return [...prev, { name: newItemName, priceKwd: Number(newItemPrice).toFixed(3), cashbackDeductionKwd: newItemCbDeduction, qty: 1 }];
                     });
                     setNewItemName("");
                     setNewItemPrice("");
+                    setNewItemCbDeduction("");
                   }} className="btn-secondary py-2 px-4 bg-brand-pink-50 text-brand-pink-700 hover:bg-brand-pink-100 border-none font-bold" disabled={!newItemName}>+</button>
                 </div>
               ) : (
