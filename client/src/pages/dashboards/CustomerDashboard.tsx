@@ -827,7 +827,7 @@ function InvoiceUploader({ getAuthHeader, ar, isPro, onContactCS }: { getAuthHea
   );
 }
 
-function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmentEndsAt, paymentType }: {
+function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmentEndsAt, paymentType, requireKyc }: {
   getAuthHeader: () => Record<string, string> | undefined;
   ar: boolean;
   currentPlan?: string;
