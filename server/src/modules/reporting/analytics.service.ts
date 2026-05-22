@@ -1717,22 +1717,19 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   const usersQ: any = {};
   const paymentsQ: any = { status: "completed" };
   const membershipsQ: any = {};
-  const txnsQ: any = {};
   const sessionsQ: any = {};
 
   if (dateFilter) {
     usersQ.createdAt = dateFilter;
     paymentsQ.createdAt = dateFilter;
     membershipsQ.createdAt = dateFilter;
-    txnsQ.createdAt = dateFilter;
     sessionsQ.scheduledAt = dateFilter;
   }
 
-  const [users, payments, memberships, txns, sessions] = await Promise.all([
+  const [users, payments, memberships, sessions] = await Promise.all([
     UserModel.find(usersQ).sort({ createdAt: -1 }).lean(),
     PaymentModel.find(paymentsQ).sort({ createdAt: -1 }).lean(),
     UserOfferModel.find(membershipsQ).sort({ createdAt: -1 }).lean(),
-    WalletTxnModel.find(txnsQ).sort({ createdAt: -1 }).lean(),
     BookingSessionModel.find(sessionsQ).sort({ scheduledAt: -1 }).lean(),
   ]);
 
@@ -1926,20 +1923,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
     })
   );
 
-  // 5. Cashback Transactions
-  addSheet(
-    "Cashback Txns",
-    ["Txn ID", "Date", "Customer Name", "Phone", "Type", "Amount (KWD)", "Reason"],
-    txns.map((t: any) => {
-      const u = userMap[t.userId] || {};
-      return [
-        String(t._id),
-        t.createdAt ? new Date(t.createdAt).toISOString().slice(0, 16).replace("T", " ") : "",
-        u.fullName || u.username || "", u.phone || "",
-        t.type, t.amountKwd, t.reason ?? ""
-      ];
-    })
-  );
+
 
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.isBuffer(buf) ? buf : Buffer.from(buf as ArrayBuffer);
