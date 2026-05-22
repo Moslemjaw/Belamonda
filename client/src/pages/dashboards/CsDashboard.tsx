@@ -2970,7 +2970,7 @@ function InvoiceReviews() {
 }
 
 function SubscriptionRequests() {
-  const { data, refetch: mutate } = useApi<{ items: any[] }>("/subscription-requests?status=pending");
+  const { data, refetch: mutate } = useApi<{ items: any[] }>("/users/subscription-requests?status=pending");
   const { getAuthHeader } = useAuth();
   const [busy, setBusy] = useState<string|null>(null);
 
@@ -2982,7 +2982,7 @@ function SubscriptionRequests() {
     }
     setBusy(id);
     try {
-      await apiFetch(`/subscription-requests/${id}/${action}`, {
+      await apiFetch(`/users/subscription-requests/${id}/${action}`, {
         method: "POST",
         headers: getAuthHeader(),
         body: JSON.stringify({ reason })

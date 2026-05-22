@@ -76,7 +76,8 @@ function SignaturePad({
         setHasDrawn(true);
       }
     }
-  }, [readOnly, initialDataUrl]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readOnly]);
 
   const pos = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
