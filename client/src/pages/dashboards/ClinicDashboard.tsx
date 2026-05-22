@@ -65,63 +65,61 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
     <div className={`card-elevated p-5 relative overflow-hidden group transition-all hover:shadow-lg flex flex-col rounded-[24px] border ${!allGreen && session.status === "scheduled" ? "border-red-200 bg-red-50/30" : "border-surface-200 bg-white/80 backdrop-blur-xl"}`}>
       <div className={`absolute top-0 left-0 w-1.5 h-full ${session.status === 'completed' ? 'bg-emerald-500' : session.status === 'no_show' ? 'bg-red-500' : session.status === 'cancelled' ? 'bg-surface-300' : 'bg-brand-pink-500'}`} />
       
-      <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-4 mb-5 pl-2">
+      <div className="flex flex-col gap-4 mb-5 pl-2">
         <div className="flex items-center gap-3">
            <div className="w-12 h-12 rounded-[18px] bg-gradient-to-br from-surface-100 to-surface-200 border border-white flex items-center justify-center text-brand-pink-600 font-bold text-xl shadow-sm shrink-0">
              {(session.customerName || session.userId || "?").charAt(0).toUpperCase()}
            </div>
-           <div>
-             <div className="text-base font-black text-surface-900">{session.customerName || (ar() ? "عميل" : "Customer")}</div>
+           <div className="flex-1 min-w-0">
+             <div className="text-base font-black text-surface-900 truncate">{session.customerName || (ar() ? "عميل" : "Customer")}</div>
              <div className="text-xs text-surface-500 font-medium mt-0.5">{session.offerName ? <><span className="text-brand-pink-500 font-bold">{session.offerName}</span> · </> : null}{date}</div>
-             {session.membershipType && <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-brand-pink-50 text-brand-pink-600 border border-brand-pink-100 mt-1.5 inline-block">{session.membershipType}</span>}
            </div>
         </div>
-        <div className="w-full sm:w-auto text-left sm:text-right">
-           <span className="inline-flex items-center justify-center sm:justify-start gap-1.5 px-3 py-1.5 rounded-xl bg-surface-100/80 text-surface-900 text-sm font-bold shadow-sm w-full sm:w-auto">
+        <div className="flex items-center gap-2 flex-wrap">
+           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-100/80 text-surface-900 text-sm font-bold shadow-sm">
              <svg className="w-4 h-4 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
              {time}
            </span>
+           {session.membershipType && <span className="text-[10px] font-bold px-3 py-1.5 rounded-xl bg-brand-pink-50 text-brand-pink-600 border border-brand-pink-100 uppercase tracking-wider">{session.membershipType}</span>}
         </div>
       </div>
 
-      <div className="space-y-2 mb-5 bg-surface-50/80 backdrop-blur-sm p-4 rounded-[20px] border border-surface-100/50 pl-4 ml-2 text-sm">
+      <div className="space-y-3 mb-5 pl-2">
         {session.payment && (
-          <div className="flex items-center justify-between pb-2 border-b border-surface-200/60">
-            <span className="text-surface-600 font-medium">{ar() ? "سجل الدفع" : "Enrollment payment"}</span>
-            <span className="font-bold text-surface-800">
+          <div className="flex items-center justify-between pb-2 border-b border-surface-100">
+            <span className="text-[11px] text-surface-500 font-bold uppercase tracking-wider">{ar() ? "سجل الدفع" : "Enrollment payment"}</span>
+            <span className="text-xs font-bold text-surface-800">
               {session.payment.status} · {session.payment.amountKwd} KWD
             </span>
           </div>
         )}
-        <div className="flex items-center justify-between">
-           <span className="text-surface-600 font-medium">{ar() ? "العرض نشط" : "Offer Active"}</span>
-           {isOfferActive ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold">No</span>}
+        <div className="flex items-center justify-between bg-surface-50 p-2.5 rounded-xl border border-surface-100/50">
+           <span className="text-xs font-bold text-surface-600">{ar() ? "العرض نشط" : "Offer Active"}</span>
+           {isOfferActive ? <span className="text-[11px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-[11px] text-red-700 bg-red-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg> No</span>}
         </div>
-        <div className="flex items-center justify-between">
-           <span className="text-surface-600 font-medium">{ar() ? "الدفع مكتمل" : "Payment Confirmed"}</span>
-           {isPaymentConfirmed ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold">No</span>}
+        <div className="flex items-center justify-between bg-surface-50 p-2.5 rounded-xl border border-surface-100/50">
+           <span className="text-xs font-bold text-surface-600">{ar() ? "الدفع مكتمل" : "Payment Confirmed"}</span>
+           {isPaymentConfirmed ? <span className="text-[11px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-[11px] text-red-700 bg-red-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg> No</span>}
         </div>
         {session.eligibility?.intervalDays > 0 && (
-          <div className="flex items-center justify-between">
-            <span className="text-surface-600 font-medium">{ar() ? "فترة التباعد" : "Interval Met"} <span className="text-[10px] text-surface-400">({session.eligibility.intervalDays}d)</span></span>
-            {isIntervalMet ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold">No</span>}
+          <div className="flex items-center justify-between bg-surface-50 p-2.5 rounded-xl border border-surface-100/50">
+            <span className="text-xs font-bold text-surface-600">{ar() ? "فترة التباعد" : "Interval Met"} <span className="text-[10px] text-surface-400">({session.eligibility.intervalDays}d)</span></span>
+            {isIntervalMet ? <span className="text-[11px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-[11px] text-red-700 bg-red-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg> No</span>}
           </div>
         )}
       </div>
 
       <div className="mt-auto pl-2">
         {session.status === "scheduled" && (
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button onClick={() => onMark(session.id, "completed")} className="flex-1 btn-primary py-2.5 rounded-xl shadow-glow text-sm" disabled={!allGreen}>✓ {ar() ? "حضر" : "Came"}</button>
-            <div className="flex gap-2">
-              <button onClick={() => onMark(session.id, "no_show")} className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-sm font-bold bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-colors">✗ {ar() ? "لم يحضر" : "No Show"}</button>
-              <button onClick={() => { setShowReschedule(!showReschedule); setNewTime(""); }} className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-sm font-bold bg-surface-100 text-surface-700 hover:bg-surface-200 transition-colors">{ar() ? "إعادة جدول" : "Reschedule"}</button>
-            </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => onMark(session.id, "completed")} className="col-span-2 btn-primary py-2.5 rounded-xl shadow-glow text-sm" disabled={!allGreen}>✓ {ar() ? "حضر" : "Came"}</button>
+            <button onClick={() => onMark(session.id, "no_show")} className="col-span-1 px-2 py-2.5 rounded-xl text-[11px] sm:text-xs font-bold bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-colors uppercase tracking-wider text-center">✗ {ar() ? "لم يحضر" : "No Show"}</button>
+            <button onClick={() => { setShowReschedule(!showReschedule); setNewTime(""); }} className="col-span-1 px-2 py-2.5 rounded-xl text-[11px] sm:text-xs font-bold bg-surface-100 text-surface-700 hover:bg-surface-200 transition-colors uppercase tracking-wider text-center">{ar() ? "إعادة جدول" : "Reschedule"}</button>
           </div>
         )}
         {session.status !== "scheduled" && (
-          <div className={`text-center py-2.5 rounded-xl text-sm font-bold ${session.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : session.status === 'no_show' ? 'bg-red-50 text-red-600' : 'bg-surface-100 text-surface-600'}`}>
-            {session.status.replace("_", " ").toUpperCase()}
+          <div className={`text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border ${session.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : session.status === 'no_show' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-surface-100 text-surface-600 border-surface-200'}`}>
+            {session.status.replace("_", " ")}
           </div>
         )}
         
@@ -130,8 +128,8 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
             <label className="text-xs font-bold text-surface-700 block">{ar() ? "اختر الوقت الجديد" : "Select new time"}</label>
             <input type="datetime-local" value={newTime} onChange={e => setNewTime(e.target.value)} className="input-field w-full text-sm" />
             <div className="flex gap-2 mt-2">
-              <button disabled={rescheduling} onClick={submitReschedule} className="btn-primary flex-1 py-2 rounded-lg text-sm font-bold">{rescheduling ? "..." : (ar() ? "تأكيد" : "Confirm")}</button>
-              <button onClick={() => setShowReschedule(false)} className="px-4 py-2 rounded-lg text-sm font-bold bg-surface-200 text-surface-700 hover:bg-surface-300">{ar() ? "إلغاء" : "Cancel"}</button>
+              <button disabled={rescheduling} onClick={submitReschedule} className="btn-primary flex-1 py-2 rounded-lg text-xs font-bold">{rescheduling ? "..." : (ar() ? "تأكيد" : "Confirm")}</button>
+              <button onClick={() => setShowReschedule(false)} className="px-4 py-2 rounded-lg text-xs font-bold bg-surface-200 text-surface-700 hover:bg-surface-300">{ar() ? "إلغاء" : "Cancel"}</button>
             </div>
           </div>
         )}
@@ -1393,9 +1391,9 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
   return (
     <div className="space-y-4">
       <div className="sticky top-[calc(env(safe-area-inset-top,0px)+2.75rem)] z-20 pt-2 pb-2 bg-surface-50/95 backdrop-blur-xl transition-all">
-        <div className="flex bg-surface-200/60 p-1.5 rounded-[16px] shadow-inner border border-surface-200/30 overflow-x-auto hide-scrollbar">
+        <div className="flex gap-1.5 bg-surface-200/60 p-1.5 rounded-[16px] shadow-inner border border-surface-200/30 overflow-x-auto hide-scrollbar">
           {tabs.map(t => (
-            <button key={t.key} onClick={() => setActiveTab(t.key)} className={`flex-1 min-w-[80px] px-3 py-2 rounded-[12px] text-xs font-bold whitespace-nowrap transition-all ${activeTab === t.key ? "bg-white text-brand-pink-700 shadow-sm" : "text-surface-500 hover:text-surface-800 hover:bg-surface-100/50"}`}>
+            <button key={t.key} onClick={() => setActiveTab(t.key)} className={`shrink-0 px-4 py-2 rounded-[12px] text-xs font-bold whitespace-nowrap transition-all ${activeTab === t.key ? "bg-white text-brand-pink-700 shadow-sm" : "text-surface-500 hover:text-surface-800 hover:bg-surface-100/50"}`}>
               {t.label}
             </button>
           ))}
@@ -1886,7 +1884,7 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
             </div>
 
             {/* Quick Stats Banner */}
-            <div className="bg-surface-50/50 border-t border-surface-200/50 p-4 sm:p-6 grid grid-cols-3 gap-4 sm:gap-6 relative z-10">
+            <div className="bg-surface-50/50 border-t border-surface-200/50 p-4 sm:p-6 grid grid-cols-2 sm:grid-cols-3 gap-4 sm:gap-6 relative z-10">
               <div className="flex flex-col justify-center">
                 <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-1 flex items-center gap-1.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-brand-pink-500 hidden sm:block"></div>
@@ -1902,14 +1900,14 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
                 </div>
                 <div className="text-2xl font-black text-surface-900 sm:pl-6">{card.activeSessionCount ?? 0}</div>
               </div>
-              <div className="flex flex-col justify-center relative">
+              <div className="col-span-2 sm:col-span-1 border-t sm:border-t-0 border-surface-200/50 pt-4 sm:pt-0 flex flex-col justify-center relative">
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-px h-8 bg-surface-200/50 hidden sm:block"></div>
                 <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1 flex items-center gap-1.5 sm:pl-6">
                   <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 hidden sm:block"></div>
                   {ar() ? "كاشباك متاح" : "Cashback"}
                 </div>
-                <div className="flex items-center gap-3 sm:pl-6">
-                  <div className="text-2xl font-black text-emerald-600">{card.cashbackUnlockedKwd ?? "0.000"}</div>
+                <div className="flex items-center gap-2 sm:gap-3 sm:pl-6 flex-wrap">
+                  <div className="text-xl sm:text-2xl font-black text-emerald-600 truncate">{card.cashbackUnlockedKwd ?? "0.000"}</div>
                   <button onClick={() => setShowAdjustCb(true)} className="btn-ghost btn-sm text-[10px] bg-white border border-surface-200 rounded-lg shadow-sm shrink-0">
                     {ar() ? "تعديل" : "Adjust"}
                   </button>
@@ -1959,6 +1957,7 @@ export default function ClinicDashboard() {
   const { t } = useTranslation();
   const { auth, getAuthHeader } = useAuth();
   const [activeNav, setActiveNav] = useState("home");
+  const [dateFilter, setDateFilter] = useState<"today" | "tomorrow" | "all">("today");
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [clinicSaving, setClinicSaving] = useState(false);
   const [clinicSaveMsg, setClinicSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
@@ -2087,12 +2086,21 @@ export default function ClinicDashboard() {
 
             {/* Sessions Grid */}
             <div>
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-surface-900">{ar() ? "المواعيد" : "Appointments"}</h3>
-                <button className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg" onClick={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }}>↻ {ar() ? "تحديث السجل" : "Refresh Log"}</button>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <h3 className="text-xl font-bold text-surface-900 flex items-center gap-3">
+                  {ar() ? "المواعيد" : "Appointments"}
+                </h3>
+                <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1 sm:pb-0">
+                  <div className="flex bg-surface-100/50 p-1 rounded-xl">
+                    <button onClick={() => setDateFilter("today")} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${dateFilter === "today" ? "bg-white text-brand-pink-600 shadow-sm" : "text-surface-500 hover:text-surface-900"}`}>{ar() ? "اليوم" : "Today"}</button>
+                    <button onClick={() => setDateFilter("tomorrow")} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${dateFilter === "tomorrow" ? "bg-white text-brand-pink-600 shadow-sm" : "text-surface-500 hover:text-surface-900"}`}>{ar() ? "غداً" : "Tomorrow"}</button>
+                    <button onClick={() => setDateFilter("all")} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${dateFilter === "all" ? "bg-white text-brand-pink-600 shadow-sm" : "text-surface-500 hover:text-surface-900"}`}>{ar() ? "الكل" : "All Upcoming"}</button>
+                  </div>
+                  <button className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-xl shrink-0" onClick={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }}>↻ {ar() ? "تحديث" : "Refresh"}</button>
+                </div>
               </div>
               {loading ? (
-                <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">{[1,2,3,4].map(i => <div key={i} className="shimmer h-64 rounded-3xl" />)}</div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">{[1,2,3,4].map(i => <div key={i} className="shimmer h-64 rounded-3xl" />)}</div>
               ) : sessions.length === 0 ? (
                 <div className="card-elevated p-12 text-center flex flex-col items-center justify-center border-dashed border-2 border-surface-200 bg-surface-50/50 min-h-[300px]">
                   <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl shadow-sm mb-4">📅</div>
@@ -2100,10 +2108,40 @@ export default function ClinicDashboard() {
                   <div className="text-sm text-surface-500">{ar() ? "لا توجد مواعيد مجدولة لهذه العيادة حالياً." : "No appointments scheduled for this clinic at the moment."}</div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
-                  {sessions.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)).map(s => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+                  {sessions
+                    .filter(s => {
+                      if (dateFilter === "all") return true;
+                      const d = new Date(s.scheduledAt);
+                      const today = new Date();
+                      if (dateFilter === "today") return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+                      if (dateFilter === "tomorrow") {
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        return d.getDate() === tomorrow.getDate() && d.getMonth() === tomorrow.getMonth() && d.getFullYear() === tomorrow.getFullYear();
+                      }
+                      return true;
+                    })
+                    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
+                    .map(s => (
                     <SessionCard key={s.id} session={s} onMark={markSession} onRefresh={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }} />
                   ))}
+                  {sessions.filter(s => {
+                      if (dateFilter === "all") return true;
+                      const d = new Date(s.scheduledAt);
+                      const today = new Date();
+                      if (dateFilter === "today") return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+                      if (dateFilter === "tomorrow") {
+                        const tomorrow = new Date(today);
+                        tomorrow.setDate(tomorrow.getDate() + 1);
+                        return d.getDate() === tomorrow.getDate() && d.getMonth() === tomorrow.getMonth() && d.getFullYear() === tomorrow.getFullYear();
+                      }
+                      return true;
+                    }).length === 0 && (
+                      <div className="col-span-full py-12 text-center text-surface-500 bg-surface-50/50 rounded-3xl border border-dashed border-surface-200">
+                        {ar() ? "لا توجد مواعيد مطابقة للفلتر" : "No appointments match the selected filter"}
+                      </div>
+                  )}
                 </div>
               )}
             </div>
