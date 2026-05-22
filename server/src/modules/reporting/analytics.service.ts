@@ -83,12 +83,18 @@ export async function computePaymentsBreakdown(filters: {
 
   const [offerDocs, breqDocs, userDocs] = await Promise.all([
     offerIds.length ? OfferModel.find({ _id: { $in: offerIds } }).select("name membershipType").lean() : Promise.resolve([]),
-    brIds.length ? BookingRequestModel.find({ _id: { $in: brIds } }).select("clinicId membershipType").lean().catch(() => []) : Promise.resolve([]),
+    brIds.length ? BookingRequestModel.find({ _id: { $in: brIds } }).select("clinicId membershipType extraItems isStandalone standaloneName").lean().catch(() => []) : Promise.resolve([]),
     userIds.length ? UserModel.find({ _id: { $in: userIds } }).select("fullName phone").lean() : Promise.resolve([]),
   ]);
 
   const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), { name: o.name as string, membershipType: o.membershipType as string }]));
-  const breqMap = new Map(breqDocs.map((b: any) => [b._id.toString(), { clinicId: b.clinicId as string, membershipType: b.membershipType as string }]));
+  const breqMap = new Map(breqDocs.map((b: any) => [b._id.toString(), { 
+    clinicId: b.clinicId as string, 
+    membershipType: b.membershipType as string,
+    extraItems: b.extraItems as any[],
+    isStandalone: !!b.isStandalone,
+    standaloneName: b.standaloneName as string,
+  }]));
   const userMap = new Map(userDocs.map((u: any) => [u._id.toString(), { fullName: u.fullName as string, phone: u.phone as string }]));
 
   const clinicIds = [...new Set([
@@ -108,6 +114,16 @@ export async function computePaymentsBreakdown(filters: {
     const clinic = clinicId ? clinicMap.get(clinicId) : undefined;
     const offer = offerId ? offerMap.get(offerId) : undefined;
     const user = userId ? userMap.get(userId) : undefined;
+    
+    let sessionType = "—";
+    if (p.purpose === "session_payment" || p.purpose === "deposit") {
+      sessionType = breq?.isStandalone ? (breq?.standaloneName || "Standalone") : "Membership Session";
+    }
+
+    const additionalTreatments = (breq?.extraItems || [])
+      .map(item => `${item.name} (x${item.qty})`)
+      .join(", ");
+
     return {
       ...serializePayment(p as any),
       offerName: offer?.name,
@@ -117,6 +133,8 @@ export async function computePaymentsBreakdown(filters: {
       membershipType: breq?.membershipType ?? offer?.membershipType,
       customerName: user?.fullName,
       customerPhone: user?.phone,
+      sessionType,
+      additionalTreatments,
     };
   });
 
@@ -785,7 +803,7 @@ export async function exportFinanceCsv(kind: "payments" | "offers" | "users" | "
   if (kind === "payments") {
     const data = await computePaymentsBreakdown({ from: filters.from, to: filters.to, limit: 500 });
     return toCsv(
-      ["Date", "User", "Offer", "Clinic", "Method", "Purpose", "Amount KWD", "Cashback Applied", "Status"],
+      ["Date", "User", "Offer", "Clinic", "Method", "Purpose", "Session Type", "Amount KWD", "Cashback Applied", "Status", "Additional Treatments"],
       data.items.map((p: any) => [
         new Date(p.createdAt).toISOString(),
         p.userId,
@@ -793,9 +811,11 @@ export async function exportFinanceCsv(kind: "payments" | "offers" | "users" | "
         p.clinicNameEn ?? "",
         p.method,
         p.purpose ?? "",
+        p.sessionType ?? "—",
         p.amountKwd,
         p.cashbackAppliedKwd ?? "0.000",
         p.status,
+        p.additionalTreatments ?? "",
       ]),
     );
   }
@@ -830,8 +850,8 @@ export async function exportFinanceCsv(kind: "payments" | "offers" | "users" | "
   if (kind === "clinics") {
     const data = await computeClinicSummaries({ from: filters.from, to: filters.to });
     return toCsv(
-      ["Clinic Name", "Total Sessions", "Completed", "Scheduled", "No-Show", "Total Invoices", "Paid Invoices", "Session Revenue KWD", "Paid Revenue KWD", "Pending Revenue KWD"],
-      data.items.map((c: any) => [c.nameEn, c.summary.totalSessions, c.summary.completedSessions, c.summary.scheduledSessions, c.summary.noShowSessions, c.summary.totalInvoices, c.summary.paidInvoices, c.summary.sessionRevenueKwd, c.summary.paidRevenueKwd, c.summary.pendingRevenueKwd]),
+      ["Clinic Name", "Total Sessions", "Completed", "Scheduled", "No-Show", "Total Invoices", "Paid Invoices", "Revenue KWD"],
+      data.items.map((c: any) => [c.clinicNameEn, c.totalSessions, c.completedSessions, c.scheduledSessions, c.noShowSessions, c.totalInvoices, c.paidInvoices, c.revenueKwd]),
     );
   }
   if (kind === "dormant") {
@@ -989,9 +1009,11 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         { key: "clinic", header: "Clinic" },
         { key: "method", header: "Method" },
         { key: "purpose", header: "Purpose" },
+        { key: "sessionType", header: "Session Type" },
         { key: "amountKwd", header: "Amount (KWD)", numFmt: "0.000" },
         { key: "cashbackAppliedKwd", header: "Cashback (KWD)", numFmt: "0.000" },
         { key: "status", header: "Status" },
+        { key: "additionalTreatments", header: "Additional Treatments" },
       ],
       data.items.map((p: any) => ({
         date: new Date(p.createdAt).toISOString(),
@@ -1001,9 +1023,11 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         clinic: p.clinicNameEn ?? "",
         method: p.method,
         purpose: p.purpose ?? "",
+        sessionType: p.sessionType ?? "—",
         amountKwd: Number.parseFloat(p.amountKwd ?? "0"),
         cashbackAppliedKwd: Number.parseFloat(p.cashbackAppliedKwd ?? "0"),
         status: p.status,
+        additionalTreatments: p.additionalTreatments ?? "",
       })),
     );
   } else if (kind === "offers") {
@@ -1105,21 +1129,17 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         { key: "noShow", header: "No-Show" },
         { key: "totalInvoices", header: "Total Invoices" },
         { key: "paidInvoices", header: "Paid Invoices" },
-        { key: "sessionRevenueKwd", header: "Session Revenue KWD" },
-        { key: "paidRevenueKwd", header: "Paid Revenue KWD" },
-        { key: "pendingRevenueKwd", header: "Pending Revenue KWD" },
+        { key: "revenueKwd", header: "Revenue KWD" },
       ],
       data.items.map((c: any) => ({
-        clinicName: c.nameEn,
-        totalSessions: c.summary.totalSessions,
-        completed: c.summary.completedSessions,
-        scheduled: c.summary.scheduledSessions,
-        noShow: c.summary.noShowSessions,
-        totalInvoices: c.summary.totalInvoices,
-        paidInvoices: c.summary.paidInvoices,
-        sessionRevenueKwd: c.summary.sessionRevenueKwd,
-        paidRevenueKwd: c.summary.paidRevenueKwd,
-        pendingRevenueKwd: c.summary.pendingRevenueKwd,
+        clinicName: c.clinicNameEn,
+        totalSessions: c.totalSessions,
+        completed: c.completedSessions,
+        scheduled: c.scheduledSessions,
+        noShow: c.noShowSessions,
+        totalInvoices: c.totalInvoices,
+        paidInvoices: c.paidInvoices,
+        revenueKwd: c.revenueKwd,
       })),
     );
   } else if (kind === "dormant") {
