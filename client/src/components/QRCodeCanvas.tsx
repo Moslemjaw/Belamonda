@@ -24,7 +24,7 @@ export default function QRCodeCanvas({ value, size = 200, className }: QRCodeCan
     QRCode.toDataURL(value, {
       width: size,
       margin: 1,
-      errorCorrectionLevel: "H",
+      errorCorrectionLevel: "M",
       color: { dark: "#111111", light: "#ffffff" },
     })
       .then((url) => setDataUrl(url))

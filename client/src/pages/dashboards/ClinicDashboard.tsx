@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
 import { useClinicSchedule, useMyClinicReport, invalidateCache } from "../../hooks/useApi";
@@ -1625,7 +1625,10 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
     let isStopped = false;
 
     if (showScanner) {
-      html5QrCode = new Html5Qrcode("qr-reader", { verbose: false });
+      html5QrCode = new Html5Qrcode("qr-reader", { 
+        verbose: false,
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE]
+      });
       html5QrCode.start(
         { facingMode: "environment" },
         { fps: 15, qrbox: (viewfinderWidth: number, viewfinderHeight: number) => {
@@ -1635,6 +1638,12 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
         }, aspectRatio: 1.0 },
         (decodedText) => {
           if (isStopped) return;
+          
+          let extracted = decodedText.trim();
+          const match = extracted.match(/\/verify\/([a-f0-9]+)/i);
+          if (match) extracted = match[1];
+          if (extracted.length < 10) return; // Ignore false positives and keep scanning
+
           isStopped = true;
           setToken(decodedText);
           setShowScanner(false);
