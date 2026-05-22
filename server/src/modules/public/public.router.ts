@@ -246,7 +246,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     const allOffers = await UserOfferModel.find({ $or: [{ userId }, { sharedWith: userId }] })
       .sort({ createdAt: -1 }).lean();
     const offerIds = [...new Set(allOffers.map((o: any) => String(o.offerId)).filter(Boolean))];
-    const offers = offerIds.length ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr").lean() : [];
+    const offers = offerIds.length ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr cashbackPerSessionKwd").lean() : [];
     const offerMap: Record<string, any> = {};
     (offers as any[]).forEach((o: any) => { offerMap[String(o._id)] = o; });
 
@@ -289,6 +289,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         userId,
         clinicId: mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId,
       })
+        .populate<{ offerId: { _id: any; cashbackPerSessionKwd?: string } }>("offerId", "cashbackPerSessionKwd")
         .sort({ scheduledAt: -1 })
         .limit(20)
         .lean();
@@ -300,6 +301,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         notes: s.notes ?? null,
         completedAt: s.completedAt ?? null,
         cashbackUnlockedKwd: s.cashbackUnlockedKwd ?? null,
+        maxSessionCashbackKwd: s.offerId?.cashbackPerSessionKwd ?? null,
       }));
     }
 
@@ -310,7 +312,10 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
       const bookings = await BookingRequestModel.find({
         userId,
         clinicId: mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId,
-      }).sort({ createdAt: -1 }).limit(20).lean();
+      })
+        .populate<{ offerId: { _id: any; cashbackPerSessionKwd?: string } }>("offerId", "cashbackPerSessionKwd")
+        .sort({ createdAt: -1 })
+        .limit(20).lean();
       clinicBookings = (bookings as any[]).map((b: any) => ({
         id: String(b._id),
         status: b.status,
@@ -318,6 +323,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         sessionPriceKwd: b.sessionPriceKwd ?? null,
         clinicTakeKwd: b.clinicTakeKwd ?? null,
         createdAt: b.createdAt ? new Date(b.createdAt).toISOString() : null,
+        maxSessionCashbackKwd: b.offerId?.cashbackPerSessionKwd ?? null,
       }));
     }
 

@@ -1245,7 +1245,7 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, maxCashbackKwd, onSu
             ))}
             
             <div className="space-y-2">
-              {clinicProducts && clinicProducts.length > 0 && (
+              {clinicProducts && clinicProducts.length > 0 ? (
                 <div className="flex gap-2">
                   <select 
                     className="input-field text-sm flex-1 py-2"
@@ -1254,33 +1254,36 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, maxCashbackKwd, onSu
                       if (p) {
                         setNewItemName(p.name);
                         setNewItemPrice(p.priceKwd);
+                      } else {
+                        setNewItemName("");
+                        setNewItemPrice("");
                       }
                     }}
                     value={newItemName}
                   >
-                    <option value="">{ar() ? "-- اختر منتج من القائمة --" : "-- Select product --"}</option>
+                    <option value="">{ar() ? "-- اختر منتج / جلسة --" : "-- Select Product / Session --"}</option>
                     {clinicProducts.map((p, idx) => (
                       <option key={idx} value={p.name}>{p.name} - {parseFloat(p.priceKwd).toFixed(3)} KWD</option>
                     ))}
                   </select>
+                  <button onClick={() => {
+                    if (!newItemName.trim() || !newItemPrice || isNaN(Number(newItemPrice))) return;
+                    setExtraItems(prev => {
+                      const existing = prev.find(x => x.name === newItemName);
+                      if (existing) {
+                        return prev.map(x => x.name === newItemName ? { ...x, qty: x.qty + 1 } : x);
+                      }
+                      return [...prev, { name: newItemName, priceKwd: Number(newItemPrice).toFixed(3), qty: 1 }];
+                    });
+                    setNewItemName("");
+                    setNewItemPrice("");
+                  }} className="btn-secondary py-2 px-4 bg-brand-pink-50 text-brand-pink-700 hover:bg-brand-pink-100 border-none font-bold" disabled={!newItemName}>+</button>
+                </div>
+              ) : (
+                <div className="text-xs text-surface-400 bg-surface-50 p-2 rounded-lg text-center">
+                  {ar() ? "لا توجد منتجات مسجلة لهذه العيادة" : "No products available for this clinic"}
                 </div>
               )}
-              <div className="flex gap-2">
-                <input type="text" placeholder={ar() ? "أو اكتب اسم المنتج..." : "Or type product name..."} value={newItemName} onChange={e => setNewItemName(e.target.value)} className="input-field text-sm flex-1 py-2" />
-                <input type="number" placeholder={ar() ? "السعر" : "Price"} value={newItemPrice} onChange={e => setNewItemPrice(e.target.value)} className="input-field text-sm w-24 py-2" dir="ltr" />
-                <button onClick={() => {
-                  if (!newItemName.trim() || !newItemPrice || isNaN(Number(newItemPrice))) return;
-                  setExtraItems(prev => {
-                    const existing = prev.find(x => x.name === newItemName);
-                    if (existing) {
-                      return prev.map(x => x.name === newItemName ? { ...x, qty: x.qty + 1 } : x);
-                    }
-                    return [...prev, { name: newItemName, priceKwd: Number(newItemPrice).toFixed(3), qty: 1 }];
-                  });
-                  setNewItemName("");
-                  setNewItemPrice("");
-                }} className="btn-secondary py-2 px-3 bg-surface-100 border-none">+</button>
-              </div>
             </div>
           </div>
 
@@ -1588,7 +1591,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
         isOpen={!!checkoutSession} 
         onClose={() => setCheckoutSession(null)} 
         baseAmountKwd={"0.000"} 
-        maxCashbackKwd={maxCashbackKwd}
+        maxCashbackKwd={checkoutSession ? (parseFloat(checkoutSession.maxSessionCashbackKwd || "0") > 0 ? Math.min(parseFloat(maxCashbackKwd || "0"), parseFloat(checkoutSession.maxSessionCashbackKwd)).toString() : maxCashbackKwd) : "0"}
         clinicProducts={clinicProducts}
         onSubmit={async (extraItems, cashbackToDeductKwd) => {
           if (checkoutSession) {
@@ -1601,7 +1604,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
         isBooking={true}
         onClose={() => setCheckoutBooking(null)} 
         baseAmountKwd={checkoutBooking?.clinicTakeKwd || checkoutBooking?.sessionPriceKwd || "0"} 
-        maxCashbackKwd={maxCashbackKwd}
+        maxCashbackKwd={checkoutBooking ? (parseFloat(checkoutBooking.maxSessionCashbackKwd || "0") > 0 ? Math.min(parseFloat(maxCashbackKwd || "0"), parseFloat(checkoutBooking.maxSessionCashbackKwd)).toString() : maxCashbackKwd) : "0"}
         clinicProducts={clinicProducts}
         onSubmit={async (extraItems, cashbackToDeductKwd) => {
           if (checkoutBooking) {
