@@ -2778,7 +2778,8 @@ function EFormsViewer() {
         token = headers.Authorization.slice(7);
       }
       const baseUrl = (import.meta as any).env.VITE_API_URL || "";
-      const url = `${baseUrl}/eforms/submissions/${subId}/pdf?token=${encodeURIComponent(token)}`;
+      const langParam = ar() ? "ar" : "en";
+      const url = `${baseUrl}/eforms/submissions/${subId}/pdf?token=${encodeURIComponent(token)}&lang=${langParam}`;
       window.open(url, "_blank");
     } catch (e: any) { alert(e.message); }
   };

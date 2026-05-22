@@ -119,17 +119,13 @@ function serializeSubmission(doc: EFormSubmissionDoc | (Record<string, unknown> 
   };
 }
 
-/** Save a base64 data URL (image/png or image/jpeg) to disk. Returns relative file ref. */
 function saveSignatureDataUrl(dataUrl: string): string | null {
   const match = /^data:image\/(png|jpe?g);base64,(.+)$/i.exec(dataUrl);
   if (!match) return null;
-  const ext = match[1].toLowerCase().startsWith("jp") ? "jpg" : "png";
   const buffer = Buffer.from(match[2], "base64");
   if (buffer.byteLength > 2 * 1024 * 1024) return null; // 2MB max signature
-  const filename = `sig_${Date.now()}_${Math.random().toString(16).slice(2, 8)}.${ext}`;
-  const fullPath = path.join(EFORMS_UPLOAD_DIR, filename);
-  fs.writeFileSync(fullPath, buffer);
-  return `eforms/${filename}`;
+  // Store the base64 string directly in the database to persist it across ephemeral server restarts
+  return dataUrl;
 }
 
 /**
@@ -489,6 +485,9 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     const isStaff = req.auth!.role === "admin" || req.auth!.role === "legal";
     if (!isOwner && !isStaff) return res.status(403).json({ error: "FORBIDDEN" });
 
+    const lang = req.query.lang === "en" ? "en" : req.query.lang === "ar" ? "ar" : "both";
+    const isRtl = lang === "ar" || lang === "both";
+
     const answersByKey = new Map((sub.answers ?? []).map((a: any) => [a.key, a.value]));
     const fields = ((sub.formSnapshot ?? []) as any[]).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
@@ -497,16 +496,13 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
       if (f.type === "static_text") {
         const textEn = f.labelEn || "";
         const textAr = f.labelAr || "";
-        const content = textAr ? `${textAr}\n\n${textEn}` : textEn;
+        let content = textEn;
+        if (lang === "ar") content = textAr || textEn;
+        else if (lang === "en") content = textEn || textAr;
+        else content = textAr ? `${textAr}\n\n${textEn}` : textEn;
         
-        // Escape content slightly just for safety, although it's trusted data from DB
         const safeContent = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        
-        fieldsHtml += `
-          <div class="static-text">
-            ${safeContent.replace(/\n/g, "<br>")}
-          </div>
-        `;
+        fieldsHtml += `<div class="static-text">${safeContent.replace(/\n/g, "<br>")}</div>`;
         continue;
       }
       
@@ -514,9 +510,12 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
       let display = "—";
       if (Array.isArray(value)) display = value.join(", ");
       else if (value !== undefined && value !== null && value !== "") display = String(value);
-      if (f.type === "signature" || f.type === "file_upload") display = "(see attached)";
+      if (f.type === "signature" || f.type === "file_upload") display = lang === "ar" ? "(مرفق)" : "(see attached)";
       
-      const label = f.labelAr ? f.labelAr : f.labelEn;
+      let label = f.labelEn;
+      if (lang === "ar" && f.labelAr) label = f.labelAr;
+      else if (lang === "both" && f.labelAr) label = `${f.labelAr} / ${f.labelEn}`;
+      
       const safeLabel = label.replace(/</g, "&lt;").replace(/>/g, "&gt;");
       const safeDisplay = display.replace(/</g, "&lt;").replace(/>/g, "&gt;");
       
@@ -529,48 +528,65 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     }
 
     let signatureHtml = "";
+    const sigTitle = lang === "en" ? "Customer Signature" : lang === "ar" ? "توقيع المشترك" : "Customer Signature / توقيع المشترك";
+    const sigMissing = lang === "en" ? "Signature stored electronically." : lang === "ar" ? "تم حفظ التوقيع إلكترونياً" : "Signature stored electronically.<br/><span style=\"font-size: 11px;\">تم حفظ التوقيع إلكترونياً</span>";
+
     if (sub.signatureRef) {
-      const sigPath = path.resolve(process.cwd(), "uploads", sub.signatureRef.replace(/^\/?uploads\//, ""));
-      if (fs.existsSync(sigPath)) {
-        try {
-          const base64 = fs.readFileSync(sigPath).toString("base64");
-          const ext = sigPath.endsWith(".jpg") || sigPath.endsWith(".jpeg") ? "jpeg" : "png";
-          signatureHtml = `
-            <div class="signature-box">
-              <div class="signature-title">Customer Signature / توقيع المشترك</div>
-              <img class="signature-img" src="data:image/${ext};base64,${base64}" alt="Signature" />
-              <div class="signature-meta">
-                Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}<br>
-                IP: ${sub.ip ?? "—"} | User Agent: ${sub.userAgent ?? "—"}
-              </div>
+      if (sub.signatureRef.startsWith("data:image/")) {
+        signatureHtml = `
+          <div class="signature-box">
+            <div class="signature-title">${sigTitle}</div>
+            <img class="signature-img" src="${sub.signatureRef}" alt="Signature" />
+            <div class="signature-meta">
+              Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}<br>
+              IP: ${sub.ip ?? "—"} | User Agent: ${sub.userAgent ?? "—"}
             </div>
-          `;
-        } catch (e) {
-          signatureHtml = `<div class="signature-box">Signature image could not be embedded</div>`;
-        }
+          </div>
+        `;
       } else {
-        signatureHtml = `<div class="signature-box">
-          <div class="signature-title">Customer Signature / توقيع المشترك</div>
-          <div style="padding: 20px 0; color: #64748b; font-weight: 500;">
-            <svg style="width: 32px; height: 32px; margin: 0 auto 10px; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <br/>
-            Signature stored electronically.<br/><span style="font-size: 11px;">تم حفظ التوقيع إلكترونياً</span>
-          </div>
-          <div class="signature-meta">
-            Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}<br>
-            IP: ${sub.ip ?? "—"} | User Agent: ${sub.userAgent ?? "—"}
-          </div>
-        </div>`;
+        const sigPath = path.resolve(process.cwd(), "uploads", sub.signatureRef.replace(/^\/?uploads\//, ""));
+        if (fs.existsSync(sigPath)) {
+          try {
+            const base64 = fs.readFileSync(sigPath).toString("base64");
+            const ext = sigPath.endsWith(".jpg") || sigPath.endsWith(".jpeg") ? "jpeg" : "png";
+            signatureHtml = `
+              <div class="signature-box">
+                <div class="signature-title">${sigTitle}</div>
+                <img class="signature-img" src="data:image/${ext};base64,${base64}" alt="Signature" />
+                <div class="signature-meta">
+                  Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}<br>
+                  IP: ${sub.ip ?? "—"} | User Agent: ${sub.userAgent ?? "—"}
+                </div>
+              </div>
+            `;
+          } catch (e) {
+            signatureHtml = `<div class="signature-box">Signature image could not be embedded</div>`;
+          }
+        } else {
+          signatureHtml = `<div class="signature-box">
+            <div class="signature-title">${sigTitle}</div>
+            <div style="padding: 20px 0; color: #64748b; font-weight: 500;">
+              <svg style="width: 32px; height: 32px; margin: 0 auto 10px; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <br/>
+              ${sigMissing}
+            </div>
+            <div class="signature-meta">
+              Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}<br>
+              IP: ${sub.ip ?? "—"} | User Agent: ${sub.userAgent ?? "—"}
+            </div>
+          </div>`;
+        }
       }
     }
 
     let attachmentsHtml = "";
     if ((sub.uploadedFileRefs ?? []).length) {
+      const attachTitle = lang === "en" ? "Attached Files" : lang === "ar" ? "الملفات المرفقة" : "Attached Files / الملفات المرفقة";
       attachmentsHtml += `
         <div class="section" style="margin-top: 30px;">
-          <div class="section-title">Attached Files / الملفات المرفقة</div>
+          <div class="section-title">${attachTitle}</div>
       `;
       for (const r of sub.uploadedFileRefs ?? []) {
         const basename = path.basename(r);
@@ -581,75 +597,150 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
       attachmentsHtml += `</div>`;
     }
 
+    const formTitle = sub.formTitle || "Form Submission";
+    const metaCustomer = lang === "ar" ? "رقم العميل" : "Customer ID";
+    const metaSubmission = lang === "ar" ? "رقم النموذج" : "Submission ID";
+    const metaDate = lang === "ar" ? "التاريخ" : "Date";
+    const metaVersion = lang === "ar" ? "الإصدار" : "Version";
+
     const html = `
     <!DOCTYPE html>
-    <html lang="ar" dir="rtl">
+    <html lang="${isRtl ? "ar" : "en"}" dir="${isRtl ? "rtl" : "ltr"}">
     <head>
       <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
       <style>
-        * { box-sizing: border-box; }
-        body { font-family: 'Tajawal', sans-serif; color: #1e293b; line-height: 1.6; margin: 0; padding: 40px; background: #fff; }
-        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #db2777; padding-bottom: 20px; }
-        .logo { color: #db2777; font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px; }
-        .title { font-size: 24px; font-weight: 700; color: #0f172a; margin-top: 10px; }
-        .meta-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 30px; display: flex; justify-content: space-between; font-size: 12px; color: #475569; direction: ltr; text-align: left; }
-        .meta-item { display: flex; flex-direction: column; }
-        .meta-label { font-weight: 700; color: #0f172a; margin-bottom: 2px; }
-        
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: ${isRtl ? "'Tajawal'" : "'Inter'"}, sans-serif;
+          color: #1e293b; line-height: 1.7; margin: 0; padding: 0; background: #fff;
+        }
+        .page { max-width: 800px; margin: 0 auto; padding: 48px 40px; }
+
+        /* ── Header ── */
+        .header {
+          text-align: center; margin-bottom: 36px; padding-bottom: 28px;
+          border-bottom: 3px solid #db2777;
+          background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 50%, #fbcfe8 100%);
+          margin: -48px -40px 36px -40px; padding: 40px 40px 28px 40px;
+          border-radius: 0 0 24px 24px;
+        }
+        .logo {
+          color: #db2777; font-size: 36px; font-weight: 800;
+          letter-spacing: -1.5px; margin-bottom: 4px;
+          text-shadow: 0 1px 2px rgba(219,39,119,0.1);
+        }
+        .logo-sub { font-size: 11px; color: #9ca3af; letter-spacing: 3px; text-transform: uppercase; font-weight: 600; margin-bottom: 16px; }
+        .title { font-size: 22px; font-weight: 700; color: #0f172a; margin-top: 8px; }
+
+        /* ── Meta Box ── */
+        .meta-box {
+          background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
+          padding: 18px 24px; margin-bottom: 32px;
+          display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+          font-size: 12px; color: #475569; direction: ltr; text-align: left;
+        }
+        .meta-item { display: flex; flex-direction: column; gap: 2px; }
+        .meta-label { font-weight: 700; color: #0f172a; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .meta-value { font-weight: 500; color: #334155; font-size: 12px; word-break: break-all; }
+
+        /* ── Content ── */
         .section { margin-bottom: 30px; }
-        .section-title { font-size: 16px; font-weight: 700; color: #db2777; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px; }
-        
-        .field-row { display: flex; border-bottom: 1px dashed #e2e8f0; padding: 10px 0; page-break-inside: avoid; align-items: flex-start; }
-        .field-label { flex: 0 0 35%; font-weight: 700; color: #334155; font-size: 14px; padding-left: 15px; }
-        .field-value { flex: 1; font-size: 15px; font-weight: 500; color: #0f172a; }
-        
-        .static-text { background: #f8fafc; padding: 20px; border-radius: 8px; font-size: 14px; color: #334155; margin: 30px 0; white-space: pre-line; line-height: 1.8; page-break-inside: auto; border-left: 4px solid #db2777; text-align: start; unicode-bidi: plaintext; }
-        
-        .signature-box { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; margin-top: 40px; page-break-inside: avoid; background: #f1f5f9; }
-        .signature-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; color: #0f172a; }
-        .signature-img { max-height: 120px; max-width: 300px; display: block; margin: 0 auto; mix-blend-mode: multiply; }
-        .signature-meta { font-size: 12px; color: #64748b; margin-top: 15px; direction: ltr; }
-        
-        .footer { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; direction: ltr; }
-        .badge { display: inline-block; padding: 4px 8px; font-size: 11px; font-weight: 700; border-radius: 4px; background: #dbeafe; color: #1e40af; }
+        .section-title { font-size: 15px; font-weight: 700; color: #db2777; border-bottom: 2px solid #fce7f3; padding-bottom: 6px; margin-bottom: 16px; }
+
+        .field-row {
+          display: flex; border-bottom: 1px solid #f1f5f9; padding: 12px 0;
+          page-break-inside: avoid; align-items: flex-start;
+        }
+        .field-row:last-child { border-bottom: none; }
+        .field-label { flex: 0 0 38%; font-weight: 600; color: #475569; font-size: 13px; ${isRtl ? "padding-left: 16px;" : "padding-right: 16px;"} }
+        .field-value { flex: 1; font-size: 14px; font-weight: 500; color: #0f172a; }
+
+        .static-text {
+          background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+          padding: 24px; border-radius: 12px; font-size: 14px; color: #334155;
+          margin: 24px 0; white-space: pre-line; line-height: 1.9;
+          page-break-inside: auto;
+          ${isRtl ? "border-right: 4px solid #db2777;" : "border-left: 4px solid #db2777;"}
+          text-align: start; unicode-bidi: plaintext;
+        }
+
+        /* ── Signature ── */
+        .signature-box {
+          border: 2px solid #e2e8f0; border-radius: 16px; padding: 28px;
+          text-align: center; margin-top: 40px; page-break-inside: avoid;
+          background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+        }
+        .signature-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: #0f172a; }
+        .signature-img {
+          max-height: 140px; max-width: 340px; display: block; margin: 0 auto;
+          mix-blend-mode: multiply; border-radius: 8px;
+          padding: 12px; background: #fff; border: 1px solid #e2e8f0;
+        }
+        .signature-meta { font-size: 11px; color: #94a3b8; margin-top: 16px; direction: ltr; line-height: 1.5; }
+
+        /* ── Footer ── */
+        .footer {
+          text-align: center; font-size: 10px; color: #94a3b8;
+          margin-top: 48px; padding-top: 20px;
+          border-top: 2px solid #f1f5f9; direction: ltr;
+        }
+
+        @media print {
+          body { padding: 0; }
+          .page { padding: 24px; }
+          .header { margin: -24px -24px 24px -24px; padding: 24px 24px 20px 24px; border-radius: 0; }
+          .no-print { display: none !important; }
+        }
+        @media screen and (max-width: 600px) {
+          .page { padding: 20px 16px; }
+          .header { margin: -20px -16px 24px -16px; padding: 24px 16px 20px 16px; }
+          .meta-box { grid-template-columns: repeat(2, 1fr); }
+          .field-row { flex-direction: column; gap: 4px; }
+          .field-label { flex: none; }
+        }
       </style>
     </head>
     <body>
-      <div class="header">
-        <div class="logo">Belamonda</div>
-        <div class="title">${sub.formTitle}</div>
-      </div>
-      
-      <div class="meta-box">
-        <div class="meta-item">
-          <span class="meta-label">Customer ID</span>
-          <span>${sub.userId}</span>
+      <div class="page">
+        <div class="header">
+          <div class="logo">Belamonda</div>
+          <div class="logo-sub">Beauty & Wellness</div>
+          <div class="title">${formTitle}</div>
         </div>
-        <div class="meta-item">
-          <span class="meta-label">Submission ID</span>
-          <span>${String(sub._id)}</span>
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Date</span>
-          <span>${sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB") : "—"}</span>
-        </div>
-        <div class="meta-item">
-          <span class="meta-label">Version</span>
-          <span>v${sub.formVersion}</span>
-        </div>
-      </div>
 
-      <div class="content">
-        ${fieldsHtml}
-      </div>
+        <div class="meta-box">
+          <div class="meta-item">
+            <span class="meta-label">${metaCustomer}</span>
+            <span class="meta-value">${sub.userId}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">${metaSubmission}</span>
+            <span class="meta-value">${String(sub._id)}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">${metaDate}</span>
+            <span class="meta-value">${sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB") : "—"}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">${metaVersion}</span>
+            <span class="meta-value">v${sub.formVersion}</span>
+          </div>
+        </div>
 
-      ${signatureHtml}
-      ${attachmentsHtml}
+        <div class="content">
+          ${fieldsHtml}
+        </div>
 
-      <div class="footer">
-        Generated by Belamonda System • ${new Date().toISOString()}<br>
-        IP: ${sub.ip ?? "—"} • UA: ${sub.userAgent ?? "—"}
+        ${signatureHtml}
+        ${attachmentsHtml}
+
+        <div class="footer">
+          Generated by Belamonda System • ${new Date().toISOString()}<br>
+          IP: ${sub.ip ?? "—"} • UA: ${sub.userAgent ?? "—"}
+        </div>
       </div>
       <script>
         window.onload = function() {

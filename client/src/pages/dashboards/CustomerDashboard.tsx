@@ -620,7 +620,8 @@ function MyFormsSection() {
   const downloadPdf = async (id: string) => {
     const token = (getAuthHeader() as any)?.Authorization?.replace("Bearer ", "");
     try {
-      const url = `${API_BASE_URL}/eforms/submissions/${id}/pdf?token=${encodeURIComponent(token || "")}`;
+      const langParam = ar() ? "ar" : "en";
+      const url = `${API_BASE_URL}/eforms/submissions/${id}/pdf?token=${encodeURIComponent(token || "")}&lang=${langParam}`;
       window.open(url, "_blank");
     } catch (e: any) { alert(e.message); }
   };
