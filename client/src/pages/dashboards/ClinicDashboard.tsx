@@ -1498,7 +1498,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>{s.status?.replace("_", " ")}</span>
                       {s.status === "scheduled" && (
                         <div className="flex gap-1">
-                          <button disabled={markingId === s.id} onClick={() => setCheckoutSession(s)} className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm shadow-emerald-500/20">{markingId === s.id ? "…" : "✓ " + (ar() ? "حضر (الدفع)" : "Came (Checkout)")}</button>
+                          <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "completed")} className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm shadow-emerald-500/20">{markingId === s.id ? "…" : "✓ " + (ar() ? "حضر" : "Came")}</button>
                           <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "no_show")} className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">{markingId === s.id ? "…" : "✗ " + (ar() ? "لم يحضر" : "No Show")}</button>
                         </div>
                       )}
