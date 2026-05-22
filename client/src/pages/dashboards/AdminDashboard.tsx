@@ -2541,6 +2541,7 @@ export function UsersManager() {
           <option value="cs">{ar() ? "خدمة عملاء" : "CS"}</option>
           <option value="finance">{ar() ? "مالية" : "Finance"}</option>
           <option value="clinicStaff">{ar() ? "موظف عيادة" : "Clinic Staff"}</option>
+          <option value="legal">{ar() ? "قانوني" : "Legal"}</option>
           <option value="user">{ar() ? "مستخدم" : "User"}</option>
         </select>
         <select
@@ -2948,6 +2949,7 @@ function AuditLogViewer() {
             <option value="cs">CS</option>
             <option value="finance">Finance</option>
             <option value="clinicStaff">Clinic Staff</option>
+            <option value="legal">Legal</option>
             <option value="customer">Customer</option>
             <option value="system">System</option>
           </select>
