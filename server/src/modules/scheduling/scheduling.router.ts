@@ -580,7 +580,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         offerId: uo.offerId,
         clinicId: uo.clinicId,
         isStandalone: !!parsed.data.isStandalone,
-        bookingRoute: "clinic",
+        bookingRoute: "cs",
         membershipType: uo.membershipType ?? "none",
         hadCashback: cashbackDeducted > 0,
         standaloneName: parsed.data.standaloneName,
@@ -655,7 +655,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       offerId: uo.offerId,
       clinicId: uo.clinicId,
       isStandalone: !!parsed.data.isStandalone,
-      bookingRoute: "clinic",
+      bookingRoute: "cs",
       membershipType: uo.membershipType ?? "none",
       hadCashback: cashbackDeducted > 0 || !!parsed.data.cashbackAppliedKwd,
       sessionPriceKwd: sessionGross,
@@ -1092,7 +1092,7 @@ schedulingRouter.post("/requests/:id/propose", authRequired, requireRole(["clini
   if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
     return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
   }
-  if (!["under_review", "slot_proposed", "slot_accepted"].includes(breq.status)) {
+  if (!["under_review", "slot_proposed", "slot_accepted", "awaiting_session_payment"].includes(breq.status)) {
     return res.status(409).json({ error: "INVALID_STATE" });
   }
   const updated = await bookingRequestsStore.update(breq.id, {
@@ -1128,7 +1128,7 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
     return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
   }
-  if (!["slot_proposed", "slot_accepted", "under_review"].includes(breq.status)) {
+  if (!["slot_proposed", "slot_accepted", "under_review", "awaiting_session_payment"].includes(breq.status)) {
     return res.status(409).json({ error: "INVALID_STATE" });
   }
   const bodyParsed = ProposeSchema.safeParse(req.body ?? {});
