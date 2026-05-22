@@ -1183,12 +1183,13 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 
-function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, walletBalanceKwd, baseCashbackKwd, onSubmit, isBooking, clinicProducts }: {
+function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, walletBalanceKwd, baseCashbackKwd, baseItemName, onSubmit, isBooking, clinicProducts }: {
   isOpen: boolean;
   onClose: () => void;
   baseAmountKwd: string;
   walletBalanceKwd: string;
   baseCashbackKwd: string;
+  baseItemName?: string;
   onSubmit: (extraItems: any[], cashbackToDeductKwd: string) => Promise<void>;
   isBooking?: boolean;
   clinicProducts?: {name: string; priceKwd: string; cashbackDeductionKwd?: string}[];
@@ -1231,7 +1232,7 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, walletBalanceKwd, ba
         <div className="p-5 overflow-y-auto space-y-6">
           {/* Base Session */}
           <div className="flex items-center justify-between pb-3 border-b border-surface-100">
-            <span className="font-bold text-surface-700">{isBooking ? (ar() ? "قيمة الحجز / الجلسة" : "Session Booking Base") : (ar() ? "الجلسة الأساسية" : "Base Session")}</span>
+            <span className="font-bold text-surface-700">{baseItemName || (ar() ? "حجز الجلسة الأساسي" : "Session Booking Base")}</span>
             <span className="font-mono font-bold text-surface-900">{baseAmount.toFixed(3)} KWD</span>
           </div>
 
@@ -1616,9 +1617,10 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
         isOpen={!!checkoutBooking} 
         isBooking={true}
         onClose={() => setCheckoutBooking(null)} 
-        baseAmountKwd={checkoutBooking ? Math.max(0, parseFloat(checkoutBooking.clinicTakeKwd || checkoutBooking.sessionPriceKwd || "0") - parseFloat(checkoutBooking.cashbackDeductedKwd || "0")).toFixed(3) : "0.000"} 
+        baseItemName={checkoutBooking?.offerName ? `${checkoutBooking.offerName} Session Booking` : "Session Booking Base"}
+        baseAmountKwd={checkoutBooking?.clinicTakeKwd || checkoutBooking?.sessionPriceKwd || "0"} 
         walletBalanceKwd={maxCashbackKwd}
-        baseCashbackKwd={"0"} // The base session's cashback was already applied online when booking
+        baseCashbackKwd={checkoutBooking?.maxSessionCashbackKwd || "0"}
         clinicProducts={clinicProducts}
         onSubmit={async (extraItems, cashbackToDeductKwd) => {
           if (checkoutBooking) {

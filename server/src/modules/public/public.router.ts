@@ -319,10 +319,15 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
       // BookingRequest.offerId is a String, not an ObjectId ref, so we manually look up offers
       const bookingOfferIds = [...new Set((bookings as any[]).map((b: any) => b.offerId).filter(Boolean))];
       const bookingOffers = bookingOfferIds.length
-        ? await OfferModel.find({ _id: { $in: bookingOfferIds } }).select("cashbackPerSessionKwd").lean()
+        ? await OfferModel.find({ _id: { $in: bookingOfferIds } }).select("cashbackPerSessionKwd name").lean()
         : [];
-      const bookingOfferMap: Record<string, string> = {};
-      (bookingOffers as any[]).forEach((o: any) => { bookingOfferMap[String(o._id)] = o.cashbackPerSessionKwd ?? "0.000"; });
+      const bookingOfferMap: Record<string, { cb: string; name: string }> = {};
+      (bookingOffers as any[]).forEach((o: any) => { 
+        bookingOfferMap[String(o._id)] = { 
+          cb: o.cashbackPerSessionKwd ?? "0.000",
+          name: o.name ?? ""
+        }; 
+      });
 
       clinicBookings = (bookings as any[]).map((b: any) => ({
         id: String(b._id),
@@ -332,7 +337,8 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         clinicTakeKwd: b.clinicTakeKwd ?? null,
         createdAt: b.createdAt ? new Date(b.createdAt).toISOString() : null,
         cashbackDeductedKwd: b.cashbackDeductedKwd ?? null,
-        maxSessionCashbackKwd: bookingOfferMap[String(b.offerId)] ?? null,
+        maxSessionCashbackKwd: bookingOfferMap[String(b.offerId)]?.cb ?? null,
+        offerName: bookingOfferMap[String(b.offerId)]?.name ?? null,
       }));
     }
 

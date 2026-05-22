@@ -1239,26 +1239,36 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
     await bookingRequestsStore.update(breq.id, { sessionPaymentId: payDoc.id });
   }
 
-  if (parsed.data.cashbackToDeductKwd && parseFloat(parsed.data.cashbackToDeductKwd) > 0) {
-    const deductionAmount = parseFloat(parsed.data.cashbackToDeductKwd).toFixed(3);
+  const cbToDeduct = parseFloat(parsed.data.cashbackToDeductKwd || "0");
+  const alreadyDeducted = parseFloat(breq.cashbackDeductedKwd || "0");
+  const diff = cbToDeduct - alreadyDeducted;
+
+  if (diff > 0) {
     const resAdjust = await kycStore.deductUnlocked({
       userId: breq.userId,
-      amountKwd: deductionAmount,
+      amountKwd: diff.toFixed(3),
       reference: { kind: "session", id: breq.id },
       createdBy: { kind: "admin", id: req.auth!.userId }
     });
     if ("error" in resAdjust) {
       return res.status(400).json({ error: resAdjust.error });
     }
+  } else if (diff < 0) {
+    await kycStore.adjustUnlocked({
+      userId: breq.userId,
+      amountKwd: Math.abs(diff).toFixed(3),
+      reason: "Cashback un-applied at clinic POS",
+      createdById: req.auth!.userId
+    });
   }
 
   let totalBillKwd: string | undefined;
   let finalPaidKwd: string | undefined;
   
   const extraSum = parsed.data.extraItems?.reduce((sum, item) => sum + parseFloat(item.priceKwd) * item.qty, 0) || 0;
-  totalBillKwd = extraSum.toFixed(3);
-  const cbDeduct = parseFloat(parsed.data.cashbackToDeductKwd || "0");
-  finalPaidKwd = Math.max(0, extraSum - cbDeduct).toFixed(3);
+  const basePrice = parseFloat(breq.sessionPriceKwd || "0");
+  totalBillKwd = (basePrice + extraSum).toFixed(3);
+  finalPaidKwd = Math.max(0, basePrice + extraSum - cbToDeduct).toFixed(3);
 
   const updated = await bookingRequestsStore.update(breq.id, {
     clinicPaymentStatus: "paid",
@@ -1266,7 +1276,8 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
     clinicPaymentMarkedBy: req.auth!.userId,
     extraItems: parsed.data.extraItems,
     totalBillKwd,
-    finalPaidKwd
+    finalPaidKwd,
+    cashbackDeductedKwd: cbToDeduct > 0 ? cbToDeduct.toFixed(3) : undefined
   });
 
   if (updated?.conversationId) {
