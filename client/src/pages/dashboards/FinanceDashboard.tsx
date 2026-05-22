@@ -239,14 +239,14 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
   return (
     <div className="space-y-5">
       {/* KPIs */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <KpiCard label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={`${revenue} KWD`} sub={`${totals?.transactions ?? 0} ${ar() ? "معاملة" : "transactions"}`} color="text-emerald-600" icon="💰" />
         <KpiCard label={ar() ? "الكاش باك المطبق" : "Cashback Applied"} value={`${cashbackApplied} KWD`} sub={ar() ? "من الإيرادات" : "off revenue"} color="text-amber-600" icon="🎁" />
         <KpiCard label={ar() ? "التزام الكاش باك" : "Cashback Liability"} value={`${cashbackLiability} KWD`} sub={ar() ? "صافي مستحق" : "net outstanding"} color="text-indigo-600" icon="⚖️" />
       </div>
 
       {/* Secondary KPIs */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label={ar() ? "مدفوعات معلقة" : "Pending Payments"} value={`${snapshot?.pendingPaymentsKwd ?? "0.000"} KWD`} sub={`${snapshot?.pendingPaymentsCount ?? 0} ${ar() ? "طلب" : "requests"}`} color="text-amber-600" />
         <KpiCard label={ar() ? "إيرادات العضويات" : "Membership Revenue"} value={`${breakdown?.summary?.membershipRevenueKwd ?? "0.000"} KWD`} color="text-brand-pink-600" />
         <KpiCard label={ar() ? "إيرادات الجلسات" : "Session Revenue"} value={`${breakdown?.summary?.sessionRevenueKwd ?? "0.000"} KWD`} color="text-indigo-600" />
@@ -383,7 +383,7 @@ function PaymentsTab({ from, to }: { from: string; to: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label={ar() ? "المحصّل" : "Collected"} value={`${summary?.totalCollectedKwd ?? "0.000"} KWD`} color="text-emerald-600" />
         <KpiCard label={ar() ? "العضويات" : "Memberships"} value={`${summary?.membershipRevenueKwd ?? "0.000"} KWD`} color="text-brand-pink-600" />
         <KpiCard label={ar() ? "الجلسات" : "Sessions"} value={`${summary?.sessionRevenueKwd ?? "0.000"} KWD`} color="text-indigo-600" />
@@ -476,7 +476,7 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label={ar() ? "أقساط مدفوعة" : "Paid Installments"} value={`${summary?.paidKwd ?? "0.000"} KWD`} color="text-emerald-600" />
         <KpiCard label={ar() ? "أقساط قادمة" : "Upcoming"} value={`${summary?.upcomingKwd ?? "0.000"} KWD`} sub={`${summary?.upcomingCount ?? 0} ${ar() ? "قسط" : "items"}`} color="text-amber-600" />
         <KpiCard label={ar() ? "أقساط متأخرة" : "Late"} value={`${summary?.lateKwd ?? "0.000"} KWD`} sub={`${summary?.lateCount ?? 0} ${ar() ? "قسط" : "items"}`} color="text-red-600" />
@@ -582,7 +582,7 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
     <div className="space-y-5">
 
       {/* Top-line analytics KPIs */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label={ar() ? "إجمالي إيرادات العروض" : "Total Offer Revenue"} value={`${fmt(totalOfferRevenue)} KWD`} color="text-emerald-600" icon="📦" />
         <KpiCard label={ar() ? "إجمالي المبيعات" : "Total Sales"} value={String(totalOfferSales)} color="text-indigo-600" icon="🛒" />
         <KpiCard label={ar() ? "عدد العروض" : "Active Offers"} value={String((offers?.items ?? []).length)} color="text-blue-600" icon="📋" />
@@ -838,7 +838,7 @@ function ReportsTab({ from, to }: { from: string; to: string }) {
 
         {error && <div className="mb-3 rounded-lg bg-red-50 text-red-700 text-xs px-3 py-2 border border-red-200">{error}</div>}
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
           {reports.map(r => (
             <div key={r.kind} className="flex items-center justify-between rounded-xl border border-surface-200 bg-white p-4 hover:border-brand-pink-300 transition-colors">
               <div className="flex items-center gap-3 min-w-0">
@@ -1002,7 +1002,7 @@ function ClinicsTab({ from, to }: { from: string; to: string }) {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <KpiCard label={ar() ? "إجمالي العيادات" : "Total Clinics"} value={String(data?.items.length ?? 0)} color="text-indigo-600" icon="🏥" />
         <KpiCard label={ar() ? "إجمالي الجلسات" : "Total Sessions"} value={String(totalSessions)} color="text-blue-600" icon="📅" />
         <KpiCard label={ar() ? "متوسط الاستخدام" : "Avg Utilization"} value={`${avgUtilization.toFixed(1)}%`} color="text-emerald-600" icon="📈" />
@@ -1156,7 +1156,7 @@ function ReliefTab({ from, to }: { from: string; to: string }) {
       {byMethodSorted.length > 0 && (
         <div className="card-elevated p-5">
           <h3 className="text-sm font-bold text-surface-900 mb-4">{ar() ? "الاستردادات حسب طريقة الدفع" : "Refunds by Payment Method"}</h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 mb-8">
             {byMethodSorted.map(([method, v]) => (
               <div key={method} className="rounded-xl border border-surface-100 bg-surface-50 p-4 flex flex-col gap-1">
                 <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full self-start border ${METHOD_COLORS[method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>
@@ -1382,7 +1382,7 @@ function ProfileTab() {
       <div className="card-elevated p-5">
         <h4 className="font-bold text-surface-900 text-sm mb-1">{ar() ? "صلاحيات الوصول" : "Access Rights"}</h4>
         <p className="text-xs text-surface-400 mb-4">{ar() ? "الأقسام والبيانات التي يمكنك الاطلاع عليها" : "Dashboard sections and data you have access to"}</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {[
             { label: ar() ? "نظرة عامة على الإيرادات" : "Revenue Overview", ok: true },
             { label: ar() ? "سجل المدفوعات" : "Payments Ledger", ok: true },
@@ -1581,7 +1581,7 @@ function ManualEntriesTab() {
             {saveMsg.text}
           </div>
         )}
-        <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
           <div>
             <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "المبلغ (KWD)" : "Amount (KWD)"} <span className="text-red-500">*</span></label>
             <input

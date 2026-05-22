@@ -496,7 +496,7 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
       </div>
 
       {financial && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
           <div className="bg-white rounded-2xl border border-surface-200 p-4 shadow-sm">
             <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">
               {ar() ? "إجمالي المبيعات" : "Total Sales"}
@@ -921,7 +921,7 @@ function ClinicReportsTab({ clinicId: _clinicId }: { clinicId: string }) {
       </div>
 
       {s && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {[
             { label: ar() ? "إجمالي الجلسات" : "Total Sessions", value: s.totalSessions },
             { label: ar() ? "مكتملة" : "Completed", value: s.completedSessions, color: "text-emerald-700" },
@@ -1409,7 +1409,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
             <svg className="w-5 h-5 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             {ar() ? "المعلومات الشخصية" : "Personal Information"}
           </h4>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {memberships.length > 0 && (
               <div className="sm:col-span-2 bg-gradient-to-r from-surface-50 to-white rounded-2xl p-5 border border-surface-200 shadow-sm">
                 <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-3">{ar() ? "ملخص العضويات" : "Membership Summary"}</div>
@@ -1601,7 +1601,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
             <div className="text-center py-8 text-sm text-surface-400">{ar() ? "لم يتم تقديم طلب التحقق" : "No KYC submission"}</div>
           ) : (
             <>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-2 gap-3">
                 <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
                   <div className="text-xs text-surface-500">{ar() ? "الحالة" : "Status"}</div>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${kyc.status === "approved" ? "bg-emerald-50 text-emerald-700" : kyc.status === "rejected" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"}`}>{kyc.status}</span>
@@ -2078,7 +2078,7 @@ export default function ClinicDashboard() {
         {activeNav === "home" && (
           <>
             {/* Stats */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+            <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4 mb-8">
               <KpiCard icon={Icons.calendar} label={ar() ? "إجمالي المواعيد" : "Total Sessions"} value={sessions.length} isHighlighted />
               <KpiCard icon={Icons.calendar} label={ar() ? "مجدولة" : "Scheduled"} value={scheduled.length} iconBg="bg-blue-50" iconText="text-blue-600" iconBorder="border-blue-100" />
               <KpiCard icon={Icons.calendar} label={ar() ? "مكتملة" : "Completed"} value={completed.length} iconBg="bg-emerald-50" iconText="text-emerald-600" iconBorder="border-emerald-100" />
@@ -2092,7 +2092,7 @@ export default function ClinicDashboard() {
                 <button className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg" onClick={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }}>↻ {ar() ? "تحديث السجل" : "Refresh Log"}</button>
               </div>
               {loading ? (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{[1,2,3,4].map(i => <div key={i} className="shimmer h-64 rounded-3xl" />)}</div>
+                <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">{[1,2,3,4].map(i => <div key={i} className="shimmer h-64 rounded-3xl" />)}</div>
               ) : sessions.length === 0 ? (
                 <div className="card-elevated p-12 text-center flex flex-col items-center justify-center border-dashed border-2 border-surface-200 bg-surface-50/50 min-h-[300px]">
                   <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl shadow-sm mb-4">📅</div>
@@ -2100,7 +2100,7 @@ export default function ClinicDashboard() {
                   <div className="text-sm text-surface-500">{ar() ? "لا توجد مواعيد مجدولة لهذه العيادة حالياً." : "No appointments scheduled for this clinic at the moment."}</div>
                 </div>
               ) : (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4">
                   {sessions.sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt)).map(s => (
                     <SessionCard key={s.id} session={s} onMark={markSession} onRefresh={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }} />
                   ))}

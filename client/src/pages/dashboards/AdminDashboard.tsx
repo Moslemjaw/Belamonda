@@ -2096,7 +2096,7 @@ export function UserProfilePanel({
                 {isAdmin && (
                   <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                     <div className="text-xs font-bold text-emerald-800 uppercase mb-3">{ar() ? "منح عضوية" : "Grant Membership"}</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <select
                         className="input-field"
                         value={grantOfferId}
@@ -2327,7 +2327,7 @@ export function UserProfilePanel({
                           {profile.kyc.status}
                         </span>
                       </div>
-                      <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
                           <div className="text-xs text-surface-500">{ar() ? "رقم الهوية المدنية (مخفي)" : "Civil ID (masked)"}</div>
                           <div className="mt-1 font-black text-surface-900 tracking-widest text-lg font-mono">{profile.kyc.civilIdNumberMasked}</div>
@@ -2352,7 +2352,7 @@ export function UserProfilePanel({
                     </div>
 
                     {/* Documents */}
-                    <div className="grid sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       {[
                         { label: ar() ? "صورة الهوية (الأمامية)" : "Civil ID — Front", ref: profile.kyc.civilIdFrontRef },
                         { label: ar() ? "صورة الهوية (الخلفية)" : "Civil ID — Back", ref: profile.kyc.civilIdBackRef },
@@ -2667,7 +2667,7 @@ export function UsersManager() {
             </div>
             <div className="p-6 overflow-y-auto">
               <form id="addUserForm" onSubmit={handleAddSubmit} className="space-y-6">
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                   <div>
                     <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "الاسم الكامل" : "Full Name"} *</label>
                     <input required type="text" className="input-field" value={addForm.fullName} onChange={e => setAddForm(p => ({ ...p, fullName: e.target.value }))} />
@@ -2703,7 +2703,7 @@ export function UsersManager() {
                           </button>
                         )}
                         <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">{ar() ? `باقة ${idx + 1}` : `Membership ${idx + 1}`}</div>
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "اختيار باقة/جلسة" : "Select Offer/Session"}</label>
                             <select className="select-field" value={en.offerId} onChange={e => updateEnrollment(idx, { offerId: e.target.value })}>
@@ -2722,7 +2722,7 @@ export function UsersManager() {
                           )}
                         </div>
                         {en.offerId && (
-                          <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="grid grid-cols-2 gap-3">
                             <div>
                               <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "نوع الدفع" : "Purchase Mode"}</label>
                               <select className="select-field" value={en.purchaseMode} onChange={e => updateEnrollment(idx, { purchaseMode: e.target.value })}>
@@ -3560,7 +3560,7 @@ export default function AdminDashboard() {
           <div className="space-y-8 animate-fade-in">
 
             {/* ── KPI Cards ── */}
-            <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-6">
               <KpiCard icon={Icons.chart} label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={fs?.totalRevenue || "0.000"} sub="KWD" isHighlighted />
               <KpiCard accent="blue" icon={Icons.cash} label={ar() ? "مدفوعات معلقة" : "Pending Payments"} value={(paymentsData?.items || []).length} sub={`${fs?.pendingPaymentsKwd || "0.000"} KWD`} />
               <KpiCard accent="amber" icon={Icons.shield} label={ar() ? "تحققات KYC معلقة" : "Pending KYC"} value={(kycData?.items || []).length} sub={ar() ? "بانتظار المراجعة" : "awaiting review"} />
@@ -3572,7 +3572,7 @@ export default function AdminDashboard() {
             {/* ── Financial Snapshot ── */}
             <div>
               <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "النظرة المالية" : "Financial Snapshot"}</h3>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
                 {[
                   { label: ar() ? "الإيرادات" : "Revenue", value: fs?.totalRevenue || "0.000", color: "text-surface-900", border: "border-l-surface-400" },
                   { label: ar() ? "معلقة" : "Pending", value: fs?.pendingPaymentsKwd || "0.000", color: "text-blue-600", border: "border-l-blue-400" },

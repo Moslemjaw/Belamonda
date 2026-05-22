@@ -378,7 +378,7 @@ export default function DashboardShell({
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar — light brand hero header */}
-        <header className="relative pt-safe bg-gradient-to-br from-brand-pink-50 via-white to-brand-sage-50 border-b border-surface-100 px-3 py-3 sm:px-4 lg:px-8 lg:py-5">
+        <header className="relative pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] pb-4 px-4 sm:px-6 lg:px-8 lg:py-5 bg-gradient-to-br from-brand-pink-50 via-white to-brand-sage-50 border-b border-surface-100">
           {/* subtle bokeh blobs */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             <div className="absolute -top-12 -right-12 w-64 h-64 bg-brand-pink-200/30 rounded-full blur-3xl" />
@@ -386,7 +386,7 @@ export default function DashboardShell({
           </div>
 
           <div className="relative z-10 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex items-center gap-4 min-w-0">
               {/* Mobile menu button */}
               <button
                 className="rounded-xl p-2 text-surface-600 hover:bg-white hover:shadow-sm transition-all lg:hidden shrink-0"

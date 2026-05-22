@@ -891,7 +891,7 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
             <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             <h2 className="text-xl font-bold">{ar ? "أنت مشترك حالياً في برو" : "You are currently subscribed to Pro"}</h2>
           </div>
-          <div className="grid sm:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="bg-surface-50 p-4 rounded-xl border border-surface-100">
               <div className="text-sm text-surface-500 mb-1">{ar ? "طريقة الدفع" : "Payment Plan"}</div>
               <div className="font-bold text-surface-900 capitalize">{paymentType}</div>
@@ -1693,7 +1693,7 @@ export default function CustomerDashboard() {
                   })}
                 </div>
               </div>
-              <div className="grid gap-5 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 pt-2">
+              <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 pt-2">
                 {sorted.map((o: any) => {
                   const isFeatured = o.id === featuredId && sorted.length > 1;
                   const sessions = o.sessionCount || o.maxSessions;
@@ -2306,7 +2306,7 @@ export default function CustomerDashboard() {
                  </div>
 
                  {/* Sessions Grid — 1 col phone, 2 tablet/desktop, 3 wide */}
-                 <div className="grid gap-4 sm:gap-5 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
+                 <div className="grid grid-cols-2 gap-3 sm:gap-5 xl:grid-cols-3">
                     {dynamicTreatments.filter((t: any) => sessionFilter === "all" || t.category === sessionFilter).map((t: any) => {
                        const activeOffers = offers.filter(o => o.status === 'active');
                        // Any active membership that covers this session category counts.
