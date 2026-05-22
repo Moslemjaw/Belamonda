@@ -177,8 +177,12 @@ async function assertRequiredEForm(userId: string, eFormId?: string | mongoose.T
   }
 }
 
-async function assertNoPendingForms(userId: string, targets: Array<{ kind: string; refId: string }>) {
-  const pending = await listRequiredFormsForUser(userId, targets, "first_payment");
+async function assertNoPendingForms(userId: string, targets: Array<{ kind: string; refId: string }>, excludeIds: any[] = []) {
+  let pending = await listRequiredFormsForUser(userId, targets, "first_payment");
+  if (excludeIds.length > 0) {
+    const excludeSet = new Set(excludeIds.filter(Boolean).map(String));
+    pending = pending.filter(f => !excludeSet.has(String(f.id)));
+  }
   if (pending.length > 0) {
     throw httpErr(409, "EFORMS_REQUIRED", { forms: pending });
   }
@@ -348,7 +352,9 @@ export async function checkoutFull(input: {
   await assertEnrollmentCap(offer, input.offerId);
 
   await assertRequiredEForm(input.userId, offer.fullPaymentEFormId);
-  await assertNoPendingForms(input.userId, [{ kind: "offer", refId: String(offer._id) }]);
+  await assertNoPendingForms(input.userId, [{ kind: "offer", refId: String(offer._id) }], [
+    offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
+  ]);
 
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
   const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);
@@ -439,6 +445,8 @@ export async function checkoutInstallments(input: {
   await assertNoPendingForms(input.userId, [
     { kind: "offer", refId: String(offer._id) },
     { kind: "installment_plan", refId: String(input.count) }
+  ], [
+    offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
   ]);
 
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);

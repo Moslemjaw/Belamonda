@@ -2773,15 +2773,13 @@ function EFormsViewer() {
   const downloadPdf = async (subId: string) => {
     try {
       const headers = getAuthHeader();
-      const res = await fetch(`${(import.meta as any).env.VITE_API_URL || ""}/eforms/submissions/${subId}/pdf`, { headers: headers as any });
-      if (!res.ok) throw new Error("Failed to download PDF");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `form-${subId}.pdf`;
-      a.click();
-      URL.revokeObjectURL(url);
+      let token = "";
+      if (headers?.Authorization?.startsWith("Bearer ")) {
+        token = headers.Authorization.slice(7);
+      }
+      const baseUrl = (import.meta as any).env.VITE_API_URL || "";
+      const url = `${baseUrl}/eforms/submissions/${subId}/pdf?token=${encodeURIComponent(token)}`;
+      window.open(url, "_blank");
     } catch (e: any) { alert(e.message); }
   };
 

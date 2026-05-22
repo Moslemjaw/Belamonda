@@ -620,15 +620,8 @@ function MyFormsSection() {
   const downloadPdf = async (id: string) => {
     const token = (getAuthHeader() as any)?.Authorization?.replace("Bearer ", "");
     try {
-      const r = await fetch(`${API_BASE_URL}/eforms/submissions/${id}/pdf`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!r.ok) throw new Error("Failed");
-      const blob = await r.blob();
-      const u = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = u; a.download = `form-${id}.pdf`; document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(u), 5000);
+      const url = `${API_BASE_URL}/eforms/submissions/${id}/pdf?token=${encodeURIComponent(token || "")}`;
+      window.open(url, "_blank");
     } catch (e: any) { alert(e.message); }
   };
 

@@ -12,10 +12,16 @@ declare global {
 
 export function authRequired(req: Request, res: Response, next: NextFunction) {
   const header = req.header("authorization");
-  if (!header?.startsWith("Bearer ")) {
+  let token = "";
+  if (header?.startsWith("Bearer ")) {
+    token = header.slice("Bearer ".length);
+  } else if (typeof req.query.token === "string") {
+    token = req.query.token;
+  }
+
+  if (!token) {
     return res.status(401).json({ error: "UNAUTHORIZED" });
   }
-  const token = header.slice("Bearer ".length);
 
   try {
     const payload = verifyAccessToken(token);
