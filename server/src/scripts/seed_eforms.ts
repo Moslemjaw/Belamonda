@@ -288,117 +288,9 @@ function buildFormDocument(spec: FormSpec) {
       order: 0,
     },
     ...clientDetailsFields(spec.offerName.toLowerCase().replace(/\s+/g, "_")),
-
-    // Number of cards
-    {
-      key: "num_cards",
-      type: "short_text",
-      labelEn: "Number of Cards",
-      labelAr: "عدد البطاقات",
-      helpText: "How many cards is the client purchasing?",
-      required: true,
-      order: 4,
-    },
-
-    // Total amount
-    {
-      key: "total_amount",
-      type: "short_text",
-      labelEn: "Total Amount (KWD)",
-      labelAr: "المبلغ الإجمالي (د.ك)",
-      helpText: "Total price for all cards in Kuwaiti Dinar",
-      required: true,
-      order: 5,
-    },
   ];
 
-  let orderCounter = 6;
-
-  // Payment-specific fields
-  if (spec.paymentType === "full_payment") {
-    fields.push({
-      key: "payment_full_amount",
-      type: "short_text",
-      labelEn: "Amount Paid at Signing (KWD)",
-      labelAr: "المبلغ المدفوع عند التوقيع (د.ك)",
-      required: true,
-      order: orderCounter++,
-    });
-  }
-
-  if (spec.paymentType === "installments_2") {
-    fields.push(
-      {
-        key: "section_installments",
-        type: "static_text",
-        labelEn: "💳 Installment Schedule / جدول الأقساط",
-        labelAr: "💳 جدول الأقساط",
-        required: false,
-        order: orderCounter++,
-      },
-      {
-        key: "inst1_amount",
-        type: "short_text",
-        labelEn: "1st Installment Amount (KWD) — Due at Signing",
-        labelAr: "القسط الأول (د.ك) — مستحق عند التوقيع وطلب الشراء",
-        required: true,
-        order: orderCounter++,
-      },
-      {
-        key: "inst2_amount",
-        type: "short_text",
-        labelEn: "2nd Installment Amount (KWD)",
-        labelAr: "القسط الثاني (د.ك)",
-        required: true,
-        order: orderCounter++,
-      },
-      {
-        key: "inst2_date",
-        type: "date",
-        labelEn: "2nd Installment Due Date",
-        labelAr: "تاريخ استحقاق القسط الثاني",
-        required: true,
-        order: orderCounter++,
-      }
-    );
-  }
-
-  if (spec.paymentType === "deposit") {
-    fields.push(
-      {
-        key: "section_deposit",
-        type: "static_text",
-        labelEn: "💰 Deposit Details / تفاصيل العربون",
-        labelAr: "💰 تفاصيل العربون",
-        required: false,
-        order: orderCounter++,
-      },
-      {
-        key: "deposit_amount",
-        type: "short_text",
-        labelEn: "Deposit Amount (KWD) — Due at Signing",
-        labelAr: "مبلغ العربون (د.ك) — مستحق عند التوقيع",
-        required: true,
-        order: orderCounter++,
-      },
-      {
-        key: "remaining_amount",
-        type: "short_text",
-        labelEn: "Remaining Balance (KWD)",
-        labelAr: "المبلغ المتبقي (د.ك)",
-        required: true,
-        order: orderCounter++,
-      },
-      {
-        key: "remaining_due_date",
-        type: "date",
-        labelEn: "Remaining Balance Due Date",
-        labelAr: "تاريخ استحقاق المبلغ المتبقي",
-        required: true,
-        order: orderCounter++,
-      }
-    );
-  }
+  let orderCounter = 4;
 
   // Terms & Conditions
   fields.push(
@@ -417,15 +309,6 @@ function buildFormDocument(spec: FormSpec) {
       labelAr: "أقر بإطلاعي على الشروط والأحكام أعلاه وأوافق عليها",
       required: true,
       options: ["Yes / نعم"],
-      order: orderCounter++,
-    },
-    // Date
-    {
-      key: "agreement_date",
-      type: "date",
-      labelEn: "Date",
-      labelAr: "التاريخ",
-      required: true,
       order: orderCounter++,
     },
     // Signature
@@ -560,7 +443,8 @@ async function main() {
     // Check if this form already exists (avoid duplicates)
     const existing = await EFormModel.findOne({ title: doc.title, archived: false }).lean();
     if (existing) {
-      console.log(`  ⏩ Already exists: "${doc.title}" — skipping`);
+      console.log(`  🔄 Already exists: "${doc.title}" — updating fields...`);
+      await EFormModel.updateOne({ _id: existing._id }, { $set: { fields: doc.fields } });
       skipped++;
       continue;
     }

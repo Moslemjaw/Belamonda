@@ -4,7 +4,7 @@ import fs from "fs";
 import multer from "multer";
 import mongoose from "mongoose";
 import { z } from "zod";
-import PDFDocument from "pdfkit";
+import puppeteer from "puppeteer";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { UserOfferModel } from "../../models/userOffer.model.js";
@@ -489,86 +489,177 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     const isStaff = req.auth!.role === "admin" || req.auth!.role === "legal";
     if (!isOwner && !isStaff) return res.status(403).json({ error: "FORBIDDEN" });
 
-    const doc = new PDFDocument({ size: "A4", margin: 50 });
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="form-${String(sub._id)}.pdf"`);
-    doc.pipe(res);
-
-    doc.fontSize(20).fillColor("#0f172a").text(sub.formTitle, { align: "left" });
-    doc
-      .moveDown(0.2)
-      .fontSize(10)
-      .fillColor("#64748b")
-      .text(`Submission ID: ${String(sub._id)}`)
-      .text(`Customer: ${sub.userId}`)
-      .text(`Submitted: ${sub.createdAt ? new Date(sub.createdAt).toISOString() : "—"}`)
-      .text(`Form version: ${sub.formVersion}`);
-    doc.moveDown(0.6);
-    doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#e2e8f0").stroke();
-    doc.moveDown(0.8);
-
     const answersByKey = new Map((sub.answers ?? []).map((a: any) => [a.key, a.value]));
     const fields = ((sub.formSnapshot ?? []) as any[]).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
+    let fieldsHtml = "";
     for (const f of fields) {
-      doc.fontSize(11).fillColor("#0f172a").text(`${f.labelEn}${f.required ? " *" : ""}`);
       if (f.type === "static_text") {
-        doc.moveDown(0.6);
+        const textEn = f.labelEn || "";
+        const textAr = f.labelAr || "";
+        const content = textAr ? `${textAr}\n\n${textEn}` : textEn;
+        
+        // Escape content slightly just for safety, although it's trusted data from DB
+        const safeContent = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        
+        fieldsHtml += `
+          <div class="static-text">
+            ${safeContent.replace(/\n/g, "<br>")}
+          </div>
+        `;
         continue;
       }
+      
       const value = answersByKey.get(f.key);
       let display = "—";
       if (Array.isArray(value)) display = value.join(", ");
       else if (value !== undefined && value !== null && value !== "") display = String(value);
       if (f.type === "signature" || f.type === "file_upload") display = "(see attached)";
-      doc.fontSize(11).fillColor("#334155").text(display, { indent: 10 });
-      doc.moveDown(0.6);
+      
+      const label = f.labelAr ? f.labelAr : f.labelEn;
+      const safeLabel = label.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeDisplay = display.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      
+      fieldsHtml += `
+        <div class="field-row">
+          <div class="field-label">${safeLabel}${f.required ? " *" : ""}</div>
+          <div class="field-value">${safeDisplay}</div>
+        </div>
+      `;
     }
 
+    let signatureHtml = "";
     if (sub.signatureRef) {
-      doc.moveDown(0.6);
-      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor("#e2e8f0").stroke();
-      doc.moveDown(0.6);
-      doc.fontSize(13).fillColor("#0f172a").text("Signed by");
-      doc.moveDown(0.3);
-      doc
-        .fontSize(10)
-        .fillColor("#475569")
-        .text(`Customer ID: ${sub.userId}`)
-        .text(`Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}`)
-        .text(`IP: ${sub.ip ?? "—"}`)
-        .text(`User Agent: ${sub.userAgent ?? "—"}`);
-      doc.moveDown(0.5);
       const sigPath = path.resolve(process.cwd(), "uploads", sub.signatureRef.replace(/^\/?uploads\//, ""));
       if (fs.existsSync(sigPath)) {
         try {
-          doc.image(sigPath, { fit: [220, 90] });
-        } catch {
-          doc.fontSize(10).fillColor("#94a3b8").text("(signature image could not be embedded)");
+          const base64 = fs.readFileSync(sigPath).toString("base64");
+          const ext = sigPath.endsWith(".jpg") || sigPath.endsWith(".jpeg") ? "jpeg" : "png";
+          signatureHtml = `
+            <div class="signature-box">
+              <div class="signature-title">Customer Signature / توقيع المشترك</div>
+              <img class="signature-img" src="data:image/${ext};base64,${base64}" alt="Signature" />
+              <div class="signature-meta">
+                Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}<br>
+                IP: ${sub.ip ?? "—"} | User Agent: ${sub.userAgent ?? "—"}
+              </div>
+            </div>
+          `;
+        } catch (e) {
+          signatureHtml = `<div class="signature-box">Signature image could not be embedded</div>`;
         }
       } else {
-        doc.fontSize(10).fillColor("#94a3b8").text("(signature file not found)");
+        signatureHtml = `<div class="signature-box">Signature file not found</div>`;
       }
     }
 
+    let attachmentsHtml = "";
     if ((sub.uploadedFileRefs ?? []).length) {
-      doc.moveDown(0.6);
-      doc.fontSize(11).fillColor("#0f172a").text("Attached files:");
+      attachmentsHtml += `
+        <div class="section" style="margin-top: 30px;">
+          <div class="section-title">Attached Files / الملفات المرفقة</div>
+      `;
       for (const r of sub.uploadedFileRefs ?? []) {
-        // Stored ref format: eforms/{timestamp}_{random}_{safe_original_name}
         const basename = path.basename(r);
         const underscoreIdx = basename.indexOf("_", basename.indexOf("_") + 1);
         const displayName = underscoreIdx !== -1 ? basename.slice(underscoreIdx + 1) : basename;
-        doc.fontSize(10).fillColor("#475569").text(`• ${displayName}`, { indent: 10 });
+        attachmentsHtml += `<div class="field-row" style="font-size: 12px; color: #475569;">• ${displayName}</div>`;
       }
+      attachmentsHtml += `</div>`;
     }
 
-    doc.moveDown(1);
-    if (!sub.signatureRef) {
-      doc.fontSize(8).fillColor("#94a3b8").text(`IP: ${sub.ip ?? "—"}  •  UA: ${sub.userAgent ?? "—"}`);
-    }
+    const html = `
+    <!DOCTYPE html>
+    <html lang="ar" dir="rtl">
+    <head>
+      <meta charset="UTF-8">
+      <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Tajawal', sans-serif; color: #1e293b; line-height: 1.6; margin: 0; padding: 40px; background: #fff; }
+        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #db2777; padding-bottom: 20px; }
+        .logo { color: #db2777; font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 5px; }
+        .title { font-size: 24px; font-weight: 700; color: #0f172a; margin-top: 10px; }
+        .meta-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; margin-bottom: 30px; display: flex; justify-content: space-between; font-size: 12px; color: #475569; direction: ltr; text-align: left; }
+        .meta-item { display: flex; flex-direction: column; }
+        .meta-label { font-weight: 700; color: #0f172a; margin-bottom: 2px; }
+        
+        .section { margin-bottom: 30px; }
+        .section-title { font-size: 16px; font-weight: 700; color: #db2777; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-bottom: 15px; }
+        
+        .field-row { display: flex; border-bottom: 1px dashed #e2e8f0; padding: 10px 0; page-break-inside: avoid; align-items: flex-start; }
+        .field-label { flex: 0 0 35%; font-weight: 700; color: #334155; font-size: 14px; padding-left: 15px; }
+        .field-value { flex: 1; font-size: 15px; font-weight: 500; color: #0f172a; }
+        
+        .static-text { background: #f8fafc; padding: 20px; border-radius: 8px; font-size: 14px; color: #334155; margin: 30px 0; white-space: pre-line; line-height: 1.8; page-break-inside: auto; border-right: 4px solid #db2777; text-align: right; }
+        
+        .signature-box { border: 2px dashed #cbd5e1; border-radius: 8px; padding: 20px; text-align: center; margin-top: 40px; page-break-inside: avoid; background: #f1f5f9; }
+        .signature-title { font-size: 16px; font-weight: 700; margin-bottom: 10px; color: #0f172a; }
+        .signature-img { max-height: 120px; max-width: 300px; display: block; margin: 0 auto; mix-blend-mode: multiply; }
+        .signature-meta { font-size: 12px; color: #64748b; margin-top: 15px; direction: ltr; }
+        
+        .footer { text-align: center; font-size: 10px; color: #94a3b8; margin-top: 50px; padding-top: 20px; border-top: 1px solid #e2e8f0; direction: ltr; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <div class="logo">Belamonda</div>
+        <div class="title">${sub.formTitle}</div>
+      </div>
+      
+      <div class="meta-box">
+        <div class="meta-item">
+          <span class="meta-label">Customer ID</span>
+          <span>${sub.userId}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Submission ID</span>
+          <span>${String(sub._id)}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Date</span>
+          <span>${sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB") : "—"}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Version</span>
+          <span>v${sub.formVersion}</span>
+        </div>
+      </div>
 
-    doc.end();
+      <div class="content">
+        ${fieldsHtml}
+      </div>
+
+      ${signatureHtml}
+      ${attachmentsHtml}
+
+      <div class="footer">
+        Generated by Belamonda System • ${new Date().toISOString()}<br>
+        IP: ${sub.ip ?? "—"} • UA: ${sub.userAgent ?? "—"}
+      </div>
+    </body>
+    </html>
+    `;
+
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '0px', right: '0px', bottom: '0px', left: '0px' }
+    });
+    
+    await browser.close();
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="form-${String(sub._id)}.pdf"`);
+    res.send(Buffer.from(pdfBuffer));
   } catch (e) {
     next(e);
   }
