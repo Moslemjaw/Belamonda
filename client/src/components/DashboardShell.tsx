@@ -349,7 +349,7 @@ export default function DashboardShell({
         </nav>
 
         {/* User section */}
-        <div className="border-t border-surface-100 p-4 space-y-3">
+        <div className="border-t border-surface-100 p-4 pb-[calc(env(safe-area-inset-bottom,1rem)+1rem)] space-y-3 shrink-0">
           <div className="flex items-center gap-3">
             <div className="avatar avatar-sm">
               {displayName.charAt(0).toUpperCase() || "?"}

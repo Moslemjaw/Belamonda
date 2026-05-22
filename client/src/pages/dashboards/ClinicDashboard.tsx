@@ -1141,6 +1141,7 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, walletBalanceKwd, ba
   const { t } = useTranslation();
   const [extraItems, setExtraItems] = useState<{name: string, priceKwd: string, cashbackDeductionKwd?: string, qty: number}[]>([]);
   const [useCashback, setUseCashback] = useState(true);
+  const [customCb, setCustomCb] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [newItemPrice, setNewItemPrice] = useState("");
@@ -1158,7 +1159,15 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, walletBalanceKwd, ba
   const totalCbAllowance = baseCb + extraCbSum;
   const maxCb = Math.min(totalCbAllowance, walletBalance);
   
-  const applicableCashback = useCashback ? Math.min(totalBill, maxCb) : 0;
+  let applicableCashback = 0;
+  if (useCashback) {
+    if (customCb.trim() !== "") {
+      applicableCashback = Math.min(Math.max(0, parseFloat(customCb) || 0), maxCb, totalBill);
+    } else {
+      applicableCashback = Math.min(totalBill, maxCb);
+    }
+  }
+  
   const finalPay = Math.max(0, totalBill - applicableCashback);
 
   if (!isOpen) return null;
@@ -1250,16 +1259,37 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, walletBalanceKwd, ba
             <div className="p-4 bg-brand-pink-50 rounded-xl border border-brand-pink-200">
               <label className="flex items-center justify-between cursor-pointer">
                 <div className="flex items-center gap-2">
-                  <input type="checkbox" checked={useCashback} onChange={e => setUseCashback(e.target.checked)} className="rounded text-brand-pink-500 focus:ring-brand-pink-500 w-4 h-4" />
-                  <span className="font-bold text-sm text-brand-pink-900">{ar() ? "خصم الكاشباك التلقائي" : "Apply Cashback Discount"}</span>
+                  <input type="checkbox" checked={useCashback} onChange={e => {
+                    setUseCashback(e.target.checked);
+                    if (!e.target.checked) setCustomCb("");
+                  }} className="rounded text-brand-pink-500 focus:ring-brand-pink-500 w-4 h-4" />
+                  <span className="font-bold text-sm text-brand-pink-900">{ar() ? "خصم الكاشباك" : "Apply Cashback"}</span>
                 </div>
                 <div className="text-xs font-bold px-2 py-1 bg-white rounded-lg text-brand-pink-700 shadow-sm border border-brand-pink-100">
-                  {ar() ? "متاح:" : "Max:"} {maxCb.toFixed(3)}
+                  {ar() ? "الحد الأقصى:" : "Max:"} {maxCb.toFixed(3)}
                 </div>
               </label>
+              {useCashback && (
+                <div className="mt-3 text-sm text-brand-pink-800 flex justify-between border-t border-brand-pink-100/50 pt-3 items-center">
+                  <span>{ar() ? "مبلغ الخصم (اختياري جزء):" : "Amount to use (optional):"}</span>
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="number" 
+                      min="0" 
+                      max={maxCb} 
+                      step="0.001"
+                      className="border border-brand-pink-200 rounded-lg py-1 px-2 text-right w-24 text-sm focus:ring-brand-pink-400 focus:border-brand-pink-400 bg-white"
+                      placeholder={maxCb.toFixed(3)}
+                      value={customCb}
+                      onChange={e => setCustomCb(e.target.value)}
+                    />
+                    <span className="font-bold font-mono">KWD</span>
+                  </div>
+                </div>
+              )}
               {useCashback && applicableCashback > 0 && (
-                <div className="mt-3 text-sm text-brand-pink-800 flex justify-between border-t border-brand-pink-100/50 pt-2">
-                  <span>{ar() ? "الخصم المطبق:" : "Discount Applied:"}</span>
+                <div className="mt-2 text-sm text-brand-pink-800 flex justify-end gap-2">
+                  <span>{ar() ? "الخصم المطبق:" : "Applied Discount:"}</span>
                   <span className="font-bold font-mono">- {applicableCashback.toFixed(3)} KWD</span>
                 </div>
               )}

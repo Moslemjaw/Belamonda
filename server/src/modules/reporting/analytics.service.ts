@@ -82,7 +82,7 @@ export async function computePaymentsBreakdown(filters: {
   if (filters.purpose) q.purpose = filters.purpose;
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
-  const limit = Math.min(500, filters.limit ?? 200);
+  const limit = filters.limit ?? 50000;
 
   const [payments, totalCount] = await Promise.all([
     PaymentModel.find(q).sort({ createdAt: -1 }).limit(limit).lean(),
@@ -724,8 +724,8 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
   const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
   const todayStart = new Date(); todayStart.setUTCHours(0, 0, 0, 0);
   const [sessionsToday, sessionsThisMonth] = await Promise.all([
-    PaymentModel.countDocuments({ purpose: "session_payment", status: "completed", createdAt: { $gte: todayStart } }),
-    PaymentModel.countDocuments({ purpose: "session_payment", status: "completed", createdAt: { $gte: monthStart } }),
+    BookingSessionModel.countDocuments({ status: "completed", scheduledAt: { $gte: todayStart } }),
+    BookingSessionModel.countDocuments({ status: "completed", scheduledAt: { $gte: monthStart } }),
   ]);
 
   return {
@@ -1166,7 +1166,7 @@ export async function computeClinicSummaries(filters: { from?: string; to?: stri
   for (const s of sessionAgg) sessionMap.set(s._id, { total: s.total, completed: s.completed, noShow: s.noShow, scheduled: s.scheduled });
 
   // Revenue per clinic from payments breakdown
-  const breakdown = await computePaymentsBreakdown({ from: filters.from, to: filters.to, limit: 500 });
+  const breakdown = await computePaymentsBreakdown({ from: filters.from, to: filters.to, limit: 100000 });
   const revenueMap = new Map<string, { count: number; mils: number }>();
   for (const c of breakdown.byClinics) revenueMap.set(c.clinicId, { count: c.count, mils: parseKwd(c.totalKwd) });
 

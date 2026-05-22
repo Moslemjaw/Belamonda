@@ -2442,8 +2442,8 @@ export default function CustomerDashboard() {
                                   </div>
                                 ) : null}
 
-                                {/* Price + CTA row — stack on very narrow viewports */}
-                                <div className="flex flex-col gap-3 min-[400px]:flex-row min-[400px]:items-end min-[400px]:justify-between min-[400px]:gap-3">
+                                {/* Price + CTA row — always stack vertically for grid layout safety */}
+                                <div className="flex flex-col gap-3">
                                   <div className="min-w-0">
                                     <div className="flex items-baseline gap-1.5 flex-wrap">
                                       <span className={`text-2xl sm:text-3xl font-black leading-none tracking-tight ${hasMembership && actualCashbackKwd > 0 ? 'text-brand-pink-600' : 'text-surface-900'}`}>
@@ -2457,7 +2457,7 @@ export default function CustomerDashboard() {
                                   </div>
 
                                   <button
-                                    className={`px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center justify-center gap-2 shrink-0 w-full min-[400px]:w-auto ${availableClinics.length > 0 ? hasMembership ? 'bg-brand-gradient text-white shadow-glow hover:opacity-90 hover:-translate-y-0.5' : 'bg-surface-900 text-white shadow-md hover:bg-surface-800 hover:shadow-lg hover:-translate-y-0.5' : 'bg-surface-100 text-surface-400 cursor-not-allowed'}`}
+                                    className={`w-full px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl text-xs sm:text-sm font-black transition-all duration-200 flex items-center justify-center gap-2 ${availableClinics.length > 0 ? hasMembership ? 'bg-brand-gradient text-white shadow-glow hover:opacity-90 hover:-translate-y-0.5' : 'bg-surface-900 text-white shadow-md hover:bg-surface-800 hover:shadow-lg hover:-translate-y-0.5' : 'bg-surface-100 text-surface-400 cursor-not-allowed'}`}
                                     disabled={availableClinics.length === 0}
                                     onClick={() => {
                                       if (applicableCashbackOffer) {
