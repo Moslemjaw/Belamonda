@@ -16,16 +16,16 @@ const ar = () => i18n.language === "ar";
 
 function KpiCard({ label, value, icon, isHighlighted, iconBg = "bg-brand-pink-50", iconText = "text-brand-pink-600", iconBorder = "border-brand-pink-100" }: { label: string; value: string | number; icon: React.ReactNode; isHighlighted?: boolean; iconBg?: string; iconText?: string; iconBorder?: string; }) {
   return (
-    <div className={`card-elevated p-6 flex flex-col justify-between relative overflow-hidden group ${isHighlighted ? 'bg-gradient-to-br from-brand-pink-500 to-brand-pink-700 text-white border-none shadow-brand-pink-500/30 shadow-lg' : 'bg-white'}`}>
-      <div className={`absolute top-0 right-0 w-32 h-32 rounded-bl-[100px] -z-10 transition-transform duration-500 group-hover:scale-110 ${isHighlighted ? 'bg-white/10' : iconBg.replace('bg-', 'bg-').concat('/50')}`} />
-      <div className="flex justify-between items-start mb-6">
-        <div className={`flex h-14 w-14 items-center justify-center rounded-2xl shadow-sm backdrop-blur-md ${isHighlighted ? 'bg-white/20 text-white' : `${iconBg} ${iconText} border ${iconBorder}`}`}>
+    <div className={`card-elevated p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden group rounded-[28px] ${isHighlighted ? 'bg-gradient-to-br from-brand-pink-500 to-brand-pink-700 text-white border-none shadow-brand-pink-500/30 shadow-lg' : 'bg-white/80 backdrop-blur-xl border border-surface-200'}`}>
+      <div className={`absolute top-0 right-0 w-32 h-32 rounded-bl-[100px] -z-10 transition-transform duration-500 group-hover:scale-110 ${isHighlighted ? 'bg-white/10' : iconBg.replace('bg-', 'bg-').concat('/30')}`} />
+      <div className="flex justify-between items-start mb-4 sm:mb-6">
+        <div className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl shadow-sm backdrop-blur-md ${isHighlighted ? 'bg-white/20 text-white' : `${iconBg} ${iconText} border ${iconBorder}`}`}>
           {icon}
         </div>
       </div>
       <div>
-        <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${isHighlighted ? 'text-brand-pink-100' : 'text-surface-500'}`}>{label}</div>
-        <div className={`text-4xl font-black ${isHighlighted ? 'text-white' : 'text-surface-900'}`}>{value}</div>
+        <div className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1 ${isHighlighted ? 'text-brand-pink-100' : 'text-surface-500'}`}>{label}</div>
+        <div className={`text-3xl sm:text-4xl font-black ${isHighlighted ? 'text-white' : 'text-surface-900'}`}>{value}</div>
       </div>
     </div>
   );
@@ -62,102 +62,83 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
   };
 
   return (
-    <div className={`card-elevated p-5 relative overflow-hidden group transition-all hover:shadow-lg flex flex-col ${!allGreen && session.status === "scheduled" ? "border-red-200 bg-red-50/10" : "bg-white"}`}>
+    <div className={`card-elevated p-5 relative overflow-hidden group transition-all hover:shadow-lg flex flex-col rounded-[24px] border ${!allGreen && session.status === "scheduled" ? "border-red-200 bg-red-50/30" : "border-surface-200 bg-white/80 backdrop-blur-xl"}`}>
       <div className={`absolute top-0 left-0 w-1.5 h-full ${session.status === 'completed' ? 'bg-emerald-500' : session.status === 'no_show' ? 'bg-red-500' : session.status === 'cancelled' ? 'bg-surface-300' : 'bg-brand-pink-500'}`} />
       
-      <div className="flex justify-between items-start mb-5 pl-2">
+      <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-4 mb-5 pl-2">
         <div className="flex items-center gap-3">
-           <div className="w-11 h-11 rounded-2xl bg-surface-100 flex items-center justify-center text-brand-pink-600 font-bold text-lg shadow-sm">
+           <div className="w-12 h-12 rounded-[18px] bg-gradient-to-br from-surface-100 to-surface-200 border border-white flex items-center justify-center text-brand-pink-600 font-bold text-xl shadow-sm shrink-0">
              {(session.customerName || session.userId || "?").charAt(0).toUpperCase()}
            </div>
            <div>
-             <div className="text-sm font-bold text-surface-900">{session.customerName || (ar() ? "عميل" : "Customer")}</div>
+             <div className="text-base font-black text-surface-900">{session.customerName || (ar() ? "عميل" : "Customer")}</div>
              <div className="text-xs text-surface-500 font-medium mt-0.5">{session.offerName ? <><span className="text-brand-pink-500 font-bold">{session.offerName}</span> · </> : null}{date}</div>
-             {session.membershipType && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand-pink-50 text-brand-pink-600 border border-brand-pink-100 mt-1 inline-block">{session.membershipType}</span>}
+             {session.membershipType && <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-brand-pink-50 text-brand-pink-600 border border-brand-pink-100 mt-1.5 inline-block">{session.membershipType}</span>}
            </div>
         </div>
-        <div className="text-right">
-           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-100 text-surface-900 text-sm font-bold shadow-sm">
+        <div className="w-full sm:w-auto text-left sm:text-right">
+           <span className="inline-flex items-center justify-center sm:justify-start gap-1.5 px-3 py-1.5 rounded-xl bg-surface-100/80 text-surface-900 text-sm font-bold shadow-sm w-full sm:w-auto">
              <svg className="w-4 h-4 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
              {time}
            </span>
         </div>
       </div>
 
-      <div className="space-y-2 mb-5 bg-surface-50 p-4 rounded-2xl border border-surface-100/50 pl-4 ml-2">
+      <div className="space-y-2 mb-5 bg-surface-50/80 backdrop-blur-sm p-4 rounded-[20px] border border-surface-100/50 pl-4 ml-2 text-sm">
         {session.payment && (
-          <div className="flex items-center justify-between text-xs pb-2 border-b border-surface-200">
+          <div className="flex items-center justify-between pb-2 border-b border-surface-200/60">
             <span className="text-surface-600 font-medium">{ar() ? "سجل الدفع" : "Enrollment payment"}</span>
             <span className="font-bold text-surface-800">
               {session.payment.status} · {session.payment.amountKwd} KWD
             </span>
           </div>
         )}
-        <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center justify-between">
            <span className="text-surface-600 font-medium">{ar() ? "العرض نشط" : "Offer Active"}</span>
-           {isOfferActive ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold">No</span>}
+           {isOfferActive ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold">No</span>}
         </div>
-        <div className="flex items-center justify-between text-xs">
-           <span className="text-surface-600 font-medium">{ar() ? "حالة الدفع" : "Payment"}</span>
-           {isPaymentConfirmed ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> OK</span> : <span className="text-red-500 font-bold">Pending</span>}
+        <div className="flex items-center justify-between">
+           <span className="text-surface-600 font-medium">{ar() ? "الدفع مكتمل" : "Payment Confirmed"}</span>
+           {isPaymentConfirmed ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold">No</span>}
         </div>
-        <div className="flex items-center justify-between text-xs">
-           <span className="text-surface-600 font-medium">{ar() ? "المدة المتاحة" : "Interval Met"}</span>
-           {isIntervalMet ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold border-b border-dashed border-red-300 pb-0.5">Too early</span>}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mt-auto pl-2 gap-2 flex-wrap">
-        <span className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg ${session.status === "completed" ? "bg-emerald-100 text-emerald-700" : session.status === "no_show" ? "bg-red-100 text-red-700" : session.status === "cancelled" ? "bg-surface-200 text-surface-600" : "bg-blue-100 text-blue-700"}`}>
-          {session.status.replace('_', ' ')}
-        </span>
-        {session.status === "scheduled" && (
-          <div className="flex gap-2 flex-wrap">
-            {allGreen && (
-              <>
-                <button className="flex items-center gap-1 bg-emerald-500 text-white hover:bg-emerald-600 transition-colors rounded-xl px-4 py-2 text-xs font-bold shadow-sm" onClick={() => onMark(session.id, "completed")}>
-                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-                   {ar() ? "مكتمل" : "Complete"}
-                </button>
-                <button className="flex items-center gap-1 bg-surface-100 text-surface-600 hover:bg-surface-200 transition-colors rounded-xl px-3 py-2 text-xs font-bold shadow-sm" onClick={() => onMark(session.id, "no_show")}>
-                   {ar() ? "لم يحضر" : "No Show"}
-                </button>
-              </>
-            )}
-            <button
-              className="flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors rounded-xl px-3 py-2 text-xs font-bold shadow-sm"
-              onClick={() => { setShowReschedule(!showReschedule); setNewTime(""); }}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              {ar() ? "إعادة جدولة" : "Reschedule"}
-            </button>
+        {session.eligibility?.intervalDays > 0 && (
+          <div className="flex items-center justify-between">
+            <span className="text-surface-600 font-medium">{ar() ? "فترة التباعد" : "Interval Met"} <span className="text-[10px] text-surface-400">({session.eligibility.intervalDays}d)</span></span>
+            {isIntervalMet ? <span className="text-emerald-600 font-bold flex items-center gap-1.5"><svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-red-500 font-bold">No</span>}
           </div>
         )}
       </div>
 
-      {showReschedule && session.status === "scheduled" && (
-        <div className="mt-4 pt-4 border-t border-surface-100 space-y-3 pl-2">
-          <label className="text-xs font-bold text-surface-700 block">{ar() ? "اختر الوقت الجديد" : "Select new appointment time"}</label>
-          <input
-            type="datetime-local"
-            className="input-field bg-surface-50 text-sm w-full sm:w-72"
-            value={newTime}
-            onChange={(e) => setNewTime(e.target.value)}
-          />
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={rescheduling}
-              className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-              onClick={() => void submitReschedule()}
-            >{rescheduling ? "…" : ar() ? "تأكيد الجدولة" : "Confirm Reschedule"}</button>
-            <button type="button" className="text-xs font-bold text-surface-500 hover:text-surface-700 px-3 py-2" onClick={() => setShowReschedule(false)}>{ar() ? "إلغاء" : "Cancel"}</button>
+      <div className="mt-auto pl-2">
+        {session.status === "scheduled" && (
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button onClick={() => onMark(session.id, "completed")} className="flex-1 btn-primary py-2.5 rounded-xl shadow-glow text-sm" disabled={!allGreen}>✓ {ar() ? "حضر" : "Came"}</button>
+            <div className="flex gap-2">
+              <button onClick={() => onMark(session.id, "no_show")} className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-sm font-bold bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-colors">✗ {ar() ? "لم يحضر" : "No Show"}</button>
+              <button onClick={() => { setShowReschedule(!showReschedule); setNewTime(""); }} className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl text-sm font-bold bg-surface-100 text-surface-700 hover:bg-surface-200 transition-colors">{ar() ? "إعادة جدول" : "Reschedule"}</button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+        {session.status !== "scheduled" && (
+          <div className={`text-center py-2.5 rounded-xl text-sm font-bold ${session.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : session.status === 'no_show' ? 'bg-red-50 text-red-600' : 'bg-surface-100 text-surface-600'}`}>
+            {session.status.replace("_", " ").toUpperCase()}
+          </div>
+        )}
+        
+        {showReschedule && session.status === "scheduled" && (
+          <div className="mt-3 p-4 bg-surface-50 border border-surface-200 rounded-xl space-y-3 animate-fade-in">
+            <label className="text-xs font-bold text-surface-700 block">{ar() ? "اختر الوقت الجديد" : "Select new time"}</label>
+            <input type="datetime-local" value={newTime} onChange={e => setNewTime(e.target.value)} className="input-field w-full text-sm" />
+            <div className="flex gap-2 mt-2">
+              <button disabled={rescheduling} onClick={submitReschedule} className="btn-primary flex-1 py-2 rounded-lg text-sm font-bold">{rescheduling ? "..." : (ar() ? "تأكيد" : "Confirm")}</button>
+              <button onClick={() => setShowReschedule(false)} className="px-4 py-2 rounded-lg text-sm font-bold bg-surface-200 text-surface-700 hover:bg-surface-300">{ar() ? "إلغاء" : "Cancel"}</button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {session.cashbackUnlockedKwd && parseFloat(session.cashbackUnlockedKwd) > 0 && (
-        <div className="absolute top-0 right-0 bg-gradient-to-l from-emerald-500 to-emerald-400 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm">
+        <div className="absolute top-0 right-0 bg-gradient-to-l from-emerald-500 to-emerald-400 text-white text-[10px] font-bold px-3 py-1 rounded-bl-[20px] shadow-sm">
            +{session.cashbackUnlockedKwd} KWD
         </div>
       )}
@@ -1411,36 +1392,55 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 overflow-x-auto pb-1 bg-surface-100 p-1 rounded-xl">
-        {tabs.map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)} className={`px-4 py-2 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${activeTab === t.key ? "bg-white text-surface-900 shadow-sm" : "text-surface-500 hover:text-surface-700"}`}>
-            {t.label}
-          </button>
-        ))}
+      <div className="sticky top-[calc(env(safe-area-inset-top,0px)+2.75rem)] z-20 pt-2 pb-2 bg-surface-50/95 backdrop-blur-xl transition-all">
+        <div className="flex bg-surface-200/60 p-1.5 rounded-[16px] shadow-inner border border-surface-200/30 overflow-x-auto hide-scrollbar">
+          {tabs.map(t => (
+            <button key={t.key} onClick={() => setActiveTab(t.key)} className={`flex-1 min-w-[80px] px-3 py-2 rounded-[12px] text-xs font-bold whitespace-nowrap transition-all ${activeTab === t.key ? "bg-white text-brand-pink-700 shadow-sm" : "text-surface-500 hover:text-surface-800 hover:bg-surface-100/50"}`}>
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Info Tab ── */}
       {activeTab === "info" && (
-        <div className="card-elevated p-5 space-y-4">
-          <h4 className="font-bold text-surface-900">{ar() ? "المعلومات الشخصية" : "Personal Information"}</h4>
-          <div className="grid gap-3 sm:grid-cols-2">
+        <div className="card-elevated p-6 bg-white/80 backdrop-blur-xl border border-surface-200 rounded-[28px] space-y-6">
+          <h4 className="font-bold text-surface-900 flex items-center gap-2">
+            <svg className="w-5 h-5 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            {ar() ? "المعلومات الشخصية" : "Personal Information"}
+          </h4>
+          <div className="grid gap-4 sm:grid-cols-2">
             {memberships.length > 0 && (
-              <div className="sm:col-span-2 bg-surface-50 rounded-xl p-4 border border-surface-100">
-                <div className="text-xs font-bold text-surface-500 mb-2">{ar() ? "ملخص العضويات" : "Membership Summary"}</div>
+              <div className="sm:col-span-2 bg-gradient-to-r from-surface-50 to-white rounded-2xl p-5 border border-surface-200 shadow-sm">
+                <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-3">{ar() ? "ملخص العضويات" : "Membership Summary"}</div>
                 <div className="flex gap-3 flex-wrap">
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">{memberships.filter(m => m.status === "active").length} {ar() ? "فعالة" : "Active"}</span>
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">{memberships.filter(m => m.status === "pending_payment").length} {ar() ? "معلقة" : "Pending"}</span>
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-surface-100 text-surface-600">{memberships.length} {ar() ? "إجمالي" : "Total"}</span>
+                  <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-100/50 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{memberships.filter(m => m.status === "active").length} {ar() ? "فعالة" : "Active"}</span>
+                  <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-amber-50 text-amber-700 border border-amber-100/50 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>{memberships.filter(m => m.status === "pending_payment").length} {ar() ? "معلقة" : "Pending"}</span>
+                  <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-surface-100 text-surface-700 border border-surface-200/50 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-surface-500"></span>{memberships.length} {ar() ? "إجمالي" : "Total"}</span>
                 </div>
               </div>
             )}
-            <div className="bg-surface-50 rounded-xl p-4 border border-surface-100">
-              <div className="text-xs font-bold text-surface-500 mb-1">{ar() ? "إجمالي الجلسات بالعيادة" : "Clinic Sessions"}</div>
-              <div className="text-lg font-black text-surface-900">{clinicSessions.length}</div>
+            <div className="bg-surface-50/50 rounded-2xl p-5 border border-surface-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-[14px] bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-0.5">{ar() ? "إجمالي الجلسات بالعيادة" : "Clinic Sessions"}</div>
+                  <div className="text-xl font-black text-surface-900">{clinicSessions.length}</div>
+                </div>
+              </div>
             </div>
-            <div className="bg-surface-50 rounded-xl p-4 border border-surface-100">
-              <div className="text-xs font-bold text-surface-500 mb-1">{ar() ? "إجمالي المدفوعات" : "Total Payments"}</div>
-              <div className="text-lg font-black text-surface-900">{payments.length}</div>
+            <div className="bg-surface-50/50 rounded-2xl p-5 border border-surface-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-[14px] bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-0.5">{ar() ? "إجمالي المدفوعات" : "Total Payments"}</div>
+                  <div className="text-xl font-black text-surface-900">{payments.length}</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1478,28 +1478,77 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
 
       {/* ── Sessions Tab ── */}
       {activeTab === "sessions" && (
-        <div className="space-y-4">
-          <div className="card-elevated p-5">
-            <h4 className="font-bold text-surface-900 mb-3">{ar() ? "جلسات العيادة" : "Clinic Sessions"} <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-100 ml-1">{clinicSessions.length}</span></h4>
-            {clinicSessions.length === 0 ? (
-              <div className="text-center py-8 text-sm text-surface-400">{ar() ? "لا توجد جلسات" : "No sessions at your clinic"}</div>
-            ) : (
-              <div className="space-y-2">
-                {clinicSessions.map((s: any) => (
-                  <div key={s.id} className="flex items-center justify-between p-3 bg-surface-50 rounded-xl border border-surface-100 gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-surface-900">
-                        {new Date(s.scheduledAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
-                        <span className="text-surface-400 mx-1.5">·</span>
-                        <span className="text-surface-500">{new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+        <div className="space-y-6">
+          {/* Clinic Bookings - Mark Paid */}
+          {clinicBookings.filter((b: any) => b.clinicPaymentStatus !== "paid").length > 0 && (
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-orange-200/60 rounded-[28px] p-5 sm:p-6 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-bl-full -z-10" />
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-[14px] bg-orange-100 flex items-center justify-center text-orange-600">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+                <div>
+                  <h4 className="font-bold text-orange-900">{ar() ? "بانتظار الدفع" : "Awaiting Payment"}</h4>
+                  <p className="text-xs text-orange-700/80 mt-0.5">{ar() ? "يجب تحصيل هذا المبلغ من العميل" : "Please collect this amount from the customer"}</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {clinicBookings.filter((b: any) => b.clinicPaymentStatus !== "paid").map((b: any) => (
+                  <div key={b.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white/60 backdrop-blur-md rounded-[20px] border border-orange-100 gap-4">
+                    <div>
+                      <div className="text-lg font-black text-orange-900 mb-1">{b.clinicTakeKwd || b.sessionPriceKwd || "0.000"} KWD</div>
+                      <div className="text-[10px] font-bold text-orange-700/60 uppercase tracking-wider">{ar() ? "الخدمة / الموعد" : "Service / Date"}</div>
+                      <div className="text-xs font-semibold text-orange-800 mt-1">
+                        {b.standaloneName || b.offerName || "Session"}
+                        <span className="mx-2 text-orange-300">•</span>
+                        {b.scheduledAt ? new Date(b.scheduledAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "—"}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold capitalize border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>{s.status?.replace("_", " ")}</span>
+                    <button
+                      className="w-full sm:w-auto btn-primary bg-orange-500 hover:bg-orange-600 border-none shadow-orange-500/20 py-2.5 px-6 rounded-xl font-bold shadow-glow"
+                      onClick={() => setCheckoutBooking(b)}
+                      disabled={payingBookingId === b.id}
+                    >
+                      {payingBookingId === b.id ? "…" : ar() ? "POS تحصيل" : "POS Checkout"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="card-elevated p-5 sm:p-6 rounded-[28px] bg-white/80 backdrop-blur-xl border border-surface-200">
+            <div className="flex items-center justify-between mb-5">
+              <h4 className="font-bold text-surface-900">{ar() ? "سجل الجلسات" : "Session History"}</h4>
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-surface-100 text-surface-600">{clinicSessions.length} {ar() ? "جلسة" : "sessions"}</span>
+            </div>
+            {clinicSessions.length === 0 ? (
+              <div className="text-center py-10 text-sm text-surface-400 bg-surface-50/50 rounded-2xl border border-dashed border-surface-200">{ar() ? "لا توجد جلسات" : "No sessions at your clinic"}</div>
+            ) : (
+              <div className="space-y-3">
+                {clinicSessions.map((s: any) => (
+                  <div key={s.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-surface-50/80 rounded-[20px] border border-surface-100/80 gap-4 transition-all hover:border-surface-300">
+                    <div className="flex-1 min-w-0 w-full sm:w-auto">
+                      <div className="flex items-center justify-between sm:justify-start gap-3 mb-2 sm:mb-0">
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>{s.status?.replace("_", " ")}</span>
+                        <div className="text-sm font-bold text-surface-900 sm:hidden">
+                          {new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </div>
+                      <div className="text-sm font-bold text-surface-900 hidden sm:block mt-2">
+                        {new Date(s.scheduledAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                        <span className="text-surface-300 mx-2">•</span>
+                        {new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                      <div className="text-xs text-surface-500 sm:hidden mt-1">
+                        {new Date(s.scheduledAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                       {s.status === "scheduled" && (
-                        <div className="flex gap-1">
-                          <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "completed")} className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 shadow-sm shadow-emerald-500/20">{markingId === s.id ? "…" : "✓ " + (ar() ? "حضر" : "Came")}</button>
-                          <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "no_show")} className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">{markingId === s.id ? "…" : "✗ " + (ar() ? "لم يحضر" : "No Show")}</button>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                          <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "completed")} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 shadow-sm transition-colors">{markingId === s.id ? "…" : "✓ " + (ar() ? "حضر" : "Came")}</button>
+                          <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "no_show")} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 disabled:opacity-50 transition-colors">{markingId === s.id ? "…" : "✗ " + (ar() ? "لم يحضر" : "No Show")}</button>
                         </div>
                       )}
                     </div>
@@ -1508,25 +1557,6 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
               </div>
             )}
           </div>
-          {/* Clinic Bookings - Mark Paid */}
-          {clinicBookings.filter((b: any) => b.clinicPaymentStatus !== "paid").length > 0 && (
-            <div className="card-elevated p-5">
-              <h4 className="font-bold text-surface-900 mb-3">{ar() ? "حجوزات بانتظار الدفع" : "Bookings Awaiting Payment"}</h4>
-              <div className="space-y-2">
-                {clinicBookings.filter((b: any) => b.clinicPaymentStatus !== "paid").map((b: any) => (
-                  <div key={b.id} className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-200 gap-3">
-                    <div>
-                      <div className="text-xs font-bold text-surface-900">{b.clinicTakeKwd || b.sessionPriceKwd || "0.000"} KWD</div>
-                      <div className="text-[10px] text-surface-500">{b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "—"}</div>
-                    </div>
-                    <button disabled={payingBookingId === b.id} onClick={() => setCheckoutBooking(b)} className="text-xs font-bold px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm shadow-emerald-500/20">
-                      {payingBookingId === b.id ? "…" : (ar() ? "الدفع ونقاط البيع" : "POS Checkout")}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -1809,47 +1839,81 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
         return (
         <div className="space-y-5 animate-fade-in">
           {/* Customer Profile Card */}
-          <div className="card-elevated overflow-hidden">
-            <div className="bg-gradient-to-r from-brand-pink-500 to-brand-pink-700 p-6 text-white">
-              <div className="flex items-center gap-4">
-                <div className="h-16 w-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-2xl font-black">
-                  {(card.displayName || "?").charAt(0).toUpperCase()}
+          <div className="bg-white/80 backdrop-blur-xl border border-surface-200/60 shadow-lg shadow-surface-200/20 rounded-[32px] overflow-hidden relative">
+            {/* Background elements */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-brand-pink-500/5 rounded-bl-full -z-10" />
+            <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/5 rounded-tr-full -z-10" />
+            
+            <div className="p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
+              <div className="flex items-center gap-5">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-brand-pink-500 rounded-[20px] rotate-3 opacity-20"></div>
+                  <div className="h-20 w-20 rounded-[20px] bg-gradient-to-br from-brand-pink-50 to-white flex items-center justify-center text-3xl font-black text-brand-pink-600 shadow-sm border border-brand-pink-100/50 relative z-10">
+                    {(card.displayName || "?").charAt(0).toUpperCase()}
+                  </div>
                 </div>
                 <div>
-                  <div className="text-xl font-black">{card.displayName}</div>
-                  {card.phone && <div className="text-sm text-brand-pink-200 font-mono mt-0.5" dir="ltr">{card.phone}</div>}
-                  {card.email && <div className="text-xs text-brand-pink-200 mt-0.5">{card.email}</div>}
-                  <div className="flex items-center gap-3 mt-2">
-                    {card.memberSince && (
-                      <span className="text-[10px] uppercase tracking-wider text-brand-pink-200 flex items-center gap-1">
-                        {ar() ? "عضو منذ" : "Member since"} {card.memberSince}
+                  <div className="text-2xl font-black text-surface-900 tracking-tight">{card.displayName}</div>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-2">
+                    {card.phone && (
+                      <div className="flex items-center gap-1.5 text-sm text-surface-600 font-mono" dir="ltr">
+                        <svg className="w-4 h-4 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                        {card.phone}
+                      </div>
+                    )}
+                    {card.email && (
+                      <div className="flex items-center gap-1.5 text-sm text-surface-600">
+                        <svg className="w-4 h-4 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        {card.email}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-3">
+                    {card.kycVerified && (
+                      <span className="flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                        {ar() ? "هوية موثقة" : "ID Verified"}
                       </span>
                     )}
-                    {card.kycVerified && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-bold">
-                        ✓ {ar() ? "تم التحقق" : "Verified"}
+                    {card.memberSince && (
+                      <span className="text-[10px] font-bold text-surface-500 uppercase tracking-wider px-2.5 py-1 rounded-lg bg-surface-100/80">
+                        {ar() ? "عضو منذ" : "Since"} {card.memberSince}
                       </span>
                     )}
                   </div>
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-3 divide-x divide-surface-100 bg-white">
-              <div className="p-4 text-center">
-                <div className="text-lg font-black text-brand-pink-600">{scanMemberships.filter((m: any) => m.status === "active").length}</div>
-                <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mt-0.5">{ar() ? "عضويات فعالة" : "Active Offers"}</div>
+
+            {/* Quick Stats Banner */}
+            <div className="bg-surface-50/50 border-t border-surface-200/50 p-4 sm:p-6 grid grid-cols-3 gap-4 sm:gap-6 relative z-10">
+              <div className="flex flex-col justify-center">
+                <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-brand-pink-500 hidden sm:block"></div>
+                  {ar() ? "عضويات فعالة" : "Active Offers"}
+                </div>
+                <div className="text-2xl font-black text-surface-900">{scanMemberships.filter((m: any) => m.status === "active").length}</div>
               </div>
-              <div className="p-4 text-center">
-                <div className="text-lg font-black text-blue-600">{card.activeSessionCount ?? 0}</div>
-                <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mt-0.5">{ar() ? "جلسات مجدولة" : "Scheduled"}</div>
+              <div className="flex flex-col justify-center relative">
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-px h-8 bg-surface-200/50 hidden sm:block"></div>
+                <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mb-1 flex items-center gap-1.5 sm:pl-6">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-500 hidden sm:block"></div>
+                  {ar() ? "جلسات مجدولة" : "Scheduled"}
+                </div>
+                <div className="text-2xl font-black text-surface-900 sm:pl-6">{card.activeSessionCount ?? 0}</div>
               </div>
-              <div className="p-4 text-center relative group">
-                <div className="text-lg font-black text-emerald-600">{card.cashbackUnlockedKwd ?? "0.000"}</div>
-                <div className="text-[10px] font-bold text-surface-500 uppercase tracking-wider mt-0.5 mb-2">{ar() ? "كاشباك متاح" : "Cashback (KWD)"}</div>
-                <button onClick={() => setShowAdjustCb(true)} className="mx-auto flex items-center justify-center gap-1 text-[10px] font-bold px-2 py-1 rounded border border-surface-200 bg-surface-50 hover:bg-surface-100 text-surface-600 transition-colors">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                  {ar() ? "تعديل" : "Adjust"}
-                </button>
+              <div className="flex flex-col justify-center relative">
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-px h-8 bg-surface-200/50 hidden sm:block"></div>
+                <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1 flex items-center gap-1.5 sm:pl-6">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 hidden sm:block"></div>
+                  {ar() ? "كاشباك متاح" : "Cashback"}
+                </div>
+                <div className="flex items-center gap-3 sm:pl-6">
+                  <div className="text-2xl font-black text-emerald-600">{card.cashbackUnlockedKwd ?? "0.000"}</div>
+                  <button onClick={() => setShowAdjustCb(true)} className="btn-ghost btn-sm text-[10px] bg-white border border-surface-200 rounded-lg shadow-sm shrink-0">
+                    {ar() ? "تعديل" : "Adjust"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

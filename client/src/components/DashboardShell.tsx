@@ -461,27 +461,33 @@ export default function DashboardShell({
           </div>
         </header>
 
-        {/* Mobile quick navigation */}
-        <div className="lg:hidden px-2 pt-1.5 pb-1 bg-surface-50 border-b border-surface-100">
-          <div className="mobile-switcher">
-            {navItems.map((item) => (
+        {/* Mobile quick navigation (Bottom App Bar) */}
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-xl border-t border-surface-200 shadow-[0_-8px_30px_rgba(0,0,0,0.05)] pb-[env(safe-area-inset-bottom,0px)]">
+          <div className="flex justify-around items-center px-2 pt-2 pb-1">
+            {navItems.slice(0, 5).map((item) => (
               <button
                 key={item.key}
                 onClick={() => onNavigate(item.key)}
-                className={`mobile-switcher-btn ${activeKey === item.key ? "active" : ""}`}
+                className={`flex flex-col items-center justify-center w-16 gap-1 transition-all ${
+                  activeKey === item.key 
+                    ? "text-brand-pink-600 scale-105" 
+                    : "text-surface-400 hover:text-surface-600"
+                }`}
               >
-                <span className="shrink-0">{item.icon}</span>
-                <span>{item.label}</span>
+                <div className={`p-1.5 rounded-xl transition-colors ${activeKey === item.key ? 'bg-brand-pink-50' : ''}`}>
+                  {item.icon}
+                </div>
+                <span className="text-[9px] font-bold truncate w-full text-center">{item.label}</span>
               </button>
             ))}
           </div>
-        </div>
+        </nav>
 
         {/* Sticky notice banner (optional) */}
         {banner && <div className="flex-shrink-0">{banner}</div>}
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto overscroll-y-contain px-3 py-3 sm:p-4 lg:p-8 bg-surface-50 pb-[env(safe-area-inset-bottom,0px)]">
+        <main className="flex-1 overflow-y-auto overscroll-y-contain px-3 py-3 sm:p-4 lg:p-8 bg-surface-50 pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] lg:pb-[env(safe-area-inset-bottom,0px)]">
           {children}
         </main>
       </div>
