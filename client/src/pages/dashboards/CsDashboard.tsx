@@ -2933,13 +2933,13 @@ function InvoiceReviews() {
                 </div>
               </a>
               <div>
-                <div className="flex justify-between items-end mb-2">
+                <div className="flex justify-between items-center mb-3">
                   <div className="text-sm text-surface-500">{ar() ? "قيمة الفاتورة:" : "Invoice Amount:"}</div>
-                  <div className="font-bold text-surface-900">{req.invoiceAmountKwd} KWD</div>
+                  <div className="font-bold text-surface-900 whitespace-nowrap">{req.invoiceAmountKwd} KWD</div>
                 </div>
-                <div className="flex justify-between items-end bg-amber-50 p-2.5 rounded-xl border border-amber-100 shadow-inner">
+                <div className="flex justify-between items-center bg-amber-50 p-3 rounded-xl border border-amber-100 shadow-inner">
                   <div className="text-sm font-bold text-amber-800">{ar() ? "مكافأة الكاش باك (3x):" : "Cashback Reward (3x):"}</div>
-                  <div className="font-black text-amber-600 text-lg">{req.cashbackAmountKwd} KWD</div>
+                  <div className="font-black text-amber-600 text-lg whitespace-nowrap ml-2">{req.cashbackAmountKwd} KWD</div>
                 </div>
                 <div className="text-xs text-surface-400 mt-3">{ar() ? "تاريخ الطلب:" : "Submitted:"} {new Date(req.createdAt).toLocaleString()}</div>
                 <div className="flex items-center gap-2 mt-2">
