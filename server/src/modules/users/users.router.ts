@@ -436,19 +436,22 @@ usersRouter.get("/subscription-requests", authRequired, requireRole(["admin", "c
     users.forEach((u: any) => { userMap[u._id.toString()] = u; });
 
     return res.json({
-      items: items.map((r: any) => ({
-        id: r._id.toString(),
-        userId: r.userId,
-        userName: userMap[r.userId]?.fullName || userMap[r.userId]?.username || "—",
-        userPhone: userMap[r.userId]?.phone || "—",
-        paymentOption: r.paymentOption,
-        planId: r.planId,
-        amountKwd: r.amountKwd,
-        status: r.status,
-        rejectionReason: r.rejectionReason,
-        createdAt: r.createdAt,
-        reviewedAt: r.reviewedAt
-      }))
+      items: items.map((r: any) => {
+        const uId = r.userId?.toString();
+        return {
+          id: r._id.toString(),
+          userId: r.userId,
+          userName: (uId && userMap[uId]?.fullName) || (uId && userMap[uId]?.username) || "—",
+          userPhone: (uId && userMap[uId]?.phone) || "—",
+          paymentOption: r.paymentOption,
+          planId: r.planId,
+          amountKwd: r.amountKwd,
+          status: r.status,
+          rejectionReason: r.rejectionReason,
+          createdAt: r.createdAt,
+          reviewedAt: r.reviewedAt
+        };
+      })
     });
   } catch (e) {
     next(e);

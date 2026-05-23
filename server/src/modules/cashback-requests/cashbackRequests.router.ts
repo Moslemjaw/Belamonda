@@ -103,18 +103,21 @@ cashbackRequestsRouter.get("/legal/queue", authRequired, requireRole([...LEGAL_R
     users.forEach((u: any) => { userMap[u._id.toString()] = u; });
 
     return res.json({
-      items: items.map((doc: any) => ({
-        id: doc._id.toString(),
-        userId: doc.userId,
-        userName: userMap[doc.userId]?.fullName || userMap[doc.userId]?.username || "—",
-        userPhone: userMap[doc.userId]?.phone || "—",
-        invoiceImageRef: doc.invoiceImageRef,
-        invoiceAmountKwd: doc.invoiceAmountKwd,
-        cashbackAmountKwd: doc.cashbackAmountKwd,
-        status: doc.status,
-        rejectionReason: doc.rejectionReason,
-        createdAt: doc.createdAt
-      }))
+      items: items.map((doc: any) => {
+        const uId = doc.userId?.toString();
+        return {
+          id: doc._id.toString(),
+          userId: doc.userId,
+          userName: (uId && userMap[uId]?.fullName) || (uId && userMap[uId]?.username) || "—",
+          userPhone: (uId && userMap[uId]?.phone) || "—",
+          invoiceImageRef: doc.invoiceImageRef,
+          invoiceAmountKwd: doc.invoiceAmountKwd,
+          cashbackAmountKwd: doc.cashbackAmountKwd,
+          status: doc.status,
+          rejectionReason: doc.rejectionReason,
+          createdAt: doc.createdAt
+        };
+      })
     });
   } catch (e) {
     next(e);
