@@ -2622,9 +2622,45 @@ export function UsersManager() {
           onLoginAs={() => void impersonateUser(selectedUser.id).catch(e => alert(e.message))}
         />
       ) : (
-        <div className="card-elevated overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="data-table">
+        <div className="card-elevated overflow-hidden bg-white">
+          {/* Mobile view (Cards) */}
+          <div className="md:hidden divide-y divide-surface-100">
+            {filtered.map((u: any) => (
+              <div key={u.id} className="p-4 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-brand-pink-50 flex items-center justify-center text-sm font-bold text-brand-pink-600 flex-shrink-0">
+                      {(u.name ?? "?").charAt(0).toUpperCase()}
+                    </div>
+                    <div>
+                      <div className="font-bold text-surface-900">{u.fullName || u.username || u.phone}</div>
+                      <div className="text-xs text-surface-500">{u.phone}</div>
+                    </div>
+                  </div>
+                  <button
+                    className="text-brand-pink-600 font-bold text-xs px-3 py-1.5 bg-brand-pink-50 rounded-lg shrink-0"
+                    onClick={() => openUser(u)}
+                  >
+                    {ar() ? "إدارة" : "Manage"}
+                  </button>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[u.role] ?? "bg-surface-100 text-surface-600"}`}>{u.role}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${u.kyc ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>{u.kyc ? (ar() ? "نشط" : "Active") : (ar() ? "معطّل" : "Disabled")}</span>
+                  {u.id && parseInt(u.id.slice(-1), 16) > 12 && <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-amber-200">🔥 High</span>}
+                  {u.id && parseInt(u.id.slice(-2,-1), 16) < 3 && <span className="bg-surface-100 text-surface-500 text-[10px] font-bold px-1.5 py-0.5 rounded border border-surface-200">💤</span>}
+                  {u.referredByUsername && <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-200">🔗</span>}
+                </div>
+              </div>
+            ))}
+            {filtered.length === 0 && (
+              <div className="p-8 text-center text-surface-500 text-sm">{ar() ? "لا يوجد مستخدمين" : "No users found"}</div>
+            )}
+          </div>
+
+          {/* Desktop view (Table) */}
+          <div className="overflow-x-auto hidden md:block">
+            <table className="data-table w-full">
               <thead>
                 <tr>
                   <th>{ar() ? "الاسم" : "Name"}</th>

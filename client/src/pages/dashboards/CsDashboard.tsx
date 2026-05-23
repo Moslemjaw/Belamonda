@@ -2427,9 +2427,48 @@ function CustomersManager() {
           </div>
         </div>
       ) : (
-        <div className="card-elevated overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="data-table">
+        <div className="card-elevated overflow-hidden bg-white">
+          {/* Mobile view (Cards) */}
+          <div className="md:hidden divide-y divide-surface-100">
+            {usersLoading ? (
+              <div className="p-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>
+            ) : filtered.map((u: any) => {
+              const name = getDisplayName(u);
+              const status = getStatus(u);
+              return (
+                <div key={u.id} className="p-4 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-brand-pink-50 flex items-center justify-center text-sm font-bold text-brand-pink-600 flex-shrink-0">
+                        {name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <div className="font-bold text-surface-900">{name}</div>
+                        <div className="text-xs text-surface-500">{u.phone || "—"}</div>
+                      </div>
+                    </div>
+                    <button
+                      className="text-surface-700 font-bold text-xs px-3 py-1.5 bg-surface-50 border border-surface-200 rounded-lg shrink-0"
+                      onClick={() => handleManage(u)}
+                    >
+                      {ar() ? "إدارة" : "Manage"}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="badge-sage !text-[10px] !px-2 !py-0.5">Customer</span>
+                    <span className={`${getStatusBadge(status)} !text-[10px] !px-2 !py-0.5`}>{status}</span>
+                  </div>
+                </div>
+              );
+            })}
+            {!usersLoading && filtered.length === 0 && (
+              <div className="p-8 text-center text-surface-500 text-sm">{ar() ? "لا يوجد عملاء" : "No customers found"}</div>
+            )}
+          </div>
+
+          {/* Desktop view (Table) */}
+          <div className="overflow-x-auto hidden md:block">
+            <table className="data-table w-full">
               <thead>
                 <tr>
                   <th>{ar() ? "الاسم" : "Name"}</th>
