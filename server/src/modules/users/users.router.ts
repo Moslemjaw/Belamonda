@@ -431,7 +431,7 @@ usersRouter.get("/subscription-requests", authRequired, requireRole(["admin", "c
 
     // Enrich with user info
     const userIds = [...new Set(items.map((i: any) => i.userId))];
-    const users = await UserModel.find({ _id: { $in: userIds } }).select("username phone email").lean();
+    const users = await UserModel.find({ _id: { $in: userIds } }).select("username fullName phone email").lean();
     const userMap: Record<string, any> = {};
     users.forEach((u: any) => { userMap[u._id.toString()] = u; });
 
@@ -439,7 +439,7 @@ usersRouter.get("/subscription-requests", authRequired, requireRole(["admin", "c
       items: items.map((r: any) => ({
         id: r._id.toString(),
         userId: r.userId,
-        userName: userMap[r.userId]?.username || "—",
+        userName: userMap[r.userId]?.fullName || userMap[r.userId]?.username || "—",
         userPhone: userMap[r.userId]?.phone || "—",
         paymentOption: r.paymentOption,
         planId: r.planId,

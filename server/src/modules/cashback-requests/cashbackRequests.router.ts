@@ -96,10 +96,18 @@ cashbackRequestsRouter.get("/legal/queue", authRequired, requireRole([...LEGAL_R
     
     const items = await CashbackRequestModel.find(filter).sort({ createdAt: -1 }).lean();
     
+    // Enrich with user info
+    const userIds = [...new Set(items.map((i: any) => i.userId))];
+    const users = await UserModel.find({ _id: { $in: userIds } }).select("username fullName phone").lean();
+    const userMap: Record<string, any> = {};
+    users.forEach((u: any) => { userMap[u._id.toString()] = u; });
+
     return res.json({
       items: items.map((doc: any) => ({
         id: doc._id.toString(),
         userId: doc.userId,
+        userName: userMap[doc.userId]?.fullName || userMap[doc.userId]?.username || "—",
+        userPhone: userMap[doc.userId]?.phone || "—",
         invoiceImageRef: doc.invoiceImageRef,
         invoiceAmountKwd: doc.invoiceAmountKwd,
         cashbackAmountKwd: doc.cashbackAmountKwd,

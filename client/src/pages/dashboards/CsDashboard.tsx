@@ -2942,7 +2942,13 @@ function InvoiceReviews() {
                   <div className="font-black text-amber-600 text-lg">{req.cashbackAmountKwd} KWD</div>
                 </div>
                 <div className="text-xs text-surface-400 mt-3">{ar() ? "تاريخ الطلب:" : "Submitted:"} {new Date(req.createdAt).toLocaleString()}</div>
-                <div className="text-xs text-surface-400">{ar() ? "رقم المستخدم:" : "User ID:"} <span className="font-mono">{req.userId}</span></div>
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="w-8 h-8 rounded-full bg-surface-100 flex items-center justify-center text-sm">👤</div>
+                  <div>
+                    <div className="font-bold text-surface-900 text-sm">{req.userName}</div>
+                    <div className="text-xs text-surface-500">{req.userPhone}</div>
+                  </div>
+                </div>
               </div>
               
               <div className="pt-4 border-t border-surface-100 space-y-3 mt-auto">
