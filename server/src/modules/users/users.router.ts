@@ -253,67 +253,103 @@ usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "financ
     const { id } = req.params;
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "INVALID_ID" });
 
-    const [user, memberships, payments, txns] = await Promise.all([
+    const [user, memberships, payments, txns, bookingSessions, bookingRequests] = await Promise.all([
       UserModel.findById(id).lean<UserLean>(),
       UserOfferModel.find({ $or: [{ userId: id }, { sharedWith: id }] }).sort({ createdAt: -1 }).lean(),
       PaymentModel.find({ userId: id }).sort({ createdAt: -1 }).lean(),
       WalletTxnModel.find({ userId: id }).sort({ createdAt: -1 }).lean(),
+      BookingSessionModel.find({ userId: id }).sort({ scheduledAt: -1 }).lean(),
+      BookingRequestModel.find({ userId: id }).sort({ createdAt: -1 }).lean(),
     ]);
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
 
     const offerIds = [...new Set([
       ...memberships.map((m: any) => String(m.offerId)),
-      ...payments.map((p: any) => String(p.offerId))
+      ...payments.map((p: any) => String(p.offerId)),
+      ...bookingSessions.map((s: any) => String(s.offerId))
     ].filter(Boolean))];
     const offers = offerIds.length
-      ? await OfferModel.find({ _id: { $in: offerIds } }).select("name").lean<{ _id: mongoose.Types.ObjectId; name: string }[]>()
+      ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr").lean<{ _id: mongoose.Types.ObjectId; name: string; nameAr?: string }[]>()
       : [];
     const offerMap: Record<string, string> = {};
-    offers.forEach((o) => { offerMap[String(o._id)] = o.name; });
+    offers.forEach((o) => { offerMap[String(o._id)] = o.nameAr ? `${o.name} - ${o.nameAr}` : o.name; });
 
     const wb = XLSX.utils.book_new();
 
-    // Sheet 1: Memberships
+    // Sheet 1: Overview
+    const overviewRows = [{
+      "Full Name": user.fullName ?? "—",
+      "Phone": user.phone ?? "—",
+      "Email": user.email ?? "—",
+      "Civil ID": user.civilIdNumberMasked ?? "—",
+      "Role": user.role ?? "—",
+      "Status": user.isActive ? "Active" : "Disabled",
+      "Account Created": user.createdAt ? new Date(user.createdAt).toLocaleString() : "—",
+      "Total Memberships": memberships.length,
+      "Total Payments": payments.length,
+      "Total Sessions": bookingSessions.length,
+    }];
+    const overviewSheet = XLSX.utils.json_to_sheet(overviewRows);
+    overviewSheet["!cols"] = [{ wch: 25 }, { wch: 15 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }];
+    XLSX.utils.book_append_sheet(wb, overviewSheet, "Overview");
+
+    // Sheet 2: Memberships
     const membershipRows = memberships.map((m: any) => ({
-      "Membership ID": String(m._id),
       "Offer": offerMap[String(m.offerId)] ?? "—",
       "Status": m.status,
       "Purchase Mode": m.purchaseMode ?? "—",
       "Sessions Used": m.sessionsUsed ?? 0,
-      "Installments Paid": m.installmentsPaid ?? 0,
-      "Total Installments": m.installmentCount ?? "—",
-      "Amount (KWD)": m.paymentAmountKwd ?? "—",
-      "Activated": m.activatedAt ? new Date(m.activatedAt).toLocaleDateString() : "—",
-      "Expires": m.expiresAt ? new Date(m.expiresAt).toLocaleDateString() : "—",
-      "Created": m.createdAt ? new Date(m.createdAt).toLocaleDateString() : "—",
+      "Installments Paid": `${m.installmentsPaid ?? 0} / ${m.installmentCount ?? "—"}`,
+      "Amount (KWD)": m.paymentAmountKwd ?? "0.000",
+      "Activated At": m.activatedAt ? new Date(m.activatedAt).toLocaleString() : "—",
+      "Expires At": m.expiresAt ? new Date(m.expiresAt).toLocaleDateString() : "—",
+      "Next Installment": m.nextInstallmentDueAt ? new Date(m.nextInstallmentDueAt).toLocaleDateString() : "—",
+      "Membership ID": String(m._id),
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(membershipRows), "Memberships");
+    const membershipSheet = XLSX.utils.json_to_sheet(membershipRows);
+    membershipSheet["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 25 }];
+    XLSX.utils.book_append_sheet(wb, membershipSheet, "Memberships");
 
-    // Sheet 2: Payments
+    // Sheet 3: Sessions (BookingSessions)
+    const sessionRows = bookingSessions.map((s: any) => ({
+      "Offer": offerMap[String(s.offerId)] ?? "—",
+      "Status": s.status,
+      "Scheduled At": s.scheduledAt ? new Date(s.scheduledAt).toLocaleString() : "—",
+      "Short ID": s.shortId ?? "—",
+      "Clinic ID": s.clinicId ? String(s.clinicId) : "—",
+      "Created At": s.createdAt ? new Date(s.createdAt).toLocaleString() : "—",
+    }));
+    const sessionSheet = XLSX.utils.json_to_sheet(sessionRows);
+    sessionSheet["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, sessionSheet, "Sessions");
+
+    // Sheet 4: Payments
     const paymentRows = payments.map((p: any) => ({
-      "Payment ID": String(p._id),
       "Offer": offerMap[String(p.offerId)] ?? "—",
-      "Amount (KWD)": p.amountKwd,
-      "Gross (KWD)": p.grossAmountKwd ?? p.amountKwd,
+      "Amount (KWD)": p.amountKwd ?? "0.000",
+      "Gross (KWD)": p.grossAmountKwd ?? p.amountKwd ?? "0.000",
       "Cashback Applied (KWD)": p.cashbackAppliedKwd ?? "0.000",
       "Method": p.method,
       "Purpose": p.purpose,
       "Status": p.status,
-      "Installment #": p.installmentNumber ?? "—",
-      "Confirmed At": p.confirmedAt ? new Date(p.confirmedAt).toLocaleDateString() : "—",
-      "Created": (p as any).createdAt ? new Date((p as any).createdAt).toLocaleDateString() : "—",
+      "Confirmed At": p.confirmedAt ? new Date(p.confirmedAt).toLocaleString() : "—",
+      "Payment ID": String(p._id),
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(paymentRows), "Payments");
+    const paymentSheet = XLSX.utils.json_to_sheet(paymentRows);
+    paymentSheet["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 25 }];
+    XLSX.utils.book_append_sheet(wb, paymentSheet, "Payments");
 
-    // Sheet 3: Cashback Transactions
+    // Sheet 5: Cashback Transactions
     const txnRows = (txns as any[]).map((t) => ({
-      "Txn ID": String(t._id),
       "Type": t.type,
       "Amount (KWD)": t.amountKwd,
       "Reason": t.reason ?? "—",
-      "Date": t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—",
+      "Date": t.createdAt ? new Date(t.createdAt).toLocaleString() : "—",
+      "Txn ID": String(t._id),
     }));
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(txnRows), "Cashback Txns");
+    const txnSheet = XLSX.utils.json_to_sheet(txnRows);
+    txnSheet["!cols"] = [{ wch: 15 }, { wch: 15 }, { wch: 30 }, { wch: 20 }, { wch: 25 }];
+    XLSX.utils.book_append_sheet(wb, txnSheet, "Cashback Txns");
 
     const buf = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
     const username = user.username ?? id;
