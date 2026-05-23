@@ -304,7 +304,7 @@ export default function DashboardShell({
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-[60] bg-black/20 backdrop-blur-sm lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -312,7 +312,7 @@ export default function DashboardShell({
       {/* Sidebar */}
       <aside
         className={`
-          fixed inset-y-0 left-0 rtl:right-0 rtl:left-auto z-50 flex w-64 flex-col bg-white border-e border-surface-200
+          fixed inset-y-0 left-0 rtl:right-0 rtl:left-auto z-[70] flex w-64 flex-col bg-white border-e border-surface-200
           transition-transform duration-300 lg:static lg:!transform-none
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full rtl:translate-x-full"}
         `}

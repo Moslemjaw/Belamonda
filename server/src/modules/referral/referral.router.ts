@@ -9,9 +9,9 @@ import {
 
 export const referralRouter = Router();
 
-const STAFF_ROLES = ["admin", "cs", "finance", "clinicStaff"] as const;
-const STAFF_ROLES_MUT = [...STAFF_ROLES] as ("admin" | "cs" | "finance" | "clinicStaff")[];
-const ALL_AUTHED_ROLES = ["customer", ...STAFF_ROLES] as ("customer" | "admin" | "cs" | "finance" | "clinicStaff")[];
+const STAFF_ROLES = ["admin", "cs", "finance", "clinicStaff", "legal"] as const;
+const STAFF_ROLES_MUT = [...STAFF_ROLES] as ("admin" | "cs" | "finance" | "clinicStaff" | "legal")[];
+const ALL_AUTHED_ROLES = ["customer", ...STAFF_ROLES] as ("customer" | "admin" | "cs" | "finance" | "clinicStaff" | "legal")[];
 
 referralRouter.get(
   "/my-code",

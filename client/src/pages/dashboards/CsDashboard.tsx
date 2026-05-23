@@ -2921,9 +2921,9 @@ function InvoiceReviews() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between gap-4 mb-4">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "مراجعة فواتير الكاش باك" : "Invoice Cashback Reviews"}</h3>
-        <span className="text-xs font-bold bg-amber-100 text-amber-700 px-3 py-1 rounded-full">{items.length} {ar() ? "معلق" : "pending"}</span>
+        <span className="text-xs font-bold bg-amber-100 text-amber-700 px-3 py-1 rounded-full whitespace-nowrap shrink-0">{items.length} {ar() ? "معلق" : "pending"}</span>
       </div>
       
       {items.length === 0 ? (
@@ -3070,12 +3070,12 @@ function SubscriptionRequests() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-black text-surface-900">{ar() ? "طلبات الاشتراك (بيلاموندو برو)" : "Belmondo Pro Requests"}</h2>
           <p className="text-surface-500">{ar() ? "مراجعة وتأكيد مدفوعات اشتراكات العملاء" : "Review and confirm customer subscription payments"}</p>
         </div>
-        <div className="px-4 py-2 bg-amber-100 text-amber-800 rounded-full font-bold">
+        <div className="px-4 py-2 bg-amber-100 text-amber-800 rounded-full font-bold whitespace-nowrap shrink-0 self-start sm:self-auto text-sm sm:text-base">
           {reqs.length} {ar() ? "طلبات معلقة" : "Pending"}
         </div>
       </div>
