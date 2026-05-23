@@ -5,6 +5,7 @@ import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { CashbackRequestModel } from "../../models/cashbackRequest.model.js";
 import { UserModel } from "../../models/user.model.js";
+import { WalletModel } from "../../models/kyc.model.js";
 import { kycStore } from "../kyc/kyc.store.js";
 import { env } from "../../config/env.js";
 
@@ -99,8 +100,11 @@ cashbackRequestsRouter.get("/legal/queue", authRequired, requireRole([...LEGAL_R
     // Enrich with user info
     const userIds = [...new Set(items.map((i: any) => i.userId))];
     const users = await UserModel.find({ _id: { $in: userIds } }).select("username fullName phone").lean();
+    const wallets = await WalletModel.find({ userId: { $in: userIds } }).select("userId unlockedKwd").lean();
     const userMap: Record<string, any> = {};
     users.forEach((u: any) => { userMap[u._id.toString()] = u; });
+    const walletMap: Record<string, string> = {};
+    wallets.forEach((w: any) => { walletMap[w.userId] = w.unlockedKwd; });
 
     return res.json({
       items: items.map((doc: any) => {
@@ -110,6 +114,7 @@ cashbackRequestsRouter.get("/legal/queue", authRequired, requireRole([...LEGAL_R
           userId: doc.userId,
           userName: (uId && userMap[uId]?.fullName) || (uId && userMap[uId]?.username) || "—",
           userPhone: (uId && userMap[uId]?.phone) || "—",
+          userCashbackBalance: (uId && walletMap[uId]) || "0.000",
           invoiceImageRef: doc.invoiceImageRef,
           invoiceAmountKwd: doc.invoiceAmountKwd,
           cashbackAmountKwd: doc.cashbackAmountKwd,
@@ -129,9 +134,15 @@ cashbackRequestsRouter.post("/legal/:id/approve", authRequired, requireRole([...
     const { id } = req.params;
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "Invalid ID" });
 
+    const { finalCashbackKwd } = req.body;
+    const updatePayload: any = { status: "accepted", reviewedBy: req.auth!.userId, reviewedAt: new Date() };
+    if (finalCashbackKwd) {
+      updatePayload.cashbackAmountKwd = finalCashbackKwd;
+    }
+
     const doc = await CashbackRequestModel.findOneAndUpdate(
       { _id: id, status: "pending" },
-      { status: "accepted", reviewedBy: req.auth!.userId, reviewedAt: new Date() },
+      updatePayload,
       { new: true }
     );
 

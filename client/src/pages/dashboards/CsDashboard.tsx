@@ -2885,6 +2885,7 @@ function InvoiceReviews() {
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  const [editingCashback, setEditingCashback] = useState<Record<string, string>>({});
 
   const fetchItems = async () => {
     try {
@@ -2899,13 +2900,17 @@ function InvoiceReviews() {
   const handleAction = async (id: string, action: "approve" | "reject") => {
     if (action === "reject" && !rejectReason) return alert(ar() ? "يرجى كتابة سبب الرفض" : "Rejection reason required");
     try {
+      const body: any = {};
+      if (action === "reject") body.reason = rejectReason;
+      if (action === "approve" && editingCashback[id]) body.finalCashbackKwd = editingCashback[id];
       await apiFetch(`/cashback-requests/legal/${id}/${action}`, {
         method: "POST",
         headers: { ...getAuthHeader(), "Content-Type": "application/json" },
-        body: action === "reject" ? JSON.stringify({ reason: rejectReason }) : undefined
+        body: Object.keys(body).length > 0 ? JSON.stringify(body) : undefined
       });
       setSelectedId(null);
       setRejectReason("");
+      setEditingCashback(prev => { const n = {...prev}; delete n[id]; return n; });
       fetchItems();
     } catch (e: any) {
       alert(e.message);
@@ -2918,40 +2923,100 @@ function InvoiceReviews() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "مراجعة فواتير الكاش باك" : "Invoice Cashback Reviews"}</h3>
+        <span className="text-xs font-bold bg-amber-100 text-amber-700 px-3 py-1 rounded-full">{items.length} {ar() ? "معلق" : "pending"}</span>
       </div>
       
       {items.length === 0 ? (
-        <div className="card-elevated p-12 text-center text-surface-500">{ar() ? "لا توجد طلبات فواتير معلقة" : "No pending invoice requests."}</div>
+        <div className="card-elevated p-12 text-center">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-3">
+            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <div className="text-sm font-bold text-surface-900">{ar() ? "لا توجد طلبات فواتير معلقة" : "No pending invoice requests"}</div>
+          <div className="text-xs text-surface-500 mt-1">{ar() ? "جميع الطلبات تمت مراجعتها" : "All requests have been reviewed"}</div>
+        </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {items.map(req => (
-            <div key={req.id} className="card-elevated p-4 flex flex-col gap-4 relative">
-              <a href={req.invoiceImageRef} target="_blank" rel="noreferrer" className="w-full h-48 bg-surface-100 rounded-xl overflow-hidden block group">
+            <div key={req.id} className="card-elevated overflow-hidden flex flex-col">
+              {/* ── Card Header: User Info + Wallet ── */}
+              <div className="px-4 pt-4 pb-3 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-brand-pink-400 to-brand-pink-600 flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm">
+                  {(req.userName || "?").charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-surface-900 text-sm truncate">{req.userName}</div>
+                  <div className="text-xs text-surface-500">{req.userPhone}</div>
+                </div>
+                {req.userCashbackBalance != null && (
+                  <div className="flex items-center gap-1.5 bg-emerald-50 text-emerald-700 text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 border border-emerald-100">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                    {Number(req.userCashbackBalance).toFixed(3)} KWD
+                  </div>
+                )}
+              </div>
+
+              {/* ── Invoice Image ── */}
+              <a href={req.invoiceImageRef} target="_blank" rel="noreferrer" className="relative w-full h-44 bg-surface-100 overflow-hidden block group">
                 <img src={req.invoiceImageRef} alt="Invoice" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                <div className="absolute top-6 right-6 bg-black/50 backdrop-blur text-white text-xs px-2 py-1 rounded-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute bottom-3 right-3 bg-black/50 backdrop-blur text-white text-[10px] px-2 py-1 rounded-lg pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
                   {ar() ? "اضغط للتكبير" : "Click to enlarge"}
                 </div>
               </a>
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <div className="text-sm text-surface-500">{ar() ? "قيمة الفاتورة:" : "Invoice Amount:"}</div>
-                  <div className="font-bold text-surface-900 whitespace-nowrap">{req.invoiceAmountKwd} KWD</div>
+
+              {/* ── Amount Details ── */}
+              <div className="px-4 pt-3 pb-2 space-y-2.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-surface-500">{ar() ? "قيمة الفاتورة" : "Invoice Amount"}</span>
+                  <span className="font-bold text-surface-900 text-sm">{req.invoiceAmountKwd} KWD</span>
                 </div>
-                <div className="flex justify-between items-center bg-amber-50 p-3 rounded-xl border border-amber-100 shadow-inner">
-                  <div className="text-sm font-bold text-amber-800">{ar() ? "مكافأة الكاش باك (3x):" : "Cashback Reward (3x):"}</div>
-                  <div className="font-black text-amber-600 text-lg whitespace-nowrap ml-2">{req.cashbackAmountKwd} KWD</div>
-                </div>
-                <div className="text-xs text-surface-400 mt-3">{ar() ? "تاريخ الطلب:" : "Submitted:"} {new Date(req.createdAt).toLocaleString()}</div>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className="w-8 h-8 rounded-full bg-surface-100 flex items-center justify-center text-sm">👤</div>
-                  <div>
-                    <div className="font-bold text-surface-900 text-sm">{req.userName}</div>
-                    <div className="text-xs text-surface-500">{req.userPhone}</div>
+
+                {/* Editable Cashback Amount */}
+                <div className="flex items-center justify-between bg-amber-50 px-3 py-2.5 rounded-xl border border-amber-100">
+                  <span className="text-xs font-bold text-amber-800">{ar() ? "مكافأة الكاش باك" : "Cashback Reward"}</span>
+                  <div className="flex items-center gap-1.5">
+                    {editingCashback[req.id] !== undefined ? (
+                      <input
+                        type="number"
+                        step="0.001"
+                        className="input-field text-sm w-24 py-1 px-2 text-right font-bold text-amber-700"
+                        value={editingCashback[req.id]}
+                        onChange={e => setEditingCashback(prev => ({ ...prev, [req.id]: e.target.value }))}
+                        onBlur={() => {
+                          if (!editingCashback[req.id] || editingCashback[req.id] === String(req.cashbackAmountKwd)) {
+                            setEditingCashback(prev => { const n = {...prev}; delete n[req.id]; return n; });
+                          }
+                        }}
+                        autoFocus
+                      />
+                    ) : (
+                      <span className="font-black text-amber-600 text-base">{req.cashbackAmountKwd}</span>
+                    )}
+                    <span className="text-xs font-bold text-amber-600">KWD</span>
+                    {editingCashback[req.id] === undefined && (
+                      <button
+                        onClick={() => setEditingCashback(prev => ({ ...prev, [req.id]: String(req.cashbackAmountKwd) }))}
+                        className="p-1 rounded-lg hover:bg-amber-100 text-amber-500 transition-colors"
+                        title={ar() ? "تعديل المبلغ" : "Edit amount"}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      </button>
+                    )}
                   </div>
                 </div>
+
+                {editingCashback[req.id] !== undefined && editingCashback[req.id] !== String(req.cashbackAmountKwd) && (
+                  <div className="text-[11px] text-amber-600 font-medium flex items-center gap-1">
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    {ar() ? `سيتم اعتماد ${editingCashback[req.id]} KWD بدلاً من ${req.cashbackAmountKwd} KWD` : `Will approve ${editingCashback[req.id]} KWD instead of ${req.cashbackAmountKwd} KWD`}
+                  </div>
+                )}
+
+                <div className="text-[11px] text-surface-400">{ar() ? "تاريخ الطلب:" : "Submitted:"} {new Date(req.createdAt).toLocaleString()}</div>
               </div>
               
-              <div className="pt-4 border-t border-surface-100 space-y-3 mt-auto">
+              {/* ── Action Buttons ── */}
+              <div className="px-4 pb-4 pt-2 border-t border-surface-100 space-y-2.5 mt-auto">
                 {selectedId === req.id ? (
                   <div className="space-y-2 animate-fade-in">
                     <input type="text" className="input-field text-sm" placeholder={ar() ? "سبب الرفض..." : "Rejection Reason..."} value={rejectReason} onChange={e => setRejectReason(e.target.value)} />
@@ -3016,41 +3081,57 @@ function SubscriptionRequests() {
       </div>
 
       {reqs.length === 0 ? (
-        <div className="card-elevated p-12 text-center text-surface-500">
-          {ar() ? "لا توجد طلبات اشتراك معلقة حالياً" : "No pending subscription requests"}
+        <div className="card-elevated p-12 text-center">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mb-3">
+            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          </div>
+          <div className="text-sm font-bold text-surface-900">{ar() ? "لا توجد طلبات اشتراك معلقة حالياً" : "No pending subscription requests"}</div>
+          <div className="text-xs text-surface-500 mt-1">{ar() ? "جميع الطلبات تم معالجتها" : "All requests have been processed"}</div>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {reqs.map(req => (
-            <div key={req.id} className="card-elevated p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-amber-400">
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-surface-100 flex items-center justify-center text-xl">👤</div>
-                  <div>
-                    <div className="font-bold text-surface-900">{req.userName}</div>
-                    <div className="text-sm text-surface-500">{req.userPhone}</div>
-                  </div>
+            <div key={req.id} className="card-elevated overflow-hidden flex flex-col border-t-4 border-amber-400">
+              {/* Header with user info */}
+              <div className="px-5 pt-4 pb-3 flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center text-white font-bold text-sm shrink-0 shadow-sm">
+                  {(req.userName || "?").charAt(0).toUpperCase()}
                 </div>
-                <div className="flex items-center gap-4 text-sm font-medium">
-                  <span className="bg-surface-100 text-surface-700 px-3 py-1 rounded-full capitalize">{req.paymentOption}</span>
-                  <span className="text-amber-600 font-bold">{req.amountKwd} KWD</span>
-                  <span className="text-surface-400">{new Date(req.createdAt).toLocaleString()}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-surface-900 text-sm truncate">{req.userName}</div>
+                  <div className="text-xs text-surface-500">{req.userPhone}</div>
+                  {req.userEmail && <div className="text-xs text-surface-400 truncate">{req.userEmail}</div>}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+
+              {/* Details */}
+              <div className="px-5 pb-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-surface-500">{ar() ? "خطة الدفع" : "Payment Plan"}</span>
+                  <span className="bg-surface-100 text-surface-700 px-2.5 py-0.5 rounded-full text-xs font-bold capitalize">{req.paymentOption}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-surface-500">{ar() ? "المبلغ" : "Amount"}</span>
+                  <span className="text-amber-600 font-black text-base">{req.amountKwd} KWD</span>
+                </div>
+                <div className="text-[11px] text-surface-400">{ar() ? "تاريخ الطلب:" : "Submitted:"} {new Date(req.createdAt).toLocaleString()}</div>
+              </div>
+
+              {/* Actions */}
+              <div className="px-5 pb-4 pt-2 border-t border-surface-100 flex gap-2 mt-auto">
                 <button
                   disabled={busy === req.id}
                   onClick={() => handleAction(req.id, "reject")}
-                  className="btn-secondary text-red-600 hover:bg-red-50 hover:border-red-200"
+                  className="btn-secondary flex-1 btn-sm text-red-500 hover:bg-red-50 border border-red-200"
                 >
                   {busy === req.id ? "..." : (ar() ? "رفض" : "Reject")}
                 </button>
                 <button
                   disabled={busy === req.id}
                   onClick={() => handleAction(req.id, "approve")}
-                  className="btn-primary bg-amber-500 hover:bg-amber-600 shadow-glow"
+                  className="btn-primary flex-1 btn-sm bg-amber-500 hover:bg-amber-600 border-none shadow-sm"
                 >
-                  {busy === req.id ? "..." : (ar() ? "تأكيد الدفع والتفعيل" : "Mark Paid & Activate")}
+                  {busy === req.id ? "..." : (ar() ? "تأكيد وتفعيل" : "Approve & Activate")}
                 </button>
               </div>
             </div>
