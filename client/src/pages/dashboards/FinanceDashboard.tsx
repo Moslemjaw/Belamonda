@@ -136,26 +136,26 @@ function FilterBar({
     { key: "yearly", label: ar() ? "سنوي" : "Yearly" },
   ];
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-surface-200 bg-white p-3 shadow-sm">
-      <div className="inline-flex rounded-xl bg-surface-100 p-1">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-surface-200 bg-white p-4 shadow-sm">
+      <div className="flex w-full sm:w-auto mx-auto sm:mx-0 rounded-xl bg-surface-100 p-1">
         {periods.map(p => (
           <button
             key={p.key}
             onClick={() => onPeriodChange(p.key)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${period === p.key ? "bg-white text-brand-pink-600 shadow-sm" : "text-surface-600 hover:text-surface-900"}`}
+            className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center ${period === p.key ? "bg-white text-brand-pink-600 shadow-sm scale-100" : "text-surface-600 hover:text-surface-900 scale-95 hover:scale-100"}`}
           >{p.label}</button>
         ))}
       </div>
-      <div className="flex items-center gap-2 text-xs">
+      <div className="flex items-center justify-center sm:justify-end gap-2 text-xs w-full sm:w-auto mt-1 sm:mt-0">
         <label className="text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
-        <input type="date" className="input-field text-xs py-1.5 h-auto"
+        <input type="date" className="input-field text-xs py-1.5 h-auto max-w-[130px]"
           value={from.slice(0, 10)}
           onChange={e => {
             const d = new Date(e.target.value); d.setUTCHours(0,0,0,0);
             onFromChange(isoDate(d));
           }} />
         <label className="text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
-        <input type="date" className="input-field text-xs py-1.5 h-auto"
+        <input type="date" className="input-field text-xs py-1.5 h-auto max-w-[130px]"
           value={to.slice(0, 10)}
           onChange={e => {
             const d = new Date(e.target.value); d.setUTCHours(23,59,59,999);
@@ -183,16 +183,16 @@ function KpiCard({ label, value, sub, color, icon }: { label: string; value: str
     color.includes("violet")  ? "bg-violet-500" :
                                 "bg-brand-pink-500";
   return (
-    <div className="relative bg-white border border-surface-100 rounded-2xl p-5 transition-all hover:shadow-lg hover:-translate-y-0.5 overflow-hidden">
+    <div className="relative bg-white border border-surface-100 rounded-2xl p-4 sm:p-5 transition-all hover:shadow-lg hover:-translate-y-0.5 overflow-hidden">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className={`w-1.5 h-6 rounded-full ${dotCls}`} />
-          <span className="text-[11px] uppercase tracking-wider text-surface-500 font-bold">{label}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`w-1.5 h-6 rounded-full shrink-0 ${dotCls}`} />
+          <span className="text-[10px] sm:text-[11px] uppercase tracking-wider text-surface-500 font-bold truncate">{label}</span>
         </div>
-        {icon && <span className="text-xl opacity-80 shrink-0">{icon}</span>}
+        {icon && <span className="text-lg sm:text-xl opacity-80 shrink-0">{icon}</span>}
       </div>
-      <div className={`mt-3 text-2xl sm:text-3xl font-black leading-none ${color}`}>{value}</div>
-      {sub && <div className="mt-2 text-[11px] text-surface-500 font-medium">{sub}</div>}
+      <div className={`mt-3 text-xl sm:text-2xl md:text-3xl font-black leading-tight break-words ${color}`}>{value}</div>
+      {sub && <div className="mt-2 text-[10px] sm:text-[11px] text-surface-500 font-medium">{sub}</div>}
     </div>
   );
 }
@@ -239,14 +239,14 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
   return (
     <div className="space-y-5">
       {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <KpiCard label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={`${revenue} KWD`} sub={`${totals?.transactions ?? 0} ${ar() ? "معاملة" : "transactions"}`} color="text-emerald-600" icon="💰" />
         <KpiCard label={ar() ? "الكاش باك المطبق" : "Cashback Applied"} value={`${cashbackApplied} KWD`} sub={ar() ? "من الإيرادات" : "off revenue"} color="text-amber-600" icon="🎁" />
         <KpiCard label={ar() ? "التزام الكاش باك" : "Cashback Liability"} value={`${cashbackLiability} KWD`} sub={ar() ? "صافي مستحق" : "net outstanding"} color="text-indigo-600" icon="⚖️" />
       </div>
 
       {/* Secondary KPIs */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label={ar() ? "مدفوعات معلقة" : "Pending Payments"} value={`${snapshot?.pendingPaymentsKwd ?? "0.000"} KWD`} sub={`${snapshot?.pendingPaymentsCount ?? 0} ${ar() ? "طلب" : "requests"}`} color="text-amber-600" />
         <KpiCard label={ar() ? "إيرادات العضويات" : "Membership Revenue"} value={`${breakdown?.summary?.membershipRevenueKwd ?? "0.000"} KWD`} color="text-brand-pink-600" />
         <KpiCard label={ar() ? "إيرادات الجلسات" : "Session Revenue"} value={`${breakdown?.summary?.sessionRevenueKwd ?? "0.000"} KWD`} color="text-indigo-600" />
@@ -1619,7 +1619,7 @@ function ManualEntriesTab() {
     <div className="space-y-6 animate-fade-in">
 
       {/* Header KPI */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <KpiCard label={ar() ? "إجمالي القيود المسجّلة" : "Total Manual Entries"} value={String(entries.length)} color="text-brand-pink-600" icon="📋" />
         <KpiCard label={ar() ? "إجمالي المبالغ المكتملة" : "Total Completed Amount"} value={`${fmt(totalCompleted / 1000)} KWD`} color="text-emerald-600" icon="✅" />
         <KpiCard
@@ -1646,7 +1646,7 @@ function ManualEntriesTab() {
             {saveMsg.text}
           </div>
         )}
-        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "المبلغ (KWD)" : "Amount (KWD)"} <span className="text-red-500">*</span></label>
             <input
@@ -1692,11 +1692,11 @@ function ManualEntriesTab() {
               onChange={e => setPaymentDate(e.target.value)}
             />
           </div>
-          <div>
+          <div className="sm:col-span-1">
             <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "رقم المرجع / الإيصال" : "Reference / Receipt #"}</label>
             <input type="text" className="input-field" placeholder="TXN-0001" value={ref} onChange={e => setRef(e.target.value)} />
           </div>
-          <div className="sm:col-span-2 lg:col-span-2">
+          <div className="sm:col-span-1 lg:col-span-2">
             <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "التسمية / الوصف" : "Label / Description"}</label>
             <input type="text" className="input-field" placeholder={ar() ? "مثال: دفعة عميل أحمد" : "e.g. Payment from customer Ahmed"} value={label} onChange={e => setLabel(e.target.value)} />
           </div>
@@ -1711,7 +1711,7 @@ function ManualEntriesTab() {
             />
           </div>
           <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
-            <button type="submit" disabled={saving} className="btn-primary">
+            <button type="submit" disabled={saving} className="btn-primary px-8">
               {saving ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "إضافة القيد" : "Add Entry")}
             </button>
           </div>
@@ -1740,7 +1740,44 @@ function ManualEntriesTab() {
             <div className="text-xs text-surface-400 mt-1">{ar() ? "استخدم النموذج أعلاه لإضافة أول قيد" : "Use the form above to add your first entry"}</div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          {/* Mobile cards */}
+          <div className="md:hidden divide-y divide-surface-100">
+            {entries.map(e => (
+              <div key={e.id} className="p-4 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-bold text-emerald-700 text-lg">{e.amountKwd} KWD</div>
+                    <div className="text-[11px] text-surface-400 mt-0.5 font-mono">{new Date(e.createdAt).toLocaleDateString()} • {new Date(e.createdAt).toLocaleTimeString()}</div>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${statusBadge[e.status] ?? "bg-surface-100 text-surface-500"}`}>{e.status}</span>
+                </div>
+                {(e as any).clinicNameEn && <div className="text-xs text-surface-700 font-medium">🏥 {(e as any).clinicNameEn}</div>}
+                <div className="flex flex-wrap gap-1.5">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${METHOD_COLORS[e.method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>{methodLabel(e.method)}</span>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-100 text-surface-600">{purposeLabel(e.purpose)}</span>
+                </div>
+                {e.manualLabel && <div className="text-xs text-surface-600"><span className="text-surface-400 font-medium">{ar() ? "الوصف:" : "Label:"}</span> {e.manualLabel}</div>}
+                {e.providerRef && <div className="text-xs text-surface-500 font-mono"><span className="text-surface-400 font-medium">{ar() ? "المرجع:" : "Ref:"}</span> {e.providerRef}</div>}
+                {e.notes && <div className="text-xs text-surface-500"><span className="text-surface-400 font-medium">{ar() ? "ملاحظات:" : "Notes:"}</span> {e.notes}</div>}
+                <div className="flex justify-end pt-1">
+                  {confirmDelete === e.id ? (
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleDelete(e.id)} disabled={deleting === e.id} className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-3 py-1.5 rounded-lg">{deleting === e.id ? "…" : (ar() ? "تأكيد الحذف" : "Confirm Delete")}</button>
+                      <button onClick={() => setConfirmDelete(null)} className="text-xs text-surface-500 hover:text-surface-700 px-3 py-1.5 rounded-lg border border-surface-200">{ar() ? "إلغاء" : "Cancel"}</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setConfirmDelete(e.id)} className="text-xs text-red-400 hover:text-red-600 transition-colors flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      {ar() ? "حذف" : "Delete"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Desktop table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
@@ -1810,6 +1847,7 @@ function ManualEntriesTab() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
     </div>
