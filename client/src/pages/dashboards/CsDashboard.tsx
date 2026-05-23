@@ -1465,10 +1465,11 @@ function CustomersManager() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "العملاء (المرضى)" : "Customers (Patients)"}</h3>
-        <div className="w-64">
-          <input className="input-field" placeholder={ar() ? "بحث بالاسم أو الهاتف أو المدني..." : "Search name, phone or Civil ID..."} value={search} onChange={e => setSearch(e.target.value)} />
+        <div className="w-full sm:w-64 relative">
+          <input className="input-field w-full pl-9" placeholder={ar() ? "بحث بالاسم أو الهاتف أو المدني..." : "Search name, phone or Civil ID..."} value={search} onChange={e => setSearch(e.target.value)} />
+          <svg className="w-4 h-4 absolute left-3 top-2.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
         </div>
       </div>
 

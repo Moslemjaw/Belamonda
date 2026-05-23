@@ -2546,42 +2546,49 @@ export function UsersManager() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex flex-wrap items-center gap-3 mb-2">
-        <h3 className="text-base font-bold text-surface-900 mr-auto">{ar() ? "إدارة المستخدمين" : "User Management"}</h3>
-        {canExport && (
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+        <h3 className="text-base font-bold text-surface-900">{ar() ? "إدارة المستخدمين" : "User Management"}</h3>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          {canExport && (
+            <button
+              className="btn-secondary btn-sm flex items-center justify-center gap-1.5 text-emerald-700 hover:bg-emerald-50 border-emerald-200 flex-1 sm:flex-none"
+              onClick={async () => {
+                const headers = getAuthHeader() as Record<string, string> | undefined;
+                const res = await fetch(`${API_BASE_URL}/users/admin/export/all`, { headers });
+                const blob = await res.blob();
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = "belamonda_all_users_report.xlsx";
+                a.click();
+                URL.revokeObjectURL(a.href);
+              }}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+              {ar() ? "تصدير الكل" : "Export All"}
+            </button>
+          )}
           <button
-            className="btn-secondary btn-sm flex items-center gap-1.5 text-emerald-700 hover:bg-emerald-50 border-emerald-200"
-            onClick={async () => {
-              const headers = getAuthHeader() as Record<string, string> | undefined;
-              const res = await fetch(`${API_BASE_URL}/users/admin/export/all`, { headers });
-              const blob = await res.blob();
-              const a = document.createElement("a");
-              a.href = URL.createObjectURL(blob);
-              a.download = "belamonda_all_users_report.xlsx";
-              a.click();
-              URL.revokeObjectURL(a.href);
-            }}
+            className="btn-primary btn-sm flex items-center justify-center gap-1.5 flex-1 sm:flex-none"
+            onClick={() => setShowAddModal(true)}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-            {ar() ? "تصدير الكل" : "Export All"}
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            {ar() ? "إضافة مستخدم" : "Add User"}
           </button>
-        )}
-        <button
-          className="btn-primary btn-sm flex items-center gap-1.5"
-          onClick={() => setShowAddModal(true)}
-        >
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-          {ar() ? "إضافة مستخدم" : "Add User"}
-        </button>
-        {/* Filters */}
-        <input
-          className="input-field w-52"
-          placeholder={ar() ? "بحث بالاسم أو الهاتف..." : "Search name or phone..."}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-        />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <div className="relative">
+          <input
+            className="input-field w-full pl-9 h-10"
+            placeholder={ar() ? "بحث بالاسم أو الهاتف..." : "Search name or phone..."}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <svg className="w-4 h-4 absolute left-3 top-3 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        </div>
         <select
-          className="input-field w-36"
+          className="select-field w-full h-10"
           value={filterRole}
           onChange={e => setFilterRole(e.target.value)}
         >
@@ -2595,7 +2602,7 @@ export function UsersManager() {
           <option value="user">{ar() ? "مستخدم" : "User"}</option>
         </select>
         <select
-          className="input-field w-36"
+          className="select-field w-full h-10"
           value={filterStatus}
           onChange={e => setFilterStatus(e.target.value)}
         >
