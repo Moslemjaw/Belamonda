@@ -417,46 +417,72 @@ function PaymentsTab({ from, to }: { from: string; to: string }) {
         ) : items.length === 0 ? (
           <div className="text-sm text-surface-400 py-8 text-center">{ar() ? "لا توجد مدفوعات في هذه الفترة" : "No payments found in this range"}</div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-surface-200">
-            <table className="data-table text-xs">
-              <thead>
-                <tr className="bg-surface-50">
-                  <th>{ar() ? "المستخدم" : "User"}</th>
-                  <th>{ar() ? "العرض" : "Offer"}</th>
-                  <th>{ar() ? "العيادة" : "Clinic"}</th>
-                  <th>{ar() ? "الطريقة" : "Method"}</th>
-                  <th>{ar() ? "النوع" : "Type"}</th>
-                  <th className="text-right">{ar() ? "المبلغ" : "Amount"}</th>
-                  <th>{ar() ? "الحالة" : "Status"}</th>
-                  <th>{ar() ? "التاريخ" : "Date"}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((p: EnrichedPaymentItem) => (
-                  <tr key={p.id}>
-                    <td className="font-mono text-[10px] text-surface-500 max-w-[80px] truncate">{p.userId}</td>
-                    <td className="max-w-[140px]">
-                      <div className="font-medium text-surface-800 truncate">{p.offerName || "—"}</div>
-                      {p.membershipType && <div className="text-[10px] text-surface-400 capitalize">{p.membershipType}</div>}
-                    </td>
-                    <td className="text-surface-600">{p.clinicNameEn || "—"}</td>
-                    <td>
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${METHOD_COLORS[p.method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>
-                        {METHOD_LABELS[p.method] ?? p.method}
-                      </span>
-                    </td>
-                    <td className="text-surface-600">{PURPOSE_LABELS[p.purpose ?? ""] ?? (p.purpose || "—")}</td>
-                    <td className="text-right font-bold text-surface-900">{p.amountKwd}</td>
-                    <td>
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${STATUS_BADGE[p.status] ?? "bg-surface-100 text-surface-500"}`}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="text-surface-500 whitespace-nowrap">{new Date(p.createdAt).toLocaleDateString()}</td>
+          <div className="bg-white rounded-xl border border-surface-200 overflow-hidden">
+            {/* Mobile view (Cards) */}
+            <div className="md:hidden divide-y divide-surface-100">
+              {items.map((p: EnrichedPaymentItem) => (
+                <div key={p.id} className="p-4 flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex flex-col">
+                      <div className="font-bold text-surface-900 line-clamp-1">{p.offerName || "—"}</div>
+                      <div className="text-xs text-surface-500 mt-0.5">{p.clinicNameEn || "—"}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-bold text-surface-900">{p.amountKwd} <span className="text-[10px] text-surface-500">KWD</span></div>
+                      <div className="text-[10px] text-surface-400 mt-0.5">{new Date(p.createdAt).toLocaleDateString()}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${METHOD_COLORS[p.method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>{METHOD_LABELS[p.method] ?? p.method}</span>
+                    <span className="text-[10px] text-surface-600 bg-surface-50 px-2 py-0.5 rounded-md border border-surface-200">{PURPOSE_LABELS[p.purpose ?? ""] ?? (p.purpose || "—")}</span>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${STATUS_BADGE[p.status] ?? "bg-surface-100 text-surface-500"}`}>{p.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop view (Table) */}
+            <div className="overflow-x-auto hidden md:block">
+              <table className="data-table text-xs w-full">
+                <thead>
+                  <tr className="bg-surface-50">
+                    <th>{ar() ? "المستخدم" : "User"}</th>
+                    <th>{ar() ? "العرض" : "Offer"}</th>
+                    <th>{ar() ? "العيادة" : "Clinic"}</th>
+                    <th>{ar() ? "الطريقة" : "Method"}</th>
+                    <th>{ar() ? "النوع" : "Type"}</th>
+                    <th className="text-right">{ar() ? "المبلغ" : "Amount"}</th>
+                    <th>{ar() ? "الحالة" : "Status"}</th>
+                    <th>{ar() ? "التاريخ" : "Date"}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {items.map((p: EnrichedPaymentItem) => (
+                    <tr key={p.id}>
+                      <td className="font-mono text-[10px] text-surface-500 max-w-[80px] truncate">{p.userId}</td>
+                      <td className="max-w-[140px]">
+                        <div className="font-medium text-surface-800 truncate">{p.offerName || "—"}</div>
+                        {p.membershipType && <div className="text-[10px] text-surface-400 capitalize">{p.membershipType}</div>}
+                      </td>
+                      <td className="text-surface-600">{p.clinicNameEn || "—"}</td>
+                      <td>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${METHOD_COLORS[p.method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>
+                          {METHOD_LABELS[p.method] ?? p.method}
+                        </span>
+                      </td>
+                      <td className="text-surface-600">{PURPOSE_LABELS[p.purpose ?? ""] ?? (p.purpose || "—")}</td>
+                      <td className="text-right font-bold text-surface-900">{p.amountKwd}</td>
+                      <td>
+                        <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${STATUS_BADGE[p.status] ?? "bg-surface-100 text-surface-500"}`}>
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="text-surface-500 whitespace-nowrap">{new Date(p.createdAt).toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -499,35 +525,64 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
         ) : items.length === 0 ? (
           <div className="text-sm text-surface-400 py-8 text-center">{ar() ? "لا توجد أقساط" : "No installments"}</div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-surface-200">
-            <table className="data-table text-sm">
-              <thead>
-                <tr className="bg-surface-50">
-                  <th>{ar() ? "العميل" : "Customer"}</th>
-                  <th>{ar() ? "الباقة" : "Package"}</th>
-                  <th className="text-center">#</th>
-                  <th className="text-right">{ar() ? "المبلغ" : "Amount"}</th>
-                  <th>{ar() ? "تاريخ الاستحقاق" : "Due Date"}</th>
-                  <th>{ar() ? "الحالة" : "Status"}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((i, idx) => (
-                  <tr key={`${i.userOfferId}-${i.installmentNumber}-${idx}`}>
-                    <td className="font-mono text-xs text-surface-700">{i.userId}</td>
-                    <td className="font-medium">{i.offerName}</td>
-                    <td className="text-center text-surface-500">{i.installmentNumber}</td>
-                    <td className="text-right font-bold text-surface-900">{i.amountKwd} KWD</td>
-                    <td className="text-surface-600">{i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "—"}</td>
-                    <td>
-                      <span className={`px-2 py-1 rounded-md text-xs font-bold ${i.status === "paid" ? "bg-emerald-50 text-emerald-700" : i.status === "late" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
-                        {i.status === "paid" ? (ar() ? "مدفوع" : "Paid") : i.status === "late" ? (ar() ? "متأخر" : "Late") : (ar() ? "قادم" : "Upcoming")}
-                      </span>
-                    </td>
+          <div className="bg-white rounded-xl border border-surface-200 overflow-hidden">
+            {/* Mobile view (Cards) */}
+            <div className="md:hidden divide-y divide-surface-100">
+              {items.map((i, idx) => (
+                <div key={`${i.userOfferId}-${i.installmentNumber}-${idx}`} className="p-4 flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex flex-col">
+                      <div className="font-bold text-surface-900 line-clamp-1">{i.offerName}</div>
+                      <div className="text-[10px] text-surface-500 font-mono mt-0.5">{i.userId}</div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-bold text-surface-900">{i.amountKwd} <span className="text-[10px] text-surface-500">KWD</span></div>
+                      <div className="text-[10px] text-surface-400 mt-0.5">{i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "—"}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-surface-500 bg-surface-50 px-2 py-0.5 rounded-md border border-surface-200">
+                      #{i.installmentNumber}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${i.status === "paid" ? "bg-emerald-50 text-emerald-700" : i.status === "late" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
+                      {i.status === "paid" ? (ar() ? "مدفوع" : "Paid") : i.status === "late" ? (ar() ? "متأخر" : "Late") : (ar() ? "قادم" : "Upcoming")}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop view (Table) */}
+            <div className="overflow-x-auto hidden md:block">
+              <table className="data-table text-sm w-full">
+                <thead>
+                  <tr className="bg-surface-50">
+                    <th>{ar() ? "العميل" : "Customer"}</th>
+                    <th>{ar() ? "الباقة" : "Package"}</th>
+                    <th className="text-center">#</th>
+                    <th className="text-right">{ar() ? "المبلغ" : "Amount"}</th>
+                    <th>{ar() ? "تاريخ الاستحقاق" : "Due Date"}</th>
+                    <th>{ar() ? "الحالة" : "Status"}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {items.map((i, idx) => (
+                    <tr key={`${i.userOfferId}-${i.installmentNumber}-${idx}`}>
+                      <td className="font-mono text-[10px] text-surface-700">{i.userId}</td>
+                      <td className="font-medium">{i.offerName}</td>
+                      <td className="text-center text-surface-500">{i.installmentNumber}</td>
+                      <td className="text-right font-bold text-surface-900">{i.amountKwd} KWD</td>
+                      <td className="text-surface-600">{i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "—"}</td>
+                      <td>
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${i.status === "paid" ? "bg-emerald-50 text-emerald-700" : i.status === "late" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
+                          {i.status === "paid" ? (ar() ? "مدفوع" : "Paid") : i.status === "late" ? (ar() ? "متأخر" : "Late") : (ar() ? "قادم" : "Upcoming")}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
@@ -687,31 +742,55 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
       {/* Offers Table */}
       <div className="card-elevated p-5 border border-surface-200 shadow-sm">
         <h3 className="text-sm font-bold text-surface-900 mb-4">{ar() ? "تفاصيل العروض" : "Offers Detail"}</h3>
-        <div className="overflow-x-auto rounded-xl border border-surface-200">
-          <table className="data-table text-sm">
-            <thead>
-              <tr className="bg-surface-50">
-                <th>{ar() ? "العرض" : "Offer"}</th>
-                <th>{ar() ? "النوع" : "Type"}</th>
-                <th className="text-center">{ar() ? "المبيعات" : "Sales"}</th>
-                <th className="text-right">{ar() ? "الإيرادات" : "Revenue"}</th>
-                <th className="text-right">{ar() ? "كاش باك" : "Cashback"}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(offers?.items ?? []).length === 0 ? (
-                <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div><div className="empty-state-title">{ar() ? "لا توجد بيانات" : "No data yet"}</div><div className="empty-state-sub">{ar() ? "ستظهر النتائج هنا بمجرد توفرها." : "Results will appear here once available."}</div></div></td></tr>
-              ) : (offers?.items ?? []).map(o => (
-                <tr key={o.offerId}>
-                  <td className="font-medium">{o.offerName}</td>
-                  <td className="text-xs text-surface-500 capitalize">{o.membershipType}</td>
-                  <td className="text-center"><span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-xs font-bold">{o.salesCount}</span></td>
-                  <td className="text-right font-bold text-emerald-700">{o.revenueKwd}</td>
-                  <td className="text-right text-amber-600">{o.cashbackKwd}</td>
+        <div className="bg-white rounded-xl border border-surface-200 overflow-hidden">
+          {/* Mobile view (Cards) */}
+          <div className="md:hidden divide-y divide-surface-100">
+            {(offers?.items ?? []).length === 0 ? (
+              <div className="p-8 text-center"><div className="empty-state-icon mx-auto"><svg className="w-7 h-7 mx-auto text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div><div className="text-sm font-bold mt-2">{ar() ? "لا توجد بيانات" : "No data yet"}</div></div>
+            ) : (offers?.items ?? []).map(o => (
+              <div key={o.offerId} className="p-4 flex flex-col gap-3">
+                <div className="flex items-start justify-between">
+                  <div className="font-bold text-surface-900 line-clamp-1">{o.offerName}</div>
+                  <div className="text-right shrink-0">
+                    <div className="font-bold text-emerald-700">{o.revenueKwd}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-surface-500 bg-surface-50 border border-surface-200 px-2 py-0.5 rounded-md capitalize">{o.membershipType}</span>
+                  <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-[10px] font-bold">{o.salesCount} {ar() ? "مبيعات" : "Sales"}</span>
+                  <span className="text-[10px] text-amber-600 font-bold ml-auto">{o.cashbackKwd} CB</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop view (Table) */}
+          <div className="overflow-x-auto hidden md:block">
+            <table className="data-table text-sm w-full">
+              <thead>
+                <tr className="bg-surface-50">
+                  <th>{ar() ? "العرض" : "Offer"}</th>
+                  <th>{ar() ? "النوع" : "Type"}</th>
+                  <th className="text-center">{ar() ? "المبيعات" : "Sales"}</th>
+                  <th className="text-right">{ar() ? "الإيرادات" : "Revenue"}</th>
+                  <th className="text-right">{ar() ? "كاش باك" : "Cashback"}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(offers?.items ?? []).length === 0 ? (
+                  <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg></div><div className="empty-state-title">{ar() ? "لا توجد بيانات" : "No data yet"}</div><div className="empty-state-sub">{ar() ? "ستظهر النتائج هنا بمجرد توفرها." : "Results will appear here once available."}</div></div></td></tr>
+                ) : (offers?.items ?? []).map(o => (
+                  <tr key={o.offerId}>
+                    <td className="font-medium">{o.offerName}</td>
+                    <td className="text-xs text-surface-500 capitalize">{o.membershipType}</td>
+                    <td className="text-center"><span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-xs font-bold">{o.salesCount}</span></td>
+                    <td className="text-right font-bold text-emerald-700">{o.revenueKwd}</td>
+                    <td className="text-right text-amber-600">{o.cashbackKwd}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -723,29 +802,51 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
         ) : (referrals?.items ?? []).length === 0 ? (
           <div className="text-sm text-surface-400 py-6 text-center">{ar() ? "لا توجد إحالات في هذه الفترة" : "No referrals in this range"}</div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-surface-200">
-            <table className="data-table text-sm">
-              <thead>
-                <tr className="bg-surface-50">
-                  <th>{ar() ? "المحيل" : "Referrer"}</th>
-                  <th>{ar() ? "الكود" : "Code"}</th>
-                  <th>{ar() ? "الدور" : "Role"}</th>
-                  <th className="text-center">{ar() ? "المبيعات" : "Sales"}</th>
-                  <th className="text-right">{ar() ? "الإيرادات" : "Revenue"}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(referrals?.items ?? []).map(r => (
-                  <tr key={r.referrerId}>
-                    <td className="font-medium">{r.displayName}</td>
-                    <td><span className="font-mono text-xs bg-brand-pink-50 text-brand-pink-700 px-2 py-0.5 rounded-md font-bold">{r.referralCode}</span></td>
-                    <td className="text-xs text-surface-500 capitalize">{r.role}</td>
-                    <td className="text-center"><span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-xs font-bold">{r.salesCount}</span></td>
-                    <td className="text-right font-bold text-emerald-700">{r.revenueKwd} KWD</td>
+          <div className="bg-white rounded-xl border border-surface-200 overflow-hidden">
+            {/* Mobile view (Cards) */}
+            <div className="md:hidden divide-y divide-surface-100">
+              {(referrals?.items ?? []).map(r => (
+                <div key={r.referrerId} className="p-4 flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <div className="font-bold text-surface-900 line-clamp-1">{r.displayName}</div>
+                    <div className="text-right shrink-0">
+                      <div className="font-bold text-emerald-700">{r.revenueKwd} <span className="text-[10px] text-surface-500">KWD</span></div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[10px] bg-brand-pink-50 text-brand-pink-700 px-2 py-0.5 rounded-md font-bold">{r.referralCode}</span>
+                    <span className="text-[10px] text-surface-500 bg-surface-50 border border-surface-200 px-2 py-0.5 rounded-md capitalize">{r.role}</span>
+                    <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-[10px] font-bold ml-auto">{r.salesCount} {ar() ? "مبيعات" : "Sales"}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop view (Table) */}
+            <div className="overflow-x-auto hidden md:block">
+              <table className="data-table text-sm w-full">
+                <thead>
+                  <tr className="bg-surface-50">
+                    <th>{ar() ? "المحيل" : "Referrer"}</th>
+                    <th>{ar() ? "الكود" : "Code"}</th>
+                    <th>{ar() ? "الدور" : "Role"}</th>
+                    <th className="text-center">{ar() ? "المبيعات" : "Sales"}</th>
+                    <th className="text-right">{ar() ? "الإيرادات" : "Revenue"}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {(referrals?.items ?? []).map(r => (
+                    <tr key={r.referrerId}>
+                      <td className="font-medium">{r.displayName}</td>
+                      <td><span className="font-mono text-xs bg-brand-pink-50 text-brand-pink-700 px-2 py-0.5 rounded-md font-bold">{r.referralCode}</span></td>
+                      <td className="text-xs text-surface-500 capitalize">{r.role}</td>
+                      <td className="text-center"><span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-xs font-bold">{r.salesCount}</span></td>
+                      <td className="text-right font-bold text-emerald-700">{r.revenueKwd} KWD</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
