@@ -8,6 +8,7 @@ import puppeteer from "puppeteer";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { UserOfferModel } from "../../models/userOffer.model.js";
+import { UserModel } from "../../models/user.model.js";
 import {
   EFORM_FIELD_TYPES,
   EFormModel,
@@ -302,7 +303,23 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
       .sort({ createdAt: -1 })
       .limit(200)
       .lean<EFormSubmissionDoc[]>();
-    return res.json({ items: rows.map((r) => serializeSubmission(r)) });
+
+    const userIds = [...new Set(rows.map(r => r.userId).filter(Boolean))];
+    const users = await UserModel.find({ _id: { $in: userIds } }).select("username fullName phone email").lean();
+    const userMap = new Map(users.map(u => [String(u._id), u]));
+
+    const items = rows.map((r) => {
+      const s = serializeSubmission(r);
+      const u = userMap.get(s.userId);
+      return {
+        ...s,
+        userName: u ? (u.fullName || u.username) : "—",
+        userPhone: u ? u.phone : "—",
+        userEmail: u ? u.email : "—",
+      };
+    });
+
+    return res.json({ items });
   } catch (e) {
     next(e);
   }
