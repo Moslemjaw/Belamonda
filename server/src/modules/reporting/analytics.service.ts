@@ -1023,14 +1023,15 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     if (dateFilter) q.createdAt = dateFilter;
     
     const paymentsInPeriod = await PaymentModel.find(q).select("_id userId amountKwd createdAt offerId").lean();
-    const buyerIds = [...new Set(paymentsInPeriod.map((p: any) => p.userId))].filter(Boolean);
+    const buyerIdsStr = [...new Set(paymentsInPeriod.map((p: any) => String(p.userId)))].filter(Boolean);
     
-    if (buyerIds.length === 0) {
+    if (buyerIdsStr.length === 0) {
       addTable([{ key: "msg", header: "Message" }], [{ msg: "No referrals found in period" }]);
     } else {
       // 2. Find their FIRST payment EVER
+      const matchUserIds = buyerIdsStr.map(id => /^[a-f0-9]{24}$/i.test(id) ? new mongoose.Types.ObjectId(id) : id);
       const firstPaymentsEver = await PaymentModel.aggregate([
-        { $match: { status: "completed", userId: { $in: buyerIds } } },
+        { $match: { status: "completed", userId: { $in: matchUserIds } } },
         { $sort: { createdAt: 1 } },
         { $group: {
             _id: "$userId",
@@ -1043,8 +1044,8 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
       // 3. Map buyer to referrer
       const buyers: any[] = await UserModel.find({
         $or: [
-          { _id: { $in: buyerIds.filter((i) => /^[a-f0-9]{24}$/i.test(i)) } },
-          { username: { $in: buyerIds } },
+          { _id: { $in: buyerIdsStr.filter((i) => /^[a-f0-9]{24}$/i.test(i)) } },
+          { username: { $in: buyerIdsStr } },
         ],
       }).select("username referredBy").lean().catch(() => []);
       
@@ -1061,7 +1062,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
       const referrerIds = new Set<string>();
       
       for (const p of validPayments as any[]) {
-        const ref = buyerToReferrer.get(p.userId);
+        const ref = buyerToReferrer.get(String(p.userId));
         if (!ref) continue;
         
         const oId = p.offerId ? String(p.offerId) : "unknown";
