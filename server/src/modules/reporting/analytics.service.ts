@@ -1564,9 +1564,9 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   });
 
   const offerIds = [...new Set([
-    ...memberships.map((m: any) => String(m.offerId)),
-    ...payments.map((p: any) => String(p.offerId)),
-    ...sessions.map((s: any) => String(s.offerId)),
+    ...memberships.map((m: any) => m.offerId ? String(m.offerId) : null),
+    ...payments.map((p: any) => p.offerId ? String(p.offerId) : null),
+    ...sessions.map((s: any) => s.offerId ? String(s.offerId) : null),
   ].filter(Boolean))];
   const offers = offerIds.length
     ? await OfferModel.find({ _id: { $in: offerIds } }).select("name").lean()
@@ -1575,9 +1575,9 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   offers.forEach((o: any) => { offerMap[String(o._id)] = o.name; });
 
   const clinicIds = [...new Set([
-    ...memberships.map((m: any) => String(m.clinicId)),
-    ...payments.map((p: any) => String(p.clinicId)),
-    ...sessions.map((s: any) => String(s.clinicId)),
+    ...memberships.map((m: any) => m.clinicId ? String(m.clinicId) : null),
+    ...payments.map((p: any) => p.clinicId ? String(p.clinicId) : null),
+    ...sessions.map((s: any) => s.clinicId ? String(s.clinicId) : null),
   ].filter(Boolean))];
   const clinics = clinicIds.length
     ? await ClinicModel.find({ _id: { $in: clinicIds } }).select("nameEn").lean()
