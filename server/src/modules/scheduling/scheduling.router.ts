@@ -580,7 +580,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         offerId: uo.offerId,
         clinicId: uo.clinicId,
         isStandalone: !!parsed.data.isStandalone,
-        bookingRoute: "cs",
+        bookingRoute: "clinic",
         membershipType: uo.membershipType ?? "none",
         hadCashback: cashbackDeducted > 0,
         standaloneName: parsed.data.standaloneName,
@@ -655,7 +655,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       offerId: uo.offerId,
       clinicId: uo.clinicId,
       isStandalone: !!parsed.data.isStandalone,
-      bookingRoute: "cs",
+      bookingRoute: "clinic",
       membershipType: uo.membershipType ?? "none",
       hadCashback: cashbackDeducted > 0 || !!parsed.data.cashbackAppliedKwd,
       sessionPriceKwd: sessionGross,
@@ -924,7 +924,7 @@ schedulingRouter.post("/me/requests/:id/cancel", authRequired, async (req, res) 
 // ── Clinic / CS lists pending booking requests ─────────────────────────────
 schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "admin", "clinicStaff", "finance"]), async (req, res) => {
   const status = (typeof req.query.status === "string" ? req.query.status : "open") as BookingRequestStatus | "all" | "open";
-  const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status, bookingRoute: "cs" };
+  const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status };
   if (req.auth!.role === "clinicStaff") {
     const cid = await getUserClinicId(req.auth!.userId);
     if (cid) filter.clinicId = cid;
