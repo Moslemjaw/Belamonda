@@ -111,10 +111,8 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
 
       <div className="mt-auto pl-2">
         {session.status === "scheduled" && (
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => onMark(session.id, "completed")} className="col-span-2 btn-primary py-2.5 rounded-xl shadow-glow text-sm" disabled={!allGreen}>✓ {ar() ? "حضر" : "Came"}</button>
-            <button onClick={() => onMark(session.id, "no_show")} className="col-span-1 px-2 py-2.5 rounded-xl text-[11px] sm:text-xs font-bold bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-colors uppercase tracking-wider text-center">✗ {ar() ? "لم يحضر" : "No Show"}</button>
-            <button onClick={() => { setShowReschedule(!showReschedule); setNewTime(""); }} className="col-span-1 px-2 py-2.5 rounded-xl text-[11px] sm:text-xs font-bold bg-surface-100 text-surface-700 hover:bg-surface-200 transition-colors uppercase tracking-wider text-center">{ar() ? "إعادة جدول" : "Reschedule"}</button>
+          <div className={`text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border bg-blue-50 text-blue-600 border-blue-200`}>
+            {session.status.replace("_", " ")}
           </div>
         )}
         {session.status !== "scheduled" && (
@@ -188,19 +186,6 @@ function ScheduleTable({
             {s.clinicPaymentStatus === "paid" ? "Paid" : "Pending"}
           </span>
         </td>
-        <td className="py-2 text-right">
-          <div className="flex flex-wrap gap-1 justify-end">
-            {s.status === "scheduled" && (
-              <>
-                <button className="text-xs font-bold bg-emerald-500 text-white px-2 py-1 rounded" onClick={() => onMark(s.id, "completed")}>Came</button>
-                <button className="text-xs font-bold bg-red-500 text-white px-2 py-1 rounded" onClick={() => onMark(s.id, "no_show")}>No Show</button>
-              </>
-            )}
-            {s.bookingRequestId && s.clinicPaymentStatus !== "paid" && (
-              <button className="text-xs font-bold bg-amber-500 text-white px-2 py-1 rounded" onClick={() => onMarkPaid(s.bookingRequestId)}>Paid</button>
-            )}
-          </div>
-        </td>
       </tr>
     ));
 
@@ -219,7 +204,6 @@ function ScheduleTable({
                 <th className="py-2">Time</th>
                 <th className="py-2">Status</th>
                 <th className="py-2">Payment</th>
-                <th className="py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>{renderRows(items)}</tbody>
