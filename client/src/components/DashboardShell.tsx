@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../app/AuthContext";
-import { BelamondaLogo, BelamondaIcon } from "./BelamondaLogo";
+import { BelamondaLogo } from "./BelamondaLogo";
 import { apiFetch } from "../lib/api";
 import { useApi } from "../hooks/useApi";
 import i18n from "../app/i18n";
@@ -319,7 +319,7 @@ export default function DashboardShell({
       >
         {/* Logo */}
         <div className="flex h-16 items-center gap-3 border-b border-surface-100 px-5">
-          <BelamondaLogo size={32} />
+          <BelamondaLogo size={40} />
         </div>
 
         {/* Nav items */}
@@ -455,7 +455,7 @@ export default function DashboardShell({
 
               {/* Mobile logo */}
               <div className="lg:hidden">
-                <BelamondaIcon size={24} />
+                <BelamondaLogo size={32} />
               </div>
             </div>
           </div>

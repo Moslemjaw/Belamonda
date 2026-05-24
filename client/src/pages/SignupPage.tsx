@@ -117,7 +117,7 @@ export default function SignupPage() {
               {isAr ? "English" : "العربية"}
             </button>
           </div>
-          <BelamondaLogo size={36} />
+          <BelamondaLogo size={56} />
           <h2 className="mt-6 text-2xl font-black text-surface-900">{t("Create your account", "أنشئي حسابك")}</h2>
           <p className="text-sm text-surface-500 mt-1">{t("It only takes a minute.", "يستغرق دقيقة فقط.")}</p>
 

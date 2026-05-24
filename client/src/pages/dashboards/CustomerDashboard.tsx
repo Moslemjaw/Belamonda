@@ -7,7 +7,7 @@ import { useMyReservations, type ReservationItem } from "../../hooks/useApi";
 import { useWallet, useMyOffers, useMySessions, useMyComplaints, useNotifications, useApi, useMyClinicChangeRequests, invalidateCache } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL, SITE_BASE_URL } from "../../lib/api";
 import i18n from "../../app/i18n";
-import { BelamondaIcon } from "../../components/BelamondaLogo";
+import { BelamondaLogo } from "../../components/BelamondaLogo";
 import QRCodeCanvas from "../../components/QRCodeCanvas";
 import QRCode from "qrcode";
 import { treatmentCategories, allTreatments, clinics } from "../../lib/treatments";
@@ -1552,9 +1552,8 @@ export default function CustomerDashboard() {
 
       {/* Desktop Sidebar (Optional, but kept minimal to feel like an app menu) */}
       <aside className="hidden lg:flex w-64 shrink-0 bg-white border-r border-surface-200 flex-col sticky top-0 h-screen z-30 overflow-y-auto">
-        <div className="p-6 pb-2 border-b border-surface-100 flex items-center gap-3">
-          <BelamondaIcon size={32} />
-          <span className="text-xl font-bold text-surface-900 tracking-tight">Belamonda</span>
+        <div className="p-6 pb-2 border-b border-surface-100 flex items-center">
+          <BelamondaLogo size={40} />
         </div>
         <div className="p-6">
           <div className="flex items-center gap-3 mb-8">

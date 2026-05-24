@@ -64,7 +64,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mb-8">
-            <BelamondaLogo size={36} />
+            <BelamondaLogo size={56} />
             <h2 className="mt-6 text-2xl font-bold text-surface-900">{t("welcomeBack")}</h2>
             <p className="mt-1 text-sm text-surface-500">{t("loginSubtitle")}</p>
           </div>

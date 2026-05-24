@@ -1,7 +1,7 @@
 import { Link, NavLink } from "react-router-dom";
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { BelamondaIcon } from "./BelamondaLogo";
+import { BelamondaLogo } from "./BelamondaLogo";
 import { useAuth } from "../app/AuthContext";
 
 const navLinkBase =
@@ -26,16 +26,8 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-surface-50 via-white to-brand-pink-50/20">
       <header className="border-b border-surface-100 bg-white/85 backdrop-blur-md sticky top-0 z-40">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-6">
-          <Link to="/" className="flex items-center gap-3">
-            <BelamondaIcon size={34} />
-            <div className="leading-tight">
-              <div className="text-base font-extrabold tracking-tight text-surface-900">
-                {isAr ? "بيلاموندو" : "Belamonda"}
-              </div>
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-surface-400 -mt-0.5">
-                {t("Beauty & Wellness", "الجمال والعناية")}
-              </div>
-            </div>
+          <Link to="/" className="flex items-center">
+            <BelamondaLogo size={44} />
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
@@ -140,10 +132,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
       <footer className="border-t border-surface-100 bg-white">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
-            <div className="flex items-center gap-3">
-              <BelamondaIcon size={32} />
-              <span className="text-lg font-extrabold text-surface-900">{isAr ? "بيلاموندو" : "Belamonda"}</span>
-            </div>
+            <BelamondaLogo size={40} />
             <p className="mt-3 text-sm text-surface-500 max-w-sm leading-relaxed">
               {t(
                 "Curated beauty & wellness memberships and cashback across Kuwait's leading clinics.",
