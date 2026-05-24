@@ -573,7 +573,7 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
                           {(r as any).offerName}
                         </span>
                       ) : null}
-                      {r.membershipType && r.membershipType !== "none" && (
+                      {r.membershipType && r.membershipType !== "none" && !(r.membershipType === "free_sessions" && parseFloat(r.sessionPriceKwd || "0") > 0) && (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100/50">
                           {r.membershipType}
                         </span>
@@ -700,16 +700,6 @@ function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (
                         onClick={() => openAction(r.id, "reject")}
                       >{ar() ? "رفض" : "Decline"}</button>
                     </>
-                  )}
-                  {r.clinicPaymentStatus !== "paid" && (
-                    <button
-                      type="button"
-                      disabled={payingId === r.id}
-                      className="text-sm font-bold bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white px-6 py-2.5 rounded-xl transition-all shadow-sm shadow-emerald-500/20"
-                      onClick={() => void markPaid(r.id)}
-                    >
-                      {payingId === r.id ? "…" : ar() ? "تأكيد الدفع" : "Mark as Paid"}
-                    </button>
                   )}
               </div>
             </div>
