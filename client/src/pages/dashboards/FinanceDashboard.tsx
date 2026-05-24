@@ -533,7 +533,7 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
                   <div className="flex items-start justify-between">
                     <div className="flex flex-col">
                       <div className="font-bold text-surface-900 line-clamp-1">{i.offerName}</div>
-                      <div className="text-[10px] text-surface-500 font-mono mt-0.5">{i.userId}</div>
+                      <div className="text-[10px] text-surface-500 font-mono mt-0.5">{i.customerName || i.userId}</div>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-bold text-surface-900">{i.amountKwd} <span className="text-[10px] text-surface-500">KWD</span></div>
@@ -568,7 +568,7 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
                 <tbody>
                   {items.map((i, idx) => (
                     <tr key={`${i.userOfferId}-${i.installmentNumber}-${idx}`}>
-                      <td className="font-mono text-[10px] text-surface-700">{i.userId}</td>
+                      <td className="font-medium text-surface-900">{i.customerName || i.userId}</td>
                       <td className="font-medium">{i.offerName}</td>
                       <td className="text-center text-surface-500">{i.installmentNumber}</td>
                       <td className="text-right font-bold text-surface-900">{i.amountKwd} KWD</td>

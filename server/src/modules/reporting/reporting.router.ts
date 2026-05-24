@@ -17,6 +17,7 @@ import {
   computeClinicSummaries,
   computeClinicDetail,
   exportClinicReportXlsx,
+  exportComprehensiveReportXlsx,
 } from "./analytics.service.js";
 
 const CreateReportSchema = z.object({
@@ -109,7 +110,6 @@ reportingRouter.get("/finance/export", authRequired, requireRole(FINANCE_ROLES),
     const allowed = ["payments", "offers", "subscriptions", "referrals", "installments", "clinics", "comprehensive"];
     if (!allowed.includes(kind)) return res.status(400).json({ error: "INVALID_KIND" });
     if (kind === "comprehensive") {
-      const { exportComprehensiveReportXlsx } = await import("./analytics.service.js");
       const xlsx = await exportComprehensiveReportXlsx({ from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename="finance-${kind}-${new Date().toISOString().slice(0,10)}.xlsx"`);
