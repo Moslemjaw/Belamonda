@@ -1569,10 +1569,14 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
     ...sessions.map((s: any) => s.offerId ? String(s.offerId) : null),
   ].filter(Boolean))];
   const offers = offerIds.length
-    ? await OfferModel.find({ _id: { $in: offerIds } }).select("name").lean()
+    ? await OfferModel.find({ _id: { $in: offerIds } }).select("name subscriptionPriceKwd").lean()
     : [];
   const offerMap: Record<string, string> = {};
-  offers.forEach((o: any) => { offerMap[String(o._id)] = o.name; });
+  const offerPriceMap: Record<string, string> = {};
+  offers.forEach((o: any) => {
+    offerMap[String(o._id)] = o.name;
+    offerPriceMap[String(o._id)] = o.subscriptionPriceKwd || "0.000";
+  });
 
   const clinicIds = [...new Set([
     ...memberships.map((m: any) => m.clinicId ? String(m.clinicId) : null),
@@ -1632,12 +1636,13 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   // 2. Memberships
   addSheet(
     "Memberships",
-    ["Membership ID", "User ID", "Customer Name", "Phone", "Offer", "Status", "Purchase Mode", "Sessions Used", "Total Installments", "Installments Paid", "Amount (KWD)", "Amount Left (KWD)", "Installment 1 Due", "Installment 2 Due", "Installment 3 Due", "Installment 4 Due", "Activated", "Created"],
+    ["Membership ID", "User ID", "Customer Name", "Phone", "Offer", "Status", "Purchase Mode", "Sessions Used", "Total Installments", "Installments Paid", "Total Price", "Amount Left (KWD)", "Installment 1 Due", "Installment 2 Due", "Installment 3 Due", "Installment 4 Due", "Activated", "Created"],
     memberships.map((m: any) => {
       const u = userMap[m.userId] || {};
+      const totalPriceKwd = offerPriceMap[String(m.offerId)] || m.paymentAmountKwd || "0.000";
+      const totalPriceMils = parseKwd(totalPriceKwd);
       
       let paidMils = 0;
-      const amtMils = parseKwd(m.paymentAmountKwd || "0");
       let dates = ["", "", "", ""];
       if (m.purchaseMode === "installments") {
         const sched = m.installmentSchedule || [];
@@ -1648,18 +1653,20 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
             dates[i] = new Date(s.dueDate).toISOString().slice(0, 10);
           }
         });
+      } else if (m.purchaseMode === "deposit") {
+        paidMils = parseKwd(m.depositAmountKwd || "0");
       } else {
         if (m.status === "active" || m.status === "expired" || m.status === "reserved") {
-           paidMils = m.purchaseMode === "deposit" ? parseKwd(m.depositAmountKwd || "0") : amtMils;
+           paidMils = totalPriceMils;
         }
       }
-      const balanceKwd = Math.max(0, amtMils - paidMils) / 1000;
+      const balanceKwd = Math.max(0, totalPriceMils - paidMils) / 1000;
 
       return [
         String(m._id), m.userId, u.fullName || u.username || "", u.phone || "",
         offerMap[String(m.offerId)] ?? "", m.status, m.purchaseMode ?? "",
         m.sessionsUsed ?? 0, m.installmentCount ?? "", m.installmentsPaid ?? 0,
-        m.paymentAmountKwd ?? "",
+        totalPriceKwd,
         balanceKwd.toFixed(3),
         ...dates,
         m.activatedAt ? new Date(m.activatedAt).toISOString().slice(0, 10) : "",
@@ -1686,20 +1693,23 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
 
   const sessionPivotRows = packageMemberships.map((m: any) => {
     const u = userMap[m.userId] || {};
+    const totalPriceKwd = offerPriceMap[String(m.offerId)] || m.paymentAmountKwd || "0.000";
+    const totalPriceMils = parseKwd(totalPriceKwd);
     
     let paidMils = 0;
-    const amtMils = parseKwd(m.paymentAmountKwd || "0");
     if (m.purchaseMode === "installments") {
       const sched = m.installmentSchedule || [];
       paidMils += parseKwd(m.depositAmountKwd || "0");
       sched.forEach((s: any) => { if (s.paid) paidMils += parseKwd(s.amountKwd || "0"); });
+    } else if (m.purchaseMode === "deposit") {
+      paidMils = parseKwd(m.depositAmountKwd || "0");
     } else {
       if (m.status === "active" || m.status === "expired" || m.status === "reserved") {
-         paidMils = m.purchaseMode === "deposit" ? parseKwd(m.depositAmountKwd || "0") : amtMils;
+         paidMils = totalPriceMils;
       }
     }
     const paidKwd = (paidMils / 1000).toFixed(3);
-    const balanceKwd = Math.max(0, amtMils - paidMils) / 1000;
+    const balanceKwd = Math.max(0, totalPriceMils - paidMils) / 1000;
     
     const clinicCounts = activeClinics.map(cId => {
       const count = sessionPivot[String(m._id)]?.[cId] || 0;
@@ -1712,7 +1722,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
       u.phone || "",
       offerMap[String(m.offerId)] ?? "",
       m.purchaseMode ?? "",
-      m.paymentAmountKwd ?? "0.000",
+      totalPriceKwd,
       paidKwd,
       balanceKwd.toFixed(3),
       m.sessionsUsed ?? 0,
@@ -1723,7 +1733,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   addSheet(
     "Sessions",
     [
-      "Customer ID", "Customer Name", "Phone", "Package Type", "Payment Type", "Total Amount (KWD)", "Paid Amount (KWD)", "Amount Left (KWD)", "Total Sessions Executed",
+      "Customer ID", "Customer Name", "Phone", "Package Type", "Payment Type", "Total Price", "Paid Amount (KWD)", "Amount Left (KWD)", "Total Sessions Executed",
       ...clinicHeaders
     ],
     sessionPivotRows
