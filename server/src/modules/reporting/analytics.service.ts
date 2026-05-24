@@ -1654,7 +1654,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
           }
         });
       } else if (m.purchaseMode === "deposit") {
-        paidMils = parseKwd(m.depositAmountKwd || "0");
+        paidMils = parseKwd(m.paymentAmountKwd || m.depositAmountKwd || "0");
       } else {
         if (m.status === "active" || m.status === "expired" || m.status === "reserved") {
            paidMils = totalPriceMils;
@@ -1702,7 +1702,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
       paidMils += parseKwd(m.depositAmountKwd || "0");
       sched.forEach((s: any) => { if (s.paid) paidMils += parseKwd(s.amountKwd || "0"); });
     } else if (m.purchaseMode === "deposit") {
-      paidMils = parseKwd(m.depositAmountKwd || "0");
+      paidMils = parseKwd(m.paymentAmountKwd || m.depositAmountKwd || "0");
     } else {
       if (m.status === "active" || m.status === "expired" || m.status === "reserved") {
          paidMils = totalPriceMils;
