@@ -923,7 +923,7 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
         <div className="grid md:grid-cols-2 gap-6 relative">
           {plans.map(plan => (
             <div key={plan._id} className={`card-elevated p-6 cursor-pointer border-2 transition-all ${option === plan._id ? "border-amber-500 shadow-glow-lg ring-4 ring-amber-500/20" : "border-transparent hover:border-amber-200"}`} onClick={() => setOption(plan._id)}>
-              {plan.nameEn.toLowerCase().includes("advance") && (
+              {plan.nameEn?.toLowerCase().includes("advance") && (
                 <div className="absolute top-0 right-6 -translate-y-1/2 bg-gradient-to-r from-brand-pink-500 to-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-lg z-10">
                   {ar ? "مُوصى به" : "Recommended"}
                 </div>
