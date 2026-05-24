@@ -1351,15 +1351,31 @@ export default function CustomerDashboard() {
       ctx.fillText("○  Verification Pending", pad + 10 * SCALE, H - 31 * SCALE);
     }
 
-    // ── BELAMONDA branding (bottom-right) ──
-    ctx.font = `800 ${13 * SCALE}px Inter, system-ui, -apple-system, sans-serif`;
-    ctx.fillStyle = "rgba(255,255,255,0.4)";
-    ctx.textAlign = "right";
-    ctx.textBaseline = "bottom";
-    ctx.letterSpacing = `${3 * SCALE}px`;
-    ctx.fillText("BELAMONDA", W - pad, H - pad);
-    ctx.letterSpacing = "0px";
-    ctx.textAlign = "left";
+    // ── BELAMONDA logo (bottom-right) ──
+    try {
+      const logoImg = new Image();
+      const { default: logoSrc } = await import("../../assets/belamondo-logo.png");
+      await new Promise<void>((resolve, reject) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = reject;
+        logoImg.src = logoSrc;
+      });
+      const logoH = 30 * SCALE;
+      const logoW = (logoImg.naturalWidth / logoImg.naturalHeight) * logoH;
+      ctx.globalAlpha = 0.7;
+      ctx.drawImage(logoImg, W - pad - logoW, H - pad - logoH, logoW, logoH);
+      ctx.globalAlpha = 1;
+    } catch {
+      // Fallback to text if logo fails
+      ctx.font = `800 ${13 * SCALE}px Inter, system-ui, -apple-system, sans-serif`;
+      ctx.fillStyle = "rgba(255,255,255,0.4)";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "bottom";
+      ctx.letterSpacing = `${3 * SCALE}px`;
+      ctx.fillText("BELAMONDA", W - pad, H - pad);
+      ctx.letterSpacing = "0px";
+      ctx.textAlign = "left";
+    }
 
     return new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
@@ -3528,9 +3544,8 @@ export default function CustomerDashboard() {
                           </div>
                         </div>
                         
-                        <div className="opacity-60 flex items-center gap-2">
-                           <svg className="w-8 h-8" viewBox="0 0 80 80" fill="none"><path d="M40 10C40 10 25 25 25 40C25 48 32 55 40 55C48 55 55 48 55 40C55 25 40 10 40 10Z" fill="white" opacity="0.9"/><path d="M20 25C20 25 15 38 20 48C24 56 32 55 40 55C32 55 18 50 20 25Z" fill="white" opacity="0.6"/><path d="M60 25C60 25 65 38 60 48C56 56 48 55 40 55C48 55 62 50 60 25Z" fill="white" opacity="0.6"/></svg>
-                           <span className="font-bold tracking-widest uppercase text-white/90 text-sm">Belamonda</span>
+                        <div className="opacity-90 flex items-center gap-2">
+                           <BelamondaLogo size={40} />
                         </div>
                       </div>
                     </div>

@@ -1963,13 +1963,23 @@ export default function ClinicDashboard() {
     contactEmail: `contact@clinic.com`
   });
   const { data, loading, refetch } = useClinicSchedule(CLINIC_ID);
+  const [pendingRequests, setPendingRequests] = useState<BookingRequestRow[]>([]);
+
+  const loadPendingRequests = useCallback(async () => {
+    try {
+      const res = await apiFetch("/scheduling/clinic/requests?status=open", { headers: getAuthHeader() }) as { items?: BookingRequestRow[] };
+      setPendingRequests(res.items ?? []);
+    } catch { /* ignore */ }
+  }, [getAuthHeader]);
 
   useEffect(() => {
+    void loadPendingRequests();
     const t = window.setInterval(() => {
       void refetch();
+      void loadPendingRequests();
     }, 60_000);
     return () => window.clearInterval(t);
-  }, [refetch]);
+  }, [refetch, loadPendingRequests]);
 
   const sessions = data?.items || [];
   const scheduled = sessions.filter(s => s.status === "scheduled");
@@ -2052,6 +2062,56 @@ export default function ClinicDashboard() {
               <KpiCard icon={Icons.calendar} label={ar() ? "مكتملة" : "Completed"} value={completed.length} iconBg="bg-emerald-50" iconText="text-emerald-600" iconBorder="border-emerald-100" />
               <KpiCard icon={Icons.calendar} label={ar() ? "لم يحضر" : "No Show"} value={noShows.length} iconBg="bg-red-50" iconText="text-red-500" iconBorder="border-red-100" />
             </div>
+
+            {/* Pending Booking Requests */}
+            {pendingRequests.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
+                      <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-surface-900">{ar() ? "طلبات حجز بانتظار الرد" : "Pending Booking Requests"}</h3>
+                      <p className="text-xs text-surface-500">{ar() ? `${pendingRequests.length} طلب يحتاج اهتمامك` : `${pendingRequests.length} request${pendingRequests.length > 1 ? "s" : ""} need${pendingRequests.length === 1 ? "s" : ""} your attention`}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setActiveNav("requests")} className="text-xs font-bold text-brand-pink-600 hover:text-brand-pink-700 px-3 py-1.5 rounded-lg hover:bg-brand-pink-50 transition-colors">
+                    {ar() ? "عرض الكل →" : "View All →"}
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {pendingRequests.slice(0, 5).map(r => (
+                    <div key={r.id} className="bg-white rounded-2xl border border-surface-100 p-4 hover:shadow-md transition-all cursor-pointer group" onClick={() => setActiveNav("requests")}>
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-pink-100 to-brand-pink-50 text-brand-pink-600 flex items-center justify-center text-sm font-black shrink-0">
+                            {(r.customerName || r.userId || "C").charAt(0).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="text-sm font-bold text-surface-900 truncate">{r.customerName ?? r.userId.slice(0, 12) + "…"}</div>
+                            <div className="text-xs text-surface-500 mt-0.5">
+                              {r.isStandalone && r.standaloneName ? r.standaloneName : (r as any).offerName || (ar() ? "جلسة" : "Session")}
+                              {r.sessionPriceKwd && <span className="text-surface-400"> · {r.sessionPriceKwd} KWD</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right hidden sm:block">
+                            <div className="text-[10px] text-surface-400">{new Date(r.createdAt).toLocaleDateString()}</div>
+                            <div className="text-[10px] text-surface-400">{new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                          </div>
+                          <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-100">
+                            {ar() ? "⏳ بانتظار" : "⏳ Pending"}
+                          </span>
+                          <svg className="w-4 h-4 text-surface-300 group-hover:text-brand-pink-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Sessions Grid */}
             <div>

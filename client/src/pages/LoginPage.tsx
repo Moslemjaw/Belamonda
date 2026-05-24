@@ -34,12 +34,7 @@ export default function LoginPage() {
         <div className="absolute bottom-[-15%] right-[-10%] w-[60%] h-[60%] rounded-full bg-white/5 blur-3xl" />
         <div className="relative z-10 text-center lg:text-start max-w-lg animate-fade-in mt-12 lg:mt-24">
           <div className="flex items-center gap-4 justify-center lg:justify-start mb-8">
-            <svg width={64} height={64} viewBox="0 0 80 80" fill="none">
-              <path d="M40 10C40 10 25 25 25 40C25 48 32 55 40 55C48 55 55 48 55 40C55 25 40 10 40 10Z" fill="white" opacity="0.95" />
-              <path d="M20 25C20 25 15 38 20 48C24 56 32 55 40 55C32 55 18 50 20 25Z" fill="white" opacity="0.6" />
-              <path d="M60 25C60 25 65 38 60 48C56 56 48 55 40 55C48 55 62 50 60 25Z" fill="white" opacity="0.6" />
-            </svg>
-            <span className="text-4xl lg:text-5xl font-bold text-white tracking-tight">Belamonda</span>
+            <BelamondaLogo size={120} />
           </div>
           <h1 className="text-2xl lg:text-3xl font-semibold text-white/95 leading-snug">
             {isAr ? "منصة الجمال والعناية الشاملة" : "Beauty & Wellness Platform"}
