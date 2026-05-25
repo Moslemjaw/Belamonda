@@ -116,6 +116,9 @@ type SchedOffer = {
   payPerSession: boolean;
   sessionPriceKwd?: string;
   branchSessionPrices: { clinicId: string; sessionPriceKwd: string }[];
+  allowExtraPaidSessions: boolean;
+  extraSessionPriceKwd?: string;
+  branchExtraSessionPrices: { clinicId: string; priceKwd: string }[];
 };
 
 /**
@@ -123,7 +126,12 @@ type SchedOffer = {
  * Precedence: branch-level override → offer-level default.
  * Returns undefined when payPerSession is true but no price is configured.
  */
-function resolveSessionPrice(offer: SchedOffer, clinicId: string): string | undefined {
+function resolveSessionPrice(offer: SchedOffer, clinicId: string, isExtraSession: boolean = false): string | undefined {
+  if (isExtraSession) {
+    const override = offer.branchExtraSessionPrices.find((b) => b.clinicId === clinicId);
+    if (override) return override.priceKwd;
+    return offer.extraSessionPriceKwd;
+  }
   const override = offer.branchSessionPrices.find((b) => b.clinicId === clinicId);
   if (override) return override.sessionPriceKwd;
   if (offer.payPerSession) return offer.sessionPriceKwd;
@@ -145,6 +153,12 @@ function mapOfferDocToSched(o: OfferDoc): SchedOffer {
     payPerSession: o.payPerSession ?? false,
     sessionPriceKwd: o.sessionPriceKwd ?? undefined,
     branchSessionPrices: overrides,
+    allowExtraPaidSessions: o.allowExtraPaidSessions ?? false,
+    extraSessionPriceKwd: o.extraSessionPriceKwd ?? undefined,
+    branchExtraSessionPrices: (o.branchExtraSessionPrices ?? []).map((b: any) => ({
+      clinicId: String(b.clinicId),
+      priceKwd: String(b.priceKwd)
+    }))
   };
 }
 
@@ -204,7 +218,9 @@ async function loadOffer(offerId: string): Promise<SchedOffer | null> {
     sessionIntervalDays: legacy.sessionIntervalDays ?? 0,
     cashbackPerSessionKwd: legacy.cashbackPerSessionKwd,
     payPerSession: false,
-    branchSessionPrices: []
+    branchSessionPrices: [],
+    allowExtraPaidSessions: false,
+    branchExtraSessionPrices: []
   };
 }
 
@@ -258,9 +274,15 @@ async function eligibilityError(
     const consumed = Math.max(uo.sessionsUsed ?? 0, committed);
     if (consumed >= cap) {
       if (uo.purchaseMode === "installments") {
-        return { code: "INSTALLMENT_NOT_PAID_FOR_NEXT_SESSION", status: 409 };
+        const total = uo.installmentCount ?? 1;
+        const paid = uo.installmentsPaid ?? 0;
+        if (paid < total) {
+          return { code: "INSTALLMENT_NOT_PAID_FOR_NEXT_SESSION", status: 409 };
+        }
       }
-      return { code: "MAX_SESSIONS_REACHED", status: 409 };
+      if (!offer.allowExtraPaidSessions) {
+        return { code: "MAX_SESSIONS_REACHED", status: 409 };
+      }
     }
   }
   return null;
@@ -530,8 +552,14 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       return res.status(409).json({ error: "EFORMS_REQUIRED", forms: pendingForms });
     }
 
+    // Calculate if this is an extra session
+    const cap = maxAccessibleSessions(uo, offer.maxSessions);
+    const committed = await sessionsStore.countCommitted(uo.id);
+    const consumed = Math.max(uo.sessionsUsed ?? 0, committed);
+    const isExtraSession = !!(offer.allowExtraPaidSessions && cap != null && consumed >= cap);
+
     // Gate: pay-per-session / cashback logic
-    const resolvedPrice = resolveSessionPrice(offer, uo.clinicId);
+    const resolvedPrice = resolveSessionPrice(offer, uo.clinicId, isExtraSession);
     let amountToPay = resolvedPrice;
     let cashbackDeducted = 0;
 
@@ -755,8 +783,13 @@ schedulingRouter.get("/me/booking-quote", authRequired, async (req, res) => {
   const offer = await loadOffer(uo.offerId);
   if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
 
+  const cap = maxAccessibleSessions(uo, offer.maxSessions);
+  const committed = await sessionsStore.countCommitted(uo.id);
+  const consumed = Math.max(uo.sessionsUsed ?? 0, committed);
+  const isExtraSession = !!(offer.allowExtraPaidSessions && cap != null && consumed >= cap);
+
   const targetClinic = clinicId || uo.clinicId;
-  const listPrice = resolveSessionPrice(offer, targetClinic);
+  const listPrice = resolveSessionPrice(offer, targetClinic, isExtraSession);
   const listNum = parseFloat(listPrice ?? "0") || 0;
   const rate = listNum > 0 ? listNum : parseFloat(offer.cashbackPerSessionKwd || "0");
 
@@ -771,9 +804,6 @@ schedulingRouter.get("/me/booking-quote", authRequired, async (req, res) => {
   }
 
   const elErr = await eligibilityError(uo, offer);
-  const cap = maxAccessibleSessions(uo, offer.maxSessions);
-  const committed = await sessionsStore.countCommitted(uo.id);
-  const consumed = Math.max(uo.sessionsUsed ?? 0, committed);
 
   return res.json({
     canBook: !elErr,
@@ -785,6 +815,7 @@ schedulingRouter.get("/me/booking-quote", authRequired, async (req, res) => {
     sessionsCap: cap,
     installmentsPaid: uo.installmentsPaid ?? null,
     installmentCount: uo.installmentCount ?? null,
+    isExtraSession,
   });
 });
 

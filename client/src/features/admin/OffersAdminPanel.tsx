@@ -46,6 +46,9 @@ export type ApiOfferRow = {
   payPerSession?: boolean;
   sessionPriceKwd?: string;
   branchSessionPrices?: { clinicId: string; sessionPriceKwd: string }[];
+  allowExtraPaidSessions?: boolean;
+  extraSessionPriceKwd?: string;
+  branchExtraSessionPrices?: { clinicId: string; priceKwd: string }[];
   signupCashbackKwd?: string;
   cashbackPerSessionKwd?: string;
   cashbackEligible?: boolean;
@@ -86,6 +89,9 @@ type FormState = {
   payPerSession: boolean;
   sessionPriceKwd: string;
   branchSessionPrices: { clinicId: string; sessionPriceKwd: string }[];
+  allowExtraPaidSessions: boolean;
+  extraSessionPriceKwd: string;
+  branchExtraSessionPrices: { clinicId: string; priceKwd: string }[];
   signupCashbackKwd: string;
   cashbackPerSessionKwd: string;
   cashbackEligible: boolean;
@@ -127,6 +133,9 @@ const DEFAULT_FORM: FormState = {
   payPerSession: false,
   sessionPriceKwd: "",
   branchSessionPrices: [],
+  allowExtraPaidSessions: false,
+  extraSessionPriceKwd: "",
+  branchExtraSessionPrices: [],
   signupCashbackKwd: "0.000",
   cashbackPerSessionKwd: "0.000",
   cashbackEligible: true,
@@ -248,6 +257,9 @@ export function OffersAdminPanel() {
       payPerSession: o.payPerSession ?? false,
       sessionPriceKwd: o.sessionPriceKwd ?? "",
       branchSessionPrices: o.branchSessionPrices ?? [],
+      allowExtraPaidSessions: o.allowExtraPaidSessions ?? false,
+      extraSessionPriceKwd: o.extraSessionPriceKwd ?? "",
+      branchExtraSessionPrices: o.branchExtraSessionPrices ?? [],
       signupCashbackKwd: o.signupCashbackKwd ?? "0.000",
       cashbackPerSessionKwd: o.cashbackPerSessionKwd ?? "0.000",
       cashbackEligible: o.cashbackEligible !== false,
@@ -297,6 +309,11 @@ export function OffersAdminPanel() {
         sessionPriceKwd: form.payPerSession && form.sessionPriceKwd.trim() ? form.sessionPriceKwd.trim() : undefined,
         branchSessionPrices: form.payPerSession
           ? form.branchSessionPrices.filter((b) => b.clinicId && b.sessionPriceKwd.trim())
+          : [],
+        allowExtraPaidSessions: form.allowExtraPaidSessions,
+        extraSessionPriceKwd: form.allowExtraPaidSessions && form.extraSessionPriceKwd.trim() ? form.extraSessionPriceKwd.trim() : undefined,
+        branchExtraSessionPrices: form.allowExtraPaidSessions
+          ? form.branchExtraSessionPrices.filter((b) => b.clinicId && b.priceKwd.trim())
           : [],
         signupCashbackKwd: form.enableCashbackRewards ? form.signupCashbackKwd : "0.000",
         cashbackPerSessionKwd: form.enableCashbackRewards ? form.cashbackPerSessionKwd : "0.000",
@@ -642,6 +659,69 @@ export function OffersAdminPanel() {
                 >
                   + {ar() ? "إضافة تجاوز فرع" : "Add branch override"}
                 </button>
+              </div>
+            )}
+          </Section>
+
+          {/* ── Extra Paid Sessions ── */}
+          <Section title={ar() ? "جلسات إضافية مدفوعة" : "Extra paid sessions"}>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={form.allowExtraPaidSessions} onChange={(e) => f({ allowExtraPaidSessions: e.target.checked })} />
+                {ar() ? "السماح بجلسات إضافية مدفوعة بعد انتهاء الجلسات المجانية" : "Allow extra paid sessions after free sessions are used up"}
+              </label>
+            </div>
+            {form.allowExtraPaidSessions && (
+              <div className="space-y-3 mt-2 pl-1 border-l-2 border-amber-200">
+                <label className="flex items-center gap-2">
+                  <span className="text-xs text-surface-500">{ar() ? "سعر الجلسة الإضافية KWD" : "Extra session price KWD"}</span>
+                  <input className="input-field w-28" value={form.extraSessionPriceKwd} placeholder="10.000" onChange={(e) => f({ extraSessionPriceKwd: e.target.value })} />
+                </label>
+                <div className="space-y-2">
+                  <div className="text-xs font-semibold text-surface-600">{ar() ? "تجاوزات سعر الجلسة الإضافية لكل فرع" : "Branch extra session price overrides"}</div>
+                  {form.branchExtraSessionPrices.map((bp, i) => (
+                    <div key={i} className="flex items-center gap-2 flex-wrap">
+                      <select
+                        className="select-field text-sm"
+                        value={bp.clinicId}
+                        onChange={(e) => {
+                          const updated = form.branchExtraSessionPrices.map((x, j) => j === i ? { ...x, clinicId: e.target.value } : x);
+                          f({ branchExtraSessionPrices: updated });
+                        }}
+                      >
+                        <option value="">{ar() ? "اختر الفرع" : "Select branch"}</option>
+                        {clinics.map((c) => <option key={c.id} value={c.id}>{c.nameEn}</option>)}
+                      </select>
+                      <input
+                        className="input-field w-28 text-sm"
+                        value={bp.priceKwd}
+                        placeholder="10.000"
+                        onChange={(e) => {
+                          const updated = form.branchExtraSessionPrices.map((x, j) => j === i ? { ...x, priceKwd: e.target.value } : x);
+                          f({ branchExtraSessionPrices: updated });
+                        }}
+                      />
+                      <button
+                        type="button"
+                        className="text-xs text-red-500 hover:text-red-700"
+                        onClick={() => f({ branchExtraSessionPrices: form.branchExtraSessionPrices.filter((_, j) => j !== i) })}
+                      >
+                        {ar() ? "حذف" : "Remove"}
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="text-xs text-brand-pink-600 hover:text-brand-pink-700 font-medium"
+                    onClick={() => f({ branchExtraSessionPrices: [...form.branchExtraSessionPrices, { clinicId: "", priceKwd: "" }] })}
+                  >
+                    + {ar() ? "إضافة تجاوز فرع" : "Add branch override"}
+                  </button>
+                </div>
+                <div className="flex items-start gap-2 rounded-lg bg-amber-100 border border-amber-200 px-3 py-2 text-xs text-amber-800">
+                  <svg className="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <span>{ar() ? "بعد انتهاء الجلسات المجانية، يمكن للعضو حجز جلسات إضافية بالسعر المحدد أعلاه حتى انتهاء صلاحية العضوية." : "After free sessions are exhausted, members can book extra sessions at the price above until the membership expires."}</span>
+                </div>
               </div>
             )}
           </Section>

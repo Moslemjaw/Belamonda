@@ -93,6 +93,20 @@ const OfferSchema = new Schema(
     maxBookingsPerWeek: { type: Number, min: 1 },
     /** Max sessions that can be in "scheduled" state simultaneously. */
     maxActiveSessions: { type: Number, min: 1 },
+    /** Allow customer to book unlimited extra sessions after maxSessions is exhausted, but charge them the extraSessionPriceKwd */
+    allowExtraPaidSessions: { type: Boolean, default: false },
+    /** Price to charge for each extra session booked beyond maxSessions */
+    extraSessionPriceKwd: { type: String, match: /^\d+(\.\d{3})$/ },
+    /** Per-branch extra session price overrides */
+    branchExtraSessionPrices: {
+      type: [
+        {
+          clinicId: { type: String, required: true },
+          priceKwd: { type: String, required: true, match: /^\d+(\.\d{3})$/ }
+        }
+      ],
+      default: []
+    },
     /** How incoming bookings are processed. */
     bookingMode: {
       type: String,
