@@ -1622,7 +1622,7 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
       // 3. All BookingRequests by scheduledSessionId in one query
       validSessionIds.length > 0
         ? BookingRequestModel.find({ scheduledSessionId: { $in: validSessionIds } })
-            .select("_id scheduledSessionId clinicPaymentStatus").lean()
+            .select("_id scheduledSessionId clinicPaymentStatus sessionPriceKwd cashbackDeductedKwd isStandalone membershipType").lean()
         : Promise.resolve([]),
       // 4. Last completed session per userOffer — one aggregate instead of N findOne queries
       uniqueUserOfferIds.length > 0
@@ -1667,6 +1667,10 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
         offerName: breq?.standaloneName ?? (offerDoc as any)?.name ?? null,
         bookingRequestId: breq?._id?.toString() ?? null,
         clinicPaymentStatus: breq?.clinicPaymentStatus ?? "pending",
+        sessionPriceKwd: breq?.sessionPriceKwd ?? null,
+        cashbackDeductedKwd: breq?.cashbackDeductedKwd ?? null,
+        membershipType: breq?.membershipType ?? uoDoc?.membershipType ?? "none",
+        isStandalone: breq?.isStandalone ?? false,
         eligibility: {
           offerActive: uoDoc?.status === "active",
           paymentConfirmed: uoDoc?.status === "active",

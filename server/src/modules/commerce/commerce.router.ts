@@ -259,7 +259,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
       mongoose.isValidObjectId(id)
     );
     const offers = await OfferModel.find({ _id: { $in: offerIds } })
-      .select("name nameAr clinicLocked branchSessionPrices sessionIntervalDays isGroupOffer groupSizeRequired groupRewardType groupRewardValue")
+      .select("name nameAr clinicLocked branchSessionPrices sessionIntervalDays isGroupOffer groupSizeRequired groupRewardType groupRewardValue maxSessions allowExtraPaidSessions extraSessionPriceKwd")
       .lean();
     const offerMap = Object.fromEntries(offers.map((o: any) => [o._id.toString(), o]));
 
@@ -269,7 +269,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
     const [pendingRequests, scheduledSessions, lastCompletedSessions] = await Promise.all([
       BookingRequestModel.find({
         userOfferId: { $in: userOfferIdsStr },
-        status: { $in: ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted", "confirmed"] }
+        status: { $in: ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted"] }
       }).select("userOfferId").lean(),
       BookingSessionModel.find({
         userOfferId: { $in: userOfferObjectIds },
@@ -303,6 +303,9 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
         groupSizeRequired: offer.groupSizeRequired || undefined,
         groupRewardType: offer.groupRewardType || undefined,
         groupRewardValue: offer.groupRewardValue || undefined,
+        maxSessions: offer.maxSessions,
+        allowExtraPaidSessions: offer.allowExtraPaidSessions || false,
+        extraSessionPriceKwd: offer.extraSessionPriceKwd || undefined,
       };
     });
 

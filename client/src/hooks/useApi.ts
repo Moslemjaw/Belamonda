@@ -361,6 +361,10 @@ export function useClinicSchedule(clinicId: string) {
       } | null;
       bookingRequestId?: string | null;
       clinicPaymentStatus?: "pending" | "paid";
+      sessionPriceKwd?: string | null;
+      cashbackDeductedKwd?: string | null;
+      membershipType?: string;
+      isStandalone?: boolean;
     }>;
   }>(`/scheduling/clinic/${clinicId}/schedule?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`, {
     deps: [clinicId]

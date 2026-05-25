@@ -31,12 +31,9 @@ function KpiCard({ label, value, icon, isHighlighted, iconBg = "bg-brand-pink-50
   );
 }
 
-function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id: string, status: string) => void; onRefresh: () => void }) {
+function SessionCard({ session, onMark, onMarkPaid }: { session: any; onMark: (id: string, status: string) => void; onMarkPaid: (id: string) => void }) {
   const { getAuthHeader } = useAuth();
-  const [showReschedule, setShowReschedule] = useState(false);
-  const [newTime, setNewTime] = useState("");
-  const [rescheduling, setRescheduling] = useState(false);
-
+  
   const isPast = session.status !== "scheduled";
   const isOfferActive = isPast ? true : (session.userOfferId ? session.eligibility?.offerActive : true);
   const isPaymentConfirmed = isPast ? true : (session.clinicPaymentStatus === "paid" || session.eligibility?.paymentConfirmed);
@@ -46,20 +43,8 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
   const time = new Date(session.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   const date = new Date(session.scheduledAt).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
 
-  const submitReschedule = async () => {
-    if (!newTime) { alert(ar() ? "اختر وقتاً جديداً" : "Please select a new time"); return; }
-    setRescheduling(true);
-    try {
-      await apiFetch(`/scheduling/clinic/sessions/${session.id}/reschedule`, {
-        method: "POST",
-        headers: getAuthHeader(),
-        body: JSON.stringify({ scheduledAt: new Date(newTime).toISOString() })
-      });
-      setShowReschedule(false);
-      onRefresh();
-    } catch (e: any) { alert(e.message); }
-    finally { setRescheduling(false); }
-  };
+  const gross = parseFloat(session.sessionPriceKwd || "0");
+  const isFree = gross === 0;
 
   return (
     <div className={`card-elevated p-5 relative overflow-hidden group transition-all hover:shadow-lg flex flex-col rounded-[24px] border ${!allGreen && session.status === "scheduled" ? "border-red-200 bg-red-50/30" : "border-surface-200 bg-white/80 backdrop-blur-xl"}`}>
@@ -80,33 +65,39 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
              <svg className="w-4 h-4 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
              {time}
            </span>
-           {session.membershipType && <span className="text-[10px] font-bold px-3 py-1.5 rounded-xl bg-brand-pink-50 text-brand-pink-600 border border-brand-pink-100 uppercase tracking-wider">{session.membershipType}</span>}
+           {session.membershipType && session.membershipType !== "none" && <span className="text-[10px] font-bold px-3 py-1.5 rounded-xl bg-brand-pink-50 text-brand-pink-600 border border-brand-pink-100 uppercase tracking-wider">{session.membershipType}</span>}
         </div>
       </div>
 
       <div className="space-y-3 mb-5 pl-2">
-        {session.payment && (
-          <div className="flex items-center justify-between pb-2 border-b border-surface-100">
-            <span className="text-[11px] text-surface-500 font-bold uppercase tracking-wider">{ar() ? "سجل الدفع" : "Enrollment payment"}</span>
-            <span className="text-xs font-bold text-surface-800">
-              {session.payment.status} · {session.payment.amountKwd} KWD
-            </span>
+        <div className={`p-3 rounded-xl border ${isFree ? "bg-emerald-50 border-emerald-200 text-emerald-800" : session.clinicPaymentStatus === "paid" ? "bg-blue-50 border-blue-200 text-blue-800" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-wider">{ar() ? "حالة الدفع" : "Payment Status"}</span>
+            {isFree ? (
+              <span className="text-xs font-black uppercase flex items-center gap-1"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> FREE SESSION</span>
+            ) : session.clinicPaymentStatus === "paid" ? (
+              <span className="text-xs font-black uppercase flex items-center gap-1"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> PAID</span>
+            ) : (
+              <span className="text-xs font-black uppercase flex items-center gap-1"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> PENDING</span>
+            )}
           </div>
-        )}
-        <div className="flex items-center justify-between bg-surface-50 p-2.5 rounded-xl border border-surface-100/50">
-           <span className="text-xs font-bold text-surface-600">{ar() ? "العرض نشط" : "Offer Active"}</span>
-           {isOfferActive ? <span className="text-[11px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-[11px] text-red-700 bg-red-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg> No</span>}
+          {!isFree && (
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="text-lg font-black">{session.sessionPriceKwd} KWD</span>
+              {session.cashbackDeductedKwd && parseFloat(session.cashbackDeductedKwd) > 0 && (
+                <span className="text-[10px] opacity-80">(Cashback deducted: {session.cashbackDeductedKwd} KWD)</span>
+              )}
+            </div>
+          )}
+          {!isFree && session.clinicPaymentStatus !== "paid" && session.bookingRequestId && (
+            <button
+              onClick={() => onMarkPaid(session.bookingRequestId!)}
+              className="mt-2 w-full text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white py-2 rounded-lg transition-colors shadow-sm"
+            >
+              {ar() ? "تأكيد الدفع النقدى" : "Mark as Paid (Cash)"}
+            </button>
+          )}
         </div>
-        <div className="flex items-center justify-between bg-surface-50 p-2.5 rounded-xl border border-surface-100/50">
-           <span className="text-xs font-bold text-surface-600">{ar() ? "الدفع مكتمل" : "Payment Confirmed"}</span>
-           {isPaymentConfirmed ? <span className="text-[11px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-[11px] text-red-700 bg-red-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg> No</span>}
-        </div>
-        {session.eligibility?.intervalDays > 0 && (
-          <div className="flex items-center justify-between bg-surface-50 p-2.5 rounded-xl border border-surface-100/50">
-            <span className="text-xs font-bold text-surface-600">{ar() ? "فترة التباعد" : "Interval Met"} <span className="text-[10px] text-surface-400">({session.eligibility.intervalDays}d)</span></span>
-            {isIntervalMet ? <span className="text-[11px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg> Yes</span> : <span className="text-[11px] text-red-700 bg-red-100 px-2 py-0.5 rounded-lg font-black uppercase flex items-center gap-1"><svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg> No</span>}
-          </div>
-        )}
       </div>
 
       <div className="mt-auto pl-2">
@@ -118,17 +109,6 @@ function SessionCard({ session, onMark, onRefresh }: { session: any; onMark: (id
         {session.status !== "scheduled" && (
           <div className={`text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border ${session.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : session.status === 'no_show' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-surface-100 text-surface-600 border-surface-200'}`}>
             {session.status.replace("_", " ")}
-          </div>
-        )}
-        
-        {showReschedule && session.status === "scheduled" && (
-          <div className="mt-3 p-4 bg-surface-50 border border-surface-200 rounded-xl space-y-3 animate-fade-in">
-            <label className="text-xs font-bold text-surface-700 block">{ar() ? "اختر الوقت الجديد" : "Select new time"}</label>
-            <input type="datetime-local" value={newTime} onChange={e => setNewTime(e.target.value)} className="input-field w-full text-sm" />
-            <div className="flex gap-2 mt-2">
-              <button disabled={rescheduling} onClick={submitReschedule} className="btn-primary flex-1 py-2 rounded-lg text-xs font-bold">{rescheduling ? "..." : (ar() ? "تأكيد" : "Confirm")}</button>
-              <button onClick={() => setShowReschedule(false)} className="px-4 py-2 rounded-lg text-xs font-bold bg-surface-200 text-surface-700 hover:bg-surface-300">{ar() ? "إلغاء" : "Cancel"}</button>
-            </div>
           </div>
         )}
       </div>
@@ -222,481 +202,6 @@ function ScheduleTable({
   );
 }
 
-type BookingRequestRow = {
-  id: string; status: string; userId: string; offerId: string; clinicId: string;
-  preferredAt?: string; proposedAt?: string; rejectionReason?: string;
-  conversationId?: string; notes?: string; createdAt: string;
-  sessionPriceKwd?: string; membershipType?: string; cashbackDeductedKwd?: string;
-  sessionGrossKwd?: string; clinicTakeKwd?: string; usesCashback?: boolean; isPrepaidMembership?: boolean;
-  clinicPaymentStatus?: "pending" | "paid";
-  customerName?: string | null; customerPhone?: string | null;
-  isStandalone?: boolean; standaloneName?: string;
-};
-
-function BookingFinancialBreakdown({ r }: { r: BookingRequestRow }) {
-  const gross = r.sessionGrossKwd ?? r.sessionPriceKwd ?? "0.000";
-  const take = r.clinicTakeKwd ?? r.sessionPriceKwd ?? "0.000";
-  const cashback = r.cashbackDeductedKwd ?? "0.000";
-  const hasCashback = parseFloat(cashback) > 0;
-
-  return (
-    <div className="mt-2 pt-2 border-t border-dashed border-surface-200 space-y-1.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <span className="text-surface-500">{ar() ? "سعر الجلسة:" : "Session price:"}</span>
-        <span className="font-bold text-surface-800">{gross} KWD</span>
-      </div>
-      {hasCashback && (
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-          <span className="text-surface-500">{ar() ? "كاش باك مستخدم:" : "Cashback used:"}</span>
-          <span className="font-bold text-amber-700">− {cashback} KWD</span>
-        </div>
-      )}
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 rounded-lg bg-emerald-50 border border-emerald-100 px-2.5 py-1.5 -mx-0.5">
-        <span className="text-emerald-800 font-semibold">{ar() ? "يستلم العيادة:" : "Clinic receives:"}</span>
-        <span className="font-black text-emerald-800 text-sm">{take} KWD</span>
-      </div>
-      {r.isPrepaidMembership && (
-        <p className="text-[10px] text-surface-400">{ar() ? "العضوية مدفوعة مسبقاً — لا مبلغ نقدي عند الزيارة" : "Prepaid membership — no cash due at visit"}</p>
-      )}
-      {r.membershipType && r.membershipType !== "none" && !r.isPrepaidMembership && (
-        <p className="text-[10px] text-surface-400">
-          {ar() ? "العضوية:" : "Membership:"} <span className="font-medium">{r.membershipType}</span>
-        </p>
-      )}
-    </div>
-  );
-}
-
-type CustomerContext = {
-  paymentMode: string;
-  paymentLabel: string;
-  paymentStatus: string;
-  installmentsPaid: number | null;
-  installmentCount: number | null;
-  sessionsUsed: number;
-  maxSessions: number | null;
-  cashbackUnlockedKwd: string;
-  cashbackLockedKwd: string;
-};
-
-function CustomerContextBadge({ ctx }: { ctx: CustomerContext }) {
-  const paymentColor =
-    ctx.paymentMode === "installments"
-      ? "bg-amber-100 text-amber-800 border-amber-200"
-      : ctx.paymentMode === "deposit" && ctx.paymentStatus === "reserved"
-      ? "bg-orange-100 text-orange-800 border-orange-200"
-      : ctx.paymentMode === "deposit"
-      ? "bg-purple-100 text-purple-800 border-purple-200"
-      : "bg-emerald-100 text-emerald-800 border-emerald-200";
-
-  return (
-    <div className="mt-3 pt-3 border-t border-surface-100 grid grid-cols-3 gap-3">
-      <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
-        <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">{ar() ? "حالة الدفع" : "Payment"}</div>
-        <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full border ${paymentColor}`}>
-          {ctx.paymentLabel}
-        </span>
-      </div>
-      <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
-        <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">{ar() ? "الجلسات" : "Sessions"}</div>
-        <div className="text-sm font-black text-surface-900">
-          {ctx.sessionsUsed}
-          {ctx.maxSessions != null && <span className="font-normal text-surface-400">/{ctx.maxSessions}</span>}
-          {ctx.maxSessions == null && <span className="text-[10px] font-medium text-surface-400 ml-1">used</span>}
-        </div>
-      </div>
-      <div className="bg-surface-50 rounded-xl p-3 border border-surface-100">
-        <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">{ar() ? "الكاش باك" : "Cashback"}</div>
-        <div className="text-sm font-black text-emerald-700">{ctx.cashbackUnlockedKwd} KWD</div>
-        {parseFloat(ctx.cashbackLockedKwd) > 0 && (
-          <div className="text-[10px] text-surface-400 mt-0.5">{ctx.cashbackLockedKwd} {ar() ? "محجوز" : "locked"}</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-type FinancialSummary = {
-  totalGrossSalesKwd: string;
-  totalCashbackSpentKwd: string;
-  totalClinicCashKwd: string;
-  totalPendingCashKwd: string;
-  totalPaidCashKwd: string;
-  salesWithoutCashbackKwd?: string;
-  salesWithCashbackKwd?: string;
-  totalCashbackTakenKwd?: string;
-  grossWithCashbackKwd?: string;
-};
-
-const SCHEDULE_ERROR_MESSAGES: Record<string, { en: string; ar: string }> = {
-  INSTALLMENT_NOT_PAID_FOR_NEXT_SESSION: {
-    en: "This customer must pay their next installment before another session can be scheduled.",
-    ar: "يجب على العميل دفع القسط التالي قبل جدولة جلسة أخرى.",
-  },
-  MAX_SESSIONS_REACHED: {
-    en: "This customer has used all sessions included in their current plan.",
-    ar: "استخدم العميل جميع الجلسات المتاحة في خطته الحالية.",
-  },
-  SLOT_TAKEN: { en: "That time slot is already booked.", ar: "هذا الموعد محجوز مسبقاً." },
-};
-
-function BookingRequestsPanel({ onOpenChat, onScheduleSuccess }: { onOpenChat: (convId: string) => void; onScheduleSuccess?: () => void; }) {
-  const { getAuthHeader } = useAuth();
-  const [requests, setRequests] = useState<BookingRequestRow[]>([]);
-  const [financial, setFinancial] = useState<FinancialSummary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [actionId, setActionId] = useState<string | null>(null);
-  const [actionType, setActionType] = useState<"confirm" | "reject" | null>(null);
-  const [scheduledAt, setScheduledAt] = useState("");
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [payingId, setPayingId] = useState<string | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [contextMap, setContextMap] = useState<Record<string, CustomerContext | null>>({});
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const reqData = await apiFetch("/scheduling/clinic/requests?status=open", { headers: getAuthHeader() }) as { items?: BookingRequestRow[] };
-      setRequests(reqData.items ?? []);
-    } catch { /* ignore */ }
-    try {
-      const finData = await apiFetch("/scheduling/clinic/financial-summary", { headers: getAuthHeader() }) as { summary: FinancialSummary };
-      setFinancial(finData.summary ?? null);
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
-  }, [getAuthHeader]);
-
-  const openChat = async (r: BookingRequestRow) => {
-    if (r.conversationId) {
-      onOpenChat(r.conversationId);
-      return;
-    }
-    try {
-      const data = await apiFetch(`/scheduling/requests/${r.id}/conversation`, {
-        method: "POST",
-        headers: getAuthHeader(),
-      }) as { conversationId?: string | null };
-      if (data.conversationId) {
-        setRequests((prev) => prev.map((x) => (x.id === r.id ? { ...x, conversationId: data.conversationId! } : x)));
-        onOpenChat(data.conversationId);
-      } else {
-        alert(ar() ? "تعذر فتح المحادثة" : "Could not open chat for this request");
-      }
-    } catch (e: any) {
-      alert(e.message || (ar() ? "تعذر فتح المحادثة" : "Could not open chat"));
-    }
-  };
-
-  useEffect(() => { void load(); }, [load]);
-
-  const toggleExpand = async (id: string) => {
-    if (expandedId === id) { setExpandedId(null); return; }
-    setExpandedId(id);
-    if (contextMap[id] !== undefined) return;
-    try {
-      const data = await apiFetch(`/scheduling/clinic/requests/${id}/customer-context`, { headers: getAuthHeader() }) as { context: CustomerContext };
-      setContextMap((prev) => ({ ...prev, [id]: data.context }));
-    } catch {
-      setContextMap((prev) => ({ ...prev, [id]: null }));
-    }
-  };
-
-  const openAction = (id: string, type: "confirm" | "reject") => {
-    setActionId(id); setActionType(type); setScheduledAt(""); setReason("");
-  };
-  const closeAction = () => { setActionId(null); setActionType(null); };
-
-  const submitConfirm = async (id: string) => {
-    if (!scheduledAt) { alert(ar() ? "اختر وقت الموعد" : "Please pick a scheduled time"); return; }
-    setBusy(true);
-    try {
-      await apiFetch(`/scheduling/cs/requests/${id}/schedule`, {
-        method: "POST", headers: getAuthHeader(),
-        body: JSON.stringify({ scheduledAt: new Date(scheduledAt).toISOString() }),
-      });
-      closeAction(); void load();
-      if (onScheduleSuccess) onScheduleSuccess();
-    } catch (e: any) {
-      const mapped = SCHEDULE_ERROR_MESSAGES[e.message];
-      alert(mapped ? (ar() ? mapped.ar : mapped.en) : e.message);
-    }
-    finally { setBusy(false); }
-  };
-
-  const submitReject = async (id: string) => {
-    if (!reason.trim()) { alert(ar() ? "أدخل سبب الرفض" : "Please enter a rejection reason"); return; }
-    setBusy(true);
-    try {
-      await apiFetch(`/scheduling/requests/${id}/reject`, {
-        method: "POST", headers: getAuthHeader(),
-        body: JSON.stringify({ reason }),
-      });
-      closeAction(); void load();
-    } catch (e: any) { alert(e.message); }
-    finally { setBusy(false); }
-  };
-
-  const statusChip = (status: string) => {
-    const map: Record<string, { label: string; labelAr: string; cls: string }> = {
-      awaiting_session_payment: { label: "Awaiting Payment", labelAr: "بانتظار الدفع", cls: "bg-orange-100 text-orange-800" },
-      under_review:  { label: "Under Review",  labelAr: "قيد المراجعة", cls: "bg-amber-100 text-amber-800" },
-      slot_proposed: { label: "Slot Proposed", labelAr: "وقت مقترح",    cls: "bg-blue-100 text-blue-800" },
-      slot_accepted: { label: "Slot Accepted", labelAr: "وقت مقبول",    cls: "bg-purple-100 text-purple-800" },
-      confirmed:     { label: "Confirmed",     labelAr: "مؤكد",          cls: "bg-emerald-100 text-emerald-800" },
-      rejected:      { label: "Rejected",      labelAr: "مرفوض",         cls: "bg-red-100 text-red-800" },
-    };
-    const m = map[status] ?? { label: status, labelAr: status, cls: "bg-surface-100 text-surface-700" };
-    return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${m.cls}`}>{ar() ? m.labelAr : m.label}</span>;
-  };
-
-  const markPaid = async (id: string) => {
-    setPayingId(id);
-    try {
-      await apiFetch(`/scheduling/requests/${id}/mark-paid`, {
-        method: "POST",
-        headers: getAuthHeader()
-      });
-      void load();
-    } catch (e: any) {
-      alert(e.message);
-    } finally {
-      setPayingId(null);
-    }
-  };
-
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h2>
-          <p className="text-sm text-surface-500 mt-1">{ar() ? "راجع طلبات الحجز الواردة وأكدها أو ارفضها" : "Review incoming booking requests and confirm or decline them."}</p>
-        </div>
-        <button className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg" onClick={load}>
-          ↻ {ar() ? "تحديث" : "Refresh"}
-        </button>
-      </div>
-
-      {financial && (
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
-          <div className="bg-white rounded-2xl border border-surface-200 p-4 shadow-sm">
-            <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">
-              {ar() ? "إجمالي المبيعات" : "Total Sales"}
-            </div>
-            <div className="text-xl font-black text-surface-900">{(financial.totalGrossSalesKwd ?? financial.grossWithCashbackKwd) || "0.000"} KWD</div>
-            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "قيمة الجلسات كاملة" : "Full session value"}</div>
-          </div>
-          <div className="bg-white rounded-2xl border border-emerald-200 p-4 shadow-sm">
-            <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">
-              {ar() ? "نقدي للعيادة" : "Clinic Cash Total"}
-            </div>
-            <div className="text-xl font-black text-emerald-800">{(financial.totalClinicCashKwd ?? financial.salesWithoutCashbackKwd) || "0.000"} KWD</div>
-            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "بعد خصم الكاش باك" : "After cashback"}</div>
-          </div>
-          <div className="bg-white rounded-2xl border border-amber-200 p-4 shadow-sm">
-            <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-1">
-              {ar() ? "إجمالي الكاش باك" : "Total Cashback Used"}
-            </div>
-            <div className="text-xl font-black text-amber-800">{(financial.totalCashbackSpentKwd ?? financial.totalCashbackTakenKwd) || "0.000"} KWD</div>
-            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "مخصوم من العملاء" : "Deducted from customers"}</div>
-          </div>
-          <div className="bg-white rounded-2xl border border-orange-200 p-4 shadow-sm">
-            <div className="text-[10px] font-bold text-orange-600 uppercase tracking-wider mb-1">{ar() ? "قيد الانتظار" : "Pending at Clinic"}</div>
-            <div className="text-xl font-black text-orange-800">{financial.totalPendingCashKwd || "0.000"} KWD</div>
-            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "حتى يضغط مدفوع" : "Until marked paid"}</div>
-          </div>
-          <div className="bg-white rounded-2xl border border-emerald-200 p-4 shadow-sm">
-            <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-1">{ar() ? "تم التحصيل" : "Collected (Paid)"}</div>
-            <div className="text-xl font-black text-emerald-800">{(financial.totalPaidCashKwd ?? financial.salesWithCashbackKwd) || "0.000"} KWD</div>
-            <div className="text-[10px] text-surface-400 mt-1">{ar() ? "مدفوع في العيادة" : "Marked paid"}</div>
-          </div>
-        </div>
-      )}
-
-      {loading ? (
-        <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="shimmer h-24 rounded-2xl" />)}</div>
-      ) : requests.length === 0 ? (
-        <div className="card-elevated p-12 text-center border-dashed border-2 border-surface-200 bg-surface-50/50">
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center text-3xl shadow-sm mx-auto mb-3">📋</div>
-          <h3 className="text-base font-bold text-surface-900">{ar() ? "لا توجد طلبات حالياً" : "No pending requests"}</h3>
-          <p className="text-sm text-surface-500 mt-1">{ar() ? "ستظهر هنا طلبات الحجز الجديدة." : "New booking requests will appear here."}</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {requests.map((r) => (
-            <div key={r.id} className="bg-white rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-surface-100 overflow-hidden hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] transition-all">
-              {/* Header */}
-              <div className="px-6 py-4 border-b border-surface-100 flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row bg-gradient-to-r from-surface-50/50 to-white">
-                <div className="flex items-center gap-3.5">
-                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-brand-pink-100 to-brand-pink-50 text-brand-pink-600 flex items-center justify-center text-lg font-black shadow-inner border border-brand-pink-100/50">
-                    {(r.customerName || r.userId || "C").charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="text-base font-black text-surface-900 tracking-tight">{r.customerName ?? r.userId.slice(0, 12) + "…"}</div>
-                    {r.customerPhone && <div className="text-xs text-surface-500 font-mono mt-0.5" dir="ltr">{r.customerPhone}</div>}
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-surface-400 font-mono">#{r.id.slice(0, 8)}</span>
-                  {statusChip(r.status)}
-                </div>
-              </div>
-
-              {/* Body */}
-              <div className="p-6">
-                <div className="flex flex-col xl:flex-row gap-6">
-                  <div className="flex-1 min-w-0">
-                    {/* Badges */}
-                    <div className="flex items-center gap-2 flex-wrap mb-4">
-                      {r.isStandalone && r.standaloneName ? (
-                        <span className="text-xs font-bold px-3 py-1 rounded-xl bg-blue-50 text-blue-700 border border-blue-100/50">
-                          {r.standaloneName}
-                        </span>
-                      ) : (r as any).offerName ? (
-                        <span className="text-xs font-bold px-3 py-1 rounded-xl bg-brand-pink-50 text-brand-pink-700 border border-brand-pink-100/50">
-                          {(r as any).offerName}
-                        </span>
-                      ) : null}
-                      {r.membershipType && r.membershipType !== "none" && !(r.membershipType === "free_sessions" && parseFloat(r.sessionPriceKwd || "0") > 0) && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-100/50">
-                          {r.membershipType}
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* Info */}
-                    <div className="space-y-2 text-sm text-surface-600">
-                      {r.preferredAt && <div className="flex items-center gap-2.5"><svg className="w-4 h-4 text-surface-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg><span className="font-semibold">{new Date(r.preferredAt).toLocaleString()}</span></div>}
-                      {r.proposedAt && <div className="flex items-center gap-2.5"><svg className="w-4 h-4 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg><span className="font-bold text-blue-700">{new Date(r.proposedAt).toLocaleString()}</span></div>}
-                      {r.notes && <div className="flex items-start gap-2.5 mt-1"><svg className="w-4 h-4 text-surface-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" /></svg><span className="leading-relaxed bg-surface-50 p-2 rounded-xl text-xs flex-1">{r.notes}</span></div>}
-                    </div>
-                    
-                    <div className="mt-5">
-                      <BookingFinancialBreakdown r={r} />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-2 shrink-0 min-w-[200px]">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-surface-500 uppercase tracking-wider">{ar() ? "حالة الدفع" : "Payment"}</span>
-                      <span className={`inline-flex items-center gap-1 font-bold px-2.5 py-1 rounded-lg text-[11px] ${r.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : parseFloat(r.clinicTakeKwd || r.sessionPriceKwd || "0") === 0 ? "bg-surface-50 text-surface-500 border border-surface-100" : "bg-amber-50 text-amber-700 border border-amber-200"}`}>
-                        {r.clinicPaymentStatus === "paid" ? (ar() ? "✓ مدفوع" : "✓ Paid") : parseFloat(r.clinicTakeKwd || r.sessionPriceKwd || "0") === 0 ? (ar() ? "لا يوجد دفع" : "No payment") : (ar() ? "⏳ قيد الانتظار" : "⏳ Pending")}
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-surface-400 flex items-center justify-between">
-                      <span>{ar() ? "تاريخ الطلب" : "Requested"}</span>
-                      <span>{new Date(r.createdAt).toLocaleDateString()} {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    
-                    <div className="mt-auto pt-4 flex flex-col gap-2">
-                       <button
-                         type="button"
-                         className={`text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 w-full ${expandedId === r.id ? "bg-indigo-600 text-white shadow-md" : "bg-indigo-50 hover:bg-indigo-100 text-indigo-700"}`}
-                         onClick={() => void toggleExpand(r.id)}
-                       >
-                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                         {ar() ? "معلومات العميل" : "Customer Info"}
-                       </button>
-                       <button
-                         type="button"
-                         className="text-xs font-bold bg-surface-100 hover:bg-surface-200 text-surface-700 px-4 py-2.5 rounded-xl transition-colors flex items-center justify-center gap-2 w-full"
-                         onClick={() => void openChat(r)}
-                       >
-                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                         {ar() ? "المحادثة" : "Open Chat"}
-                       </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Customer context panel */}
-                {expandedId === r.id && (
-                  contextMap[r.id] === undefined
-                    ? <div className="mt-5 pt-5 border-t border-surface-100"><div className="shimmer h-16 rounded-xl" /></div>
-                    : contextMap[r.id] === null
-                    ? <div className="mt-5 pt-5 border-t border-surface-100 text-xs text-surface-400">{ar() ? "تعذر تحميل المعلومات" : "Could not load customer info"}</div>
-                    : <div className="mt-5 pt-5 border-t border-surface-100"><CustomerContextBadge ctx={contextMap[r.id]!} /></div>
-                )}
-
-                {/* Inline confirm form */}
-                {actionId === r.id && actionType === "confirm" && (
-                  <div className="mt-5 pt-5 border-t border-surface-100 bg-brand-pink-50/30 rounded-xl p-4 space-y-4 border border-brand-pink-100/50">
-                    <div>
-                      <label className="text-xs font-bold text-brand-pink-800 block mb-2">{ar() ? "اختر وقت الجلسة" : "Select session time"}</label>
-                      <input
-                        type="datetime-local"
-                        className="input-field bg-white shadow-sm border-brand-pink-200 text-sm w-full sm:w-80"
-                        value={scheduledAt}
-                        onChange={(e) => setScheduledAt(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className="text-sm font-bold bg-brand-pink-600 hover:bg-brand-pink-700 text-white px-6 py-2 rounded-xl transition-all shadow-sm shadow-brand-pink-500/20 disabled:opacity-50"
-                        onClick={() => submitConfirm(r.id)}
-                      >{busy ? "…" : ar() ? "تأكيد الجدولة" : "Confirm Schedule"}</button>
-                      <button type="button" className="text-sm font-bold bg-white text-surface-600 hover:text-surface-900 border border-surface-200 px-4 py-2 rounded-xl shadow-sm" onClick={closeAction}>{ar() ? "إلغاء" : "Cancel"}</button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Inline reject form */}
-                {actionId === r.id && actionType === "reject" && (
-                  <div className="mt-5 pt-5 border-t border-surface-100 bg-red-50/30 rounded-xl p-4 space-y-4 border border-red-100/50">
-                    <div>
-                      <label className="text-xs font-bold text-red-800 block mb-2">{ar() ? "سبب الرفض" : "Reason for declining"}</label>
-                      <textarea
-                        className="input-field bg-white shadow-sm border-red-200 text-sm w-full"
-                        rows={2}
-                        placeholder={ar() ? "مثال: الوقت غير متاح في هذه الفترة" : "e.g. No availability in that window"}
-                        value={reason}
-                        onChange={(e) => setReason(e.target.value)}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        disabled={busy}
-                        className="text-sm font-bold bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl transition-all shadow-sm shadow-red-500/20 disabled:opacity-50"
-                        onClick={() => submitReject(r.id)}
-                      >{busy ? "…" : ar() ? "إرسال الرفض" : "Send Decline"}</button>
-                      <button type="button" className="text-sm font-bold bg-white text-surface-600 hover:text-surface-900 border border-surface-200 px-4 py-2 rounded-xl shadow-sm" onClick={closeAction}>{ar() ? "إلغاء" : "Cancel"}</button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer Actions */}
-              <div className="bg-surface-50/80 px-6 py-4 border-t border-surface-100 flex items-center justify-end gap-3 flex-wrap">
-                  {/* Action buttons — only on actionable statuses */}
-                  {["under_review", "slot_accepted"].includes(r.status) && (
-                    <>
-                      <button
-                        type="button"
-                        className="text-sm font-bold bg-brand-pink-500 hover:bg-brand-pink-600 text-white px-6 py-2.5 rounded-xl transition-all shadow-sm shadow-brand-pink-500/20"
-                        onClick={() => openAction(r.id, "confirm")}
-                      >{ar() ? "جدولة الموعد" : "Schedule"}</button>
-                      <button
-                        type="button"
-                        className="text-sm font-bold bg-white hover:bg-red-50 text-red-600 border border-surface-200 hover:border-red-200 px-6 py-2.5 rounded-xl transition-colors shadow-sm"
-                        onClick={() => openAction(r.id, "reject")}
-                      >{ar() ? "رفض" : "Decline"}</button>
-                    </>
-                  )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ===========================================================================
-// PERFORMANCE TAB
-// ===========================================================================
 function ClinicPerformanceTab({ sessions, completed, noShows, scheduled }: {
   clinicId: string;
   sessions: any[];
@@ -1963,23 +1468,13 @@ export default function ClinicDashboard() {
     contactEmail: `contact@clinic.com`
   });
   const { data, loading, refetch } = useClinicSchedule(CLINIC_ID);
-  const [pendingRequests, setPendingRequests] = useState<BookingRequestRow[]>([]);
-
-  const loadPendingRequests = useCallback(async () => {
-    try {
-      const res = await apiFetch("/scheduling/clinic/requests?status=open", { headers: getAuthHeader() }) as { items?: BookingRequestRow[] };
-      setPendingRequests(res.items ?? []);
-    } catch { /* ignore */ }
-  }, [getAuthHeader]);
 
   useEffect(() => {
-    void loadPendingRequests();
     const t = window.setInterval(() => {
       void refetch();
-      void loadPendingRequests();
     }, 60_000);
     return () => window.clearInterval(t);
-  }, [refetch, loadPendingRequests]);
+  }, [refetch]);
 
   const sessions = data?.items || [];
   const scheduled = sessions.filter(s => s.status === "scheduled");
@@ -2041,7 +1536,6 @@ export default function ClinicDashboard() {
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
     { key: "scanner", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>, label: ar() ? "ماسح البطاقة" : "Scan Card" },
-    { key: "requests", icon: Icons.clipboard, label: ar() ? "طلبات الحجز" : "Booking Requests" },
     { key: "chat", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>, label: ar() ? "محادثات الحجوزات" : "Booking Chat" },
     { key: "schedule", icon: Icons.calendar, label: t("schedule") },
     { key: "invoices", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>, label: ar() ? "الفواتير" : "Invoices" },
@@ -2062,57 +1556,6 @@ export default function ClinicDashboard() {
               <KpiCard icon={Icons.calendar} label={ar() ? "مكتملة" : "Completed"} value={completed.length} iconBg="bg-emerald-50" iconText="text-emerald-600" iconBorder="border-emerald-100" />
               <KpiCard icon={Icons.calendar} label={ar() ? "لم يحضر" : "No Show"} value={noShows.length} iconBg="bg-red-50" iconText="text-red-500" iconBorder="border-red-100" />
             </div>
-
-            {/* Pending Booking Requests */}
-            {pendingRequests.length > 0 && (
-              <div className="mb-8">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-surface-900">{ar() ? "طلبات حجز بانتظار الرد" : "Pending Booking Requests"}</h3>
-                      <p className="text-xs text-surface-500">{ar() ? `${pendingRequests.length} طلب يحتاج اهتمامك` : `${pendingRequests.length} request${pendingRequests.length > 1 ? "s" : ""} need${pendingRequests.length === 1 ? "s" : ""} your attention`}</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setActiveNav("requests")} className="text-xs font-bold text-brand-pink-600 hover:text-brand-pink-700 px-3 py-1.5 rounded-lg hover:bg-brand-pink-50 transition-colors">
-                    {ar() ? "عرض الكل →" : "View All →"}
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {pendingRequests.slice(0, 5).map(r => (
-                    <div key={r.id} className="bg-white rounded-2xl border border-surface-100 p-4 hover:shadow-md transition-all cursor-pointer group" onClick={() => setActiveNav("requests")}>
-                      <div className="flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-pink-100 to-brand-pink-50 text-brand-pink-600 flex items-center justify-center text-sm font-black shrink-0">
-                            {(r.customerName || r.userId || "C").charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-sm font-bold text-surface-900 truncate">{r.customerName ?? r.userId.slice(0, 12) + "…"}</div>
-                            <div className="text-xs text-surface-500 mt-0.5">
-                              {r.isStandalone && r.standaloneName ? r.standaloneName : (r as any).offerName || (ar() ? "جلسة" : "Session")}
-                              {r.sessionPriceKwd && <span className="text-surface-400"> · {r.sessionPriceKwd} KWD</span>}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 shrink-0">
-                          <div className="text-right hidden sm:block">
-                            <div className="text-[10px] text-surface-400">{new Date(r.createdAt).toLocaleDateString()}</div>
-                            <div className="text-[10px] text-surface-400">{new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                          </div>
-                          <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-100">
-                            {ar() ? "⏳ بانتظار" : "⏳ Pending"}
-                          </span>
-                          <svg className="w-4 h-4 text-surface-300 group-hover:text-brand-pink-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Sessions Grid */}
             <div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -2153,7 +1596,7 @@ export default function ClinicDashboard() {
                     })
                     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
                     .map(s => (
-                    <SessionCard key={s.id} session={s} onMark={markSession} onRefresh={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }} />
+                    <SessionCard key={s.id} session={s} onMark={markSession} onMarkPaid={markPaidFromSchedule} />
                   ))}
                   {sessions.filter(s => {
                       if (dateFilter === "all") return true;
@@ -2187,16 +1630,6 @@ export default function ClinicDashboard() {
             </div>
             <ScheduleTable sessions={sessions} onMark={markSession} onMarkPaid={markPaidFromSchedule} />
           </div>
-        )}
-
-        {activeNav === "requests" && (
-          <BookingRequestsPanel
-            onOpenChat={(convId) => { setChatConvId(convId); setActiveNav("chat"); }}
-            onScheduleSuccess={() => {
-              invalidateCache("/scheduling/clinic/");
-              void refetch(true);
-            }}
-          />
         )}
 
         {activeNav === "chat" && (
