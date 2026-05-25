@@ -11,6 +11,8 @@ import { bookingRequestsStore } from "../scheduling/bookingRequests.store.js";
 import { commerceStore } from "../commerce/commerce.store.js";
 import { emitToConversation } from "./chat.socket.js";
 import { notifyChatRelatedUsers } from "../notifications/notifications.service.chat.js";
+import { ensureConversationFor } from "../scheduling/scheduling.router.js";
+import { ensureConversationById } from "./chat.rehydrate.js";
 
 export const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -60,12 +62,46 @@ const PostMessageSchema = z.object({
 export const chatRouter = Router();
 
 // List my conversations
-chatRouter.get("/conversations", authRequired, (req, res) => {
-  const isAdmin = req.auth!.role === "admin";
-  const items = isAdmin
-    ? chatStore.listAllConversations().map((c) => ({ ...c, unreadCount: 0 }))
-    : chatStore.listConversationsForUser(req.auth!.userId);
-  return res.json({ items });
+chatRouter.get("/conversations", authRequired, async (req, res, next) => {
+  try {
+    const role = req.auth!.role;
+    const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status: "open" };
+    if (role === "customer") filter.userId = req.auth!.userId;
+    if (role === "clinicStaff" && req.auth!.clinicId) filter.clinicId = req.auth!.clinicId;
+    
+    // Hydrate all open conversations into the in-memory store so they show up
+    const breqs = await bookingRequestsStore.list(filter);
+    for (const b of breqs) {
+      if (b.conversationId) await ensureConversationFor(b.id);
+    }
+
+    let items: any[] = [];
+    if (role === "admin" || role === "cs" || role === "finance") {
+      items = chatStore.listAllConversations().map((c) => ({ ...c, unreadCount: 0 }));
+    } else {
+      items = chatStore.listConversationsForUser(req.auth!.userId);
+      const userConvIds = new Set(items.map(c => c.id));
+
+      if (role === "clinicStaff" && req.auth!.clinicId) {
+        const allConvs = chatStore.listAllConversations();
+        for (const c of allConvs) {
+          if (userConvIds.has(c.id)) continue;
+          if (!c.bookingRequestId) continue;
+          const breq = await bookingRequestsStore.get(c.bookingRequestId);
+          if (breq && breq.clinicId === req.auth!.clinicId) {
+            items.push({ ...c, unreadCount: chatStore.unreadCount(c.id, req.auth!.userId) });
+          }
+        }
+      }
+      
+      // Sort by latest message
+      items.sort((a, b) => (b.lastMessageAt ?? b.updatedAt).localeCompare(a.lastMessageAt ?? a.updatedAt));
+    }
+
+    return res.json({ items });
+  } catch (err) {
+    next(err);
+  }
 });
 
 async function checkConvAccess(req: any, conv: any) {
@@ -78,10 +114,13 @@ async function checkConvAccess(req: any, conv: any) {
   return false;
 }
 
+// Re-export for any consumers that were importing from here
+export { ensureConversationById } from "./chat.rehydrate.js";
+
 // Get a conversation (participant or admin)
 chatRouter.get("/conversations/:id", authRequired, async (req, res, next) => {
   try {
-    const conv = chatStore.getConversation(req.params.id);
+    const conv = await ensureConversationById(req.params.id);
     if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
     if (!(await checkConvAccess(req, conv))) {
       return res.status(403).json({ error: "FORBIDDEN" });
@@ -97,7 +136,7 @@ chatRouter.get("/conversations/:id", authRequired, async (req, res, next) => {
 // Paginated messages
 chatRouter.get("/conversations/:id/messages", authRequired, async (req, res, next) => {
   try {
-    const conv = chatStore.getConversation(req.params.id);
+    const conv = await ensureConversationById(req.params.id);
     if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
     if (!(await checkConvAccess(req, conv))) {
       return res.status(403).json({ error: "FORBIDDEN" });
@@ -114,7 +153,7 @@ chatRouter.get("/conversations/:id/messages", authRequired, async (req, res, nex
 // Post a message via REST (also broadcasts via socket)
 chatRouter.post("/conversations/:id/messages", authRequired, async (req, res, next) => {
   try {
-    const conv = chatStore.getConversation(req.params.id);
+    const conv = await ensureConversationById(req.params.id);
     if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
     if (req.auth!.role === "admin") {
       return res.status(403).json({ error: "ADMIN_READ_ONLY" });
@@ -157,7 +196,7 @@ chatRouter.post("/conversations/:id/messages", authRequired, async (req, res, ne
 const MarkReadSchema = z.object({ lastMessageId: z.string().optional() });
 chatRouter.post("/conversations/:id/read", authRequired, async (req, res, next) => {
   try {
-    const conv = chatStore.getConversation(req.params.id);
+    const conv = await ensureConversationById(req.params.id);
     if (!conv) return res.status(404).json({ error: "NOT_FOUND" });
     if (!(await checkConvAccess(req, conv))) {
       return res.status(403).json({ error: "FORBIDDEN" });

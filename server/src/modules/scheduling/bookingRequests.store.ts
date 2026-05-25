@@ -154,5 +154,10 @@ export const bookingRequestsStore = {
   async findBySessionId(sessionId: string): Promise<BookingRequestRecord | null> {
     const doc = await BookingRequestModel.findOne({ scheduledSessionId: sessionId });
     return doc ? mapDoc(doc) : null;
+  },
+
+  async findByConversationId(conversationId: string): Promise<BookingRequestRecord | null> {
+    const doc = await BookingRequestModel.findOne({ conversationId });
+    return doc ? mapDoc(doc) : null;
   }
 };

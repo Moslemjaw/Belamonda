@@ -4,6 +4,7 @@ import type { Role } from "@belamonda/shared";
 import { env } from "../../config/env.js";
 import { verifyAccessToken } from "../auth/token.js";
 import { chatStore } from "./chat.store.js";
+import { ensureConversationById } from "./chat.rehydrate.js";
 import { notifyChatRelatedUsers } from "../notifications/notifications.service.chat.js";
 
 let io: IOServer | null = null;
@@ -63,14 +64,18 @@ export function initChatSocket(httpServer: HttpServer) {
     const socket = raw as AuthSocket;
     socket.join(userRoom(socket.data.userId));
 
-    socket.on("conversation:join", (payload: { conversationId: string }, ack?: (r: any) => void) => {
-      const conv = chatStore.getConversation(payload?.conversationId);
-      if (!conv) return ack?.({ ok: false, error: "NOT_FOUND" });
-      if (socket.data.role !== "admin" && !chatStore.isParticipant(conv.id, socket.data.userId)) {
-        return ack?.({ ok: false, error: "FORBIDDEN" });
+    socket.on("conversation:join", async (payload: { conversationId: string }, ack?: (r: any) => void) => {
+      try {
+        const conv = await ensureConversationById(payload?.conversationId);
+        if (!conv) return ack?.({ ok: false, error: "NOT_FOUND" });
+        if (socket.data.role !== "admin" && !chatStore.isParticipant(conv.id, socket.data.userId)) {
+          return ack?.({ ok: false, error: "FORBIDDEN" });
+        }
+        socket.join(convRoom(conv.id));
+        ack?.({ ok: true });
+      } catch {
+        ack?.({ ok: false, error: "INTERNAL_ERROR" });
       }
-      socket.join(convRoom(conv.id));
-      ack?.({ ok: true });
     });
 
     socket.on("conversation:leave", (payload: { conversationId: string }) => {
@@ -79,7 +84,7 @@ export function initChatSocket(httpServer: HttpServer) {
 
     socket.on(
       "message:send",
-      (
+      async (
         payload: {
           conversationId: string;
           body?: string;
@@ -87,60 +92,68 @@ export function initChatSocket(httpServer: HttpServer) {
         },
         ack?: (r: any) => void
       ) => {
-        if (!rateLimitOk(socket)) return ack?.({ ok: false, error: "RATE_LIMITED" });
-        const conv = chatStore.getConversation(payload?.conversationId);
-        if (!conv) return ack?.({ ok: false, error: "NOT_FOUND" });
-        if (socket.data.role === "admin") return ack?.({ ok: false, error: "ADMIN_READ_ONLY" });
-        if (!chatStore.isParticipant(conv.id, socket.data.userId)) return ack?.({ ok: false, error: "FORBIDDEN" });
-        const body = (payload.body ?? "").toString().slice(0, 4000).trim();
-        const attachments = (payload.attachments ?? []).slice(0, 5);
-        if (!body && attachments.length === 0) return ack?.({ ok: false, error: "EMPTY" });
+        try {
+          if (!rateLimitOk(socket)) return ack?.({ ok: false, error: "RATE_LIMITED" });
+          const conv = await ensureConversationById(payload?.conversationId);
+          if (!conv) return ack?.({ ok: false, error: "NOT_FOUND" });
+          if (socket.data.role === "admin") return ack?.({ ok: false, error: "ADMIN_READ_ONLY" });
+          if (!chatStore.isParticipant(conv.id, socket.data.userId)) return ack?.({ ok: false, error: "FORBIDDEN" });
+          const body = (payload.body ?? "").toString().slice(0, 4000).trim();
+          const attachments = (payload.attachments ?? []).slice(0, 5);
+          if (!body && attachments.length === 0) return ack?.({ ok: false, error: "EMPTY" });
 
-        const msg = chatStore.addMessage({
-          conversationId: conv.id,
-          senderId: socket.data.userId,
-          senderRole: socket.data.role,
-          body,
-          attachments
-        });
-        if (!msg) return ack?.({ ok: false, error: "SEND_FAILED" });
+          const msg = chatStore.addMessage({
+            conversationId: conv.id,
+            senderId: socket.data.userId,
+            senderRole: socket.data.role,
+            body,
+            attachments
+          });
+          if (!msg) return ack?.({ ok: false, error: "SEND_FAILED" });
 
-        emitToConversation(conv.id, "message:new", { conversationId: conv.id, message: msg });
+          emitToConversation(conv.id, "message:new", { conversationId: conv.id, message: msg });
 
-        const recipients = conv.participants.map((p) => p.userId).filter((u) => u !== socket.data.userId);
-        notifyChatRelatedUsers({
-          userIds: recipients,
-          kind: "chat_message",
-          body: body || (attachments[0]?.filename ?? "Attachment"),
-          payload: { conversationId: conv.id, messageId: msg.id }
-        });
-        ack?.({ ok: true, message: msg });
+          const recipients = conv.participants.map((p) => p.userId).filter((u) => u !== socket.data.userId);
+          notifyChatRelatedUsers({
+            userIds: recipients,
+            kind: "chat_message",
+            body: body || (attachments[0]?.filename ?? "Attachment"),
+            payload: { conversationId: conv.id, messageId: msg.id }
+          });
+          ack?.({ ok: true, message: msg });
+        } catch {
+          ack?.({ ok: false, error: "INTERNAL_ERROR" });
+        }
       }
     );
 
-    socket.on("typing", (payload: { conversationId: string; isTyping: boolean }) => {
-      const conv = chatStore.getConversation(payload?.conversationId);
-      if (!conv) return;
-      if (!chatStore.isParticipant(conv.id, socket.data.userId)) return;
-      socket.to(convRoom(conv.id)).emit("typing", {
-        conversationId: conv.id,
-        userId: socket.data.userId,
-        role: socket.data.role,
-        isTyping: !!payload.isTyping
-      });
+    socket.on("typing", async (payload: { conversationId: string; isTyping: boolean }) => {
+      try {
+        const conv = await ensureConversationById(payload?.conversationId);
+        if (!conv) return;
+        if (!chatStore.isParticipant(conv.id, socket.data.userId)) return;
+        socket.to(convRoom(conv.id)).emit("typing", {
+          conversationId: conv.id,
+          userId: socket.data.userId,
+          role: socket.data.role,
+          isTyping: !!payload.isTyping
+        });
+      } catch { /* ignore typing errors */ }
     });
 
-    socket.on("read", (payload: { conversationId: string; lastMessageId?: string }) => {
-      const conv = chatStore.getConversation(payload?.conversationId);
-      if (!conv) return;
-      if (!chatStore.isParticipant(conv.id, socket.data.userId)) return;
-      const cur = chatStore.markRead(conv.id, socket.data.userId, payload.lastMessageId);
-      emitToConversation(conv.id, "read:update", {
-        conversationId: conv.id,
-        userId: socket.data.userId,
-        lastReadMessageId: cur.lastReadMessageId,
-        lastReadAt: cur.lastReadAt
-      });
+    socket.on("read", async (payload: { conversationId: string; lastMessageId?: string }) => {
+      try {
+        const conv = await ensureConversationById(payload?.conversationId);
+        if (!conv) return;
+        if (!chatStore.isParticipant(conv.id, socket.data.userId)) return;
+        const cur = chatStore.markRead(conv.id, socket.data.userId, payload.lastMessageId);
+        emitToConversation(conv.id, "read:update", {
+          conversationId: conv.id,
+          userId: socket.data.userId,
+          lastReadMessageId: cur.lastReadMessageId,
+          lastReadAt: cur.lastReadAt
+        });
+      } catch { /* ignore read-receipt errors */ }
     });
   });
 

@@ -92,6 +92,35 @@ export const chatStore = {
     return rec;
   },
 
+  /**
+   * Re-register a conversation with a known ID (e.g. rehydrating from DB
+   * after a server restart wiped the in-memory store).  If the conversation
+   * already exists in memory this is a no-op and returns the existing record.
+   */
+  restoreConversation(input: {
+    id: string;
+    kind: ConversationKind;
+    title: string;
+    participants: Participant[];
+    bookingRequestId?: string;
+  }): ConversationRecord {
+    const existing = conversations.get(input.id);
+    if (existing) return existing;
+    const now = nowIso();
+    const rec: ConversationRecord = {
+      id: input.id,
+      kind: input.kind,
+      bookingRequestId: input.bookingRequestId,
+      participants: input.participants,
+      title: input.title,
+      createdAt: now,
+      updatedAt: now,
+    };
+    conversations.set(input.id, rec);
+    messages.set(input.id, []);
+    return rec;
+  },
+
   getConversation(id: string) {
     return conversations.get(id) ?? null;
   },

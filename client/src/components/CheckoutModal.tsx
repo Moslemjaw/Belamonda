@@ -108,6 +108,7 @@ export default function CheckoutModal({
   const [eformSubmitting, setEformSubmitting] = useState(false);
   const [eformError, setEformError] = useState<string | null>(null);
   const submitRef = useRef<() => Promise<void>>();
+  const successResultRef = useRef<CheckoutResult | null>(null);
 
   const t = (en: string, arT: string) => (ar ? arT : en);
 
@@ -380,7 +381,8 @@ export default function CheckoutModal({
       if (mode === "enet" && result.enet && !result.enet.approved) {
         return;
       }
-      onComplete({ ok: true, userOffer: result.userOffer });
+      // Store success result — onComplete will be called when user clicks "Done"
+      successResultRef.current = { ok: true, userOffer: result.userOffer };
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Payment failed";
       const data = (e as any)?.data as { forms?: Array<{ id?: string; formId?: string; title: string }> } | undefined;
@@ -803,7 +805,10 @@ export default function CheckoutModal({
                       "طلبك قيد المراجعة. سيقوم فريقنا بالتحقق من الدفع وتفعيله قريباً."
                     )}
                   </div>
-                  <button onClick={onClose} className="w-full py-3 rounded-2xl bg-brand-pink-500 text-white font-bold">
+                  <button onClick={() => {
+                    if (successResultRef.current) onComplete(successResultRef.current);
+                    else onClose();
+                  }} className="w-full py-3 rounded-2xl bg-brand-pink-500 text-white font-bold">
                     {t("Done", "تم")}
                   </button>
                 </>

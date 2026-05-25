@@ -6,6 +6,82 @@ import i18n from "../app/i18n";
 
 const ar = () => i18n.language === "ar";
 
+/** Format a date/ISO string in Kuwait time (UTC+3). */
+function kwTime(iso: string | undefined, opts?: Intl.DateTimeFormatOptions): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const locale = ar() ? "ar-KW" : "en-KW";
+  return d.toLocaleString(locale, { timeZone: "Asia/Kuwait", ...opts });
+}
+
+/** Short Kuwait time — e.g. 12:30 AM */
+function kwTimeShort(iso: string | undefined): string {
+  return kwTime(iso, { hour: "2-digit", minute: "2-digit" });
+}
+
+/** Full Kuwait date+time — e.g. 27/05/2026, 12:30 AM */
+function kwDateTime(iso: string | undefined): string {
+  return kwTime(iso, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+/** Translate a booking status key into a readable label. */
+function statusLabel(status: string): string {
+  const map: Record<string, [string, string]> = {
+    awaiting_session_payment: ["Awaiting Payment", "بانتظار الدفع"],
+    under_review: ["Under Review", "قيد المراجعة"],
+    slot_proposed: ["Time Proposed", "تم اقتراح موعد"],
+    slot_accepted: ["Time Accepted", "تم قبول الموعد"],
+    confirmed: ["Confirmed", "مؤكد"],
+    rejected: ["Rejected", "مرفوض"],
+    cancelled: ["Cancelled", "ملغى"],
+  };
+  const pair = map[status];
+  if (pair) return ar() ? pair[1] : pair[0];
+  return status.replace(/_/g, " ");
+}
+
+/**
+ * Translate a system-kind chat message into a human-friendly bilingual string.
+ * Falls back to the raw English body if the systemKind is unknown.
+ */
+function translateSystemMessage(m: { systemKind?: string; body: string; metadata?: Record<string, unknown> }): string {
+  const meta = m.metadata ?? {};
+  const scheduledAt = meta.scheduledAt as string | undefined;
+  const reason = meta.rejectionReason as string | undefined;
+
+  switch (m.systemKind) {
+    case "booking_created":
+    case "booking_requested": {
+      // Extract note if present in body
+      const noteMatch = m.body.match(/Note:\s*(.+)/i);
+      const note = noteMatch?.[1];
+      if (ar()) return note ? `طلب العميل حجز موعد. ملاحظة: ${note}` : "طلب العميل حجز موعد.";
+      return note ? `Customer requested a booking. Note: ${note}` : "Customer requested a booking.";
+    }
+    case "slot_proposed":
+      if (ar()) return `تم اقتراح موعد: ${scheduledAt ? kwDateTime(scheduledAt) : ""}`;
+      return `Proposed time: ${scheduledAt ? kwDateTime(scheduledAt) : ""}`;
+    case "slot_accepted":
+      if (ar()) return `قبل العميل الموعد المقترح (${scheduledAt ? kwDateTime(scheduledAt) : kwDateTime(meta.scheduledAt as string)}).`;
+      return `Customer accepted the proposed time (${scheduledAt ? kwDateTime(scheduledAt) : ""}).`;
+    case "booking_confirmed":
+      if (ar()) return `تم تأكيد الحجز${scheduledAt ? ` بتاريخ ${kwDateTime(scheduledAt)}` : ""}.`;
+      return `Booking confirmed${scheduledAt ? ` for ${kwDateTime(scheduledAt)}` : ""}.`;
+    case "booking_rejected":
+      if (ar()) return `تم رفض الحجز${reason ? `: ${reason}` : ""}.`;
+      return `Booking rejected${reason ? `: ${reason}` : ""}.`;
+    case "booking_cancelled":
+      if (ar()) return "تم إلغاء الحجز من قبل العميل.";
+      return "Customer cancelled the booking request.";
+    case "session_completed":
+      if (ar()) return "تم إتمام الجلسة بنجاح.";
+      return "Session completed successfully.";
+    default:
+      return m.body;
+  }
+}
+
 interface Props {
   /** When set, the widget filters to a single conversation/booking. */
   conversationId?: string;
@@ -220,11 +296,25 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
 
   const confirmBooking = async () => {
     if (!bookingRequest) return;
+    
+    // Determine the scheduled time:
+    // 1. If staff picked a date in the input field, use that.
+    // 2. Otherwise use the customer's accepted/proposed time.
+    // 3. Otherwise use the customer's preferred time.
+    let finalDate = proposeAt;
+    if (!finalDate && bookingRequest.proposedAt) finalDate = bookingRequest.proposedAt;
+    if (!finalDate && bookingRequest.preferredAt) finalDate = bookingRequest.preferredAt;
+
+    if (!finalDate) {
+      alert(ar() ? "يرجى تحديد وقت الموعد أولاً" : "Please select a date and time first.");
+      return;
+    }
+
     try {
       await apiFetch(`/scheduling/requests/${bookingRequest.id}/confirm`, {
         method: "POST",
         headers: getAuthHeader(),
-        body: JSON.stringify({})
+        body: JSON.stringify({ scheduledAt: new Date(finalDate).toISOString() })
       });
       if (selectedId) loadConversation(selectedId);
     } catch (e) {
@@ -311,7 +401,7 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                           </div>
                           <div className="text-xs text-surface-500 truncate mt-0.5">{c.lastMessagePreview || "—"}</div>
                           <div className="text-[10px] text-surface-400 mt-1">
-                            {c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleString() : ""}
+                            {c.lastMessageAt ? kwDateTime(c.lastMessageAt) : ""}
                           </div>
                         </div>
                       </div>
@@ -335,17 +425,17 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                         {ar() ? "حجز" : "Booking"}
                       </div>
                       <div className="font-bold text-surface-900 text-sm">
-                        {ar() ? "حالة" : "Status"}:{" "}
-                        <span className="badge-pink">{bookingRequest.status.replace("_", " ")}</span>
+                        {ar() ? "الحالة" : "Status"}:{" "}
+                        <span className="badge-pink">{statusLabel(bookingRequest.status)}</span>
                       </div>
                       {bookingRequest.proposedAt && (
                         <div className="text-xs text-surface-600 mt-1">
-                          {ar() ? "وقت مقترح" : "Proposed"}: {new Date(bookingRequest.proposedAt).toLocaleString()}
+                          {ar() ? "الموعد المقترح" : "Proposed"}: {kwDateTime(bookingRequest.proposedAt)}
                         </div>
                       )}
                       {bookingRequest.preferredAt && !bookingRequest.proposedAt && (
                         <div className="text-xs text-surface-600 mt-1">
-                          {ar() ? "وقت مفضل" : "Preferred"}: {new Date(bookingRequest.preferredAt).toLocaleString()}
+                          {ar() ? "الموعد المفضل" : "Preferred"}: {kwDateTime(bookingRequest.preferredAt)}
                         </div>
                       )}
                     </div>
@@ -408,9 +498,9 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                   const isSystem = !!m.systemKind;
                   if (isSystem) {
                     return (
-                      <div key={m.id} className="text-center">
-                        <span className="text-[11px] bg-surface-200 text-surface-700 rounded-full px-3 py-1 font-medium">
-                          {m.body}
+                      <div key={m.id} className="text-center my-1">
+                        <span className="inline-block text-[11px] bg-surface-200/80 text-surface-600 rounded-2xl px-4 py-1.5 font-medium leading-relaxed max-w-[85%] shadow-sm">
+                          {translateSystemMessage(m)}
                         </span>
                       </div>
                     );
@@ -446,7 +536,7 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                           </a>
                         ))}
                         <div className={`text-[10px] mt-1 ${mine ? "text-brand-pink-100" : "text-surface-400"}`}>
-                          {new Date(m.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          {kwTimeShort(m.createdAt)}
                         </div>
                       </div>
                     </div>

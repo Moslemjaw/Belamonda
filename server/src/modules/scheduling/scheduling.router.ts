@@ -409,11 +409,42 @@ async function getClinicNames(clinicId: string): Promise<{ nameEn?: string; name
   }
 }
 
-async function ensureConversationFor(breqId: string): Promise<{ conv: ReturnType<typeof chatStore.getConversation> | ReturnType<typeof chatStore.createConversation> | null; csIds: string[] }> {
+export async function ensureConversationFor(breqId: string): Promise<{ conv: ReturnType<typeof chatStore.getConversation> | ReturnType<typeof chatStore.createConversation> | null; csIds: string[] }> {
   const breq = await bookingRequestsStore.get(breqId);
   if (!breq) return { conv: null, csIds: [] };
-  if (breq.conversationId) return { conv: chatStore.getConversation(breq.conversationId), csIds: [] };
 
+  // If there's already a conversationId AND the in-memory store still has it, return it.
+  if (breq.conversationId) {
+    const existing = chatStore.getConversation(breq.conversationId);
+    if (existing) return { conv: existing, csIds: [] };
+
+    // The conversation was lost (server restart wiped the in-memory store).
+    // Restore it with the same ID so the booking request stays linked.
+    const [staffIds, csIds, clinicNames] = await Promise.all([
+      findClinicStaffUserIds(breq.clinicId),
+      findCsUserIds(),
+      getClinicNames(breq.clinicId)
+    ]);
+
+    const participants = [
+      { userId: breq.userId, role: "customer" as const, joinedAt: new Date().toISOString() },
+      ...(breq.bookingRoute === "clinic" ? staffIds : []).map((id) => ({ userId: id, role: "clinicStaff" as const, joinedAt: new Date().toISOString() })),
+      ...(breq.bookingRoute === "cs" ? csIds : []).map((id) => ({ userId: id, role: "cs" as const, joinedAt: new Date().toISOString() }))
+    ];
+    const seen = new Set<string>();
+    const uniqParticipants = participants.filter((p) => (seen.has(p.userId) ? false : (seen.add(p.userId), true)));
+
+    const restored = chatStore.restoreConversation({
+      id: breq.conversationId,
+      kind: "booking",
+      title: `Booking @ ${clinicNames.nameEn ?? breq.clinicId}`,
+      bookingRequestId: breq.id,
+      participants: uniqParticipants
+    });
+    return { conv: restored, csIds };
+  }
+
+  // No conversationId at all — create a brand-new conversation.
   const [staffIds, csIds, clinicNames] = await Promise.all([
     findClinicStaffUserIds(breq.clinicId),
     findCsUserIds(),
@@ -888,13 +919,13 @@ schedulingRouter.post("/me/requests/:id/accept", authRequired, async (req, res) 
     acceptedAt: new Date().toISOString()
   });
 
-  if (updated?.conversationId) {
-    postSystemMessage(updated.conversationId, "slot_accepted", `Customer accepted the proposed time (${updated.proposedAt}).`, {
-      bookingRequestId: updated.id,
-      scheduledAt: updated.proposedAt
-    });
-    const conv = chatStore.getConversation(updated.conversationId);
+  if (updated) {
+    const { conv } = await ensureConversationFor(breq.id);
     if (conv) {
+      postSystemMessage(conv.id, "slot_accepted", `Customer accepted the proposed time (${updated.proposedAt}).`, {
+        bookingRequestId: updated.id,
+        scheduledAt: updated.proposedAt
+      });
       const recipients = conv.participants.map((p) => p.userId).filter((u) => u !== req.auth!.userId);
       notifyChatRelatedUsers({
         userIds: recipients,
@@ -1131,9 +1162,7 @@ schedulingRouter.post("/requests/:id/propose", authRequired, requireRole(["clini
     proposedAt: parsed.data.scheduledAt,
     proposedBy: req.auth!.userId
   });
-  const conv = updated?.conversationId
-    ? chatStore.getConversation(updated.conversationId)
-    : (await ensureConversationFor(breq.id)).conv;
+  const { conv } = await ensureConversationFor(breq.id);
   if (conv) {
     postSystemMessage(
       conv.id,

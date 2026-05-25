@@ -1016,7 +1016,8 @@ export default function CustomerDashboard() {
   const { data: cardData, loading: cardLoading, error: cardError } = useApi<{ card: { displayName: string; memberSince: string | null; kycVerified: boolean; civilIdNumberMasked?: string | null; belmondoPlan?: string; belmondoProExpiresAt?: string | null; belmondoProPaymentType?: string; activeOffers: Array<{ offerId: string; offerName: string | null; activatedAt: string | null; expiresAt: string | null; sessionsUsed: number }>; activeSessionCount: number; recentSessions: Array<{ scheduledAt: string; status: string; completedAt: string | null }>; cashbackUnlockedKwd: string; cashbackLockedKwd: string; publicToken: string | undefined } }>(activeTab === "wallet" || activeTab === "overview" ? "/public/me/card" : null, { deps: [activeTab] });
   const { data: sessionsData, refetch: refetchMySessions } = useApi<{ items: any[] }>(activeTab === "my-purchases" || activeTab === "overview" ? "/scheduling/me/sessions" : null, { deps: [activeTab] });
   const { data: myComplaintsData, refetch: refetchMyComplaints } = useApi<{ items: any[] }>(activeTab === "profile" ? "/complaints/me" : null, { deps: [activeTab] });
-  const { data: notifData } = useNotifications({ lazy: activeTab !== "profile" });
+  const { data: notifData } = useNotifications();
+  const { data: chatsData } = useApi<{ items: any[] }>("/chat/conversations");
   const { data: clinicsPublic } = useApi<{ items: Array<{ id: string; nameEn: string; nameAr: string }> }>("/clinics");
   const { data: categoriesData } = useApi<{ items: Array<{ id: string; slug: string; nameEn: string; nameAr: string }> }>("/categories");
   const { data: availableFormsData, refetch: refetchAvailableForms } = useApi<{ items: Array<{ id: string; title: string }> }>(
@@ -1223,6 +1224,7 @@ export default function CustomerDashboard() {
   const wallet = walletData?.wallet;
   const offers = offersData?.items || [];
   const unreadNotifs = (notifData?.inbox || []).filter(n => !n.read).length;
+  const unreadChats = (chatsData?.items || []).reduce((acc: number, c: any) => acc + (c.unreadCount || 0), 0);
 
   const showWalletStatus = useCallback((message: string) => {
     setSysAlert(message);
@@ -1521,6 +1523,15 @@ export default function CustomerDashboard() {
           <button
             type="button"
             className="relative w-10 h-10 flex items-center justify-center rounded-lg text-surface-600 hover:bg-surface-50"
+            aria-label={ar() ? "محادثة مباشرة" : "Live Chat"}
+            onClick={() => { setActiveTab("my-purchases"); setPurchasesSubTab("chat"); }}
+          >
+            <svg className="w-5 h-5 transition-colors text-surface-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+            {unreadChats > 0 && <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-brand-pink-500 rounded-full flex items-center justify-center text-[10px] text-white font-bold ring-2 ring-white">{unreadChats > 9 ? '9+' : unreadChats}</span>}
+          </button>
+          <button
+            type="button"
+            className="relative w-10 h-10 flex items-center justify-center rounded-lg text-surface-600 hover:bg-surface-50"
             aria-label={ar() ? "الإشعارات" : "Notifications"}
             onClick={() => {
               setActiveTab("profile");
@@ -1647,6 +1658,7 @@ export default function CustomerDashboard() {
                 </button>
                 <button onClick={() => { setActiveTab("my-purchases"); setPurchasesSubTab("chat"); }} className={`relative p-2 rounded-xl transition-colors group ${hoverBgCls}`} title={ar() ? "محادثة مباشرة" : "Live Chat"}>
                   <svg className={`w-5 h-5 transition-colors ${iconCls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                  {unreadChats > 0 && <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-brand-pink-500 rounded-full flex items-center justify-center text-[10px] text-white font-bold">{unreadChats > 9 ? '9+' : unreadChats}</span>}
                 </button>
                 <button onClick={() => { setActiveTab("profile"); setTimeout(() => { const el = document.getElementById("sec-notifications"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 100); }} className={`relative p-2 rounded-xl transition-colors group ${hoverBgCls}`} title={ar() ? "الإشعارات" : "Notifications"}>
                   <svg className={`w-5 h-5 transition-colors ${iconCls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
