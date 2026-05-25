@@ -288,11 +288,25 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
     ]);
     const lastCompletedMap = Object.fromEntries(lastCompletedSessions.map(s => [s._id.toString(), s.lastCompletedAt]));
 
+    const groupInviteCodes = [...new Set(items.map((i: any) => i.groupInviteCode).filter(Boolean))];
+    const groupProgressMap: Record<string, string[]> = {};
+    if (groupInviteCodes.length > 0) {
+      const creators = await UserOfferModel.aggregate([
+        { $match: { groupInviteCode: { $in: groupInviteCodes }, membershipType: "group" } },
+        { $sort: { createdAt: 1 } },
+        { $group: { _id: "$groupInviteCode", sharedWith: { $first: "$sharedWith" } } }
+      ]);
+      for (const creator of creators) {
+        groupProgressMap[creator._id] = creator.sharedWith || [];
+      }
+    }
+
     const enriched = items.map((item) => {
       const offer: any = offerMap[item.offerId] || {};
       const uoId = item.id;
       return {
         ...item,
+        sharedWith: item.groupInviteCode ? (groupProgressMap[item.groupInviteCode] || []) : item.sharedWith,
         offerName: offer.name || undefined,
         offerNameAr: offer.nameAr || undefined,
         clinicLocked: offer.clinicLocked ?? undefined,
