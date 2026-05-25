@@ -171,9 +171,9 @@ commerceRouter.post("/me/offers/join", authRequired, async (req, res, next) => {
     // Add joiner to creator's sharedWith array
     await UserOfferModel.findByIdAndUpdate(uo._id, { $addToSet: { sharedWith: uid } });
 
-    // If it's an unlock_membership, the joiner ALSO needs a pending UserOffer so they can buy it when the group fills up
+    // For group offers, the joiner ALSO needs a pending UserOffer so they can buy it when the group fills up
     const offer = await OfferModel.findById(uo.offerId).lean() as any;
-    if (offer && offer.groupRewardType === "unlock_membership") {
+    if (offer && offer.isGroupOffer) {
       // Use updateOne with upsert to prevent race conditions creating duplicates
       await UserOfferModel.updateOne(
         { userId: uid, groupInviteCode: parsed.data.inviteCode, membershipType: "group", offerId: uo.offerId },

@@ -280,7 +280,7 @@ function PurchaseModal({ pkg, onClose, inviteCode }: { pkg: any; onClose: () => 
             {pkg.isGroupOffer && (
               <div className={`border rounded-2xl p-4 flex gap-3 ${
                 pkg.groupRewardType === 'split_bill' ? 'bg-blue-50 border-blue-200' :
-                pkg.groupRewardType === 'unlock_membership' ? 'bg-purple-50 border-purple-200' :
+                pkg.isGroupOffer ? 'bg-purple-50 border-purple-200' :
                 pkg.groupRewardType === 'free_session' ? 'bg-emerald-50 border-emerald-200' :
                 pkg.groupRewardType === 'discount' ? 'bg-amber-50 border-amber-200' :
                 pkg.groupRewardType === 'cashback_bonus' ? 'bg-teal-50 border-teal-200' :
@@ -288,14 +288,14 @@ function PurchaseModal({ pkg, onClose, inviteCode }: { pkg: any; onClose: () => 
               }`}>
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-xl ${
                   pkg.groupRewardType === 'split_bill' ? 'bg-blue-100' :
-                  pkg.groupRewardType === 'unlock_membership' ? 'bg-purple-100' :
+                  pkg.isGroupOffer ? 'bg-purple-100' :
                   pkg.groupRewardType === 'free_session' ? 'bg-emerald-100' :
                   pkg.groupRewardType === 'discount' ? 'bg-amber-100' :
                   pkg.groupRewardType === 'cashback_bonus' ? 'bg-teal-100' :
                   'bg-emerald-100'
                 }`}>
                   {pkg.groupRewardType === 'split_bill' ? '🧾' :
-                   pkg.groupRewardType === 'unlock_membership' ? '🔓' :
+                   pkg.isGroupOffer ? '🔓' :
                    pkg.groupRewardType === 'free_session' ? '🎁' :
                    pkg.groupRewardType === 'discount' ? '💰' :
                    pkg.groupRewardType === 'cashback_bonus' ? '💎' : '👥'}
@@ -315,7 +315,7 @@ function PurchaseModal({ pkg, onClose, inviteCode }: { pkg: any; onClose: () => 
                         })()}
                       </p>
                     </>
-                  ) : pkg.groupRewardType === 'unlock_membership' ? (
+                  ) : pkg.isGroupOffer ? (
                     <>
                       <h4 className="font-bold text-purple-800 text-sm mb-1">{ar() ? "عضوية تحتاج أصدقاء لفتحها!" : "Membership Requires Friends to Unlock!"}</h4>
                       <p className="text-xs text-purple-700 leading-relaxed font-medium">
@@ -1122,7 +1122,7 @@ export default function CustomerDashboard() {
     if (!urlInviteCode) return;
     apiFetch(`/checkout/group-invite/${encodeURIComponent(urlInviteCode)}`, { headers: getAuthHeader() })
       .then((data: any) => {
-        if (data.isGroupOffer && data.groupRewardType === "unlock_membership") {
+        if (data.isGroupOffer) {
           apiFetch("/commerce/me/offers/join", {
             method: "POST",
             headers: getAuthHeader(),
@@ -1812,7 +1812,7 @@ export default function CustomerDashboard() {
                       
                       {/* Group offer badge */}
                       {o.isGroupOffer && (
-                        <div className={`plan-feature mb-6 ${o.groupRewardType === 'unlock_membership' ? '!text-purple-600' : '!text-emerald-600'}`}>
+                        <div className={`plan-feature mb-6 ${o.isGroupOffer ? '!text-purple-600' : '!text-emerald-600'}`}>
                           <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                           <span>
                             {o.groupRewardType === 'unlock_membership'
@@ -1832,7 +1832,7 @@ export default function CustomerDashboard() {
                       <button
                         className={isFeatured ? "btn-primary w-full py-3 text-sm font-bold shadow-glow" : "w-full py-3 rounded-2xl text-sm font-bold border-2 border-surface-200 text-surface-700 bg-white hover:border-brand-pink-400 hover:text-brand-pink-600 transition-colors"}
                         onClick={() => {
-                          if (o.isGroupOffer && o.groupRewardType === 'unlock_membership') {
+                          if (o.isGroupOffer) {
                             // Start group creation flow with confirm step
                             setGroupModal({
                               pkg: o,
@@ -1846,8 +1846,8 @@ export default function CustomerDashboard() {
                           }
                         }}
                       >
-                        {o.isGroupOffer && o.groupRewardType === 'unlock_membership'
-                          ? (ar() ? "🔓 أنشئ مجموعة لفتح العضوية" : "🔓 Create Group to Unlock")
+                        {o.isGroupOffer
+                          ? (ar() ? "🔓 أنشئ مجموعة" : "🔓 Create Group")
                           : (ar() ? "اختاري هذه الخطة" : "Choose this Plan")}
                       </button>
                     </div>
@@ -2177,7 +2177,7 @@ export default function CustomerDashboard() {
                               </div>
                               );
                             })() : (() => {
-                              const isUnlockMembershipPending = (o as any).groupRewardType === 'unlock_membership' && (o.status === 'pending_payment' || o.status === 'pending payment');
+                              const isUnlockMembershipPending = (o as any).isGroupOffer && (o.status === 'pending_payment' || o.status === 'pending payment');
                               if (isUnlockMembershipPending) return null;
                               return (
                                 <button
@@ -2280,7 +2280,7 @@ export default function CustomerDashboard() {
                                     const groupSizeRequired = (o as any).groupSizeRequired || 2;
                                     const isComplete = sharedWith.length >= (groupSizeRequired - 1);
                                     const rewardType = (o as any).groupRewardType || '';
-                                    if (isComplete && rewardType === 'unlock_membership' && (o.status === 'pending_payment' || o.status === 'pending payment')) {
+                                    if (isComplete && (o.status === 'pending_payment' || o.status === 'pending payment')) {
                                       return (
                                         <button
                                           className="w-full mt-3 bg-brand-pink-600 hover:bg-brand-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-lg"
@@ -2643,7 +2643,7 @@ export default function CustomerDashboard() {
                           }
                           switch (uo.status) {
                             case "pending_payment": {
-                              if (uo.isGroupOffer && uo.groupRewardType === "unlock_membership") {
+                              if (uo.isGroupOffer) {
                                 const sharedWith = (uo as any).sharedWith || [];
                                 const membersNeeded = (uo.groupSizeRequired || 2) - 1;
                                 if (sharedWith.length < membersNeeded) {
