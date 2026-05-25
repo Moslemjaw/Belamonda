@@ -72,10 +72,16 @@ const OfferBaseSchema = z.object({
   allowDeposit: z.boolean().default(false),
   depositAmountKwd: KwdString.default("0.000"),
 
-  // Pay-per-session
+  // Pay-per-session & Extra paid sessions
   payPerSession: z.boolean().default(false),
   sessionPriceKwd: KwdString.optional(),
   // branchSessionPrices is already declared in the Pricing section above (line 38)
+  allowExtraPaidSessions: z.boolean().default(false),
+  extraSessionPriceKwd: KwdString.optional(),
+  branchExtraSessionPrices: z.array(z.object({
+    clinicId: z.string().min(1),
+    priceKwd: KwdString
+  })).optional(),
 
   // Cashback
   signupCashbackKwd: KwdString.default("0.000"),
