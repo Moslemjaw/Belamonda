@@ -93,6 +93,8 @@ interface Props {
   title?: string;
   /** Callback fired when a conversation is opened/marked as read. */
   onRead?: () => void;
+  /** If true, fetches clinic-only conversations. */
+  clinicMode?: boolean;
 }
 
 function getInitials(title: string): string {
@@ -104,7 +106,7 @@ function getInitials(title: string): string {
     .toUpperCase();
 }
 
-export default function ChatWidget({ conversationId: initialConvId, adminMode, showBookingActions, title, onRead }: Props) {
+export default function ChatWidget({ conversationId: initialConvId, adminMode, showBookingActions, title, onRead, clinicMode }: Props) {
   const { auth, getAuthHeader } = useAuth();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(initialConvId ?? null);
@@ -126,14 +128,15 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
 
   const loadConversations = useCallback(async () => {
     try {
-      const data = (await apiFetch("/chat/conversations", { headers: getAuthHeader() })) as { items: ChatConversation[] };
+      const url = clinicMode ? "/chat/conversations?context=clinic" : "/chat/conversations";
+      const data = (await apiFetch(url, { headers: getAuthHeader() })) as { items: ChatConversation[] };
       const items = data.items;
       setConversations(items);
       if (!initialConvId && !selectedId && items.length > 0) setSelectedId(items[0].id);
     } catch {
       /* ignore */
     }
-  }, [getAuthHeader, selectedId, initialConvId]);
+  }, [getAuthHeader, selectedId, initialConvId, clinicMode]);
 
   const loadConversation = useCallback(
     async (id: string) => {

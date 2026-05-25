@@ -76,25 +76,47 @@ chatRouter.get("/conversations", authRequired, async (req, res, next) => {
     }
 
     let items: any[] = [];
+    const isClinicContext = req.query.context === "clinic";
+
     if (role === "admin" || role === "cs" || role === "finance") {
       items = chatStore.listAllConversations().map((c) => ({ ...c, unreadCount: 0 }));
     } else {
-      items = chatStore.listConversationsForUser(req.auth!.userId);
-      const userConvIds = new Set(items.map(c => c.id));
+      const allPersonalConvs = chatStore.listConversationsForUser(req.auth!.userId);
 
       if (role === "clinicStaff" && req.auth!.clinicId) {
-        const allConvs = chatStore.listAllConversations();
-        for (const c of allConvs) {
-          if (userConvIds.has(c.id)) continue;
-          if (!c.bookingRequestId) continue;
-          const breq = await bookingRequestsStore.get(c.bookingRequestId);
-          if (breq && breq.clinicId === req.auth!.clinicId) {
-            items.push({ ...c, unreadCount: chatStore.unreadCount(c.id, req.auth!.userId) });
+        if (isClinicContext) {
+          const allConvs = chatStore.listAllConversations();
+          for (const c of allConvs) {
+            if (!c.bookingRequestId) {
+              if (allPersonalConvs.some(p => p.id === c.id)) {
+                items.push({ ...c, unreadCount: chatStore.unreadCount(c.id, req.auth!.userId) });
+              }
+              continue;
+            }
+            const breq = await bookingRequestsStore.get(c.bookingRequestId);
+            if (breq && breq.clinicId === req.auth!.clinicId) {
+              items.push({ ...c, unreadCount: chatStore.unreadCount(c.id, req.auth!.userId) });
+            }
+          }
+        } else {
+          for (const c of allPersonalConvs) {
+             const me = c.participants.find(p => p.userId === req.auth!.userId);
+             if (me && me.role === "customer") {
+               items.push(c);
+             }
           }
         }
+      } else {
+        items = allPersonalConvs;
       }
       
-      // Sort by latest message
+      const seen = new Set();
+      items = items.filter(c => {
+         if (seen.has(c.id)) return false;
+         seen.add(c.id);
+         return true;
+      });
+
       items.sort((a, b) => (b.lastMessageAt ?? b.updatedAt).localeCompare(a.lastMessageAt ?? a.updatedAt));
     }
 

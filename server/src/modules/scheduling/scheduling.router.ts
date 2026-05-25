@@ -554,7 +554,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
 
     // Ensure the customer is either the owner OR a group member
     const isOwner = uo.userId === req.auth!.userId;
-    const isMember = uo.membershipType === "group" && uo.sharedWith?.includes(req.auth!.userId);
+    const isMember = (uo.membershipType === "group" || !!(uo as any).groupInviteCode) && uo.sharedWith?.includes(req.auth!.userId);
     if (!isOwner && !isMember) {
       return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
     }
@@ -808,7 +808,7 @@ schedulingRouter.get("/me/booking-quote", authRequired, async (req, res) => {
   const uo = await loadUserOffer(userOfferId);
   if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
   const isOwner = uo.userId === req.auth!.userId;
-  const isMember = uo.membershipType === "group" && uo.sharedWith?.includes(req.auth!.userId);
+  const isMember = (uo.membershipType === "group" || !!(uo as any).groupInviteCode) && uo.sharedWith?.includes(req.auth!.userId);
   if (!isOwner && !isMember) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
 
   const offer = await loadOffer(uo.offerId);

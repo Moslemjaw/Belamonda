@@ -988,7 +988,7 @@ export default function CustomerDashboard() {
   const { auth, logout, getAuthHeader } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [purchasesSubTab, setPurchasesSubTab] = useState<"packages" | "chat" | "reservations">("packages");
+  const [purchasesSubTab, setPurchasesSubTab] = useState<"packages" | "reservations">("packages");
   const [walletSubTab, setWalletSubTab] = useState<"cashback" | "history" | "card">("cashback");
   const [subscriptionSubTab, setSubscriptionSubTab] = useState<"status" | "invoices">("status");
   const [profileSubTab, setProfileSubTab] = useState<"settings" | "forms" | "notifications" | "share" | "complaints">("settings");
@@ -1524,7 +1524,7 @@ export default function CustomerDashboard() {
             type="button"
             className="relative w-10 h-10 flex items-center justify-center rounded-lg text-surface-600 hover:bg-surface-50"
             aria-label={ar() ? "محادثة مباشرة" : "Live Chat"}
-            onClick={() => { setActiveTab("my-purchases"); setPurchasesSubTab("chat"); }}
+            onClick={() => { setChatConvId(undefined); setActiveTab("chat"); }}
           >
             <svg className="w-5 h-5 transition-colors text-surface-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
             {unreadChats > 0 && <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-brand-pink-500 rounded-full flex items-center justify-center text-[9px] text-white font-bold ring-2 ring-white">{unreadChats > 9 ? '9+' : unreadChats}</span>}
@@ -1656,7 +1656,7 @@ export default function CustomerDashboard() {
                 <button onClick={() => i18n.changeLanguage(ar() ? "en" : "ar")} className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-colors ${langCls}`}>
                   {ar() ? "EN" : "ع"}
                 </button>
-                <button onClick={() => { setActiveTab("my-purchases"); setPurchasesSubTab("chat"); }} className={`relative p-2 rounded-xl transition-colors group ${hoverBgCls}`} title={ar() ? "محادثة مباشرة" : "Live Chat"}>
+                <button onClick={() => { setChatConvId(undefined); setActiveTab("chat"); }} className={`relative p-2 rounded-xl transition-colors group ${hoverBgCls}`} title={ar() ? "محادثة مباشرة" : "Live Chat"}>
                   <svg className={`w-5 h-5 transition-colors ${iconCls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                   {unreadChats > 0 && <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-brand-pink-500 rounded-full flex items-center justify-center text-[9px] text-white font-bold">{unreadChats > 9 ? '9+' : unreadChats}</span>}
                 </button>
@@ -1833,35 +1833,14 @@ export default function CustomerDashboard() {
                         className={isFeatured ? "btn-primary w-full py-3 text-sm font-bold shadow-glow" : "w-full py-3 rounded-2xl text-sm font-bold border-2 border-surface-200 text-surface-700 bg-white hover:border-brand-pink-400 hover:text-brand-pink-600 transition-colors"}
                         onClick={() => {
                           if (o.isGroupOffer && o.groupRewardType === 'unlock_membership') {
-                            // Start group creation flow
+                            // Start group creation flow with confirm step
                             setGroupModal({
                               pkg: o,
-                              step: "creating",
+                              step: "confirm",
                               membersJoined: 0,
                               membersNeeded: (o.groupSizeRequired || 2) - 1,
-                              loading: true,
+                              loading: false,
                             });
-                            // Call create-group API
-                            apiFetch("/commerce/me/offers/create-group", {
-                              method: "POST",
-                              headers: getAuthHeader(),
-                              body: JSON.stringify({ offerId: o.id || o._id }),
-                            })
-                              .then((data: any) => {
-                                setGroupModal(prev => prev ? {
-                                  ...prev,
-                                  step: "share",
-                                  userOfferId: data.userOfferId,
-                                  groupInviteCode: data.groupInviteCode,
-                                  membersJoined: (data.sharedWith || []).length,
-                                  membersNeeded: (data.groupSizeRequired || 2) - 1,
-                                  loading: false,
-                                } : null);
-                              })
-                              .catch((e: any) => {
-                                alert(e?.message || "Error creating group");
-                                setGroupModal(null);
-                              });
                           } else {
                             attemptCheckout(o);
                           }
@@ -2578,7 +2557,6 @@ export default function CustomerDashboard() {
           {activeTab === "my-purchases" && (() => {
             const purchaseTabs = [
               { id: "packages",     label: ar() ? "باقاتي وجلساتي"    : "Packages",   icon: "📦" },
-              { id: "chat",         label: ar() ? "محادثات الحجوزات" : "Chat",  icon: "💬" },
               { id: "reservations", label: ar() ? "حجوزات العربون"   : "Reservations",  icon: "📌" },
             ] as const;
             return (
@@ -2664,7 +2642,16 @@ export default function CustomerDashboard() {
                             return { en: "Fully Paid", ar: "مدفوع بالكامل", cls: "bg-emerald-50 text-emerald-700" };
                           }
                           switch (uo.status) {
-                            case "pending_payment": return { en: "Pending payment", ar: "بانتظار الدفع", cls: "bg-amber-50 text-amber-700" };
+                            case "pending_payment": {
+                              if (uo.isGroupOffer && uo.groupRewardType === "unlock_membership") {
+                                const sharedWith = (uo as any).sharedWith || [];
+                                const membersNeeded = (uo.groupSizeRequired || 2) - 1;
+                                if (sharedWith.length < membersNeeded) {
+                                  return { en: "Locked (Group not full)", ar: "مغلق (المجموعة غير مكتملة)", cls: "bg-purple-50 text-purple-700 border border-purple-200" };
+                                }
+                              }
+                              return { en: "Pending payment", ar: "بانتظار الدفع", cls: "bg-amber-50 text-amber-700" };
+                            }
                             case "reserved": return { en: "Reserved (deposit)", ar: "محجوز (دفعة)", cls: "bg-blue-50 text-blue-700" };
                             case "enet_pending": return { en: "ENET Pending", ar: "مراجعة ENET", cls: "bg-purple-50 text-purple-700" };
                             case "enet_rejected": return { en: "ENET Rejected", ar: "رفض ENET", cls: "bg-red-50 text-red-700" };
@@ -2850,7 +2837,7 @@ export default function CustomerDashboard() {
                                 <button
                                   type="button"
                                   className="text-xs font-bold bg-surface-100 hover:bg-surface-200 text-surface-700 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1"
-                                  onClick={() => { setChatConvId(r.conversationId!); setActiveTab("my-purchases"); setPurchasesSubTab("chat"); }}
+                                  onClick={() => { setChatConvId(r.conversationId!); setActiveTab("chat"); }}
                                 >
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                                   {ar() ? "المحادثة" : "View chat"}
@@ -2957,10 +2944,10 @@ export default function CustomerDashboard() {
             </section>
           )}
 
-          {activeTab === "my-purchases" && purchasesSubTab === "chat" && (
+          {activeTab === "chat" && (
             <section id="sec-chat" className="space-y-4 animate-fade-in scroll-mt-24">
               <div>
-                <h2 className="text-2xl font-bold text-surface-900">{ar() ? "محادثات الحجوزات" : "Booking Conversations"}</h2>
+                <h2 className="text-2xl font-bold text-surface-900">{ar() ? "المحادثات" : "Conversations"}</h2>
                 <p className="text-sm text-surface-500 mt-1">
                   {ar() ? "تواصل مع العيادة وخدمة العملاء لتأكيد المواعيد." : "Coordinate with your clinic and customer relations to confirm appointments."}
                 </p>
@@ -3744,9 +3731,8 @@ export default function CustomerDashboard() {
                     <button
                       type="button"
                       onClick={() => {
-                        // Open a direct chat with CS
-                        // For a real implementation, this could trigger a chat widget.
-                        alert(ar() ? "سيتم فتح المحادثة قريباً" : "Chat will open soon");
+                        setChatConvId(undefined);
+                        setActiveTab("chat");
                       }}
                       className="text-xs font-bold bg-white border border-brand-pink-200 text-brand-pink-600 hover:bg-brand-pink-50 px-4 py-2 rounded-xl transition-colors shadow-sm"
                     >
@@ -4419,6 +4405,58 @@ export default function CustomerDashboard() {
                 <div className="flex flex-col items-center py-8">
                   <div className="w-10 h-10 border-3 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-3" />
                   <p className="text-surface-500 text-sm font-medium">{ar() ? "جاري إنشاء المجموعة..." : "Creating your group..."}</p>
+                </div>
+              ) : groupModal.step === "confirm" ? (
+                <div className="text-center py-6 animate-fade-in">
+                  <div className="text-4xl mb-4">👥</div>
+                  <h4 className="font-black text-purple-800 text-xl mb-2">{ar() ? "إنشاء مجموعة جديدة" : "Create a new group"}</h4>
+                  <p className="text-surface-600 text-sm mb-8 leading-relaxed">
+                    {ar() 
+                      ? `تحتاج إلى دعوة ${groupModal.membersNeeded} أصدقاء لفتح هذه العضوية. هل أنت مستعد لإنشاء المجموعة الآن؟` 
+                      : `You need to invite ${groupModal.membersNeeded} friends to unlock this membership. Are you ready to create the group now?`}
+                  </p>
+                  <button
+                    className="btn-primary w-full py-3.5 shadow-glow"
+                    onClick={() => {
+                      setGroupModal(prev => prev ? { ...prev, step: "creating", loading: true } : null);
+                      apiFetch("/commerce/me/offers/create-group", {
+                        method: "POST",
+                        headers: getAuthHeader(),
+                        body: JSON.stringify({ offerId: groupModal.pkg.id || groupModal.pkg._id }),
+                      })
+                        .then((data: any) => {
+                          refetchMyOffers().then(() => {
+                            setActiveTab("my-purchases");
+                            setPurchasesSubTab("packages");
+                            setGroupModal(prev => prev ? {
+                              ...prev,
+                              step: "share",
+                              userOfferId: data.userOfferId,
+                              groupInviteCode: data.groupInviteCode,
+                              membersJoined: (data.sharedWith || []).length,
+                              membersNeeded: (data.groupSizeRequired || 2) - 1,
+                              loading: false,
+                            } : null);
+                            setTimeout(() => {
+                              const el = document.getElementById("sec-packages");
+                              if (el) el.scrollIntoView({ behavior: 'smooth' });
+                            }, 300);
+                          });
+                        })
+                        .catch((e: any) => {
+                          alert(e?.message || "Error creating group");
+                          setGroupModal(null);
+                        });
+                    }}
+                  >
+                    {ar() ? "نعم، أنشئ المجموعة" : "Yes, Create Group"}
+                  </button>
+                  <button 
+                    onClick={() => setGroupModal(null)}
+                    className="w-full mt-3 py-3 rounded-2xl text-sm font-bold text-surface-500 hover:bg-surface-100 transition-colors"
+                  >
+                    {ar() ? "إلغاء" : "Cancel"}
+                  </button>
                 </div>
               ) : groupModal.step === "share" ? (
                 <>

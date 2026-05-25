@@ -303,6 +303,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
         groupSizeRequired: offer.groupSizeRequired || undefined,
         groupRewardType: offer.groupRewardType || undefined,
         groupRewardValue: offer.groupRewardValue || undefined,
+        isGroupOffer: offer.isGroupOffer || false,
         maxSessions: offer.maxSessions,
         allowExtraPaidSessions: offer.allowExtraPaidSessions || false,
         extraSessionPriceKwd: offer.extraSessionPriceKwd || undefined,

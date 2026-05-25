@@ -363,8 +363,8 @@ export async function checkoutFull(input: {
 
   const pendingExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-  const isGroup = offer.membershipType === "group";
-  const groupInviteCode = isGroup ? require("crypto").randomBytes(4).toString("hex").toUpperCase() : undefined;
+  const isGroup = offer.isGroupOffer || offer.membershipType === "group";
+  const groupInviteCode = isGroup ? (input.groupInviteCode || require("crypto").randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
   const uo = await UserOfferModel.create({
     userId: input.userId,
@@ -472,8 +472,8 @@ export async function checkoutInstallments(input: {
 
   const pendingExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-  const isGroup = offer.membershipType === "group";
-  const groupInviteCode = isGroup ? require("crypto").randomBytes(4).toString("hex").toUpperCase() : undefined;
+  const isGroup = offer.isGroupOffer || offer.membershipType === "group";
+  const groupInviteCode = isGroup ? (input.groupInviteCode || require("crypto").randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
   const uo = await UserOfferModel.create({
     userId: input.userId,
@@ -613,8 +613,8 @@ export async function checkoutEnet4(input: {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + offer.validityDays * 24 * 60 * 60 * 1000);
 
-  const isGroup = offer.membershipType === "group";
-  const groupInviteCode = isGroup ? require("crypto").randomBytes(4).toString("hex").toUpperCase() : undefined;
+  const isGroup = offer.isGroupOffer || offer.membershipType === "group";
+  const groupInviteCode = isGroup ? (input.groupInviteCode || require("crypto").randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
   const uo = await UserOfferModel.create({
     userId: input.userId,
@@ -744,8 +744,8 @@ export async function reserveWithDeposit(input: {
   const reservationExpires = new Date(now.getTime() + reservationDays * 24 * 60 * 60 * 1000);
   const pendingExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-  const isGroup = offer.membershipType === "group";
-  const groupInviteCode = isGroup ? require("crypto").randomBytes(4).toString("hex").toUpperCase() : undefined;
+  const isGroup = offer.isGroupOffer || offer.membershipType === "group";
+  const groupInviteCode = isGroup ? (input.groupInviteCode || require("crypto").randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
   const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);

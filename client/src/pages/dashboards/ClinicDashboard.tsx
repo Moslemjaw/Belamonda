@@ -1645,7 +1645,7 @@ export default function ClinicDashboard() {
                 {ar() ? `تم فتح محادثة الطلب: ${chatConvId.slice(0, 8)}` : `Opened from request conversation: ${chatConvId.slice(0, 8)}`}
               </div>
             )}
-            <ChatWidget key={chatConvId ?? "default"} conversationId={chatConvId} showBookingActions />
+            <ChatWidget key={chatConvId ?? "default"} conversationId={chatConvId} showBookingActions clinicMode={true} />
           </div>
         )}
         {activeNav === "performance" && (
