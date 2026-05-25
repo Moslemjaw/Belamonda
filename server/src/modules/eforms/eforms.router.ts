@@ -206,7 +206,7 @@ export async function listRequiredFormsForUser(
 export const eformsRouter = Router();
 
 // ── Admin: list / create / update / archive forms ──
-eformsRouter.get("/admin/forms", authRequired, requireRole(["admin"]), async (_req, res, next) => {
+eformsRouter.get("/admin/forms", authRequired, requireRole(["admin", "legal"]), async (_req, res, next) => {
   try {
     const rows = await EFormModel.find({}).sort({ createdAt: -1 }).lean<EFormDoc[]>();
     return res.json({ items: rows.map((r) => serializeForm(r)) });
@@ -215,7 +215,7 @@ eformsRouter.get("/admin/forms", authRequired, requireRole(["admin"]), async (_r
   }
 });
 
-eformsRouter.post("/admin/forms", authRequired, requireRole(["admin"]), async (req, res, next) => {
+eformsRouter.post("/admin/forms", authRequired, requireRole(["admin", "legal"]), async (req, res, next) => {
   try {
     const parsed = FormCreateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
@@ -239,7 +239,7 @@ eformsRouter.post("/admin/forms", authRequired, requireRole(["admin"]), async (r
   }
 });
 
-eformsRouter.patch("/admin/forms/:id", authRequired, requireRole(["admin"]), async (req, res, next) => {
+eformsRouter.patch("/admin/forms/:id", authRequired, requireRole(["admin", "legal"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: "NOT_FOUND" });
     const parsed = FormUpdateSchema.safeParse(req.body);
@@ -281,7 +281,7 @@ eformsRouter.patch("/admin/forms/:id", authRequired, requireRole(["admin"]), asy
   }
 });
 
-eformsRouter.delete("/admin/forms/:id", authRequired, requireRole(["admin"]), async (req, res, next) => {
+eformsRouter.delete("/admin/forms/:id", authRequired, requireRole(["admin", "legal"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: "NOT_FOUND" });
     await EFormModel.findByIdAndUpdate(req.params.id, { $set: { archived: true } }).lean();

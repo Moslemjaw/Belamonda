@@ -13,6 +13,7 @@ import { getCategoryIcon } from "../../components/CategoryIcons";
 import ChatWidget from "../../components/ChatWidget";
 import ShareLinkPage from "../../components/ShareLinkPage";
 import { ReferralActivityWidget } from "../../components/ReferralActivityWidget";
+import { EFormsAdminPanel } from "../../features/admin/EFormsAdminPanel";
 
 const ar = () => i18n.language === "ar";
 
@@ -3288,7 +3289,7 @@ export default function CsDashboard() {
         )}
         {activeNav === "kyc" && isLegalOrAdmin && <KycQueue />}
         {activeNav === "invoice_reviews" && isLegalOrAdmin && <InvoiceReviews />}
-        {activeNav === "eforms" && isLegalOrAdmin && <EFormsViewer />}
+        {activeNav === "eforms" && isLegalOrAdmin && <EFormsAdminPanel />}
         {activeNav === "sub_requests" && <SubscriptionRequests />}
         {activeNav === "payments" && <PaymentsManager />}
         {activeNav === "memberships" && <CustomerMemberships onTransfer={(id, clinicId) => {
