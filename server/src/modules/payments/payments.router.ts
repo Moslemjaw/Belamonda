@@ -189,10 +189,9 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin", "le
       const totalInstallments = isInstallments ? ((uo as any).installmentCount ?? 1) : 1;
 
       // Step 1: Credit full amount to wallet locked pool on FIRST installment only
-      // For isCashbackOnly offers the locked pool is pre-funded at KYC approval,
-      // so skip this step to avoid double-crediting.
+      // creditOfferCashback has built-in dedup (only credits once per userOffer).
       const currentInstallment = isInstallments ? (refreshedUo?.installmentsPaid ?? 1) : 1;
-      if (!isCashbackOnly && currentInstallment === 1) {
+      if (currentInstallment === 1) {
         await kycStore.creditOfferCashback({
           userId,
           amountKwd: signupBonus,
