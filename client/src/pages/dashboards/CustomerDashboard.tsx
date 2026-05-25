@@ -4561,8 +4561,8 @@ export default function CustomerDashboard() {
             setCheckoutPkg(null);
             setPendingInviteCode(null);
             await refetchMyOffers();
-            setActiveTab("my-offers");
-            setSysAlert(ar() ? "تم بنجاح! راجع 'عروضي'." : "Done! Check 'My Offers'.");
+            setActiveTab("my-purchases");
+            setSysAlert(ar() ? "تم بنجاح! راجع اشتراكاتك." : "Done! Check 'My Memberships'.");
             setTimeout(() => setSysAlert(null), 5000);
           }}
         />
