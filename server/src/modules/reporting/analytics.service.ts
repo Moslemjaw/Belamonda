@@ -1025,13 +1025,13 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     const paymentsInPeriod = await PaymentModel.find(q).select("_id userId amountKwd createdAt offerId").lean();
     const buyerIdsStr = [...new Set(paymentsInPeriod.map((p: any) => String(p.userId)))].filter(Boolean);
     
-    if (buyerIdsStr.length === 0) {
-      addTable([{ key: "msg", header: "Message" }], [{ msg: "No referrals found in period" }]);
-    } else {
+    let validPayments: any[] = [];
+    const buyerToReferrer = new Map<string, string>();
+    
+    if (buyerIdsStr.length > 0) {
       // 2. Find their FIRST payment EVER
-      const matchUserIds = buyerIdsStr.map(id => /^[a-f0-9]{24}$/i.test(id) ? new mongoose.Types.ObjectId(id) : id);
       const firstPaymentsEver = await PaymentModel.aggregate([
-        { $match: { status: "completed", userId: { $in: matchUserIds } } },
+        { $match: { status: "completed", userId: { $in: buyerIdsStr } } },
         { $sort: { createdAt: 1 } },
         { $group: {
             _id: "$userId",
@@ -1039,7 +1039,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         }}
       ]);
       const firstPaymentIds = new Set(firstPaymentsEver.map((p: any) => p.paymentId.toString()));
-      const validPayments = paymentsInPeriod.filter((p: any) => firstPaymentIds.has(p._id.toString()));
+      validPayments = paymentsInPeriod.filter((p: any) => firstPaymentIds.has(p._id.toString()));
       
       // 3. Map buyer to referrer
       const buyers: any[] = await UserModel.find({
@@ -1049,88 +1049,107 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         ],
       }).select("username referredBy").lean().catch(() => []);
       
-      const buyerToReferrer = new Map<string, string>();
       for (const b of buyers) {
         if (!b.referredBy) continue;
         buyerToReferrer.set(b._id.toString(), b.referredBy.toString());
         if (b.username) buyerToReferrer.set(b.username, b.referredBy.toString());
       }
-      
-      // 4. Group by offer and referrer
-      const matrix: Record<string, Record<string, number>> = {};
-      const offerIds = new Set<string>();
-      const referrerIds = new Set<string>();
-      
-      for (const p of validPayments as any[]) {
-        const ref = buyerToReferrer.get(String(p.userId));
-        if (!ref) continue;
-        
-        const oId = p.offerId ? String(p.offerId) : "unknown";
-        offerIds.add(oId);
-        referrerIds.add(ref);
-        
-        if (!matrix[oId]) matrix[oId] = {};
-        matrix[oId][ref] = (matrix[oId][ref] || 0) + 1;
-      }
-      
-      // 5. Load Offer and Referrer names
-      const offers = await OfferModel.find({ _id: { $in: [...offerIds].filter(id => /^[a-f0-9]{24}$/i.test(id)) } }).select("name nameAr").lean();
-      const offerMap = new Map(offers.map((o: any) => [String(o._id), o.nameAr || o.name]));
-      
-      const referrers = await UserModel.find({ _id: { $in: [...referrerIds] } }).select("username displayName").lean();
-      const refMap = new Map(referrers.map((r: any) => [String(r._id), r.displayName || r.username]));
-      
-      // 6. Build the Excel Table structure
-      const refIdList = [...referrerIds];
-      
-      const headers = [
-        { key: "code", header: "الكود", alignment: { vertical: "middle", horizontal: "center" } as any },
-        { key: "offerName", header: "العرض" },
-        ...refIdList.map(refId => ({
-          key: `ref_${refId}`,
-          header: refMap.get(refId) || refId,
-          alignment: { vertical: "middle", horizontal: "center" } as any
-        })),
-        { key: "total", header: "الإجمالي", alignment: { vertical: "middle", horizontal: "center" } as any },
-        { key: "target", header: "التاجيت", alignment: { vertical: "middle", horizontal: "center" } as any },
-        { key: "remaining", header: "المتبقي", alignment: { vertical: "middle", horizontal: "center" } as any }
-      ];
-      
-      const rows = [];
-      const colTotals: Record<string, number> = {};
-      let rowIndex = 1;
-      
-      for (const oId of [...offerIds]) {
-        const rowData: Record<string, any> = {
-          code: rowIndex++,
-          offerName: oId === "unknown" ? "أخرى (Other)" : (offerMap.get(oId) || oId),
-          target: "-",
-          remaining: "-"
-        };
-        
-        let rowTotal = 0;
-        for (const refId of refIdList) {
-          const count = matrix[oId]?.[refId] || 0;
-          rowData[`ref_${refId}`] = count > 0 ? count : "-";
-          rowTotal += count;
-          colTotals[refId] = (colTotals[refId] || 0) + count;
-        }
-        rowData.total = rowTotal;
-        rows.push(rowData);
-      }
-      
-      // Final Row: Totals
-      const totalRow: Record<string, any> = { code: "", offerName: "الإجمالي", target: "-", remaining: "-" };
-      let superTotal = 0;
-      for (const refId of refIdList) {
-        totalRow[`ref_${refId}`] = colTotals[refId] || 0;
-        superTotal += colTotals[refId] || 0;
-      }
-      totalRow.total = superTotal;
-      rows.push(totalRow);
-      
-      addTable(headers, rows);
     }
+    
+    // 4. Group by offer and referrer
+    const matrix: Record<string, Record<string, number>> = {};
+    const offerIds = new Set<string>();
+    const referrerIds = new Set<string>();
+
+    // Pre-fill all active offers and cs/legal staff so they always show up
+    const allOffers = await OfferModel.find({ isActive: true }).select("name nameAr").lean();
+    const offerMap = new Map();
+    for (const o of allOffers) {
+      offerIds.add(String(o._id));
+      offerMap.set(String(o._id), (o as any).nameAr || (o as any).name);
+    }
+    
+    const staffUsers = await UserModel.find({ role: { $in: ["cs", "legal"] } }).select("username displayName fullName").lean();
+    const refMap = new Map();
+    for (const s of staffUsers) {
+      referrerIds.add(String(s._id));
+      refMap.set(String(s._id), (s as any).fullName || (s as any).displayName || (s as any).username || "Staff");
+    }
+    
+    for (const p of validPayments as any[]) {
+      const ref = buyerToReferrer.get(String(p.userId));
+      if (!ref) continue;
+      
+      const oId = p.offerId ? String(p.offerId) : "unknown";
+      offerIds.add(oId);
+      referrerIds.add(ref);
+      
+      if (!matrix[oId]) matrix[oId] = {};
+      matrix[oId][ref] = (matrix[oId][ref] || 0) + 1;
+    }
+    
+    // Load any missing Offer and Referrer names
+    const missingOfferIds = [...offerIds].filter(id => !offerMap.has(id) && id !== "unknown" && /^[a-f0-9]{24}$/i.test(id));
+    if (missingOfferIds.length > 0) {
+      const extraOffers = await OfferModel.find({ _id: { $in: missingOfferIds } }).select("name nameAr").lean();
+      for (const o of extraOffers) { offerMap.set(String(o._id), (o as any).nameAr || (o as any).name); }
+    }
+    const missingRefIds = [...referrerIds].filter(id => !refMap.has(id));
+    if (missingRefIds.length > 0) {
+      const extraRefs = await UserModel.find({ _id: { $in: missingRefIds } }).select("username displayName fullName").lean();
+      for (const r of extraRefs) { refMap.set(String(r._id), (r as any).fullName || (r as any).displayName || (r as any).username || String(r._id)); }
+    }
+    
+    // 6. Build the Excel Table structure
+    const refIdList = [...referrerIds];
+    
+    const headers = [
+      { key: "code", header: "الكود", alignment: { vertical: "middle", horizontal: "center" } as any },
+      { key: "offerName", header: "العرض" },
+      ...refIdList.map(refId => ({
+        key: `ref_${refId}`,
+        header: refMap.get(refId) || refId,
+        alignment: { vertical: "middle", horizontal: "center" } as any
+      })),
+      { key: "total", header: "الإجمالي", alignment: { vertical: "middle", horizontal: "center" } as any },
+      { key: "target", header: "التاجيت", alignment: { vertical: "middle", horizontal: "center" } as any },
+      { key: "remaining", header: "المتبقي", alignment: { vertical: "middle", horizontal: "center" } as any }
+    ];
+    
+    const rows = [];
+    const colTotals: Record<string, number> = {};
+    let rowIndex = 1;
+    
+    for (const oId of [...offerIds]) {
+      const rowData: Record<string, any> = {
+        code: rowIndex++,
+        offerName: oId === "unknown" ? "أخرى (Other)" : (offerMap.get(oId) || oId),
+        target: "-",
+        remaining: "-"
+      };
+      
+      let rowTotal = 0;
+      for (const refId of refIdList) {
+        const count = matrix[oId]?.[refId] || 0;
+        rowData[`ref_${refId}`] = count > 0 ? count : "-";
+        rowTotal += count;
+        colTotals[refId] = (colTotals[refId] || 0) + count;
+      }
+      rowData.total = rowTotal;
+      rows.push(rowData);
+    }
+    
+    // Final Row: Totals
+    const totalRow: Record<string, any> = { code: "", offerName: "الإجمالي", target: "-", remaining: "-" };
+    let superTotal = 0;
+    for (const refId of refIdList) {
+      totalRow[`ref_${refId}`] = colTotals[refId] || 0;
+      superTotal += colTotals[refId] || 0;
+    }
+    totalRow.total = superTotal;
+    rows.push(totalRow);
+    
+    addTable(headers, rows);
   } else if (kind === "installments") {
     const data = await computeInstallmentsAnalytics({ from: filters.from, to: filters.to });
     addTable(
