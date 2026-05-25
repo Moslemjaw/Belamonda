@@ -170,7 +170,7 @@ function OffersManager() {
 
   const eforms = formsData?.items || [];
 
-  const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[] };
+  const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[], allowExtraPaidSessions: false, extraSessionPriceKwd: "", branchExtraSessionPrices: [] as { clinicId: string, priceKwd: string }[] };
   const [form, setForm] = useState(emptyForm);
 
   const offers = apiOffersData?.items || [];
@@ -241,6 +241,12 @@ function OffersManager() {
         sessionPriceKwd: String(x.sessionPriceKwd ?? "0")
       })),
       branchSubscriptionPrices: (o.branchSubscriptionPrices || []).map((x: any) => ({
+        clinicId: x.clinicId || "",
+        priceKwd: String(x.priceKwd ?? "0")
+      })),
+      allowExtraPaidSessions: o.allowExtraPaidSessions ?? false,
+      extraSessionPriceKwd: o.extraSessionPriceKwd ?? "",
+      branchExtraSessionPrices: (o.branchExtraSessionPrices || []).map((x: any) => ({
         clinicId: x.clinicId || "",
         priceKwd: String(x.priceKwd ?? "0")
       }))
@@ -317,6 +323,13 @@ function OffersManager() {
           payPerSession,
           branchSessionPrices,
           branchSubscriptionPrices,
+          allowExtraPaidSessions: !!form.allowExtraPaidSessions,
+          extraSessionPriceKwd: form.allowExtraPaidSessions && form.extraSessionPriceKwd ? `${Number(form.extraSessionPriceKwd).toFixed(3)}` : undefined,
+          branchExtraSessionPrices: form.allowExtraPaidSessions
+            ? form.branchExtraSessionPrices
+                .filter((o) => o.clinicId && o.priceKwd !== "" && !Number.isNaN(Number(o.priceKwd)))
+                .map((o) => ({ clinicId: o.clinicId, priceKwd: `${Number(o.priceKwd).toFixed(3)}` }))
+            : [],
           status: "active",
           active: true,
           featured: false
@@ -503,6 +516,59 @@ function OffersManager() {
               {F(ar() ? "فترة الانتظار بين الجلسات (أيام)" : "Session Interval Cooldown (days)", <input className="input-field" type="number" value={form.sessionIntervalDays} onChange={e => setForm({...form, sessionIntervalDays: e.target.value})} />)}
             </div>
           </div>
+
+          {/* 3b. Extra Paid Sessions */}
+          {!form.unlimitedSessions && (
+          <div className="border-t border-surface-100 pt-4 mt-4">
+            <h5 className="flex items-center gap-2.5 text-sm font-bold text-surface-900 mb-4 pb-3 border-b border-surface-100 before:content-[''] before:h-4 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-amber-400 before:to-orange-500 before:shrink-0">{ar() ? "جلسات إضافية مدفوعة" : "Extra Paid Sessions"}</h5>
+            <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${form.allowExtraPaidSessions ? 'border-amber-500 bg-amber-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
+              <input type="checkbox" checked={form.allowExtraPaidSessions} onChange={e => setForm({...form, allowExtraPaidSessions: e.target.checked})} className="accent-amber-500 w-4 h-4" />
+              <div>
+                <span className="font-bold text-sm text-surface-900">{ar() ? "السماح بجلسات إضافية مدفوعة" : "Allow Extra Paid Sessions"}</span>
+                <p className="text-xs text-surface-500 mt-0.5">{ar() ? "بعد انتهاء الجلسات المجانية، يمكن للعضو حجز جلسات إضافية مدفوعة حتى انتهاء صلاحية العضوية." : "After free sessions are used up, members can book additional paid sessions until the membership expires."}</p>
+              </div>
+            </label>
+            {form.allowExtraPaidSessions && (
+              <div className="mt-4 space-y-4 pl-4 border-l-2 border-amber-200">
+                <div className="grid gap-4 md:grid-cols-2">
+                  {F(ar() ? "سعر الجلسة الإضافية (KWD)" : "Extra Session Price (KWD)", <input className="input-field" type="number" step="0.001" value={form.extraSessionPriceKwd} placeholder="10.000" onChange={e => setForm({...form, extraSessionPriceKwd: e.target.value})} />)}
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-surface-600 mb-2">{ar() ? "أسعار الجلسات الإضافية حسب الفرع" : "Branch Extra Session Price Overrides"}</div>
+                  <div className="space-y-3">
+                    {form.branchExtraSessionPrices.map((bsp, index) => (
+                      <div key={index} className="flex gap-2 items-center">
+                        <select className="select-field flex-1" value={bsp.clinicId} onChange={e => {
+                           const updated = [...form.branchExtraSessionPrices];
+                           updated[index] = { ...updated[index], clinicId: e.target.value };
+                           setForm({...form, branchExtraSessionPrices: updated});
+                        }}>
+                          <option value="">{ar() ? "اختر العيادة..." : "Select Clinic..."}</option>
+                          {(clinicsData?.clinics || []).map((c: any) => (
+                             <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr : c.nameEn}</option>
+                          ))}
+                        </select>
+                        <input className="input-field w-32" type="number" step="0.001" placeholder="Price KWD" value={bsp.priceKwd} onChange={e => {
+                           const updated = [...form.branchExtraSessionPrices];
+                           updated[index] = { ...updated[index], priceKwd: e.target.value };
+                           setForm({...form, branchExtraSessionPrices: updated});
+                        }} />
+                        <button type="button" className="text-red-500 p-2 hover:bg-red-50 rounded-lg" onClick={() => {
+                           const updated = [...form.branchExtraSessionPrices];
+                           updated.splice(index, 1);
+                           setForm({...form, branchExtraSessionPrices: updated});
+                        }}>✕</button>
+                      </div>
+                    ))}
+                    <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => {
+                       setForm({...form, branchExtraSessionPrices: [...form.branchExtraSessionPrices, { clinicId: "", priceKwd: "" }]});
+                    }}>+ {ar() ? "إضافة سعر لعيادة" : "Add Branch Override"}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          )}
 
           {/* Clinic Session Fees (Overrides) */}
           <div className="border-t border-surface-100 pt-4 mt-4">
