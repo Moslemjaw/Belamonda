@@ -2829,7 +2829,7 @@ export default function CustomerDashboard() {
                                 </div>
                                 <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold text-surface-700">{clinicName}</span></div>
                                 {r.preferredAt && <div className="text-xs text-surface-400 mt-0.5">{ar() ? "الوقت المفضل:" : "Preferred:"} {new Date(r.preferredAt).toLocaleString()}</div>}
-                                {r.proposedAt && r.status === "slot_proposed" && <div className="text-xs text-blue-600 mt-0.5 font-medium">{ar() ? "الوقت المقترح:" : "Proposed time:"} {new Date(r.proposedAt).toLocaleString()}</div>}
+                                {r.proposedAt && (r.status === "slot_proposed" || r.status === "confirmed") && <div className="text-xs text-blue-600 mt-0.5 font-medium">{ar() ? (r.status === "confirmed" ? "وقت الموعد:" : "الوقت المقترح:") : (r.status === "confirmed" ? "Scheduled time:" : "Proposed time:")} {new Date(r.proposedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>}
                                 {r.rejectionReason && <div className="text-xs text-red-500 mt-0.5">{ar() ? "السبب:" : "Reason:"} {r.rejectionReason}</div>}
                               </div>
                             </div>
@@ -2903,7 +2903,7 @@ export default function CustomerDashboard() {
                             </div>
                             <div className="flex sm:flex-col items-center sm:items-end justify-between">
                               <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{b.status}</div>
-                              <div className="text-[10px] text-surface-400 mt-1">{new Date(b.scheduledAt).toLocaleDateString()}</div>
+                              <div className="text-[10px] text-surface-400 mt-1">{new Date(b.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>
                             </div>
                           </div>
                         );
