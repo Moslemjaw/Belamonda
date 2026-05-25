@@ -129,11 +129,27 @@ function saveSignatureDataUrl(dataUrl: string): string | null {
   return dataUrl;
 }
 
+function doesFormMatchContext(formTargets: Array<{ kind: string; refId: string }>, contextTargets: Array<{ kind: string; refId: string }>) {
+  if (!formTargets || formTargets.length === 0) return false;
+
+  const formKinds = new Set(formTargets.map(t => t.kind));
+  
+  for (const kind of formKinds) {
+    const allowedRefIdsForKind = new Set(formTargets.filter(t => t.kind === kind).map(t => String(t.refId)));
+    const contextRefIdForKind = contextTargets.find(t => t.kind === kind)?.refId;
+    if (!contextRefIdForKind || !allowedRefIdsForKind.has(String(contextRefIdForKind))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /**
- * Notify all customers who have an active (or pending) user-offer for any of the given offerIds.
+ * Notify all customers whose UserOffers match the form's target context.
  * Skips users who have already submitted this form at the current version.
  */
-async function notifyAffectedCustomers(formId: string, formTitle: string, offerIds: string[], formVersion: number) {
+async function notifyAffectedCustomers(formId: string, formTitle: string, formTargets: Array<{ kind: string; refId: string }>, formVersion: number) {
+  const offerIds = formTargets.filter(t => t.kind === "offer").map(t => t.refId);
   if (!offerIds.length) return;
   const mongoOfferIds = offerIds
     .filter((id) => mongoose.isValidObjectId(id))
@@ -144,10 +160,22 @@ async function notifyAffectedCustomers(formId: string, formTitle: string, offerI
     offerId: { $in: mongoOfferIds },
     status: { $in: ["active", "pending_payment", "reserved"] }
   })
-    .select("userId")
-    .lean<{ userId: string }[]>();
+    .select("userId offerId purchaseMode installmentCount")
+    .lean<{ userId: string; offerId: mongoose.Types.ObjectId; purchaseMode: string; installmentCount?: number }[]>();
 
-  const userIds = Array.from(new Set(userOffers.map((u) => u.userId)));
+  const matchedUserIds = new Set<string>();
+  for (const u of userOffers) {
+    const ctx = [{ kind: "offer", refId: String(u.offerId) }];
+    if (u.purchaseMode === "deposit") ctx.push({ kind: "installment_plan", refId: "deposit" });
+    else if (u.purchaseMode === "enet") ctx.push({ kind: "installment_plan", refId: "4_enet" });
+    else if (u.purchaseMode === "installments" && u.installmentCount) ctx.push({ kind: "installment_plan", refId: String(u.installmentCount) });
+    
+    if (doesFormMatchContext(formTargets, ctx)) {
+      matchedUserIds.add(u.userId);
+    }
+  }
+
+  const userIds = Array.from(matchedUserIds);
   if (!userIds.length) return;
 
   const alreadySigned = await EFormSubmissionModel.find({
@@ -170,16 +198,8 @@ async function notifyAffectedCustomers(formId: string, formTitle: string, offerI
 /** List forms whose targets include any of the given targets. */
 async function listFormsForTargets(targets: Array<{ kind: string; refId: string }>) {
   if (targets.length === 0) return [];
-  const orCondition = targets.map(t => ({
-    targets: { $elemMatch: { kind: t.kind, refId: t.refId } }
-  }));
-  const docs = await EFormModel.find({
-    archived: false,
-    $or: orCondition
-  })
-    .sort({ createdAt: -1 })
-    .lean<EFormDoc[]>();
-  return docs;
+  const allForms = await EFormModel.find({ archived: false }).sort({ createdAt: -1 }).lean<EFormDoc[]>();
+  return allForms.filter(f => doesFormMatchContext(f.targets || [], targets));
 }
 
 /** Find unsigned forms for a given user + targets. Returns serialized form list. */
@@ -226,10 +246,7 @@ eformsRouter.post("/admin/forms", authRequired, requireRole(["admin", "legal"]),
     });
     const serialized = serializeForm(doc.toObject() as EFormDoc);
 
-    const offerTargetIds = (parsed.data.targets ?? [])
-      .filter((t) => t.kind === "offer")
-      .map((t) => t.refId);
-    notifyAffectedCustomers(serialized.id, serialized.title, offerTargetIds, 1).catch((err) =>
+    notifyAffectedCustomers(serialized.id, serialized.title, parsed.data.targets ?? [], 1).catch((err) =>
       console.error("[eforms] notifyAffectedCustomers (create):", err)
     );
 
@@ -266,11 +283,11 @@ eformsRouter.patch("/admin/forms/:id", authRequired, requireRole(["admin", "lega
     const newlyLinkedOfferIds = currentOfferIds.filter((id) => !prevOfferIds.has(id));
 
     if (fieldsChanged) {
-      notifyAffectedCustomers(serialized.id, serialized.title, currentOfferIds, serialized.version).catch((err) =>
+      notifyAffectedCustomers(serialized.id, serialized.title, doc.targets ?? [], serialized.version).catch((err) =>
         console.error("[eforms] notifyAffectedCustomers (fields changed):", err)
       );
     } else if (newlyLinkedOfferIds.length > 0) {
-      notifyAffectedCustomers(serialized.id, serialized.title, newlyLinkedOfferIds, serialized.version).catch((err) =>
+      notifyAffectedCustomers(serialized.id, serialized.title, doc.targets ?? [], serialized.version).catch((err) =>
         console.error("[eforms] notifyAffectedCustomers (new targets):", err)
       );
     }
@@ -353,14 +370,18 @@ eformsRouter.get("/required-for-offer/:offerId", authRequired, async (req, res, 
 eformsRouter.get("/me/available", authRequired, async (req, res, next) => {
   try {
     const userOffers = await UserOfferModel.find({ userId: req.auth!.userId }).lean();
-    const offerIds = Array.from(new Set(userOffers.map((u: any) => u.offerId)));
-    if (offerIds.length === 0) return res.json({ items: [] });
+    if (userOffers.length === 0) return res.json({ items: [] });
 
-    const forms = await EFormModel.find({
-      archived: { $ne: true },
-      "targets.kind": "offer",
-      "targets.refId": { $in: offerIds }
-    }).lean<EFormDoc[]>();
+    const contexts = userOffers.map((u: any) => {
+      const ctx = [{ kind: "offer", refId: String(u.offerId) }];
+      if (u.purchaseMode === "deposit") ctx.push({ kind: "installment_plan", refId: "deposit" });
+      else if (u.purchaseMode === "enet") ctx.push({ kind: "installment_plan", refId: "4_enet" });
+      else if (u.purchaseMode === "installments" && u.installmentCount) ctx.push({ kind: "installment_plan", refId: String(u.installmentCount) });
+      return ctx;
+    });
+
+    const allForms = await EFormModel.find({ archived: { $ne: true } }).lean<EFormDoc[]>();
+    const forms = allForms.filter(f => contexts.some(ctx => doesFormMatchContext(f.targets || [], ctx)));
 
     const submitted = await EFormSubmissionModel.find({
       userId: req.auth!.userId,
@@ -370,7 +391,7 @@ eformsRouter.get("/me/available", authRequired, async (req, res, next) => {
     const subKey = new Set(submitted.map((s) => `${s.formId}:${s.formVersion}`));
     const items = forms
       .filter((f) => !subKey.has(`${String(f._id)}:${f.version}`))
-      .map((f) => serializeForm(f));
+      .map((f) => serializeForm(f as EFormDoc));
     return res.json({ items });
   } catch (e) {
     next(e);
