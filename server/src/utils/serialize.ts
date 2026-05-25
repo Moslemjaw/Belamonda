@@ -129,6 +129,12 @@ export function serializeOffer(doc: OfferDoc, categorySlug?: string | null) {
       clinicId: b.clinicId,
       priceKwd: b.priceKwd
     })),
+    allowExtraPaidSessions: (doc as any).allowExtraPaidSessions ?? false,
+    extraSessionPriceKwd: (doc as any).extraSessionPriceKwd,
+    branchExtraSessionPrices: ((doc as any).branchExtraSessionPrices ?? []).map((b: any) => ({
+      clinicId: b.clinicId,
+      priceKwd: b.priceKwd
+    })),
     createdAt: doc.createdAt instanceof Date ? doc.createdAt.toISOString() : String(doc.createdAt)
   };
 }

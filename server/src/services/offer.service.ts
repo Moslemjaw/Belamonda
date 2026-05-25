@@ -345,6 +345,9 @@ type OfferInput = {
   isCashbackOnly?: boolean;
   cashbackEligible?: boolean;
   maxCashbackPerPurchaseKwd?: string;
+  allowExtraPaidSessions?: boolean;
+  extraSessionPriceKwd?: string;
+  branchExtraSessionPrices?: { clinicId: string; priceKwd: string }[];
   membershipType?: "cashback" | "free_sessions" | "group";
   offerExpirationDate?: string;
   isGroupOffer?: boolean;
@@ -444,6 +447,9 @@ export async function createOffer(input: OfferInput) {
     payPerSession: input.payPerSession ?? false,
     sessionPriceKwd: input.sessionPriceKwd,
     branchSessionPrices,
+    allowExtraPaidSessions: input.allowExtraPaidSessions ?? false,
+    extraSessionPriceKwd: input.extraSessionPriceKwd,
+    branchExtraSessionPrices: input.branchExtraSessionPrices ?? [],
     signupCashbackKwd: input.signupCashbackKwd ?? "0.000",
     cashbackActivationFeeKwd: input.cashbackActivationFeeKwd ?? "0.000",
     cashbackPerSessionKwd: input.cashbackPerSessionKwd ?? "0.000",
