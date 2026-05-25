@@ -2009,6 +2009,11 @@ export default function CustomerDashboard() {
                         let lockedReason = ar() ? "بانتظار تأكيد الدفع" : "Awaiting Payment";
                         let rebookDateStr = "";
 
+                        const isGroupPending = o.isGroupOffer && isPending;
+                        const sharedWith = (o as any).sharedWith || [];
+                        const membersNeeded = (o.groupSizeRequired || 2) - 1;
+                        const isLockedGroup = isGroupPending && sharedWith.length < membersNeeded;
+
                         const hasActiveBooking = o.hasActiveBooking;
                         const lastCompleted = o.lastCompletedSessionAt ? new Date(o.lastCompletedSessionAt) : null;
                         const sessionIntervalDays = o.sessionIntervalDays || 0;
@@ -2051,7 +2056,9 @@ export default function CustomerDashboard() {
                             <div className="flex justify-between items-start gap-3 mb-4">
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                  {isPending ? (
+                                  {isLockedGroup ? (
+                                    <span className="status-pill-pending !text-purple-700 !bg-purple-50 !border-purple-200"><span className="dot !bg-purple-500" />{ar() ? "مغلق" : "Locked"}</span>
+                                  ) : isPending ? (
                                     <span className="status-pill-pending"><span className="dot" />{ar() ? "بانتظار الدفع" : "Pending Payment"}</span>
                                   ) : (
                                     <span className="status-pill-active"><span className="dot" />{ar() ? "نشط" : "Active"}</span>
@@ -2073,7 +2080,7 @@ export default function CustomerDashboard() {
                                     <span className="text-surface-400 text-sm font-bold ml-1">KWD</span>
                                   </div>
                                 </div>
-                              ) : (
+                              ) : !isLockedGroup ? (
                                 <div className="bg-surface-50 px-3.5 py-2.5 rounded-2xl text-center shrink-0 border border-surface-200/70 min-w-[88px]">
                                   <div className="text-[9px] text-surface-500 uppercase font-bold tracking-wider">{ar() ? "جلسات" : "Sessions"}</div>
                                   <div className="font-black text-surface-900 text-xl leading-none mt-1">
@@ -2081,11 +2088,11 @@ export default function CustomerDashboard() {
                                     {o.maxSessions && <span className="text-surface-400 text-base font-bold">/{o.maxSessions}</span>}
                                   </div>
                                 </div>
-                              )}
+                              ) : null}
                             </div>
 
                             {/* Sessions progress bar (Cashback is handled in the pink card below) */}
-                            {!isCashback && o.maxSessions && (
+                            {!isCashback && o.maxSessions && !isLockedGroup && (
                               <div className="mb-4">
                                 <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5">
                                   <span>{ar() ? "الاستخدام" : "Usage"}</span>
@@ -2097,7 +2104,7 @@ export default function CustomerDashboard() {
                               </div>
                             )}
 
-                            {o.clinicId && !isCashback && (() => {
+                            {o.clinicId && !isCashback && !isLockedGroup && (() => {
                                const clinic = (clinicsPublic?.items || []).find(c => c.id === o.clinicId);
                                const clinicName = ar() ? (clinic as any)?.nameAr || clinic?.nameEn || o.clinicId : clinic?.nameEn || (clinic as any)?.nameAr || o.clinicId;
                                const sessionPrice = (o.branchSessionPrices || []).find((b: any) => b.clinicId === o.clinicId)?.sessionPriceKwd;
