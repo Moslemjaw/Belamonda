@@ -91,6 +91,8 @@ interface Props {
   showBookingActions?: boolean;
   /** Optional title override. */
   title?: string;
+  /** Callback fired when a conversation is opened/marked as read. */
+  onRead?: () => void;
 }
 
 function getInitials(title: string): string {
@@ -102,7 +104,7 @@ function getInitials(title: string): string {
     .toUpperCase();
 }
 
-export default function ChatWidget({ conversationId: initialConvId, adminMode, showBookingActions, title }: Props) {
+export default function ChatWidget({ conversationId: initialConvId, adminMode, showBookingActions, title, onRead }: Props) {
   const { auth, getAuthHeader } = useAuth();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(initialConvId ?? null);
@@ -218,6 +220,7 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
     socket.emit("read", { conversationId: selectedId });
     apiFetch(`/chat/conversations/${selectedId}/read`, { method: "POST", headers: getAuthHeader(), body: JSON.stringify({}) }).catch(() => undefined);
     setConversations((prev) => prev.map((c) => (c.id === selectedId ? { ...c, unreadCount: 0 } : c)));
+    onRead?.();
     return () => {
       socket.emit("conversation:leave", { conversationId: selectedId });
     };
