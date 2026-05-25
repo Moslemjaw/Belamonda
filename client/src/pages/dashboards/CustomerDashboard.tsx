@@ -2294,7 +2294,18 @@ export default function CustomerDashboard() {
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             const offerData = (homeCatalogData?.items || []).find((x: any) => x.id === o.offerId);
-                                            attemptCheckout({ ...(offerData || o), userOfferId: o.id, groupInviteCode: (o as any).groupInviteCode });
+                                            const base = { ...(offerData || o), userOfferId: o.id, groupInviteCode: (o as any).groupInviteCode };
+                                            // Split the price by group size
+                                            const groupSize = (o as any).groupSizeRequired || 2;
+                                            const fullPrice = parseFloat(base.subscriptionPriceKwd || base.price || "0");
+                                            const splitPrice = (fullPrice / groupSize).toFixed(3);
+                                            base.subscriptionPriceKwd = splitPrice;
+                                            base.price = splitPrice;
+                                            // Also split deposit if applicable
+                                            if (base.depositAmountKwd) {
+                                              base.depositAmountKwd = (parseFloat(base.depositAmountKwd) / groupSize).toFixed(3);
+                                            }
+                                            attemptCheckout(base);
                                           }}
                                         >
                                           {ar() ? "اشترِ العضوية الآن" : "Purchase Membership Now"}
