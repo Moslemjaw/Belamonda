@@ -3201,6 +3201,35 @@ export default function CsDashboard() {
   const [transferError, setTransferError] = useState<string | null>(null);
   const { data: clinicsData } = useApi<{ items: any[] }>("/clinics");
   const { getAuthHeader } = useAuth();
+  
+  // Complaints Filters
+  const [complaintSearch, setComplaintSearch] = useState("");
+  const [complaintStatus, setComplaintStatus] = useState("all");
+  const [complaintCategory, setComplaintCategory] = useState("all");
+
+  const filteredComplaints = (complaintsData?.items || []).filter((c: any) => {
+    if (complaintStatus !== "all" && c.status !== complaintStatus) return false;
+    if (complaintCategory !== "all" && c.category !== complaintCategory) return false;
+    if (complaintSearch.trim()) {
+      const q = complaintSearch.toLowerCase();
+      const subject = c.subject || "";
+      const userName = c.userName || c.userId || "";
+      if (!subject.toLowerCase().includes(q) && !userName.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  const translateComplaintStatus = (status: string) => {
+    if (!ar()) return status;
+    switch (status) {
+      case "open": return "مفتوح";
+      case "in_progress": return "قيد المعالجة";
+      case "escalated": return "تم التصعيد";
+      case "resolved": return "محلول";
+      case "closed": return "مغلق";
+      default: return status;
+    }
+  };
 
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
@@ -3326,15 +3355,56 @@ export default function CsDashboard() {
         )}
         {activeNav === "complaints" && (
           <div className="card-elevated overflow-hidden">
-            <div className="p-5"><h3 className="text-base font-bold text-surface-900">{ar() ? "الشكاوى" : "Complaints"}</h3></div>
+            <div className="p-5 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4">
+              <h3 className="text-base font-bold text-surface-900">{ar() ? "الشكاوى" : "Complaints"}</h3>
+              <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                <input 
+                  type="text" 
+                  placeholder={ar() ? "بحث بالاسم أو الموضوع..." : "Search name or subject..."}
+                  className="input-field text-sm py-1.5 w-full sm:w-64"
+                  value={complaintSearch}
+                  onChange={e => setComplaintSearch(e.target.value)}
+                />
+                <select 
+                  className="select-field text-sm py-1.5"
+                  value={complaintStatus}
+                  onChange={e => setComplaintStatus(e.target.value)}
+                >
+                  <option value="all">{ar() ? "جميع الحالات" : "All Statuses"}</option>
+                  <option value="open">{ar() ? "مفتوح" : "Open"}</option>
+                  <option value="in_progress">{ar() ? "قيد المعالجة" : "In Progress"}</option>
+                  <option value="escalated">{ar() ? "تم التصعيد" : "Escalated"}</option>
+                  <option value="resolved">{ar() ? "محلول" : "Resolved"}</option>
+                  <option value="closed">{ar() ? "مغلق" : "Closed"}</option>
+                </select>
+                <select 
+                  className="select-field text-sm py-1.5"
+                  value={complaintCategory}
+                  onChange={e => setComplaintCategory(e.target.value)}
+                >
+                  <option value="all">{ar() ? "جميع الفئات" : "All Categories"}</option>
+                  <option value="clinic">{ar() ? "عيادة" : "Clinic"}</option>
+                  <option value="booking">{ar() ? "حجز" : "Booking"}</option>
+                  <option value="payment">{ar() ? "دفع" : "Payment"}</option>
+                  <option value="technical">{ar() ? "تقني" : "Technical"}</option>
+                  <option value="other">{ar() ? "أخرى" : "Other"}</option>
+                </select>
+              </div>
+            </div>
             <div className="overflow-x-auto">
               <table className="data-table">
-                <thead><tr><th>{ar() ? "الموضوع" : "Subject"}</th><th>{ar() ? "الفئة" : "Category"}</th><th>{ar() ? "الحالة" : "Status"}</th><th>{ar() ? "التاريخ" : "Date"}</th></tr></thead>
+                <thead><tr><th>{ar() ? "الموضوع" : "Subject"}</th><th>{ar() ? "المرسل" : "From"}</th><th>{ar() ? "الفئة" : "Category"}</th><th>{ar() ? "الحالة" : "Status"}</th><th>{ar() ? "التاريخ" : "Date"}</th></tr></thead>
                 <tbody>
-                  {(complaintsData?.items || []).map((c: any) => (
-                    <tr key={c.id}><td className="font-medium">{c.subject}</td><td><span className="badge-sage">{c.category}</span></td><td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{c.status}</span></td><td className="text-xs">{new Date(c.createdAt).toLocaleDateString()}</td></tr>
+                  {filteredComplaints.map((c: any) => (
+                    <tr key={c.id}>
+                      <td className="font-medium">{c.subject}</td>
+                      <td className="text-sm font-bold text-surface-700">{c.userName || c.userId}</td>
+                      <td><span className="badge-sage">{c.category}</span></td>
+                      <td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{translateComplaintStatus(c.status)}</span></td>
+                      <td className="text-xs">{new Date(c.createdAt).toLocaleDateString()}</td>
+                    </tr>
                   ))}
-                  {(complaintsData?.items || []).length === 0 && <tr><td colSpan={4}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div className="empty-state-title">{ar() ? "لا شكاوى" : "No complaints"}</div><div className="empty-state-sub">{ar() ? "لم يتم تسجيل شكاوى ضمن هذه الفترة." : "No complaints logged in this period."}</div></div></td></tr>}
+                  {filteredComplaints.length === 0 && <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div className="empty-state-title">{ar() ? "لا شكاوى" : "No complaints"}</div><div className="empty-state-sub">{ar() ? "لم يتم العثور على نتائج للفلتر الحالي." : "No results found for current filters."}</div></div></td></tr>}
                 </tbody>
               </table>
             </div>
