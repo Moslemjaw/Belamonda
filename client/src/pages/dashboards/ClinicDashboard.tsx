@@ -1436,6 +1436,9 @@ export default function ClinicDashboard() {
   const [clinicSaving, setClinicSaving] = useState(false);
   const [clinicSaveMsg, setClinicSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
   const [chatConvId, setChatConvId] = useState<string | undefined>(undefined);
+  const [complaintForm, setComplaintForm] = useState({ category: "other", subject: "", description: "" });
+  const [sysAlert, setSysAlert] = useState<string | null>(null);
+  
   // Clinic staff accounts are linked to a clinicId from backend auth.
   // Fall back to the old demo clinic ids only if missing.
   const CLINIC_ID = auth?.clinicId || auth?.userId || "clinic_fallback";
@@ -1541,6 +1544,7 @@ export default function ClinicDashboard() {
     { key: "invoices", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>, label: ar() ? "الفواتير" : "Invoices" },
     { key: "reports", icon: Icons.report, label: ar() ? "التقارير" : "Reports" },
     { key: "performance", icon: Icons.chart, label: ar() ? "الأداء" : "Performance" },
+    { key: "complaints", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>, label: ar() ? "الشكاوى والدعم" : "Complaints & Support" },
     { key: "profile", icon: Icons.profile, label: ar() ? "الملف الشخصي" : "Profile & Settings" },
   ];
 
@@ -1662,6 +1666,88 @@ export default function ClinicDashboard() {
 
         {activeNav === "reports" && (
           <ClinicReportsTab clinicId={CLINIC_ID} />
+        )}
+
+        {activeNav === "complaints" && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-9 h-9 rounded-2xl bg-amber-50 flex items-center justify-center">
+                <svg className="w-4 h-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+              </div>
+              <div>
+                <h2 className="text-base font-black text-surface-900">{ar() ? "الشكاوى والدعم" : "Complaints & Support"}</h2>
+                <p className="text-xs text-surface-400">{ar() ? "قدم شكوى أو تواصل مع الدعم الفني" : "Submit a complaint or contact support"}</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!complaintForm.subject || !complaintForm.description) return;
+                  try {
+                    await apiFetch("/complaints/me", {
+                      method: "POST",
+                      headers: getAuthHeader(),
+                      body: JSON.stringify(complaintForm)
+                    });
+                    setComplaintForm({ category: "other", subject: "", description: "" });
+                    setSysAlert(ar() ? "تم إرسال الشكوى بنجاح وسيتم مراجعتها قريباً" : "Complaint submitted successfully and will be reviewed soon");
+                    setTimeout(() => setSysAlert(null), 5000);
+                  } catch (err: any) {
+                    setSysAlert(err.message || (ar() ? "حدث خطأ أثناء إرسال الشكوى" : "Error submitting complaint"));
+                    setTimeout(() => setSysAlert(null), 5000);
+                  }
+                }}
+                className="bg-white rounded-3xl p-5 sm:p-6 border border-surface-200 shadow-sm"
+              >
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-surface-900 mb-1 block">{ar() ? "الفئة" : "Category"}</label>
+                    <select
+                      className="select-field w-full bg-surface-50 border-surface-200"
+                      value={complaintForm.category}
+                      onChange={(e) => setComplaintForm({ ...complaintForm, category: e.target.value })}
+                    >
+                      <option value="system">{ar() ? "مشكلة في النظام" : "System Issue"}</option>
+                      <option value="billing">{ar() ? "مشكلة مالية" : "Billing Issue"}</option>
+                      <option value="other">{ar() ? "أخرى" : "Other"}</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-surface-900 mb-1 block">{ar() ? "الموضوع" : "Subject"}</label>
+                    <input
+                      required
+                      minLength={3}
+                      type="text"
+                      className="input-field w-full bg-surface-50 border-surface-200"
+                      value={complaintForm.subject}
+                      onChange={(e) => setComplaintForm({ ...complaintForm, subject: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-surface-900 mb-1 block">{ar() ? "التفاصيل" : "Description"}</label>
+                    <textarea
+                      required
+                      minLength={10}
+                      className="input-field w-full h-24 resize-none bg-surface-50 border-surface-200"
+                      value={complaintForm.description}
+                      onChange={(e) => setComplaintForm({ ...complaintForm, description: e.target.value })}
+                    />
+                  </div>
+                  <button type="submit" className="btn-primary w-full sm:w-auto mt-2">
+                    {ar() ? "إرسال الشكوى" : "Submit Complaint"}
+                  </button>
+                </div>
+              </form>
+
+              {sysAlert && (
+                <div className="max-w-md bg-surface-900 text-white text-sm font-medium px-4 py-3 rounded-2xl animate-fade-in">
+                  {sysAlert}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {activeNav === "profile" && (

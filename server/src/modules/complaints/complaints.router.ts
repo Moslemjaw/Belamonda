@@ -46,6 +46,7 @@ complaintsRouter.get("/me", authRequired, async (req, res, next) => {
       userId: c.userId,
       category: c.category,
       subject: c.subject,
+      description: c.description,
       status: c.status,
       createdAt: new Date(c.createdAt).toISOString()
     }));
@@ -64,6 +65,7 @@ complaintsRouter.get("/all", authRequired, requireRole(["cs", "admin", "legal"])
       userId: c.userId,
       category: c.category,
       subject: c.subject,
+      description: c.description,
       status: c.status,
       createdAt: new Date(c.createdAt).toISOString()
     }));
@@ -94,6 +96,45 @@ complaintsRouter.post("/:id/update", authRequired, requireRole(["cs", "admin", "
     });
 
     return res.json({ complaint: { id: String(complaint._id) } });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Get single complaint with updates
+complaintsRouter.get("/:id", authRequired, async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
+    const complaint = await ComplaintModel.findById(req.params.id).lean() as any;
+    if (!complaint) return res.status(404).json({ error: "NOT_FOUND" });
+
+    // Check permissions
+    const role = req.auth!.role || "user";
+    const isStaff = role === "cs" || role === "admin" || role === "legal";
+    if (!isStaff && complaint.userId !== req.auth!.userId) {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
+
+    const updates = await ComplaintUpdateModel.find({ complaintId: complaint._id }).sort({ createdAt: -1 }).lean();
+
+    return res.json({
+      complaint: {
+        id: String(complaint._id),
+        userId: complaint.userId,
+        category: complaint.category,
+        subject: complaint.subject,
+        description: complaint.description,
+        status: complaint.status,
+        createdAt: new Date(complaint.createdAt).toISOString(),
+        updates: updates.map((u: any) => ({
+          id: String(u._id),
+          by: u.by,
+          note: u.note,
+          status: u.status,
+          createdAt: new Date(u.createdAt).toISOString()
+        }))
+      }
+    });
   } catch (e) {
     next(e);
   }
