@@ -3477,6 +3477,9 @@ export default function CsDashboard() {
               }} />
             </div>
 
+            {/* ── Referral Activity ── */}
+            <ReferralActivityWidget />
+
             {/* ── Customer Memberships (Full Width) ── */}
             <CustomerMemberships onTransfer={(id, clinicId) => {
               setClinicChangeModal({ type: 'membership', id, currentClinicId: clinicId, defaultFee: '10.000' });
@@ -3485,9 +3488,6 @@ export default function CsDashboard() {
               setTransferFee("10.000");
               setTransferError(null);
             }} />
-
-            {/* ── Referral Activity ── */}
-            <ReferralActivityWidget />
           </>
         )}
         {activeNav === "share_link_performance" && isCsDirector && (
