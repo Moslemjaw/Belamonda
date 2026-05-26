@@ -43,6 +43,7 @@ function RoleDashboard() {
         return <AdminDashboard />;
       case "cs":
       case "legal":
+      case "cs_director":
         return <CsDashboard />;
       case "finance":
         return <FinanceDashboard />;

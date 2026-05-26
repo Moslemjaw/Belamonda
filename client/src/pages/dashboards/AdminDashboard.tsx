@@ -2764,12 +2764,13 @@ export function UserProfilePanel({
   );
 }
 
-const ALL_ROLES = ["customer", "admin", "cs", "finance", "clinicStaff", "legal", "user"] as const;
+const ALL_ROLES = ["customer", "admin", "cs", "finance", "clinicStaff", "legal", "cs_director", "user"] as const;
 const ROLE_COLORS: Record<string, string> = {
   customer: "bg-blue-50 text-blue-700",
   admin: "bg-purple-50 text-purple-700",
   cs: "bg-amber-50 text-amber-700",
   legal: "bg-indigo-50 text-indigo-700",
+  cs_director: "bg-purple-50 text-purple-700",
   finance: "bg-emerald-50 text-emerald-700",
   clinicStaff: "bg-pink-50 text-pink-700",
   user: "bg-surface-100 text-surface-600",
@@ -2926,6 +2927,7 @@ export function UsersManager() {
           <option value="finance">{ar() ? "مالية" : "Finance"}</option>
           <option value="clinicStaff">{ar() ? "موظف عيادة" : "Clinic Staff"}</option>
           <option value="legal">{ar() ? "قانوني" : "Legal"}</option>
+          <option value="cs_director">{ar() ? "مدير خدمة العملاء" : "CS Director"}</option>
           <option value="user">{ar() ? "مستخدم" : "User"}</option>
         </select>
         <select
@@ -3370,6 +3372,7 @@ function AuditLogViewer() {
             <option value="finance">Finance</option>
             <option value="clinicStaff">Clinic Staff</option>
             <option value="legal">Legal</option>
+            <option value="cs_director">CS Director</option>
             <option value="customer">Customer</option>
             <option value="system">System</option>
           </select>

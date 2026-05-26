@@ -171,8 +171,9 @@ const getGroupForNavItem = (key: string, role: string, isAr: boolean): { name: s
     }
   }
 
-  if (role === "cs") {
+  if (role === "cs" || role === "legal" || role === "cs_director") {
     if (key === "home") return { name: isAr ? "نظرة عامة" : "Overview", order: 1 };
+    if (key === "share_link_performance") return { name: isAr ? "التقارير" : "Reports", order: 1.5 };
     if (["customers", "memberships", "clinic_changes", "scheduling", "chat"].includes(key)) {
       return { name: isAr ? "خدمات العملاء" : "Customer Services", order: 2 };
     }
