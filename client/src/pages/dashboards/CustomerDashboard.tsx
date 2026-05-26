@@ -2000,7 +2000,7 @@ export default function CustomerDashboard() {
                   ) : (
                     <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
                       {activeOffers.map(o => {
-                        const isCashback = o.isCashbackOnly || (o.membershipType === "cashback" && (!o.maxSessions || o.maxSessions === 0));
+                        const isCashback = !!o.isCashbackOnly;
                         const hasCashbackFeature = o.isCashbackOnly || o.membershipType === "cashback" || parseFloat(o.cashbackPerSessionKwd || "0") > 0;
                         const isPending = o.status === 'pending payment' || o.status === 'pending_payment';
                         const isInstallment = o.method === "Installments";
