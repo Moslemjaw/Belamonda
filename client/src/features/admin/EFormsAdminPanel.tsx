@@ -238,16 +238,18 @@ function PreviewModal({ form, onClose }: { form: FormItem; onClose: () => void }
 }
 
 export function EFormsAdminPanel() {
-  const { getAuthHeader } = useAuth();
+  const { getAuthHeader, auth } = useAuth();
   const { data: formsData, refetch, loading } = useApi<{ items: FormItem[] }>("/eforms/admin/forms");
   const { data: offersData } = useApi<{ items: Array<{ id: string; name: string }> }>("/offers/admin");
   const { data: subsData, refetch: refetchSubs } = useApi<{ items: SubmissionItem[] }>("/eforms/admin/submissions");
+
+  const isCsDirector = auth?.role === "cs_director";
 
   const offers = offersData?.items ?? [];
   const forms = formsData?.items ?? [];
   const submissions = subsData?.items ?? [];
 
-  const [view, setView] = useState<"forms" | "submissions">("forms");
+  const [view, setView] = useState<"forms" | "submissions">(isCsDirector ? "submissions" : "forms");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Omit<FormItem, "id" | "archived" | "version">>(blankForm());
   const [showEditor, setShowEditor] = useState(false);
@@ -388,23 +390,25 @@ export function EFormsAdminPanel() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "النماذج الإلكترونية" : "E-Forms"}</h3>
         <div className="flex gap-2">
-          <div className="inline-flex rounded-lg border border-surface-200 overflow-hidden text-xs font-bold">
-            <button
-              type="button"
-              className={`px-3 py-1.5 ${view === "forms" ? "bg-brand-pink-500 text-white" : "bg-white text-surface-600"}`}
-              onClick={() => setView("forms")}
-            >
-              {ar() ? "النماذج" : "Forms"}
-            </button>
-            <button
-              type="button"
-              className={`px-3 py-1.5 ${view === "submissions" ? "bg-brand-pink-500 text-white" : "bg-white text-surface-600"}`}
-              onClick={() => { setView("submissions"); void refetchSubs(); }}
-            >
-              {ar() ? "التعبئات" : "Submissions"}
-            </button>
-          </div>
-          {view === "forms" && (
+          {!isCsDirector && (
+            <div className="inline-flex rounded-lg border border-surface-200 overflow-hidden text-xs font-bold">
+              <button
+                type="button"
+                className={`px-3 py-1.5 ${view === "forms" ? "bg-brand-pink-500 text-white" : "bg-white text-surface-600"}`}
+                onClick={() => setView("forms")}
+              >
+                {ar() ? "النماذج" : "Forms"}
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1.5 ${view === "submissions" ? "bg-brand-pink-500 text-white" : "bg-white text-surface-600"}`}
+                onClick={() => { setView("submissions"); void refetchSubs(); }}
+              >
+                {ar() ? "التعبئات" : "Submissions"}
+              </button>
+            </div>
+          )}
+          {view === "forms" && !isCsDirector && (
             <button type="button" className="btn-primary btn-sm" onClick={startCreate}>
               + {ar() ? "نموذج جديد" : "New form"}
             </button>
