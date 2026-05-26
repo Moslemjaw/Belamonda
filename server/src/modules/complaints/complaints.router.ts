@@ -67,12 +67,12 @@ complaintsRouter.get("/all", authRequired, requireRole(["cs", "admin", "legal"])
     const userIdsToFetch = rows.filter((r: any) => mongoose.isValidObjectId(r.userId)).map((r: any) => r.userId);
     const clinicIdsToFetch = rows.filter((r: any) => !mongoose.isValidObjectId(r.userId)).map((r: any) => r.userId);
     
-    const users = await UserModel.find({ _id: { $in: userIdsToFetch } }).select("displayName").lean();
+    const users = await UserModel.find({ _id: { $in: userIdsToFetch } }).select("fullName").lean();
     const clinicsById = await ClinicModel.find({ _id: { $in: userIdsToFetch } }).select("nameEn nameAr").lean();
     const clinics = await ClinicModel.find({ clinicId: { $in: clinicIdsToFetch } }).select("clinicId nameEn nameAr").lean();
     
     const nameMap = new Map<string, string>();
-    for (const u of users) nameMap.set(String(u._id), (u as any).displayName);
+    for (const u of users) nameMap.set(String(u._id), (u as any).fullName);
     for (const c of clinicsById) nameMap.set(String(c._id), `${(c as any).nameAr} / ${(c as any).nameEn}`);
     for (const c of clinics) nameMap.set((c as any).clinicId, `${(c as any).nameAr} / ${(c as any).nameEn}`);
 
@@ -136,9 +136,9 @@ complaintsRouter.get("/:id", authRequired, async (req, res, next) => {
 
     let userName = complaint.userId;
     if (mongoose.isValidObjectId(complaint.userId)) {
-      const u = await UserModel.findById(complaint.userId).select("displayName").lean() as any;
+      const u = await UserModel.findById(complaint.userId).select("fullName").lean() as any;
       if (u) {
-        userName = u.displayName;
+        userName = u.fullName;
       } else {
         const c = await ClinicModel.findById(complaint.userId).select("nameEn nameAr").lean() as any;
         if (c) userName = `${c.nameAr} / ${c.nameEn}`;
