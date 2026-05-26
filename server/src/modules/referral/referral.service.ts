@@ -81,7 +81,7 @@ export async function getOrCreateReferralCode(userId: string): Promise<string> {
   throw new Error("Could not create referral code after retries");
 }
 
-const ELIGIBLE_REFERRER_ROLES = ["admin", "cs", "finance", "clinicStaff", "cs_director"];
+const ELIGIBLE_REFERRER_ROLES = ["admin", "cs", "finance", "clinicStaff", "legal", "cs_director"];
 
 export async function getReferralStats(referrerId: string) {
   if (!mongoose.isValidObjectId(referrerId)) return { referredCount: 0, convertedCount: 0, totalAmountKwd: "0.000", referredUsers: [] };
@@ -160,7 +160,7 @@ interface StaffReferralRow {
 export async function getAllStaffReferralStats(): Promise<StaffReferralRow[]> {
   const staffUsers = await UserModel.find(
     { role: { $in: ELIGIBLE_REFERRER_ROLES } },
-    { _id: 1, username: 1, role: 1, referralCode: 1 }
+    { _id: 1, username: 1, fullName: 1, role: 1, referralCode: 1 }
   ).lean<UserLean[]>();
 
   if (!staffUsers.length) return [];
@@ -229,7 +229,7 @@ export async function getAllStaffReferralStats(): Promise<StaffReferralRow[]> {
     const referred = referredMap.get(rid);
     return {
       userId: rid,
-      username: u.username,
+      username: u.fullName || u.username || "—",
       role: u.role,
       referralCode: u.referralCode,
       referredCount: referred?.count ?? 0,

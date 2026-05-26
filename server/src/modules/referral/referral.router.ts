@@ -44,7 +44,7 @@ referralRouter.get(
 referralRouter.get(
   "/admin/all",
   authRequired,
-  requireRole(["admin", "finance", "cs_director"]),
+  requireRole(["admin", "finance", "cs", "legal", "cs_director"]),
   async (req, res, next) => {
     try {
       const items = await getAllStaffReferralStats();
