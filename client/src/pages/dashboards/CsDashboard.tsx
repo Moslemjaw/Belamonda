@@ -3306,6 +3306,9 @@ export default function CsDashboard() {
               }} />
             </div>
 
+            {/* ── Referral Activity ── */}
+            <ReferralActivityWidget />
+
             {/* ── Customer Memberships (Full Width) ── */}
             <CustomerMemberships onTransfer={(id, clinicId) => {
               setClinicChangeModal({ type: 'membership', id, currentClinicId: clinicId, defaultFee: '10.000' });
@@ -3314,9 +3317,6 @@ export default function CsDashboard() {
               setTransferFee("10.000");
               setTransferError(null);
             }} />
-
-            {/* ── Referral Activity ── */}
-            <ReferralActivityWidget />
           </>
         )}
         {activeNav === "share_link_performance" && isCsDirector && (
@@ -3325,7 +3325,7 @@ export default function CsDashboard() {
               <h2 className="text-2xl font-bold text-surface-900">{ar() ? "أداء روابط المشاركة" : "Share Link Performance"}</h2>
               <p className="text-sm text-surface-500 mt-1">{ar() ? "تقارير أداء ومبيعات الإحالة لموظفي خدمة العملاء." : "Referral sales and performance reports for customer service staff."}</p>
             </div>
-            <ReferralLeaderboardWidget />
+            <ReferralLeaderboardWidget allowedRoles={["cs", "cs_director", "legal"]} />
           </div>
         )}
         {activeNav === "kyc" && isLegalOrAdmin && <KycQueue />}

@@ -130,12 +130,14 @@ export function ReferralActivityWidget() {
   );
 }
 
-export function ReferralLeaderboardWidget() {
+export function ReferralLeaderboardWidget({ allowedRoles }: { allowedRoles?: string[] }) {
   const { getAuthHeader } = useAuth();
   const [rows, setRows] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+
+  const [roleFilter, setRoleFilter] = useState<string>("all");
 
   useEffect(() => {
     let mounted = true;
@@ -153,7 +155,27 @@ export function ReferralLeaderboardWidget() {
     return () => { mounted = false; };
   }, [getAuthHeader, retryCount]);
 
-  const sorted = [...rows].sort((a, b) => (b.referredCount ?? 0) - (a.referredCount ?? 0));
+  const filteredByProps = allowedRoles ? rows.filter(r => allowedRoles.includes(r.role)) : rows;
+  const filteredByState = roleFilter === "all" ? filteredByProps : filteredByProps.filter(r => r.role === roleFilter);
+  const sorted = [...filteredByState].sort((a, b) => (b.referredCount ?? 0) - (a.referredCount ?? 0));
+
+  const availableRoles = Array.from(new Set(filteredByProps.map(r => r.role))).filter(Boolean);
+
+  const handleDownload = () => {
+    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
+      + "Staff,Role,Referred,Converted,Rate,Revenue (KWD)\n"
+      + sorted.map(s => {
+          const rate = s.referredCount ? Math.round(((s.convertedCount ?? 0) / s.referredCount) * 100) : 0;
+          return `${s.username},${s.role},${s.referredCount ?? 0},${s.convertedCount ?? 0},${rate}%,${s.totalAmountKwd ?? "0.000"}`;
+        }).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `referral_report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="card-elevated p-5 mb-6">
@@ -162,16 +184,36 @@ export function ReferralLeaderboardWidget() {
           <svg className="w-4 h-4 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
           </svg>
-          {ar() ? "نشاط الإحالة — جميع الموظفين" : "Referral Activity — All Staff"}
+          {ar() ? "نشاط الإحالة — تقرير الموظفين" : "Referral Activity — Staff Report"}
         </h3>
-        {fetchError && (
-          <button
-            onClick={() => setRetryCount((c) => c + 1)}
-            className="text-xs text-brand-pink-500 underline underline-offset-2"
-          >
-            {ar() ? "إعادة المحاولة" : "Try Again"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {fetchError && (
+            <button
+              onClick={() => setRetryCount((c) => c + 1)}
+              className="text-xs text-brand-pink-500 underline underline-offset-2"
+            >
+              {ar() ? "إعادة المحاولة" : "Try Again"}
+            </button>
+          )}
+          {!loading && !fetchError && sorted.length > 0 && (
+            <>
+              <select
+                className="select-field text-xs py-1 px-2 pr-6"
+                value={roleFilter}
+                onChange={e => setRoleFilter(e.target.value)}
+              >
+                <option value="all">{ar() ? "جميع الأدوار" : "All Roles"}</option>
+                {availableRoles.map(r => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
+              <button onClick={handleDownload} className="btn-secondary btn-sm flex items-center gap-1.5 text-xs">
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                {ar() ? "تحميل التقرير" : "Download"}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {loading ? (
