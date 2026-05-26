@@ -1770,41 +1770,46 @@ function ComplaintsView() {
 
   return (
     <div>
-      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 mb-4">
+      <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 mb-4">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "الشكاوى" : "Complaints"}</h3>
         
-        <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-          <input 
-            type="text" 
-            placeholder={ar() ? "بحث بالاسم أو الموضوع..." : "Search name or subject..."}
-            className="input-field text-sm py-1.5 w-full sm:w-64"
-            value={filterSearch}
-            onChange={e => setFilterSearch(e.target.value)}
-          />
-          <select 
-            className="select-field text-sm py-1.5"
-            value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-          >
-            <option value="all">{ar() ? "جميع الحالات" : "All Statuses"}</option>
-            <option value="open">{ar() ? "مفتوح" : "Open"}</option>
-            <option value="in_progress">{ar() ? "قيد المعالجة" : "In Progress"}</option>
-            <option value="escalated">{ar() ? "تم التصعيد" : "Escalated"}</option>
-            <option value="resolved">{ar() ? "محلول" : "Resolved"}</option>
-            <option value="closed">{ar() ? "مغلق" : "Closed"}</option>
-          </select>
-          <select 
-            className="select-field text-sm py-1.5"
-            value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
-          >
-            <option value="all">{ar() ? "جميع الفئات" : "All Categories"}</option>
-            <option value="clinic">{ar() ? "عيادة" : "Clinic"}</option>
-            <option value="booking">{ar() ? "حجز" : "Booking"}</option>
-            <option value="payment">{ar() ? "دفع" : "Payment"}</option>
-            <option value="technical">{ar() ? "تقني" : "Technical"}</option>
-            <option value="other">{ar() ? "أخرى" : "Other"}</option>
-          </select>
+        <div className="flex flex-col sm:flex-row flex-wrap items-center gap-3 w-full lg:w-auto bg-surface-50/50 p-2 rounded-2xl border border-surface-100">
+          <div className="relative w-full sm:w-64">
+            <svg className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-surface-400 ${ar() ? 'right-3' : 'left-3'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <input 
+              type="text" 
+              placeholder={ar() ? "بحث بالاسم أو الموضوع..." : "Search name or subject..."}
+              className={`input-field text-sm py-1.5 w-full ${ar() ? 'pr-9' : 'pl-9'}`}
+              value={filterSearch}
+              onChange={e => setFilterSearch(e.target.value)}
+            />
+          </div>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <select 
+              className="select-field text-sm py-1.5 w-full sm:w-auto min-w-[140px]"
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+            >
+              <option value="all">{ar() ? "جميع الحالات" : "All Statuses"}</option>
+              <option value="open">{ar() ? "مفتوح" : "Open"}</option>
+              <option value="in_progress">{ar() ? "قيد المعالجة" : "In Progress"}</option>
+              <option value="escalated">{ar() ? "تم التصعيد" : "Escalated"}</option>
+              <option value="resolved">{ar() ? "محلول" : "Resolved"}</option>
+              <option value="closed">{ar() ? "مغلق" : "Closed"}</option>
+            </select>
+            <select 
+              className="select-field text-sm py-1.5 w-full sm:w-auto min-w-[140px]"
+              value={filterCategory}
+              onChange={e => setFilterCategory(e.target.value)}
+            >
+              <option value="all">{ar() ? "جميع الفئات" : "All Categories"}</option>
+              <option value="clinic">{ar() ? "عيادة" : "Clinic"}</option>
+              <option value="booking">{ar() ? "حجز" : "Booking"}</option>
+              <option value="payment">{ar() ? "دفع" : "Payment"}</option>
+              <option value="technical">{ar() ? "تقني" : "Technical"}</option>
+              <option value="other">{ar() ? "أخرى" : "Other"}</option>
+            </select>
+          </div>
         </div>
       </div>
       
