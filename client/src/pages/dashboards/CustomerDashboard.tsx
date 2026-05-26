@@ -2000,7 +2000,8 @@ export default function CustomerDashboard() {
                   ) : (
                     <div className="grid gap-4 sm:gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
                       {activeOffers.map(o => {
-                        const isCashback = o.isCashbackOnly || o.membershipType === "cashback";
+                        const isCashback = o.isCashbackOnly || (o.membershipType === "cashback" && (!o.maxSessions || o.maxSessions === 0));
+                        const hasCashbackFeature = o.isCashbackOnly || o.membershipType === "cashback" || parseFloat(o.cashbackPerSessionKwd || "0") > 0;
                         const isPending = o.status === 'pending payment' || o.status === 'pending_payment';
                         const isInstallment = o.method === "Installments";
                         const paidInst = o.paidInstallments || 0;
@@ -2063,7 +2064,7 @@ export default function CustomerDashboard() {
                                   ) : (
                                     <span className="status-pill-active"><span className="dot" />{ar() ? "نشط" : "Active"}</span>
                                   )}
-                                  {isCashback && (
+                                  {hasCashbackFeature && (
                                     <span className="badge-sage text-[10px]">{ar() ? "كاش باك" : "Cashback"}</span>
                                   )}
                                   {o.method === "Installments" && (
@@ -2148,7 +2149,8 @@ export default function CustomerDashboard() {
                                );
                             })()}
 
-                            {isCashback ? (() => {
+                            {/* Cashback features block */}
+                            {(() => {
                               const parts = computeOfferCashbackParts(o);
                               const isDeposit = o.purchaseMode === 'deposit' || o.method === 'Deposit';
                               const verbEn = isDeposit ? 'Pay remaining balance' : 'Pay installment';
@@ -2157,8 +2159,10 @@ export default function CustomerDashboard() {
                               const hasRemainingPayments = o.purchaseMode === 'deposit' || 
                                 (o.purchaseMode === 'installments' && (o.installmentsPaid || 0) < (o.installmentCount || 1));
                               
+                              if (parts.locked === 0 && parseFloat(o.cashbackPerSessionKwd || "0") === 0) return null;
+
                               return (
-                              <div className="pt-2 flex flex-col gap-2">
+                              <div className="pt-2 flex flex-col gap-2 mb-3">
                                 {parts.locked > 0 && hasRemainingPayments && (
                                   <button
                                     className="w-full mt-1 bg-brand-pink-600 hover:bg-brand-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
@@ -2183,7 +2187,10 @@ export default function CustomerDashboard() {
                                 )}
                               </div>
                               );
-                            })() : (() => {
+                            })()}
+
+                            {/* Booking Button (for non-cashback-only memberships) */}
+                            {!isCashback && (() => {
                               const isUnlockMembershipPending = (o as any).isGroupOffer && (o.status === 'pending_payment' || o.status === 'pending payment');
                               if (isUnlockMembershipPending) return null;
                               return (
