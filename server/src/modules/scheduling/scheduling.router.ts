@@ -532,8 +532,9 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
        }
        notifyBookingUnderReview(req.auth!.userId, breq.id);
        const [csIds, financeIds] = await Promise.all([findCsUserIds(), findFinanceUserIds()]);
+       const additionalNotifyIds = bookingRoute === "clinic" ? await findClinicStaffUserIds(breq.clinicId) : csIds;
        notifyChatRelatedUsers({
-         userIds: Array.from(new Set([...csIds, ...financeIds])),
+         userIds: Array.from(new Set([...additionalNotifyIds, ...financeIds])),
          kind: "booking_under_review",
          body: `Booking request ${breq.id}: clinic=${breq.clinicId}, price=${breq.sessionPriceKwd ?? "0.000"} KWD, membership=none, cashback=0.000 KWD`,
          payload: {
@@ -639,7 +640,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         offerId: uo.offerId,
         clinicId: uo.clinicId,
         isStandalone: !!parsed.data.isStandalone,
-        bookingRoute: "clinic",
+        bookingRoute: "cs",
         membershipType: uo.membershipType ?? "none",
         hadCashback: cashbackDeducted > 0,
         standaloneName: parsed.data.standaloneName,
@@ -714,7 +715,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       offerId: uo.offerId,
       clinicId: uo.clinicId,
       isStandalone: !!parsed.data.isStandalone,
-      bookingRoute: "clinic",
+      bookingRoute: "cs",
       membershipType: uo.membershipType ?? "none",
       hadCashback: cashbackDeducted > 0 || !!parsed.data.cashbackAppliedKwd,
       sessionPriceKwd: sessionGross,

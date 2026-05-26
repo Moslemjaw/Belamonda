@@ -2039,9 +2039,9 @@ export default function CustomerDashboard() {
                             if (paidInst === 0) {
                               bookingLocked = true;
                               lockedReason = ar() ? "يجب دفع القسط الأول" : "First installment required";
-                            } else if (paidInst === 1 && sessionsUsed >= 1) {
+                            } else if (paidInst < (o.totalInstallments || 1) && sessionsUsed >= paidInst) {
                               bookingLocked = true;
-                              lockedReason = ar() ? "يجب دفع القسط الثاني" : "Second installment required";
+                              lockedReason = ar() ? "يجب دفع القسط التالي" : "Next installment required";
                             }
                           }
                         }
@@ -2085,8 +2085,8 @@ export default function CustomerDashboard() {
                                 <div className="bg-surface-50 px-3.5 py-2.5 rounded-2xl text-center shrink-0 border border-surface-200/70 min-w-[88px]">
                                   <div className="text-[9px] text-surface-500 uppercase font-bold tracking-wider">{ar() ? "جلسات" : "Sessions"}</div>
                                   <div className="font-black text-surface-900 text-xl leading-none mt-1">
-                                    {o.maxSessions ? `${o.sessionsUsed || 0}` : (o.sessionsUsed || 0)}
-                                    {o.maxSessions && <span className="text-surface-400 text-base font-bold">/{o.maxSessions}</span>}
+                                    {o.sessionsUsed || 0}
+                                    {o.maxSessions ? <span className="text-surface-400 text-base font-bold">/{o.maxSessions}</span> : <span className="text-surface-400 text-base font-bold text-2xl relative top-[2px]">/∞</span>}
                                   </div>
                                 </div>
                               ) : null}

@@ -7,7 +7,7 @@ import { useClinicSchedule, useMyClinicReport, invalidateCache } from "../../hoo
 import { apiFetch, API_BASE_URL } from "../../lib/api";
 import { sharedClinics } from "../../lib/clinics";
 import i18n from "../../app/i18n";
-
+import ChatWidget from "../../components/ChatWidget";
 import ShareLinkPage from "../../components/ShareLinkPage";
 import { ReferralActivityWidget } from "../../components/ReferralActivityWidget";
 import NoticeBanner from "../../components/NoticeBanner";
@@ -1435,7 +1435,7 @@ export default function ClinicDashboard() {
   const [isEditingSettings, setIsEditingSettings] = useState(false);
   const [clinicSaving, setClinicSaving] = useState(false);
   const [clinicSaveMsg, setClinicSaveMsg] = useState<{ type: "ok" | "err"; text: string } | null>(null);
-
+  const [chatConvId, setChatConvId] = useState<string | undefined>(undefined);
   const [complaintForm, setComplaintForm] = useState({ category: "other", subject: "", description: "" });
   const [sysAlert, setSysAlert] = useState<string | null>(null);
   
@@ -1539,6 +1539,7 @@ export default function ClinicDashboard() {
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
     { key: "scanner", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>, label: ar() ? "ماسح البطاقة" : "Scan Card" },
+    { key: "chat", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>, label: ar() ? "محادثات الحجوزات" : "Booking Chat" },
     { key: "schedule", icon: Icons.calendar, label: t("schedule") },
     { key: "invoices", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>, label: ar() ? "الفواتير" : "Invoices" },
     { key: "reports", icon: Icons.report, label: ar() ? "التقارير" : "Reports" },
@@ -1635,7 +1636,22 @@ export default function ClinicDashboard() {
           </div>
         )}
 
-
+        {activeNav === "chat" && (
+          <div className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-bold text-surface-900">{ar() ? "محادثات الحجوزات" : "Booking Conversations"}</h2>
+              <p className="text-sm text-surface-500 mt-1">
+                {ar() ? "اقترح أوقاتاً وأكد الحجوزات مع العملاء وخدمة العملاء." : "Propose times and confirm bookings with customers and CR."}
+              </p>
+            </div>
+            {chatConvId && (
+              <div className="text-xs text-surface-500">
+                {ar() ? `تم فتح محادثة الطلب: ${chatConvId.slice(0, 8)}` : `Opened from request conversation: ${chatConvId.slice(0, 8)}`}
+              </div>
+            )}
+            <ChatWidget key={chatConvId ?? "default"} conversationId={chatConvId} showBookingActions clinicMode={true} />
+          </div>
+        )}
         {activeNav === "performance" && (
           <ClinicPerformanceTab clinicId={CLINIC_ID} sessions={sessions} completed={completed} noShows={noShows} scheduled={scheduled} />
         )}
