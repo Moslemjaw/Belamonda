@@ -1084,7 +1084,7 @@ function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, clinicI
                     <div className="text-xs"><span className="text-surface-400">{ar() ? "الدفع:" : "Payment:"}</span> <span className="font-bold text-surface-700">{o.paymentAmountKwd || '0.000'} KWD</span></div>
                     <div className="flex items-center gap-1.5 text-xs">
                       <span className="text-surface-400">{ar() ? "الجلسات:" : "Sessions:"}</span>
-                      <span className="font-bold text-surface-700">{o.sessionsUsed || 0}{o.maxSessions ? ` / ${o.maxSessions}` : ''}</span>
+                      <span className="font-bold text-surface-700">{o.sessionsUsed || 0}{o.maxSessions ? ` / ${o.maxSessions}` : ' / ∞'}</span>
                       <button
                         className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-red-100 hover:text-red-600 text-surface-500 transition-colors disabled:opacity-40"
                         disabled={adjustingId !== null || (o.sessionsUsed || 0) <= 0}
@@ -1829,7 +1829,7 @@ function CustomersManager() {
                                 >
                                   -
                                 </button>
-                                <span>{m.sessionsUsed} {ar() ? "جلسات مستخدمة" : "sessions used"}</span>
+                                <span>{m.sessionsUsed} / ∞ {ar() ? "جلسات مستخدمة" : "sessions used"}</span>
                                 <button
                                   className="text-sm font-bold text-surface-500 hover:text-brand-pink-600 hover:bg-brand-pink-50 w-6 h-6 rounded-lg flex items-center justify-center transition-colors disabled:opacity-30"
                                   disabled={sessionAdjustingId !== null}

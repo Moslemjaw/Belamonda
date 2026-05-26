@@ -2693,7 +2693,7 @@ export default function CustomerDashboard() {
                                 <div className="font-bold text-surface-900 text-sm truncate">{(uo as { offerName?: string }).offerName || homeCatalogData?.items?.find((x: any) => x.id === uo.offerId)?.name || uo.offerId}</div>
                                 <div className="text-[11px] text-surface-500 mt-0.5">
                                   {uo.activatedAt && <>{ar() ? "مفعّل:" : "Activated:"} {new Date(uo.activatedAt).toLocaleDateString()} · </>}
-                                  {ar() ? "الجلسات:" : "Sessions:"} {uo.sessionsUsed ?? 0}
+                                  {ar() ? "الجلسات:" : "Sessions:"} {uo.sessionsUsed ?? 0}{uo.maxSessions ? ` / ${uo.maxSessions}` : " / ∞"}
                                 </div>
                               </div>
                               <span className={`text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap ${statusBadge.cls}`}>{ar() ? statusBadge.ar : statusBadge.en}</span>
