@@ -286,6 +286,29 @@ chatRouter.post("/conversations/direct", authRequired, requireRole(["cs", "admin
   return res.status(201).json({ conversation: conv });
 });
 
+// Customer opens a direct conversation with CS
+chatRouter.post("/conversations/cs", authRequired, requireRole(["customer"]), (req, res) => {
+  const userId = req.auth!.userId;
+  const existingConvs = chatStore.listConversationsForUser(userId).filter(c => c.kind === "direct");
+  
+  if (existingConvs.length > 0) {
+    // Return the most recently updated direct conversation
+    const sorted = existingConvs.sort((a, b) => (b.lastMessageAt ?? b.updatedAt).localeCompare(a.lastMessageAt ?? a.updatedAt));
+    return res.json({ conversation: sorted[0] });
+  }
+
+  // Create a new one
+  const conv = chatStore.createConversation({
+    kind: "direct",
+    title: "Customer Support",
+    participants: [
+      { userId, role: "customer", joinedAt: new Date().toISOString() }
+    ]
+  });
+  return res.status(201).json({ conversation: conv });
+});
+
+
 // Admin monitor: full conversation list with status info
 chatRouter.get("/admin/overview", authRequired, requireRole(["admin"]), async (_req, res, next) => {
   try {

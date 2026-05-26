@@ -2080,7 +2080,7 @@ export default function CustomerDashboard() {
                                     <span className="text-surface-400 text-sm font-bold ml-1">KWD</span>
                                   </div>
                                 </div>
-                              ) : !isLockedGroup ? (
+                              ) : !isPending ? (
                                 <div className="bg-surface-50 px-3.5 py-2.5 rounded-2xl text-center shrink-0 border border-surface-200/70 min-w-[88px]">
                                   <div className="text-[9px] text-surface-500 uppercase font-bold tracking-wider">{ar() ? "جلسات" : "Sessions"}</div>
                                   <div className="font-black text-surface-900 text-xl leading-none mt-1">
@@ -2092,7 +2092,7 @@ export default function CustomerDashboard() {
                             </div>
 
                             {/* Sessions progress bar (Cashback is handled in the pink card below) */}
-                            {!isCashback && o.maxSessions && !isLockedGroup && (
+                            {!isCashback && o.maxSessions && !isPending && (
                               <div className="mb-4">
                                 <div className="flex justify-between text-[11px] font-semibold text-surface-500 mb-1.5">
                                   <span>{ar() ? "الاستخدام" : "Usage"}</span>
@@ -2104,9 +2104,9 @@ export default function CustomerDashboard() {
                               </div>
                             )}
 
-                            {o.clinicId && !isCashback && !isLockedGroup && (() => {
+                            {o.clinicId && !isCashback && !isPending && (() => {
                                const clinic = (clinicsPublic?.items || []).find(c => c.id === o.clinicId);
-                               const clinicName = ar() ? (clinic as any)?.nameAr || clinic?.nameEn || o.clinicId : clinic?.nameEn || (clinic as any)?.nameAr || o.clinicId;
+                               const clinicName = ar() ? (o.clinicNameAr || o.clinicNameEn || (clinic as any)?.nameAr || clinic?.nameEn || o.clinicId) : (o.clinicNameEn || o.clinicNameAr || clinic?.nameEn || (clinic as any)?.nameAr || o.clinicId);
                                const sessionPrice = (o.branchSessionPrices || []).find((b: any) => b.clinicId === o.clinicId)?.sessionPriceKwd;
                                const approvedChanges = myClinicChanges.filter(r => r.userOfferId === o.id && r.status === "approved").length;
                                const pendingRequest = myClinicChanges.find(r => r.userOfferId === o.id && r.status === "pending");
@@ -3709,7 +3709,7 @@ export default function CustomerDashboard() {
                         onChange={(e) => setComplaintForm({ ...complaintForm, category: e.target.value })}
                       >
                         <option value="clinic">{ar() ? "شكوى على عيادة" : "Clinic Complaint"}</option>
-                        <option value="app">{ar() ? "مشكلة في التطبيق" : "App Issue"}</option>
+                        <option value="service_quality">{ar() ? "مشكلة في التطبيق" : "App Issue"}</option>
                         <option value="billing">{ar() ? "مشكلة مالية" : "Billing Issue"}</option>
                         <option value="other">{ar() ? "أخرى" : "Other"}</option>
                       </select>
@@ -3718,6 +3718,7 @@ export default function CustomerDashboard() {
                       <label className="text-xs font-bold text-surface-900 mb-1 block">{ar() ? "الموضوع" : "Subject"}</label>
                       <input
                         required
+                        minLength={3}
                         type="text"
                         className="input-field w-full bg-surface-50 border-surface-200"
                         value={complaintForm.subject}
@@ -3728,6 +3729,7 @@ export default function CustomerDashboard() {
                       <label className="text-xs font-bold text-surface-900 mb-1 block">{ar() ? "التفاصيل" : "Description"}</label>
                       <textarea
                         required
+                        minLength={10}
                         className="input-field w-full h-24 resize-none bg-surface-50 border-surface-200"
                         value={complaintForm.description}
                         onChange={(e) => setComplaintForm({ ...complaintForm, description: e.target.value })}
@@ -3748,8 +3750,18 @@ export default function CustomerDashboard() {
                     <p className="text-sm text-surface-600 mb-3">{ar() ? "تحدث مباشرة مع فريق خدمة العملاء لدينا." : "Chat directly with our customer support team."}</p>
                     <button
                       type="button"
-                      onClick={() => {
-                        setChatConvId(undefined);
+                      onClick={async () => {
+                        try {
+                          const res = await apiFetch("/chat/conversations/cs", { method: "POST", headers: getAuthHeader() }) as any;
+                          if (res.conversation?.id) {
+                            setChatConvId(res.conversation.id);
+                          } else {
+                            setChatConvId(undefined);
+                          }
+                        } catch (e) {
+                          console.error(e);
+                          setChatConvId(undefined);
+                        }
                         setActiveTab("chat");
                       }}
                       className="text-xs font-bold bg-white border border-brand-pink-200 text-brand-pink-600 hover:bg-brand-pink-50 px-4 py-2 rounded-xl transition-colors shadow-sm"
@@ -4603,6 +4615,7 @@ export default function CustomerDashboard() {
           ar={ar()}
           offer={{
             id: checkoutPkg.id || checkoutPkg._id,
+            userOfferId: checkoutPkg.userOfferId,
             name: checkoutPkg.name || checkoutPkg.title || "Offer",
             category: checkoutPkg.category,
             clinicId: checkoutPkg.clinicId,

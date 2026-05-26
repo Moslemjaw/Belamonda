@@ -26,6 +26,7 @@ export const checkoutRouter = Router();
 
 const FullSchema = z.object({
   offerId: z.string().min(1),
+  userOfferId: z.string().optional(),
   applyCashbackKwd: KwdString.optional(),
   groupInviteCode: z.string().optional(),
   clinicId: z.string().optional()
@@ -33,6 +34,7 @@ const FullSchema = z.object({
 
 const InstallmentsSchema = z.object({
   offerId: z.string().min(1),
+  userOfferId: z.string().optional(),
   count: z.union([z.literal(2), z.literal(3)]),
   applyCashbackKwd: KwdString.optional(),
   groupInviteCode: z.string().optional(),
@@ -41,6 +43,7 @@ const InstallmentsSchema = z.object({
 
 const Enet4Schema = z.object({
   offerId: z.string().min(1),
+  userOfferId: z.string().optional(),
   applyCashbackKwd: KwdString.optional(),
   groupInviteCode: z.string().optional(),
   clinicId: z.string().optional()
@@ -48,6 +51,7 @@ const Enet4Schema = z.object({
 
 const DepositSchema = z.object({
   offerId: z.string().min(1),
+  userOfferId: z.string().optional(),
   expectedCompletionDate: z.string().datetime().optional(),
   preferredPlan: z.enum(["full", "installments_2", "installments_3", "installments_4_enet"]).optional(),
   reservationDays: z.number().int().min(1).max(60).optional(),

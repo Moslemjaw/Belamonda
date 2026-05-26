@@ -258,10 +258,17 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
     const offerIds = [...new Set(items.map((i) => i.offerId).filter(Boolean))].filter((id) =>
       mongoose.isValidObjectId(id)
     );
-    const offers = await OfferModel.find({ _id: { $in: offerIds } })
-      .select("name nameAr clinicLocked branchSessionPrices sessionIntervalDays isGroupOffer groupSizeRequired groupRewardType groupRewardValue maxSessions allowExtraPaidSessions extraSessionPriceKwd")
-      .lean();
+    const clinicIdsForLookup = [...new Set(items.map((i) => String(i.clinicId || "")).filter(Boolean))].filter((id) =>
+      mongoose.isValidObjectId(id)
+    );
+    const [offers, clinicsForNames] = await Promise.all([
+      OfferModel.find({ _id: { $in: offerIds } })
+        .select("name nameAr clinicLocked branchSessionPrices sessionIntervalDays isGroupOffer groupSizeRequired groupRewardType groupRewardValue maxSessions allowExtraPaidSessions extraSessionPriceKwd")
+        .lean(),
+      ClinicModel.find({ _id: { $in: clinicIdsForLookup } }).select("nameEn nameAr").lean(),
+    ]);
     const offerMap = Object.fromEntries(offers.map((o: any) => [o._id.toString(), o]));
+    const clinicNameMap = Object.fromEntries(clinicsForNames.map((c: any) => [c._id.toString(), c]));
 
     const userOfferIdsStr = items.map((i: any) => i.id);
     const userOfferObjectIds = items.map((i: any) => new mongoose.Types.ObjectId(i.id));
@@ -303,12 +310,15 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
 
     const enriched = items.map((item) => {
       const offer: any = offerMap[item.offerId] || {};
+      const clinicInfo: any = clinicNameMap[item.clinicId] || {};
       const uoId = item.id;
       return {
         ...item,
         sharedWith: item.groupInviteCode ? (groupProgressMap[item.groupInviteCode] || []) : item.sharedWith,
         offerName: offer.name || undefined,
         offerNameAr: offer.nameAr || undefined,
+        clinicNameEn: clinicInfo.nameEn || undefined,
+        clinicNameAr: clinicInfo.nameAr || undefined,
         clinicLocked: offer.clinicLocked ?? undefined,
         branchSessionPrices: offer.branchSessionPrices || [],
         sessionIntervalDays: offer.sessionIntervalDays || 0,

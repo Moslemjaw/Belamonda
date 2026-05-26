@@ -137,23 +137,31 @@ async function assertCustomerCanPurchase(userId: string) {
 }
 
 /** Cap concurrent active/pending purchases of the same offer per user (1). */
-async function assertNotAlreadyEnrolled(userId: string, offerId: string) {
-  const existing = await UserOfferModel.countDocuments({
+async function assertNotAlreadyEnrolled(userId: string, offerId: string, excludeUserOfferId?: string) {
+  const query: any = {
     userId,
     offerId: new mongoose.Types.ObjectId(offerId),
     status: { $in: ["pending_payment", "active", "reserved", "enet_pending"] }
-  });
+  };
+  if (excludeUserOfferId) {
+    query._id = { $ne: new mongoose.Types.ObjectId(excludeUserOfferId) };
+  }
+  const existing = await UserOfferModel.countDocuments(query);
   if (existing > 0) throw httpErr(409, "ALREADY_ENROLLED");
 }
 
 /** Enforce per-offer global enrollmentCap when configured. */
-async function assertEnrollmentCap(offer: OfferDoc | null | undefined, offerId: string) {
+async function assertEnrollmentCap(offer: OfferDoc | null | undefined, offerId: string, excludeUserOfferId?: string) {
   const cap = offer?.enrollmentCap;
   if (cap == null) return;
-  const reserved = await UserOfferModel.countDocuments({
+  const query: any = {
     offerId: new mongoose.Types.ObjectId(offerId),
     status: { $in: ["pending_payment", "active", "reserved", "enet_pending"] }
-  });
+  };
+  if (excludeUserOfferId) {
+    query._id = { $ne: new mongoose.Types.ObjectId(excludeUserOfferId) };
+  }
+  const reserved = await UserOfferModel.countDocuments(query);
   if (reserved >= cap) throw httpErr(409, "ENROLLMENT_CAP_REACHED");
 }
 
@@ -341,6 +349,7 @@ async function grantCashbackForPayment(
 export async function checkoutFull(input: {
   userId: string;
   offerId: string;
+  userOfferId?: string;
   applyCashbackKwd?: string;
   groupInviteCode?: string;
   clinicId?: string;
@@ -348,8 +357,8 @@ export async function checkoutFull(input: {
   await assertCustomerCanPurchase(input.userId);
   const offer = await loadOfferOrThrow(input.offerId);
   if (!offer.allowFullPayment) throw httpErr(400, "FULL_PAYMENT_NOT_ALLOWED");
-  await assertNotAlreadyEnrolled(input.userId, input.offerId);
-  await assertEnrollmentCap(offer, input.offerId);
+  await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
+  await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
   await assertRequiredEForm(input.userId, offer.fullPaymentEFormId);
   await assertNoPendingForms(input.userId, [{ kind: "offer", refId: String(offer._id) }], [
@@ -366,7 +375,7 @@ export async function checkoutFull(input: {
   const isGroup = offer.isGroupOffer || offer.membershipType === "group";
   const groupInviteCode = isGroup ? (input.groupInviteCode || require("crypto").randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
-  const uo = await UserOfferModel.create({
+  const uoData = {
     userId: input.userId,
     offerId: offer._id,
     clinicId: finalClinicId,
@@ -378,7 +387,20 @@ export async function checkoutFull(input: {
     paymentMethod: "bank_transfer",
     membershipType: offer.membershipType,
     groupInviteCode
-  });
+  };
+
+  let uo: UserOfferDoc;
+  if (input.userOfferId) {
+    const updated = await UserOfferModel.findOneAndUpdate(
+      { _id: input.userOfferId, userId: input.userId },
+      { $set: uoData },
+      { new: true }
+    ).lean<UserOfferDoc | null>();
+    if (!updated) throw httpErr(400, "INVALID_USER_OFFER_ID");
+    uo = updated as any;
+  } else {
+    uo = await UserOfferModel.create(uoData) as any;
+  }
 
   // Fast-path: cashback covers 100% — activate immediately without waiting for CS
   if (cb.netAmountKwd === "0.000") {
@@ -429,6 +451,7 @@ export async function checkoutFull(input: {
 export async function checkoutInstallments(input: {
   userId: string;
   offerId: string;
+  userOfferId?: string;
   count: 2 | 3;
   applyCashbackKwd?: string;
   groupInviteCode?: string;
@@ -438,8 +461,8 @@ export async function checkoutInstallments(input: {
   const offer = await loadOfferOrThrow(input.offerId);
   if (!offer.allowInstallments) throw httpErr(400, "INSTALLMENTS_NOT_ALLOWED");
   if (input.count > (offer.maxInstallments ?? 1)) throw httpErr(400, "PLAN_NOT_ALLOWED");
-  await assertNotAlreadyEnrolled(input.userId, input.offerId);
-  await assertEnrollmentCap(offer, input.offerId);
+  await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
+  await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
   await assertRequiredEForm(input.userId, offer.installmentsEFormId);
   await assertNoPendingForms(input.userId, [
@@ -475,7 +498,7 @@ export async function checkoutInstallments(input: {
   const isGroup = offer.isGroupOffer || offer.membershipType === "group";
   const groupInviteCode = isGroup ? (input.groupInviteCode || require("crypto").randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
-  const uo = await UserOfferModel.create({
+  const uoData = {
     userId: input.userId,
     offerId: offer._id,
     clinicId: finalClinicId,
@@ -491,7 +514,20 @@ export async function checkoutInstallments(input: {
     paymentAmountKwd: amounts[0],
     membershipType: offer.membershipType,
     groupInviteCode
-  });
+  };
+
+  let uo: UserOfferDoc;
+  if (input.userOfferId) {
+    const updated = await UserOfferModel.findOneAndUpdate(
+      { _id: input.userOfferId, userId: input.userId },
+      { $set: uoData },
+      { new: true }
+    ).lean<UserOfferDoc | null>();
+    if (!updated) throw httpErr(400, "INVALID_USER_OFFER_ID");
+    uo = updated as any;
+  } else {
+    uo = await UserOfferModel.create(uoData) as any;
+  }
 
   // Fast-path: cashback covers 100% — activate immediately without waiting for CS
   if (cb.netAmountKwd === "0.000") {
@@ -589,6 +625,7 @@ export async function payNextInstallment(input: { userId: string; userOfferId: s
 export async function checkoutEnet4(input: {
   userId: string;
   offerId: string;
+  userOfferId?: string;
   applyCashbackKwd?: string;
   groupInviteCode?: string;
   clinicId?: string;
@@ -597,8 +634,8 @@ export async function checkoutEnet4(input: {
   const offer = await loadOfferOrThrow(input.offerId);
   if (!offer.allowInstallments) throw httpErr(400, "INSTALLMENTS_NOT_ALLOWED");
   if ((offer.maxInstallments ?? 1) < 4) throw httpErr(400, "PLAN_NOT_ALLOWED");
-  await assertNotAlreadyEnrolled(input.userId, input.offerId);
-  await assertEnrollmentCap(offer, input.offerId);
+  await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
+  await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
   await assertRequiredEForm(input.userId, offer.enetEFormId);
   await assertNoPendingForms(input.userId, [
@@ -616,7 +653,7 @@ export async function checkoutEnet4(input: {
   const isGroup = offer.isGroupOffer || offer.membershipType === "group";
   const groupInviteCode = isGroup ? (input.groupInviteCode || require("crypto").randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
-  const uo = await UserOfferModel.create({
+  const uoData = {
     userId: input.userId,
     offerId: offer._id,
     clinicId: finalClinicId,
@@ -627,7 +664,20 @@ export async function checkoutEnet4(input: {
     paymentMethod: "enet",
     membershipType: offer.membershipType,
     groupInviteCode
-  });
+  };
+
+  let uo: UserOfferDoc;
+  if (input.userOfferId) {
+    const updated = await UserOfferModel.findOneAndUpdate(
+      { _id: input.userOfferId, userId: input.userId },
+      { $set: uoData },
+      { new: true }
+    ).lean<UserOfferDoc | null>();
+    if (!updated) throw httpErr(400, "INVALID_USER_OFFER_ID");
+    uo = updated as any;
+  } else {
+    uo = await UserOfferModel.create(uoData) as any;
+  }
 
   const provider = getProviderForMethod("enet");
   const result = await provider.charge({
@@ -718,6 +768,7 @@ export async function checkoutEnet4(input: {
 export async function reserveWithDeposit(input: {
   userId: string;
   offerId: string;
+  userOfferId?: string;
   expectedCompletionDate?: string;
   preferredPlan?: "full" | "installments_2" | "installments_3" | "installments_4_enet";
   reservationDays?: number;
@@ -728,8 +779,8 @@ export async function reserveWithDeposit(input: {
   await assertCustomerCanPurchase(input.userId);
   const offer = await loadOfferOrThrow(input.offerId);
   if (!offer.allowDeposit) throw httpErr(400, "DEPOSIT_NOT_ALLOWED");
-  await assertNotAlreadyEnrolled(input.userId, input.offerId);
-  await assertEnrollmentCap(offer, input.offerId);
+  await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
+  await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
   const depositAmt = offer.depositAmountKwd ?? "0.000";
   if (mils(depositAmt) <= 0) throw httpErr(400, "DEPOSIT_AMOUNT_INVALID");
 
@@ -750,7 +801,7 @@ export async function reserveWithDeposit(input: {
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
   const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);
 
-  const uo = await UserOfferModel.create({
+  const uoData = {
     userId: input.userId,
     offerId: offer._id,
     clinicId: finalClinicId,
@@ -768,7 +819,20 @@ export async function reserveWithDeposit(input: {
     paymentAmountKwd: cb.netAmountKwd,
     membershipType: offer.membershipType,
     groupInviteCode
-  });
+  };
+
+  let uo: UserOfferDoc;
+  if (input.userOfferId) {
+    const updated = await UserOfferModel.findOneAndUpdate(
+      { _id: input.userOfferId, userId: input.userId },
+      { $set: uoData },
+      { new: true }
+    ).lean<UserOfferDoc | null>();
+    if (!updated) throw httpErr(400, "INVALID_USER_OFFER_ID");
+    uo = updated as any;
+  } else {
+    uo = await UserOfferModel.create(uoData) as any;
+  }
 
   const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
   return { userOffer: serializeUserOffer(fresh!) };

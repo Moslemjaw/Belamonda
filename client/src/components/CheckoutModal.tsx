@@ -8,6 +8,7 @@ type Offer = {
   name: string;
   category?: string;
   clinicId?: string;
+  userOfferId?: string;
   /** Additional branches where this package can be redeemed (customer picks one at checkout). */
   clinicIds?: string[];
   /**
@@ -44,6 +45,7 @@ type CheckoutApiResult = {
 };
 type CheckoutBody = {
   offerId: string;
+  userOfferId?: string;
   applyCashbackKwd?: string;
   count?: 2 | 3;
   expectedCompletionDate?: string;
@@ -343,7 +345,10 @@ export default function CheckoutModal({
     setStep("processing");
     setError(null);
     try {
-      const body: CheckoutBody & { clinicId?: string; groupInviteCode?: string } = { offerId: offer.id };
+      const body: CheckoutBody & { clinicId?: string; groupInviteCode?: string } = { 
+        offerId: offer.id,
+        userOfferId: offer.userOfferId
+      };
       let chosenClinicId: string;
       if (!showBranchSection) {
         chosenClinicId = offer.clinicId ?? "";

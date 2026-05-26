@@ -77,10 +77,10 @@ export const WalletModel = mongoose.models.Wallet ?? mongoose.model<WalletDoc>("
 export interface WalletTxnDoc extends Document {
   _id: Types.ObjectId;
   userId: string;
-  type: "unlock" | "deduction" | "adjustment" | "reversal" | "forfeited_due_to_ceiling" | "signup_bonus" | "offer_cashback_credit" | "installment_unlock" | "session_reward";
+  type: "unlock" | "deduction" | "adjustment" | "reversal" | "forfeited_due_to_ceiling" | "signup_bonus" | "offer_cashback_credit" | "installment_unlock" | "session_reward" | "invoice_reward";
   amountKwd: string;
   reference?: {
-    kind: "session" | "userOffer" | "admin";
+    kind: "session" | "userOffer" | "admin" | "invoice";
     id: string;
   };
   createdBy: {
@@ -95,10 +95,10 @@ export interface WalletTxnDoc extends Document {
 const WalletTxnSchema = new Schema(
   {
     userId: { type: String, required: true, index: true },
-    type: { type: String, enum: ["unlock", "deduction", "adjustment", "reversal", "forfeited_due_to_ceiling", "signup_bonus", "offer_cashback_credit", "installment_unlock", "session_reward"], required: true },
+    type: { type: String, enum: ["unlock", "deduction", "adjustment", "reversal", "forfeited_due_to_ceiling", "signup_bonus", "offer_cashback_credit", "installment_unlock", "session_reward", "invoice_reward"], required: true },
     amountKwd: { type: String, required: true },
     reference: {
-      kind: { type: String, enum: ["session", "userOffer", "admin"] },
+      kind: { type: String, enum: ["session", "userOffer", "admin", "invoice"] },
       id: { type: String }
     },
     createdBy: {
