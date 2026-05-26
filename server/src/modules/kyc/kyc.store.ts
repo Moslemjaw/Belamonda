@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import { UserModel, type UserDoc } from "../../models/user.model.js";
 import { KycSubmissionModel, WalletModel, WalletTxnModel, type KycSubmissionDoc, type WalletDoc, type WalletTxnDoc } from "../../models/kyc.model.js";
 import { env } from "../../config/env.js";
+import { getSettings } from "../settings/settings.router.js";
 
 export type KycCheckboxes = {
   termsAndConditions: boolean;
@@ -254,20 +255,27 @@ export const kycStore = {
     const locked = parseKwd(wallet.lockedKwd);
     const ceiling = parseKwd(wallet.ceilingKwd);
 
-    wallet.lockedKwd = fmtKwd(locked + amount);
-    wallet.ceilingKwd = fmtKwd(ceiling + amount);
+    const settings = await getSettings();
+    const maxCapStr = String(settings.maxCashbackCapacityKwd || 10000);
+    const maxCapacityMils = parseKwd(maxCapStr.includes(".") ? maxCapStr : maxCapStr + ".000");
+    const allowedAmount = Math.max(0, Math.min(amount, maxCapacityMils - ceiling));
+    
+    if (allowedAmount <= 0) return { ok: true as const };
+
+    wallet.lockedKwd = fmtKwd(locked + allowedAmount);
+    wallet.ceilingKwd = fmtKwd(ceiling + allowedAmount);
     await wallet.save();
 
     await WalletTxnModel.create({
       userId: input.userId,
       type: "offer_cashback_credit",
-      amountKwd: fmtKwd(amount),
+      amountKwd: fmtKwd(allowedAmount),
       reference: { kind: "userOffer", id: input.userOfferId },
       createdBy: { kind: "system", id: input.createdById },
       reason: "Offer cashback credited to wallet"
     });
 
-    return { ok: true as const, creditedKwd: fmtKwd(amount) };
+    return { ok: true as const, creditedKwd: fmtKwd(allowedAmount) };
   },
 
   /**
@@ -291,20 +299,27 @@ export const kycStore = {
     const unlocked = parseKwd(wallet.unlockedKwd);
     const ceiling = parseKwd(wallet.ceilingKwd);
 
-    wallet.unlockedKwd = fmtKwd(unlocked + amount);
-    wallet.ceilingKwd = fmtKwd(ceiling + amount);
+    const settings = await getSettings();
+    const maxCapStr = String(settings.maxCashbackCapacityKwd || 10000);
+    const maxCapacityMils = parseKwd(maxCapStr.includes(".") ? maxCapStr : maxCapStr + ".000");
+    const allowedAmount = Math.max(0, Math.min(amount, maxCapacityMils - ceiling));
+    
+    if (allowedAmount <= 0) return { ok: true as const, rewardedKwd: "0.000" };
+
+    wallet.unlockedKwd = fmtKwd(unlocked + allowedAmount);
+    wallet.ceilingKwd = fmtKwd(ceiling + allowedAmount);
     await wallet.save();
 
     await WalletTxnModel.create({
       userId: input.userId,
       type: "session_reward",
-      amountKwd: fmtKwd(amount),
+      amountKwd: fmtKwd(allowedAmount),
       reference: { kind: "session", id: input.sessionId },
       createdBy: { kind: "system", id: input.createdById },
       reason: "Cashback earned from completing a session"
     });
 
-    return { ok: true as const, rewardedKwd: fmtKwd(amount) };
+    return { ok: true as const, rewardedKwd: fmtKwd(allowedAmount) };
   },
 
   /**
@@ -328,20 +343,27 @@ export const kycStore = {
     const unlocked = parseKwd(wallet.unlockedKwd);
     const ceiling = parseKwd(wallet.ceilingKwd);
 
-    wallet.unlockedKwd = fmtKwd(unlocked + amount);
-    wallet.ceilingKwd = fmtKwd(ceiling + amount);
+    const settings = await getSettings();
+    const maxCapStr = String(settings.maxCashbackCapacityKwd || 10000);
+    const maxCapacityMils = parseKwd(maxCapStr.includes(".") ? maxCapStr : maxCapStr + ".000");
+    const allowedAmount = Math.max(0, Math.min(amount, maxCapacityMils - ceiling));
+    
+    if (allowedAmount <= 0) return { ok: true as const, rewardedKwd: "0.000" };
+
+    wallet.unlockedKwd = fmtKwd(unlocked + allowedAmount);
+    wallet.ceilingKwd = fmtKwd(ceiling + allowedAmount);
     await wallet.save();
 
     await WalletTxnModel.create({
       userId: input.userId,
       type: "invoice_reward" as any,
-      amountKwd: fmtKwd(amount),
+      amountKwd: fmtKwd(allowedAmount),
       reference: { kind: "invoice" as any, id: input.requestId },
       createdBy: { kind: "system", id: input.createdById },
       reason: "Cashback earned from approved invoice (Belmondo Pro)"
     });
 
-    return { ok: true as const, rewardedKwd: fmtKwd(amount) };
+    return { ok: true as const, rewardedKwd: fmtKwd(allowedAmount) };
   },
 
   /**

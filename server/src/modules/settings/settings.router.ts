@@ -28,9 +28,10 @@ const DEFAULTS = {
   requireInstallmentPayment: false,
   sessionTimeoutHours: 24,
   force2FAForAdmins: false,
+  maxCashbackCapacityKwd: 10000,
 };
 
-async function getSettings() {
+export async function getSettings() {
   const docs = await SystemSettingsModel.find().lean();
   const result: Record<string, any> = { ...DEFAULTS };
   for (const d of docs) result[d.key] = d.value;

@@ -1921,6 +1921,7 @@ function AdminSettings() {
   const [requireInstallmentPayment, setRequireInstallmentPayment] = useState(false);
   const [sessionTimeoutHours, setSessionTimeoutHours] = useState(24);
   const [force2FA, setForce2FA] = useState(false);
+  const [maxCashbackCapacityKwd, setMaxCashbackCapacityKwd] = useState(10000);
 
   useEffect(() => {
     let cancelled = false;
@@ -1935,6 +1936,7 @@ function AdminSettings() {
             requireInstallmentPayment?: boolean;
             sessionTimeoutHours?: number;
             force2FAForAdmins?: boolean;
+            maxCashbackCapacityKwd?: number;
           };
         };
         if (cancelled) return;
@@ -1946,6 +1948,7 @@ function AdminSettings() {
           setRequireInstallmentPayment(!!s.requireInstallmentPayment);
           setSessionTimeoutHours(Number(s.sessionTimeoutHours) || 24);
           setForce2FA(!!s.force2FAForAdmins);
+          setMaxCashbackCapacityKwd(Number(s.maxCashbackCapacityKwd) || 10000);
         }
       } catch {
         /* keep defaults */
@@ -1968,7 +1971,8 @@ function AdminSettings() {
         defaultLanguage,
         requireInstallmentPayment,
         sessionTimeoutHours,
-        force2FAForAdmins: force2FA
+        force2FAForAdmins: force2FA,
+        maxCashbackCapacityKwd
       };
       await apiFetch("/settings/system", {
         method: "PUT",
@@ -2082,6 +2086,11 @@ function AdminSettings() {
                   <span className="text-[10px] text-surface-400">{ar() ? "يمنع المستخدم من حجز مواعيد إذا كان هناك أقساط غير مدفوعة للباقة" : "Prevents users from booking sessions if they have unpaid installments"}</span>
                 </div>
                 <SettingsToggle checked={requireInstallmentPayment} onChange={setRequireInstallmentPayment} />
+              </div>
+              <div className="pt-2 border-t border-surface-100">
+                <label className="block text-xs font-medium text-surface-700 mb-1.5">{ar() ? "الحد الأقصى لسعة الكاش باك (د.ك)" : "Global Max Cashback Capacity (KWD)"}</label>
+                <div className="text-[10px] text-surface-400 mb-2">{ar() ? "الحد الأقصى المطلق للكاش باك الذي يمكن لأي مستخدم امتلاكه (الرصيد المتاح والمقفل معاً)" : "The absolute global limit of cashback a user can have at any time (locked and unlocked combined)"}</div>
+                <input type="number" min={0} className="input-field w-full sm:w-1/2" value={maxCashbackCapacityKwd} onChange={e => setMaxCashbackCapacityKwd(Number(e.target.value))} />
               </div>
             </div>
           </div>
