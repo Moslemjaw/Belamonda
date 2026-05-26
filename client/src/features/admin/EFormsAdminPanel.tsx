@@ -60,6 +60,9 @@ type SubmissionItem = {
   answers: Array<{ key: string; value: unknown }>;
   formSnapshot: Array<{ key: string; labelEn: string; type: FieldType; order?: number }>;
   createdAt?: string;
+  userName?: string;
+  userPhone?: string;
+  userEmail?: string;
 };
 
 const newFieldKey = () => `f_${Math.random().toString(16).slice(2, 7)}`;
@@ -143,7 +146,7 @@ function SubmissionDetailModal({
 
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-2 text-xs text-surface-500 bg-white rounded-xl border border-surface-100 p-3">
-            <div><span className="font-medium text-surface-700">{ar() ? "العميلة" : "Customer"}:</span> <span className="font-mono">{submission.userId}</span></div>
+            <div><span className="font-medium text-surface-700">{ar() ? "العميلة" : "Customer"}:</span> <span className="font-mono">{submission.userName || submission.userId}</span></div>
             <div><span className="font-medium text-surface-700">{ar() ? "التاريخ" : "Submitted"}:</span> {submission.createdAt ? new Date(submission.createdAt).toLocaleString() : "—"}</div>
             {submission.userOfferId && (
               <div className="col-span-2"><span className="font-medium text-surface-700">Offer:</span> <span className="font-mono">{submission.userOfferId}</span></div>
@@ -625,7 +628,7 @@ export function EFormsAdminPanel() {
                 {filteredSubs.map((s) => (
                   <tr key={s.id} className="border-t border-surface-100">
                     <td className="p-3 font-medium">{s.formTitle} <span className="text-xs text-surface-400">v{s.formVersion}</span></td>
-                    <td className="p-3 text-xs text-surface-500 font-mono">{s.userId}</td>
+                    <td className="p-3 text-xs text-surface-500 font-mono">{s.userName || s.userId}</td>
                     <td className="p-3 text-xs text-surface-500">{s.createdAt ? new Date(s.createdAt).toLocaleString() : "—"}</td>
                     <td className="p-3">
                       <div className="flex gap-1.5 flex-wrap">
