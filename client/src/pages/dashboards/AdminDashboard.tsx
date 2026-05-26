@@ -1629,6 +1629,18 @@ function TasksManager() {
   );
 }
 
+const translateComplaintStatus = (status: string) => {
+  if (!ar()) return status;
+  switch (status) {
+    case "open": return "مفتوح";
+    case "in_progress": return "قيد المعالجة";
+    case "escalated": return "تم التصعيد";
+    case "resolved": return "محلول";
+    case "closed": return "مغلق";
+    default: return status;
+  }
+};
+
 function ComplaintModal({ id, onClose, onUpdated }: { id: string, onClose: () => void, onUpdated: () => void }) {
   const { getAuthHeader } = useAuth();
   const [data, setData] = useState<any>(null);
@@ -1676,10 +1688,10 @@ function ComplaintModal({ id, onClose, onUpdated }: { id: string, onClose: () =>
         </div>
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-surface-500 block text-xs">{ar() ? "المرسل" : "From"}</span><span className="font-mono font-bold">{data.userId}</span></div>
+            <div><span className="text-surface-500 block text-xs">{ar() ? "المرسل" : "From"}</span><span className="font-bold">{data.userName || data.userId}</span></div>
             <div><span className="text-surface-500 block text-xs">{ar() ? "التاريخ" : "Date"}</span><span className="font-bold">{new Date(data.createdAt).toLocaleString()}</span></div>
             <div><span className="text-surface-500 block text-xs">{ar() ? "الفئة" : "Category"}</span><span className="badge-sage">{data.category}</span></div>
-            <div><span className="text-surface-500 block text-xs">{ar() ? "الحالة الحالية" : "Current Status"}</span><span className="font-bold">{data.status}</span></div>
+            <div><span className="text-surface-500 block text-xs">{ar() ? "الحالة الحالية" : "Current Status"}</span><span className="font-bold">{translateComplaintStatus(data.status)}</span></div>
           </div>
           <div>
             <span className="text-surface-500 block text-xs mb-1">{ar() ? "الموضوع" : "Subject"}</span>
@@ -1700,7 +1712,7 @@ function ComplaintModal({ id, onClose, onUpdated }: { id: string, onClose: () =>
                       <span className="font-bold font-mono text-surface-700">{u.by}</span>
                       <span>{new Date(u.createdAt).toLocaleString()}</span>
                     </div>
-                    <div><span className="font-bold mr-2">[{u.status}]</span>{u.note}</div>
+                    <div><span className="font-bold mr-2">[{translateComplaintStatus(u.status)}]</span>{u.note}</div>
                   </div>
                 ))}
               </div>
@@ -1713,11 +1725,11 @@ function ComplaintModal({ id, onClose, onUpdated }: { id: string, onClose: () =>
               <div>
                 <label className="text-xs font-bold block mb-1">{ar() ? "تغيير الحالة" : "Change Status"}</label>
                 <select className="select-field w-full" value={status} onChange={e => setStatus(e.target.value)}>
-                  <option value="open">Open</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="escalated">Escalated</option>
-                  <option value="resolved">Resolved</option>
-                  <option value="closed">Closed</option>
+                  <option value="open">{ar() ? "مفتوح" : "Open"}</option>
+                  <option value="in_progress">{ar() ? "قيد المعالجة" : "In Progress"}</option>
+                  <option value="escalated">{ar() ? "تم التصعيد" : "Escalated"}</option>
+                  <option value="resolved">{ar() ? "محلول" : "Resolved"}</option>
+                  <option value="closed">{ar() ? "مغلق" : "Closed"}</option>
                 </select>
               </div>
             </div>
@@ -1750,9 +1762,9 @@ function ComplaintsView() {
               {(data?.items || []).map((c: any) => (
                 <tr key={c.id} onClick={() => setSelectedId(c.id)} className="cursor-pointer hover:bg-surface-50 transition-colors">
                   <td className="font-medium">{c.subject}</td>
-                  <td className="text-xs font-mono">{c.userId}</td>
+                  <td className="text-sm font-bold text-surface-700">{c.userName || c.userId}</td>
                   <td><span className="badge-sage">{c.category}</span></td>
-                  <td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{c.status}</span></td>
+                  <td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{translateComplaintStatus(c.status)}</span></td>
                   <td className="text-xs">{new Date(c.createdAt).toLocaleDateString()}</td>
                 </tr>
               ))}

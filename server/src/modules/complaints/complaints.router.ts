@@ -4,6 +4,8 @@ import mongoose from "mongoose";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { ComplaintModel, ComplaintUpdateModel } from "../../models/complaint.model.js";
+import { UserModel } from "../../models/user.model.js";
+import { ClinicModel } from "../../models/clinic.model.js";
 
 const CreateSchema = z.object({
   category: z.enum(["service_quality", "billing", "scheduling", "cashback", "clinic", "other"]),
@@ -60,9 +62,22 @@ complaintsRouter.get("/me", authRequired, async (req, res, next) => {
 complaintsRouter.get("/all", authRequired, requireRole(["cs", "admin", "legal"]), async (_req, res, next) => {
   try {
     const rows = await ComplaintModel.find({}).sort({ createdAt: -1 }).lean();
+    
+    // Resolve names
+    const userIdsToFetch = rows.filter((r: any) => mongoose.isValidObjectId(r.userId)).map((r: any) => r.userId);
+    const clinicIdsToFetch = rows.filter((r: any) => !mongoose.isValidObjectId(r.userId)).map((r: any) => r.userId);
+    
+    const users = await UserModel.find({ _id: { $in: userIdsToFetch } }).select("displayName").lean();
+    const clinics = await ClinicModel.find({ clinicId: { $in: clinicIdsToFetch } }).select("clinicId nameEn nameAr").lean();
+    
+    const nameMap = new Map<string, string>();
+    for (const u of users) nameMap.set(String(u._id), (u as any).displayName);
+    for (const c of clinics) nameMap.set((c as any).clinicId, `${(c as any).nameAr} / ${(c as any).nameEn}`);
+
     const items = rows.map((c: any) => ({
       id: String(c._id),
       userId: c.userId,
+      userName: nameMap.get(c.userId) || c.userId,
       category: c.category,
       subject: c.subject,
       description: c.description,
@@ -117,10 +132,20 @@ complaintsRouter.get("/:id", authRequired, async (req, res, next) => {
 
     const updates = await ComplaintUpdateModel.find({ complaintId: complaint._id }).sort({ createdAt: -1 }).lean();
 
+    let userName = complaint.userId;
+    if (mongoose.isValidObjectId(complaint.userId)) {
+      const u = await UserModel.findById(complaint.userId).select("displayName").lean() as any;
+      if (u) userName = u.displayName;
+    } else {
+      const c = await ClinicModel.findOne({ clinicId: complaint.userId }).select("nameEn nameAr").lean() as any;
+      if (c) userName = `${c.nameAr} / ${c.nameEn}`;
+    }
+
     return res.json({
       complaint: {
         id: String(complaint._id),
         userId: complaint.userId,
+        userName,
         category: complaint.category,
         subject: complaint.subject,
         description: complaint.description,
