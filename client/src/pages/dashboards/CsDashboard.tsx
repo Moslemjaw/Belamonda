@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
 import { useKycQueue, usePendingPayments, useComplaints, useApi, useBookingRequests, useClinicChangeRequestsCs, invalidateCache, useAdminUserOffers } from "../../hooks/useApi";
-import { apiFetch } from "../../lib/api";
+import { apiFetch, API_BASE_URL } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { addFinancialEntry, upsertSubscription, getSubscriptions, getFinancialLedger } from "../../lib/offerSystem";
 import { sharedClinics } from "../../lib/clinics";
@@ -3354,6 +3354,79 @@ function SubscriptionRequests() {
   );
 }
 
+function CsReportsExport() {
+  const { getAuthHeader } = useAuth();
+  const [downloading, setDownloading] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const reports = [
+    { kind: "subscriptions", icon: "👥", name: ar() ? "تقرير الاشتراكات" : "Subscriptions Report", desc: ar() ? "حالة الباقات والجلسات المتبقية" : "Memberships status & used sessions" },
+    { kind: "referrals", icon: "🔗", name: ar() ? "تقرير الإحالات" : "Referrals Report", desc: ar() ? "أداء أكواد الإحالة والعمولات" : "Referral code performance" },
+  ];
+
+  const downloadXlsx = async (kind: string) => {
+    setDownloading(kind); setError(null);
+    try {
+      const params = new URLSearchParams({ kind, format: "xlsx" });
+      const res = await fetch(`${API_BASE_URL}/reporting/finance/export?${params.toString()}`, {
+        headers: { ...(getAuthHeader() ?? {}) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `finance-${kind}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Download failed");
+    } finally {
+      setDownloading(null);
+    }
+  };
+
+  return (
+    <div className="card-elevated p-5 border border-surface-200 shadow-sm mt-6">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h3 className="text-base font-bold text-surface-900">{ar() ? "تصدير التقارير" : "Export Reports"}</h3>
+          <p className="text-xs text-surface-500 mt-1">
+            {ar() ? "ستُصدَّر التقارير بصيغة Excel (XLSX)" : "Reports export as Excel (XLSX)"}
+          </p>
+        </div>
+      </div>
+
+      {error && <div className="mb-3 rounded-lg bg-red-50 text-red-700 text-xs px-3 py-2 border border-red-200">{error}</div>}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {reports.map(r => (
+          <div key={r.kind} className="flex items-center justify-between rounded-xl border border-surface-200 bg-white p-4 hover:border-brand-pink-300 transition-colors">
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="text-2xl">{r.icon}</span>
+              <div className="min-w-0">
+                <div className="text-sm font-bold text-surface-900 truncate">{r.name}</div>
+                <div className="text-[11px] text-surface-500 truncate">{r.desc}</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => downloadXlsx(r.kind)}
+                disabled={downloading !== null}
+                className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors whitespace-nowrap"
+              >
+                {downloading === r.kind ? (ar() ? "..." : "...") : "XLSX"}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function CsDashboard() {
   const { t } = useTranslation();
   const { auth } = useAuth();
@@ -3497,6 +3570,7 @@ export default function CsDashboard() {
               <p className="text-sm text-surface-500 mt-1">{ar() ? "تقارير أداء ومبيعات الإحالة لموظفي خدمة العملاء." : "Referral sales and performance reports for customer service staff."}</p>
             </div>
             <ReferralLeaderboardWidget allowedRoles={["cs", "cs_director", "legal"]} />
+            <CsReportsExport />
           </div>
         )}
         {activeNav === "kyc" && isLegalOrAdmin && <KycQueue />}

@@ -104,9 +104,12 @@ reportingRouter.get("/finance/installments", authRequired, requireRole(FINANCE_R
   }
 });
 
-reportingRouter.get("/finance/export", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+reportingRouter.get("/finance/export", authRequired, requireRole([...FINANCE_ROLES, "cs_director"]), async (req, res, next) => {
   try {
     const kind = str(req.query.kind) as any;
+    if (req.auth!.role === "cs_director" && kind !== "referrals") {
+      return res.status(403).json({ error: "FORBIDDEN" });
+    }
     const allowed = ["payments", "offers", "subscriptions", "referrals", "installments", "clinics", "comprehensive"];
     if (!allowed.includes(kind)) return res.status(400).json({ error: "INVALID_KIND" });
     if (kind === "comprehensive") {
