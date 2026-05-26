@@ -1287,6 +1287,49 @@ function CustomersManager() {
   const [profile, setProfile] = useState<any>(null);
   const [profileLoading, setProfileLoading] = useState(false);
   
+  // Add Customer Modal states
+  const [showAddModal, setShowAddModal] = useState(false);
+  type EnrollmentRow = { offerId: string; clinicId: string; purchaseMode: string; amountPaidKwd: string; method: string; isVerified: boolean; installmentCount: number };
+  const emptyRow: EnrollmentRow = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "cash", isVerified: true, installmentCount: 2 };
+  const [addForm, setAddForm] = useState({
+    phone: "", fullName: "", email: "", password: "",
+    enrollments: [{ ...emptyRow }] as EnrollmentRow[],
+  });
+  const [addingUser, setAddingUser] = useState(false);
+
+  const updateEnrollment = (idx: number, patch: Partial<EnrollmentRow>) => {
+    setAddForm(p => ({ ...p, enrollments: p.enrollments.map((e, i) => i === idx ? { ...e, ...patch } : e) }));
+  };
+  const addEnrollmentRow = () => {
+    setAddForm(p => ({ ...p, enrollments: [...p.enrollments, { ...emptyRow }] }));
+  };
+  const removeEnrollmentRow = (idx: number) => {
+    setAddForm(p => ({ ...p, enrollments: p.enrollments.filter((_, i) => i !== idx) }));
+  };
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddingUser(true);
+    try {
+      const body: any = {
+        phone: addForm.phone, fullName: addForm.fullName, email: addForm.email, password: addForm.password,
+        enrollments: addForm.enrollments.filter(en => en.offerId),
+      };
+      await apiFetch("/users/admin/manual-enroll", {
+        method: "POST",
+        headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      setShowAddModal(false);
+      loadUsers();
+      setAddForm({ phone: "", fullName: "", email: "", password: "", enrollments: [{ ...emptyRow }] });
+    } catch (err: any) {
+      alert(ar() ? "حدث خطأ: " + err.message : "An error occurred: " + err.message);
+    } finally {
+      setAddingUser(false);
+    }
+  };
+
   // Grant modal states
   const [showGrantModal, setShowGrantModal] = useState(false);
   const [grantType, setGrantType] = useState<"offer" | "session">("session");
@@ -1468,9 +1511,18 @@ function CustomersManager() {
     <div className="space-y-4 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <h3 className="text-base font-bold text-surface-900">{ar() ? "العملاء (المرضى)" : "Customers (Patients)"}</h3>
-        <div className="w-full sm:w-64 relative">
-          <input className="input-field w-full pl-9" placeholder={ar() ? "بحث بالاسم أو الهاتف أو المدني..." : "Search name, phone or Civil ID..."} value={search} onChange={e => setSearch(e.target.value)} />
-          <svg className="w-4 h-4 absolute left-3 top-2.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="w-full sm:w-64 relative flex-1">
+            <input className="input-field w-full pl-9" placeholder={ar() ? "بحث بالاسم أو الهاتف أو المدني..." : "Search name, phone or Civil ID..."} value={search} onChange={e => setSearch(e.target.value)} />
+            <svg className="w-4 h-4 absolute left-3 top-2.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          </div>
+          <button
+            className="btn-primary flex items-center justify-center gap-1.5 whitespace-nowrap"
+            onClick={() => setShowAddModal(true)}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+            {ar() ? "إضافة عميل" : "Add Customer"}
+          </button>
         </div>
       </div>
 
@@ -2667,6 +2719,125 @@ function CsSettings() {
           </div>
         </div>
       </div>
+
+      {showAddModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-surface-900/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b border-surface-100 flex items-center justify-between bg-surface-50">
+              <h3 className="font-bold text-surface-900">{ar() ? "إضافة مستخدم جديد وتسجيل باقات" : "Add User & Enroll Memberships"}</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-surface-400 hover:text-surface-600 transition-colors p-1"><svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+            </div>
+            <div className="p-6 overflow-y-auto">
+              <form id="addUserForm" onSubmit={handleAddSubmit} className="space-y-6">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "الاسم الكامل" : "Full Name"} *</label>
+                    <input required type="text" className="input-field" value={addForm.fullName} onChange={e => setAddForm(p => ({ ...p, fullName: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "رقم الهاتف" : "Phone"} *</label>
+                    <input required type="text" className="input-field" value={addForm.phone} onChange={e => setAddForm(p => ({ ...p, phone: e.target.value }))} placeholder="e.g. 965..." />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "البريد الإلكتروني (اختياري)" : "Email (Optional)"}</label>
+                    <input type="email" className="input-field" value={addForm.email} onChange={e => setAddForm(p => ({ ...p, email: e.target.value }))} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "كلمة المرور" : "Password"}</label>
+                    <input type="text" className="input-field" value={addForm.password} onChange={e => setAddForm(p => ({ ...p, password: e.target.value }))} placeholder={ar() ? "اتركه فارغ = رقم الهاتف" : "Leave empty = phone number"} />
+                  </div>
+                </div>
+
+                <div className="border-t border-surface-200 pt-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-bold text-surface-900">{ar() ? "الاشتراكات والدفع" : "Memberships & Payment"}</h4>
+                    <button type="button" onClick={addEnrollmentRow} className="text-xs font-bold text-brand-pink-600 hover:text-brand-pink-700 flex items-center gap-1 transition-colors">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                      {ar() ? "إضافة باقة" : "Add Membership"}
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    {addForm.enrollments.map((en, idx) => (
+                      <div key={idx} className="relative bg-surface-50 rounded-xl border border-surface-200 p-4 space-y-3">
+                        {addForm.enrollments.length > 1 && (
+                          <button type="button" onClick={() => removeEnrollmentRow(idx)} className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors">
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        )}
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">{ar() ? `باقة ${idx + 1}` : `Membership ${idx + 1}`}</div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "اختيار باقة/جلسة" : "Select Offer/Session"}</label>
+                            <select className="select-field" value={en.offerId} onChange={e => updateEnrollment(idx, { offerId: e.target.value })}>
+                              <option value="">{ar() ? "-- بدون اشتراك --" : "-- No Membership --"}</option>
+                              {(offersData?.items || []).map((o: any) => <option key={o._id} value={o._id}>{ar() ? o.nameAr || o.name : o.name}</option>)}
+                            </select>
+                          </div>
+                          {en.offerId && (
+                            <div>
+                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "العيادة (إن وجدت)" : "Clinic (if applicable)"}</label>
+                              <select className="select-field" value={en.clinicId} onChange={e => updateEnrollment(idx, { clinicId: e.target.value })}>
+                                <option value="">{ar() ? "غير محدد" : "None"}</option>
+                                {(clinicsData?.items || []).map((c: any) => <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr || c.nameEn : c.nameEn}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                        {en.offerId && (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "نوع الدفع" : "Purchase Mode"}</label>
+                              <select className="select-field" value={en.purchaseMode} onChange={e => updateEnrollment(idx, { purchaseMode: e.target.value })}>
+                                <option value="full">{ar() ? "دفع كامل" : "Full Payment"}</option>
+                                <option value="installments">{ar() ? "أقساط" : "Installments"}</option>
+                                <option value="deposit">{ar() ? "عربون" : "Deposit"}</option>
+                              </select>
+                            </div>
+                            {en.purchaseMode === "installments" && (
+                              <div>
+                                <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "عدد الأقساط" : "Installment Count"}</label>
+                                <select className="select-field" value={en.installmentCount} onChange={e => updateEnrollment(idx, { installmentCount: Number(e.target.value) })}>
+                                  <option value="2">2</option>
+                                  <option value="3">3</option>
+                                </select>
+                              </div>
+                            )}
+                            <div>
+                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "المبلغ المدفوع اليوم (KWD)" : "Amount Paid Today (KWD)"}</label>
+                              <input type="number" step="0.001" className="input-field" value={en.amountPaidKwd} onChange={e => updateEnrollment(idx, { amountPaidKwd: e.target.value })} placeholder="0.000" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
+                              <select className="select-field" value={en.method} onChange={e => updateEnrollment(idx, { method: e.target.value })}>
+                                <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
+                                <option value="pos">POS</option>
+                                <option value="bank_transfer">{ar() ? "الدفع عن طريق خدمة العملاء" : "Paid by Customer Service"}</option>
+                                <option value="enet">ENET</option>
+                                <option value="wallet">{ar() ? "محفظة" : "Wallet"}</option>
+                                <option value="other">{ar() ? "أخرى" : "Other"}</option>
+                              </select>
+                            </div>
+                            <div className="sm:col-span-2 flex items-center gap-2">
+                              <input type="checkbox" id={`verifyPay-${idx}`} checked={en.isVerified} onChange={e => updateEnrollment(idx, { isVerified: e.target.checked })} className="w-4 h-4 text-brand-pink-600 rounded focus:ring-brand-pink-500" />
+                              <label htmlFor={`verifyPay-${idx}`} className="text-sm text-surface-700 font-medium">{ar() ? "الدفع مؤكد وموثق؟ (تفعيل فوري)" : "Payment is verified? (Instant Activation)"}</label>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </form>
+            </div>
+            <div className="px-6 py-4 border-t border-surface-100 bg-surface-50 flex justify-end gap-3">
+              <button type="button" onClick={() => setShowAddModal(false)} className="btn-ghost">{ar() ? "إلغاء" : "Cancel"}</button>
+              <button type="submit" form="addUserForm" disabled={addingUser} className="btn-primary">
+                {addingUser ? (ar() ? "جاري الإضافة..." : "Adding...") : (ar() ? "إضافة وحفظ" : "Add & Save")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

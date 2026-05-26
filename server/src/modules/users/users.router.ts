@@ -621,7 +621,7 @@ usersRouter.patch("/me", authRequired, async (req, res, next) => {
   }
 });
 
-usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
+usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const enrollmentSchema = z.object({
       offerId: z.string().min(1),
