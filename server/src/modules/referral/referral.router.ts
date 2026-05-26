@@ -9,9 +9,9 @@ import {
 
 export const referralRouter = Router();
 
-const STAFF_ROLES = ["admin", "cs", "finance", "clinicStaff", "legal"] as const;
-const STAFF_ROLES_MUT = [...STAFF_ROLES] as ("admin" | "cs" | "finance" | "clinicStaff" | "legal")[];
-const ALL_AUTHED_ROLES = ["customer", ...STAFF_ROLES] as ("customer" | "admin" | "cs" | "finance" | "clinicStaff" | "legal")[];
+const STAFF_ROLES = ["admin", "cs", "finance", "clinicStaff", "legal", "cs_director"] as const;
+const STAFF_ROLES_MUT = [...STAFF_ROLES] as ("admin" | "cs" | "finance" | "clinicStaff" | "legal" | "cs_director")[];
+const ALL_AUTHED_ROLES = ["customer", ...STAFF_ROLES] as ("customer" | "admin" | "cs" | "finance" | "clinicStaff" | "legal" | "cs_director")[];
 
 referralRouter.get(
   "/my-code",
@@ -44,7 +44,7 @@ referralRouter.get(
 referralRouter.get(
   "/admin/all",
   authRequired,
-  requireRole(["admin", "finance"]),
+  requireRole(["admin", "finance", "cs_director"]),
   async (req, res, next) => {
     try {
       const items = await getAllStaffReferralStats();

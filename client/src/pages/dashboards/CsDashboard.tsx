@@ -3236,9 +3236,9 @@ export default function CsDashboard() {
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: t("dashboard") },
     ...(isCsDirector ? [{ key: "share_link_performance", icon: Icons.chart, label: ar() ? "أداء روابط المشاركة" : "Share Link Performance" }] : []),
-    ...(isElevated ? [{ key: "kyc", icon: Icons.shield, label: t("kyc") }] : []),
-    ...(isElevated ? [{ key: "invoice_reviews", icon: Icons.cash, label: ar() ? "مراجعة الفواتير" : "Invoice Reviews" }] : []),
-    ...(isElevated ? [{ key: "eforms", icon: Icons.clipboard, label: ar() ? "النماذج الإلكترونية" : "eForms" }] : []),
+    ...(isLegalOrAdmin ? [{ key: "kyc", icon: Icons.shield, label: t("kyc") }] : []),
+    ...(isLegalOrAdmin ? [{ key: "invoice_reviews", icon: Icons.cash, label: ar() ? "مراجعة الفواتير" : "Invoice Reviews" }] : []),
+    ...(isLegalOrAdmin ? [{ key: "eforms", icon: Icons.clipboard, label: ar() ? "النماذج الإلكترونية" : "eForms" }] : []),
     { key: "payments", icon: Icons.cash, label: t("payments") },
     { key: "sub_requests", icon: <svg className="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.8-6.3 4.8 2.3-7.4-6-4.6h7.6z"/></svg>, label: ar() ? "طلبات برو" : "Pro Requests" },
     { key: "customers", icon: Icons.users, label: ar() ? "العملاء" : "Customers" },
@@ -3251,13 +3251,13 @@ export default function CsDashboard() {
   ];
 
   return (
-    <DashboardShell navItems={navItems} activeKey={activeNav} onNavigate={setActiveNav} title={isElevated ? (ar() ? "مدير خدمة العملاء/قانوني" : "CS Director / Legal Officer") : (ar() ? "خدمة العملاء" : "Customer Service")} subtitle={isElevated ? (ar() ? "إدارة التحققات والنماذج والمدفوعات" : "Manage KYC, eForms, payments & bookings") : (ar() ? "إدارة المدفوعات والحجوزات" : "Manage payments, memberships & bookings")}>
+    <DashboardShell navItems={navItems} activeKey={activeNav} onNavigate={setActiveNav} title={isCsDirector ? (ar() ? "مدير خدمة العملاء" : "CS Director") : isLegalOrAdmin ? (ar() ? "موظف قانوني" : "Legal Officer") : (ar() ? "خدمة العملاء" : "Customer Service")} subtitle={isElevated ? (ar() ? "إدارة التحققات والنماذج والمدفوعات" : "Manage KYC, eForms, payments & bookings") : (ar() ? "إدارة المدفوعات والحجوزات" : "Manage payments, memberships & bookings")}>
       <div className="space-y-6 animate-fade-in">
         {activeNav === "home" && (
           <>
             {/* ── KPI Summary Row ── */}
-            <div className={`grid gap-3 grid-cols-2 sm:gap-4 ${isElevated ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-              {isElevated && (
+            <div className={`grid gap-3 grid-cols-2 sm:gap-4 ${isLegalOrAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
+              {isLegalOrAdmin && (
               <div className="kpi-tile group" onClick={() => setActiveNav("kyc")}>
                 <div className="kpi-tile-icon amber">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
@@ -3294,8 +3294,8 @@ export default function CsDashboard() {
             </div>
 
             {/* ── Action Queues ── */}
-            <div className={`grid gap-6 ${isElevated ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
-              {isElevated && <KycQueue />}
+            <div className={`grid gap-6 ${isLegalOrAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+              {isLegalOrAdmin && <KycQueue />}
               <PaymentQueue />
               <BookingRequestsQueue onTransfer={(id, clinicId) => {
                 setClinicChangeModal({ type: 'request', id, currentClinicId: clinicId, defaultFee: '5.000' });
@@ -3328,9 +3328,9 @@ export default function CsDashboard() {
             <ReferralLeaderboardWidget />
           </div>
         )}
-        {activeNav === "kyc" && isElevated && <KycQueue />}
-        {activeNav === "invoice_reviews" && isElevated && <InvoiceReviews />}
-        {activeNav === "eforms" && isElevated && <EFormsAdminPanel />}
+        {activeNav === "kyc" && isLegalOrAdmin && <KycQueue />}
+        {activeNav === "invoice_reviews" && isLegalOrAdmin && <InvoiceReviews />}
+        {activeNav === "eforms" && isLegalOrAdmin && <EFormsAdminPanel />}
         {activeNav === "sub_requests" && <SubscriptionRequests />}
         {activeNav === "payments" && <PaymentsManager />}
         {activeNav === "memberships" && <CustomerMemberships onTransfer={(id, clinicId) => {

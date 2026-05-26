@@ -81,7 +81,7 @@ export async function getOrCreateReferralCode(userId: string): Promise<string> {
   throw new Error("Could not create referral code after retries");
 }
 
-const ELIGIBLE_REFERRER_ROLES = ["admin", "cs", "finance", "clinicStaff"];
+const ELIGIBLE_REFERRER_ROLES = ["admin", "cs", "finance", "clinicStaff", "cs_director"];
 
 export async function getReferralStats(referrerId: string) {
   if (!mongoose.isValidObjectId(referrerId)) return { referredCount: 0, convertedCount: 0, totalAmountKwd: "0.000", referredUsers: [] };
