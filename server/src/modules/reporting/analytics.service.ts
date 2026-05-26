@@ -1069,7 +1069,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
       offerMap.set(String(o._id), (o as any).nameAr || (o as any).name);
     }
     
-    const staffUsers = await UserModel.find({ role: { $in: ["cs", "legal"] } }).select("username displayName fullName").lean();
+    const staffUsers = await UserModel.find({ role: { $in: ["cs", "legal", "cs_director"] } }).select("username displayName fullName").lean();
     const refMap = new Map();
     for (const s of staffUsers) {
       referrerIds.add(String(s._id));

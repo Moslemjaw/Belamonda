@@ -226,7 +226,7 @@ export async function listRequiredFormsForUser(
 export const eformsRouter = Router();
 
 // ── Admin: list / create / update / archive forms ──
-eformsRouter.get("/admin/forms", authRequired, requireRole(["admin", "legal"]), async (_req, res, next) => {
+eformsRouter.get("/admin/forms", authRequired, requireRole(["admin", "legal", "cs_director"]), async (_req, res, next) => {
   try {
     const rows = await EFormModel.find({}).sort({ createdAt: -1 }).lean<EFormDoc[]>();
     return res.json({ items: rows.map((r) => serializeForm(r)) });
@@ -235,7 +235,7 @@ eformsRouter.get("/admin/forms", authRequired, requireRole(["admin", "legal"]), 
   }
 });
 
-eformsRouter.post("/admin/forms", authRequired, requireRole(["admin", "legal"]), async (req, res, next) => {
+eformsRouter.post("/admin/forms", authRequired, requireRole(["admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const parsed = FormCreateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
@@ -256,7 +256,7 @@ eformsRouter.post("/admin/forms", authRequired, requireRole(["admin", "legal"]),
   }
 });
 
-eformsRouter.patch("/admin/forms/:id", authRequired, requireRole(["admin", "legal"]), async (req, res, next) => {
+eformsRouter.patch("/admin/forms/:id", authRequired, requireRole(["admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: "NOT_FOUND" });
     const parsed = FormUpdateSchema.safeParse(req.body);
@@ -298,7 +298,7 @@ eformsRouter.patch("/admin/forms/:id", authRequired, requireRole(["admin", "lega
   }
 });
 
-eformsRouter.delete("/admin/forms/:id", authRequired, requireRole(["admin", "legal"]), async (req, res, next) => {
+eformsRouter.delete("/admin/forms/:id", authRequired, requireRole(["admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: "NOT_FOUND" });
     await EFormModel.findByIdAndUpdate(req.params.id, { $set: { archived: true } }).lean();
@@ -309,7 +309,7 @@ eformsRouter.delete("/admin/forms/:id", authRequired, requireRole(["admin", "leg
 });
 
 // ── Admin: list submissions ──
-eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "legal"]), async (req, res, next) => {
+eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const filter: Record<string, unknown> = {};
     if (typeof req.query.formId === "string" && mongoose.isValidObjectId(req.query.formId)) {
@@ -520,7 +520,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
 
     const isOwner = sub.userId === req.auth!.userId;
-    const isStaff = req.auth!.role === "admin" || req.auth!.role === "legal";
+    const isStaff = req.auth!.role === "admin" || req.auth!.role === "legal" || req.auth!.role === "cs_director";
     if (!isOwner && !isStaff) return res.status(403).json({ error: "FORBIDDEN" });
 
     const lang = req.query.lang === "en" ? "en" : req.query.lang === "ar" ? "ar" : "both";

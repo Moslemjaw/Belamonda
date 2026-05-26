@@ -44,7 +44,7 @@ walletRouter.get("/me", authRequired, async (req, res, next) => {
 });
 
 // CS applies unlocked cashback deduction (SRS §4.3.3, FR-21/22)
-walletRouter.post("/cs/deduct", authRequired, requireRole(["cs", "admin", "legal"]), async (req, res, next) => {
+walletRouter.post("/cs/deduct", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const parsed = DeductSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
@@ -75,7 +75,7 @@ walletRouter.post("/cs/deduct", authRequired, requireRole(["cs", "admin", "legal
 });
 
 // Admin manual adjustment with mandatory reason (SRS FR-13)
-walletRouter.post("/admin/adjust", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
+walletRouter.post("/admin/adjust", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const parsed = AdminAdjustSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });

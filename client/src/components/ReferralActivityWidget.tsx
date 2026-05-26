@@ -195,7 +195,7 @@ export function ReferralLeaderboardWidget({ allowedRoles }: { allowedRoles?: str
               {ar() ? "إعادة المحاولة" : "Try Again"}
             </button>
           )}
-          {!loading && !fetchError && sorted.length > 0 && (
+          {!loading && !fetchError && (
             <>
               <select
                 className="select-field text-xs py-1 px-2 pr-6"

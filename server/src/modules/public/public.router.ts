@@ -179,7 +179,7 @@ publicRouter.get("/me/card", authRequired, async (req, res, next) => {
   }
 });
 
-publicRouter.get("/admin/customer/:userId/card", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
+publicRouter.get("/admin/customer/:userId/card", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const { userId } = req.params;
     if (!mongoose.isValidObjectId(userId)) return res.status(400).json({ error: "INVALID_ID" });

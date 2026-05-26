@@ -667,7 +667,7 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="#94a3b8" />
               <YAxis tick={{ fontSize: 11 }} stroke="#94a3b8" />
-              <Tooltip formatter={(v: any, name: string) => name === "Txns" ? v : `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              <Tooltip formatter={(v: any, name: any) => name === "Txns" ? v : `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="Revenue" fill="url(#dailyRevGrad)" radius={[4, 4, 0, 0]} />
               <Bar dataKey="Cashback" fill={COLORS.amber} radius={[4, 4, 0, 0]} opacity={0.7} />
@@ -731,7 +731,7 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis type="number" tick={{ fontSize: 11 }} stroke="#94a3b8" />
               <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#64748b" width={140} />
-              <Tooltip formatter={(v: any, name: string) => name === "Sales" ? v : `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
+              <Tooltip formatter={(v: any, name: any) => name === "Sales" ? v : `${fmt(Number(v))} KWD`} contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }} />
               <Legend wrapperStyle={{ fontSize: 11 }} />
               <Bar dataKey="Revenue" fill={COLORS.emerald} radius={[0, 4, 4, 0]} />
             </BarChart>

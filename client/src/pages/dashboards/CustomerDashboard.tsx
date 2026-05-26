@@ -1002,7 +1002,7 @@ export default function CustomerDashboard() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [groupModal, setGroupModal] = useState<{
     pkg: any;
-    step: "creating" | "share" | "unlocked";
+    step: "confirm" | "creating" | "share" | "unlocked";
     userOfferId?: string;
     groupInviteCode?: string;
     membersJoined: number;
@@ -2297,13 +2297,13 @@ export default function CustomerDashboard() {
                                             const base = { ...(offerData || o), userOfferId: o.id, groupInviteCode: (o as any).groupInviteCode };
                                             // Split the price by group size
                                             const groupSize = (o as any).groupSizeRequired || 2;
-                                            const fullPrice = parseFloat(base.subscriptionPriceKwd || base.price || "0");
+                                            const fullPrice = parseFloat((base as any).subscriptionPriceKwd || (base as any).price || "0");
                                             const splitPrice = (fullPrice / groupSize).toFixed(3);
-                                            base.subscriptionPriceKwd = splitPrice;
-                                            base.price = splitPrice;
+                                            (base as any).subscriptionPriceKwd = splitPrice;
+                                            (base as any).price = splitPrice;
                                             // Also split deposit if applicable
-                                            if (base.depositAmountKwd) {
-                                              base.depositAmountKwd = (parseFloat(base.depositAmountKwd) / groupSize).toFixed(3);
+                                            if ((base as any).depositAmountKwd) {
+                                              (base as any).depositAmountKwd = (parseFloat((base as any).depositAmountKwd) / groupSize).toFixed(3);
                                             }
                                             attemptCheckout(base);
                                           }}
@@ -2841,7 +2841,7 @@ export default function CustomerDashboard() {
                               </div>
                               <div>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-bold text-surface-900 text-sm">{r.offerName || r.standaloneName || (ar() ? "طلب حجز" : "Booking Request")}</span>
+                                  <span className="font-bold text-surface-900 text-sm">{(r as any).offerName || (r as any).standaloneName || (ar() ? "طلب حجز" : "Booking Request")}</span>
                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${meta.color}`}>{ar() ? meta.labelAr : meta.label}</span>
                                 </div>
                                 <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold text-surface-700">{clinicName}</span></div>
@@ -3873,7 +3873,7 @@ export default function CustomerDashboard() {
             <div className="px-6 py-2 border-b border-surface-100 flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-black text-surface-900 tracking-tight">Belamonda</h3>
-                <p className="text-xs text-surface-500 font-medium">{auth?.user?.displayName || "Guest"}</p>
+                <p className="text-xs text-surface-500 font-medium">{(auth as any)?.displayName || "Guest"}</p>
               </div>
               <button className="icon-btn rounded-full" onClick={() => setIsMobileMenuOpen(false)}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -4010,8 +4010,7 @@ export default function CustomerDashboard() {
             <button
               className="bg-brand-pink-400 hover:bg-brand-pink-500 text-white font-bold w-full rounded-2xl py-3.5 transition-colors shadow-sm"
               onClick={() => {
-                if (requireKyc && kycStatus !== 'approved') {
-                   setShowKyc(true);
+                if (!requireKyc()) {
                    return;
                 }
                 attemptCheckout(selectedPkg);

@@ -535,7 +535,7 @@ commerceRouter.get("/me/clinic-change-requests", authRequired, async (req, res, 
 });
 
 /** CS/Admin: list all pending clinic change requests, enriched with user, clinic, and offer names. */
-commerceRouter.get("/cs/clinic-change-requests", authRequired, requireRole(["cs", "admin", "legal"]), async (req, res, next) => {
+commerceRouter.get("/cs/clinic-change-requests", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const statusFilter = typeof req.query.status === "string" ? req.query.status : "pending";
     const requests = await ClinicChangeRequestModel.find({ status: statusFilter })
@@ -600,7 +600,7 @@ commerceRouter.get("/cs/clinic-change-requests", authRequired, requireRole(["cs"
 });
 
 /** CS/Admin: approve a clinic change request — updates the membership's clinicId. */
-commerceRouter.post("/cs/clinic-change-requests/:id/approve", authRequired, requireRole(["cs", "admin", "legal"]), async (req, res, next) => {
+commerceRouter.post("/cs/clinic-change-requests/:id/approve", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
 
@@ -628,7 +628,7 @@ commerceRouter.post("/cs/clinic-change-requests/:id/approve", authRequired, requ
 });
 
 /** CS/Admin: reject a clinic change request. */
-commerceRouter.post("/cs/clinic-change-requests/:id/reject", authRequired, requireRole(["cs", "admin", "legal"]), async (req, res, next) => {
+commerceRouter.post("/cs/clinic-change-requests/:id/reject", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
 
@@ -651,7 +651,7 @@ commerceRouter.post("/cs/clinic-change-requests/:id/reject", authRequired, requi
   }
 });
 
-commerceRouter.post("/admin/grant-membership", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
+commerceRouter.post("/admin/grant-membership", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const schema = z.object({
       userId: z.string().min(1),
@@ -721,7 +721,7 @@ commerceRouter.post("/admin/grant-membership", authRequired, requireRole(["admin
   }
 });
 
-commerceRouter.post("/admin/user-offers/:uoId/change-clinic", authRequired, requireRole(["cs", "legal", "admin"]), async (req, res, next) => {
+commerceRouter.post("/admin/user-offers/:uoId/change-clinic", authRequired, requireRole(["cs", "legal", "admin", "cs_director"]), async (req, res, next) => {
   try {
     const schema = z.object({
       clinicId: z.string().min(1),
@@ -777,7 +777,7 @@ commerceRouter.post("/admin/user-offers/:uoId/change-clinic", authRequired, requ
   }
 });
 
-commerceRouter.get("/admin/user-offers", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
+commerceRouter.get("/admin/user-offers", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const items = await userOfferService.listAllUserOffers();
 
@@ -812,7 +812,7 @@ commerceRouter.get("/admin/user-offers", authRequired, requireRole(["admin", "cs
   }
 });
 
-commerceRouter.delete("/admin/user-offers/:id", authRequired, requireRole(["admin", "cs", "legal"]), async (req, res, next) => {
+commerceRouter.delete("/admin/user-offers/:id", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const result = await userOfferService.cancelUserOffer(req.params.id);
     if (result === "not_found") return res.status(404).json({ error: "Membership not found" });

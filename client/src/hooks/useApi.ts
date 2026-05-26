@@ -163,6 +163,16 @@ export type MyOfferItem = {
   sessionIntervalDays?: number;
   clinicLocked?: boolean;
   branchSessionPrices?: any[];
+  isGroupOffer?: boolean;
+  groupSizeRequired?: number;
+  clinicNameAr?: string;
+  clinicNameEn?: string;
+  allowExtraPaidSessions?: boolean;
+  extraSessionPriceKwd?: string;
+  priceKwd?: string;
+  subscriptionPriceKwd?: string;
+  price?: string;
+  paymentAmountKwd?: string;
 };
 
 export function useMyOffers(opts?: { lazy?: boolean }) {
@@ -291,7 +301,7 @@ export function useFinanceInstallments(filters: { from?: string; to?: string } =
   const q = p.toString() ? `?${p.toString()}` : "";
   return useApi<{
     summary: { paidKwd: string; upcomingKwd: string; lateKwd: string; forecastKwd: string; lateCount: number; upcomingCount: number };
-    items: Array<{ userOfferId: string; userId: string; offerName: string; installmentNumber: number; amountKwd: string; dueDate?: string; status: "paid" | "late" | "upcoming" }>;
+    items: Array<{ userOfferId: string; userId: string; offerName: string; installmentNumber: number; amountKwd: string; dueDate?: string; status: "paid" | "late" | "upcoming"; customerName?: string }>;
   }>(`/reporting/finance/installments${q}`, { deps: [filters.from, filters.to] });
 }
 

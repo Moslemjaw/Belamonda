@@ -59,7 +59,7 @@ complaintsRouter.get("/me", authRequired, async (req, res, next) => {
 });
 
 // CS/Admin list all complaints
-complaintsRouter.get("/all", authRequired, requireRole(["cs", "admin", "legal"]), async (_req, res, next) => {
+complaintsRouter.get("/all", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (_req, res, next) => {
   try {
     const rows = await ComplaintModel.find({}).sort({ createdAt: -1 }).lean();
     
@@ -93,7 +93,7 @@ complaintsRouter.get("/all", authRequired, requireRole(["cs", "admin", "legal"])
 });
 
 // CS/Admin update complaint
-complaintsRouter.post("/:id/update", authRequired, requireRole(["cs", "admin", "legal"]), async (req, res, next) => {
+complaintsRouter.post("/:id/update", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
     const complaint = await ComplaintModel.findById(req.params.id);
@@ -127,7 +127,7 @@ complaintsRouter.get("/:id", authRequired, async (req, res, next) => {
 
     // Check permissions
     const role = req.auth!.role || "user";
-    const isStaff = role === "cs" || role === "admin" || role === "legal";
+    const isStaff = role === "cs" || role === "admin" || role === "legal" || role === "cs_director";
     if (!isStaff && complaint.userId !== req.auth!.userId) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }

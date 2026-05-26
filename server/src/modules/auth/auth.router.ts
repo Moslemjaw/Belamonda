@@ -59,7 +59,7 @@ authRouter.post("/login", async (req, res, next) => {
 const AdminCreateUserSchema = z.object({
   username: z.string().min(3),
   password: z.string().min(8),
-  role: z.enum(["admin", "cs", "finance", "clinicStaff", "legal"]),
+  role: z.enum(["admin", "cs", "finance", "clinicStaff", "legal", "cs_director"]),
   clinicId: z.string().optional()
 });
 
@@ -81,7 +81,7 @@ const ImpersonateUserSchema = z.object({
   userId: z.string().min(1)
 });
 
-authRouter.post("/admin/impersonate-user", authRequired, requireRole(["admin", "finance", "cs", "legal"]), async (req, res, next) => {
+authRouter.post("/admin/impersonate-user", authRequired, requireRole(["admin", "finance", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const parsed = ImpersonateUserSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });

@@ -88,7 +88,7 @@ cashbackRequestsRouter.get("/me", authRequired, async (req, res, next) => {
   }
 });
 
-const LEGAL_ROLES = ["legal", "admin", "cs"] as const;
+const LEGAL_ROLES = ["legal", "admin", "cs", "cs_director"] as const;
 
 cashbackRequestsRouter.get("/legal/queue", authRequired, requireRole([...LEGAL_ROLES]), async (req, res, next) => {
   try {

@@ -615,7 +615,7 @@ function POSCheckoutModal({ isOpen, onClose, baseAmountKwd, walletBalanceKwd, ba
   baseItemName?: string;
   onSubmit: (extraItems: any[], cashbackToDeductKwd: string) => Promise<void>;
   isBooking?: boolean;
-  clinicProducts?: {name: string; priceKwd: string; cashbackDeductionKwd?: string}[];
+  clinicProducts?: {name: string; nameAr?: string; nameEn?: string; priceKwd: string; cashbackDeductionKwd?: string}[];
 }) {
   const { t } = useTranslation();
   const [extraItems, setExtraItems] = useState<{name: string, priceKwd: string, cashbackDeductionKwd?: string, qty: number}[]>([]);
@@ -852,10 +852,10 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
   clinicSessions: any[];
   clinicBookings: any[];
   markingId: string | null;
-  onMarkSession: (id: string, status: string) => Promise<void>;
+  onMarkSession: (id: string, status: string, posData?: any) => Promise<void>;
   onMarkPaid: (id: string, posData?: any) => Promise<void>;
   maxCashbackKwd: string;
-  clinicProducts?: {name: string; priceKwd: string}[];
+  clinicProducts?: {name: string; nameAr?: string; nameEn?: string; priceKwd: string; cashbackDeductionKwd?: string}[];
 }) {
   const [activeTab, setActiveTab] = useState("sessions");
   const [payingBookingId, setPayingBookingId] = useState<string | null>(null);

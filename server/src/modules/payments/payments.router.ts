@@ -24,7 +24,7 @@ const ConfirmPaymentSchema = z.object({
 
 export const paymentsRouter = Router();
 
-paymentsRouter.get("/cs/pending", authRequired, requireRole(["cs", "admin", "legal"]), async (_req, res, next) => {
+paymentsRouter.get("/cs/pending", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (_req, res, next) => {
   try {
     const items = await userOfferService.listPendingPaymentsQueue();
 
@@ -101,7 +101,7 @@ paymentsRouter.get("/me", authRequired, async (req, res, next) => {
   }
 });
 
-paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin", "legal"]), async (req, res, next) => {
+paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const parsed = ConfirmPaymentSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });

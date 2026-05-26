@@ -28,7 +28,7 @@ function handleSessionExpired() {
   window.location.href = `/login?expired=1&next=${returnTo}`;
 }
 
-export async function apiFetch(path: string, init?: RequestInit) {
+export async function apiFetch<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
@@ -76,5 +76,5 @@ export async function apiFetch(path: string, init?: RequestInit) {
     throw err;
   }
 
-  return data;
+  return data as T;
 }
