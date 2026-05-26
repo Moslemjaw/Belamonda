@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../app/AuthContext";
-import { apiFetch } from "../lib/api";
+import { apiFetch, API_BASE_URL } from "../lib/api";
 import i18n from "../app/i18n";
 
 const ar = () => i18n.language === "ar";
@@ -161,20 +161,30 @@ export function ReferralLeaderboardWidget({ allowedRoles }: { allowedRoles?: str
 
   const availableRoles = Array.from(new Set(filteredByProps.map(r => r.role))).filter(Boolean);
 
-  const handleDownload = () => {
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" 
-      + "Staff,Role,Referred,Converted,Rate,Revenue (KWD)\n"
-      + sorted.map(s => {
-          const rate = s.referredCount ? Math.round(((s.convertedCount ?? 0) / s.referredCount) * 100) : 0;
-          return `${s.username},${s.role},${s.referredCount ?? 0},${s.convertedCount ?? 0},${rate}%,${s.totalAmountKwd ?? "0.000"}`;
-        }).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `referral_report_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      const params = new URLSearchParams({ kind: "referrals", format: "xlsx" });
+      const res = await fetch(`${API_BASE_URL}/reporting/finance/export?${params.toString()}`, {
+        headers: { ...(getAuthHeader() ?? {}) },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `referral_report_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Failed to download referral report:", e);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -207,9 +217,9 @@ export function ReferralLeaderboardWidget({ allowedRoles }: { allowedRoles?: str
                   <option key={r} value={r}>{r}</option>
                 ))}
               </select>
-              <button onClick={handleDownload} className="btn-secondary btn-sm flex items-center gap-1.5 text-xs">
+              <button onClick={handleDownload} disabled={downloading} className="btn-secondary btn-sm flex items-center gap-1.5 text-xs disabled:opacity-50">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                {ar() ? "تحميل التقرير" : "Download"}
+                {downloading ? "..." : (ar() ? "تحميل التقرير" : "Download")}
               </button>
             </>
           )}
