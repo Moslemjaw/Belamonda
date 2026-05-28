@@ -218,16 +218,24 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
   useEffect(() => {
     if (!auth?.token || !selectedId) return;
     const socket = getChatSocket(auth.token);
-    socket.emit("conversation:join", { conversationId: selectedId });
-    // Mark as read
-    socket.emit("read", { conversationId: selectedId });
-    apiFetch(`/chat/conversations/${selectedId}/read`, { method: "POST", headers: getAuthHeader(), body: JSON.stringify({}) }).catch(() => undefined);
+    
+    const joinRoom = () => {
+      socket.emit("conversation:join", { conversationId: selectedId });
+      socket.emit("read", { conversationId: selectedId });
+      apiFetch(`/chat/conversations/${selectedId}/read`, { method: "POST", headers: getAuthHeader(), body: JSON.stringify({}) }).catch(() => undefined);
+    };
+
+    joinRoom();
+    socket.on("connect", joinRoom);
+
     setConversations((prev) => prev.map((c) => (c.id === selectedId ? { ...c, unreadCount: 0 } : c)));
     onRead?.();
+    
     return () => {
+      socket.off("connect", joinRoom);
       socket.emit("conversation:leave", { conversationId: selectedId });
     };
-  }, [auth?.token, selectedId, getAuthHeader]);
+  }, [auth?.token, selectedId, getAuthHeader, onRead]);
 
   // Auto-scroll to latest
   useEffect(() => {
@@ -246,13 +254,28 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
         body,
         attachments: pendingAttach ? [pendingAttach] : []
       },
-      (ack: { ok: boolean; error?: string }) => {
+      (ack: { ok: boolean; error?: string; message?: ChatMessage }) => {
         if (!ack?.ok) {
           alert(ack?.error || "Send failed");
           return;
         }
         setDraft("");
         setPendingAttach(null);
+        if (ack.message) {
+          setMessages((prev) => (prev.some((m) => m.id === ack.message!.id) ? prev : [...prev, ack.message!]));
+          // Move the conversation to the top and update preview
+          setConversations((prev) => {
+            const list = [...prev];
+            const idx = list.findIndex(c => c.id === selectedId);
+            if (idx >= 0) {
+              const c = list.splice(idx, 1)[0];
+              c.lastMessagePreview = ack.message!.body || (ack.message!.attachments[0]?.filename ?? "");
+              c.lastMessageAt = ack.message!.createdAt;
+              list.unshift(c);
+            }
+            return list;
+          });
+        }
       }
     );
   };
