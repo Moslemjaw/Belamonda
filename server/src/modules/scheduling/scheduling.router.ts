@@ -1340,6 +1340,14 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
     if ("error" in resAdjust) {
       return res.status(400).json({ error: resAdjust.error });
     }
+    if (breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
+      const uoDoc = await UserOfferModel.findById(breq.userOfferId);
+      if (uoDoc && uoDoc.cashbackBalanceKwd) {
+        const oldBal = parseFloat(uoDoc.cashbackBalanceKwd);
+        const newBal = Math.max(0, oldBal - diff);
+        await UserOfferModel.findByIdAndUpdate(uoDoc._id, { $set: { cashbackBalanceKwd: newBal.toFixed(3) } });
+      }
+    }
   } else if (diff < 0) {
     await kycStore.adjustUnlocked({
       userId: breq.userId,
@@ -1347,6 +1355,14 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
       reason: "Cashback un-applied at clinic POS",
       createdById: req.auth!.userId
     });
+    if (breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
+      const uoDoc = await UserOfferModel.findById(breq.userOfferId);
+      if (uoDoc && uoDoc.cashbackBalanceKwd) {
+        const oldBal = parseFloat(uoDoc.cashbackBalanceKwd);
+        const newBal = oldBal + Math.abs(diff);
+        await UserOfferModel.findByIdAndUpdate(uoDoc._id, { $set: { cashbackBalanceKwd: newBal.toFixed(3) } });
+      }
+    }
   }
 
   let totalBillKwd: string | undefined;
@@ -1746,15 +1762,23 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     }
 
     if (parsed.data.status === "completed" && parsed.data.cashbackToDeductKwd && parseFloat(parsed.data.cashbackToDeductKwd) > 0) {
-      const deductionAmount = parseFloat(parsed.data.cashbackToDeductKwd).toFixed(3);
+      const deductionAmount = parseFloat(parsed.data.cashbackToDeductKwd);
       const resAdjust = await kycStore.deductUnlocked({
         userId: session.userId,
-        amountKwd: deductionAmount,
+        amountKwd: deductionAmount.toFixed(3),
         reference: { kind: "session", id: session.id },
         createdBy: { kind: "admin", id: req.auth!.userId }
       });
       if ("error" in resAdjust) {
         return res.status(400).json({ error: resAdjust.error });
+      }
+      if (session.userOfferId && mongoose.isValidObjectId(session.userOfferId)) {
+        const uoDoc = await UserOfferModel.findById(session.userOfferId);
+        if (uoDoc && uoDoc.cashbackBalanceKwd) {
+          const oldBal = parseFloat(uoDoc.cashbackBalanceKwd);
+          const newBal = Math.max(0, oldBal - deductionAmount);
+          await UserOfferModel.findByIdAndUpdate(uoDoc._id, { $set: { cashbackBalanceKwd: newBal.toFixed(3) } });
+        }
       }
     }
 
