@@ -596,37 +596,10 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     let cashbackDeducted = 0;
 
     if (!parsed.data.isStandalone && uo.membershipType === "cashback") {
-      const balance = parseFloat(uo.cashbackBalanceKwd || "0");
-      
-      // Use the explicit client-provided cashback if set, otherwise fall back to the server-computed rate.
-      if (parsed.data.cashbackAppliedKwd) {
-        cashbackDeducted = parseFloat(parsed.data.cashbackAppliedKwd);
-      } else {
-        const maxCashbackAllowed = parseFloat(offer.cashbackPerSessionKwd || "0");
-        const maxDeductible = resolvedPrice
-          ? Math.min(parseFloat(resolvedPrice), maxCashbackAllowed > 0 ? maxCashbackAllowed : Infinity)
-          : maxCashbackAllowed;
-        cashbackDeducted = Math.min(balance, maxDeductible);
-      }
-
-      if (cashbackDeducted > 0 && balance >= cashbackDeducted) {
-        amountToPay = resolvedPrice ? Math.max(0, parseFloat(resolvedPrice) - cashbackDeducted).toFixed(3) : "0.000";
-
-        if (mongoose.isValidObjectId(uo.id)) {
-          const newBalance = (balance - cashbackDeducted).toFixed(3);
-          await UserOfferModel.findByIdAndUpdate(uo.id, { $set: { cashbackBalanceKwd: newBalance } });
-          await kycStore.deductUnlocked({
-            userId: uo.userId,
-            amountKwd: cashbackDeducted.toFixed(3),
-            reference: { kind: "userOffer", id: uo.id },
-            createdBy: { kind: "admin", id: req.auth!.userId }
-          });
-        }
-      } else if (resolvedPrice) {
-        // No cashback balance or insufficient balance — customer pays the full price
-        cashbackDeducted = 0;
-        amountToPay = resolvedPrice;
-      }
+      // Defer all cashback deductions to the POS checkout.
+      // We will not deduct cashback during scheduling, as the user pays at the clinic.
+      cashbackDeducted = 0;
+      amountToPay = resolvedPrice;
     } else if (resolvedPrice && !parsed.data.isStandalone) {
       // Non-cashback membership with a pay-per-session price — no cashback deduction.
       amountToPay = resolvedPrice;
@@ -650,8 +623,8 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       const gross = parseFloat(amountToPay) + cashbackDeducted;
       await bookingRequestsStore.update(breq.id, { 
         status: "awaiting_session_payment", 
-        sessionPriceKwd: parsed.data.sessionGrossKwd ?? gross.toFixed(3),
-        cashbackDeductedKwd: parsed.data.cashbackAppliedKwd ?? (cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined) 
+        sessionPriceKwd: parsed.data.sessionGrossKwd ?? gross.toFixed(3)
+        // We do not save cashbackDeductedKwd here. It will be handled entirely at POS checkout.
       });
       let sessionPayment;
       try {
@@ -706,8 +679,8 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       if (rate > 0) sessionGross = rate.toFixed(3);
     }
 
-    // Cashback deducted: prefer client-provided value, then server-computed
-    const finalCashbackDeducted = parsed.data.cashbackAppliedKwd ?? (cashbackDeducted > 0 ? cashbackDeducted.toFixed(3) : undefined);
+    // Cashback is entirely handled at the POS checkout. We don't save any initial deduction here.
+    const finalCashbackDeducted = undefined;
 
     const breq = await bookingRequestsStore.create({
       userOfferId: uo.id,
