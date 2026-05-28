@@ -1560,28 +1560,7 @@ schedulingRouter.post(
     const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
-    // Deduct cashback balance if not already done at booking-request creation time.
-    // This covers cases where the booking request was created without going through the
-    // customer-side cashback deduction path (e.g. direct CS creation, or legacy requests).
-    if (
-      uo.membershipType === "cashback" &&
-      (!breq.cashbackDeductedKwd || parseFloat(breq.cashbackDeductedKwd) === 0)
-    ) {
-      const cashbackRate = parseFloat(offer.cashbackPerSessionKwd || "0");
-      const balance = parseFloat(uo.cashbackBalanceKwd || "0");
-      const toDeduct = Math.min(cashbackRate, balance);
-      if (toDeduct > 0 && mongoose.isValidObjectId(uo.id)) {
-        const newBalance = (balance - toDeduct).toFixed(3);
-        await UserOfferModel.findByIdAndUpdate(uo.id, { $set: { cashbackBalanceKwd: newBalance } });
-        await bookingRequestsStore.update(breq.id, { cashbackDeductedKwd: toDeduct.toFixed(3) });
-        await kycStore.deductUnlocked({
-          userId: uo.userId,
-          amountKwd: toDeduct.toFixed(3),
-          reference: { kind: "userOffer", id: uo.id },
-          createdBy: { kind: "admin", id: req.auth!.userId }
-        });
-      }
-    }
+
 
     // Use the booking request's clinicId (what the customer actually requested and CS confirmed)
     // rather than uo.clinicId, so the session appears in the correct clinic's dashboard.
