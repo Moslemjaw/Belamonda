@@ -45,8 +45,8 @@ function statusLabel(status: string): string {
  * Translate a system-kind chat message into a human-friendly bilingual string.
  * Falls back to the raw English body if the systemKind is unknown.
  */
-function translateSystemMessage(m: { systemKind?: string; body: string; metadata?: Record<string, unknown> }): string {
-  const meta = m.metadata ?? {};
+function translateSystemMessage(m: { systemKind?: string; body: string; systemPayload?: Record<string, unknown> }): string {
+  const meta = m.systemPayload ?? {};
   const scheduledAt = meta.scheduledAt as string | undefined;
   const reason = meta.rejectionReason as string | undefined;
 
@@ -533,10 +533,11 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                   const isSystem = !!m.systemKind;
                   if (isSystem) {
                     return (
-                      <div key={m.id} className="text-center my-1">
+                      <div key={m.id} className="text-center my-2 flex flex-col items-center">
                         <span className="inline-block text-[11px] bg-surface-200/80 text-surface-600 rounded-2xl px-4 py-1.5 font-medium leading-relaxed max-w-[85%] shadow-sm">
                           {translateSystemMessage(m)}
                         </span>
+                        <span className="text-[9px] text-surface-400 mt-1">{kwTimeShort(m.createdAt)}</span>
                       </div>
                     );
                   }
