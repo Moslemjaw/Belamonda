@@ -3884,8 +3884,11 @@ function KycReviewCard({ items }: { items: any[] }) {
           <div key={k.id}>
             <button onClick={() => setExpandedId(expandedId === k.id ? null : k.id)} className="w-full px-5 py-3 flex items-center justify-between hover:bg-surface-50 transition-colors">
               <div className="text-left">
-                <div className="text-xs font-bold text-surface-700 font-mono">{k.civilIdNumberMasked || k.civilIdNumber || "—"}</div>
-                <div className="text-[10px] text-surface-400 mt-0.5">{k.userId?.slice(0, 12)}… · {new Date(k.createdAt).toLocaleDateString()}</div>
+                <div className="text-xs font-bold text-surface-900">{k.userName || k.userId?.slice(0, 12)}</div>
+                <div className="text-[10px] text-surface-500 mt-0.5 font-mono">
+                  {k.civilIdNumberMasked || k.civilIdNumber || "—"} {k.userPhone ? `· ${k.userPhone}` : ""}
+                </div>
+                <div className="text-[10px] text-surface-400 mt-0.5">{new Date(k.createdAt).toLocaleDateString()}</div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase">Pending</span>
@@ -3903,7 +3906,7 @@ function KycReviewCard({ items }: { items: any[] }) {
                   ].filter(d => d.ref).map(doc => (
                     <div key={doc.label} className="rounded-lg border border-surface-200 overflow-hidden">
                       <div className="text-[10px] font-bold text-surface-500 px-2 py-1 bg-surface-50 border-b border-surface-100">{doc.label}</div>
-                      <img src={`/uploads/${doc.ref}`} alt={doc.label} className="w-full h-24 object-contain bg-white p-1" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      <img src={doc.ref.startsWith('http') || doc.ref.startsWith('data:') ? doc.ref : `/uploads/${doc.ref}`} alt={doc.label} className="w-full h-24 object-contain bg-white p-1" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     </div>
                   ))}
                 </div>

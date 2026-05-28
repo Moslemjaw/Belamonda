@@ -34,7 +34,9 @@ export default function LoginPage() {
         <div className="absolute bottom-[-15%] right-[-10%] w-[60%] h-[60%] rounded-full bg-white/5 blur-3xl" />
         <div className="relative z-10 text-center lg:text-start max-w-lg animate-fade-in mt-12 lg:mt-24">
           <div className="flex items-center gap-4 justify-center lg:justify-start mb-8">
-            <BelamondaLogo size={120} />
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl px-8 py-5 shadow-lg shadow-black/5">
+              <BelamondaLogo size={120} />
+            </div>
           </div>
           <h1 className="text-2xl lg:text-3xl font-semibold text-white/95 leading-snug">
             {isAr ? "منصة الجمال والعناية الشاملة" : "Beauty & Wellness Platform"}

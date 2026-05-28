@@ -13,6 +13,7 @@ import { emitToConversation } from "./chat.socket.js";
 import { notifyChatRelatedUsers } from "../notifications/notifications.service.chat.js";
 import { ensureConversationFor } from "../scheduling/scheduling.router.js";
 import { ensureConversationById } from "./chat.rehydrate.js";
+import { UserModel } from "../../models/user.model.js";
 
 export const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -67,7 +68,7 @@ chatRouter.get("/conversations", authRequired, async (req, res, next) => {
     const role = req.auth!.role;
     const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status: "open" };
     if (role === "customer") filter.userId = req.auth!.userId;
-    if (role === "clinicStaff" && req.auth!.clinicId) filter.clinicId = req.auth!.clinicId;
+    if (role === "clinicStaff") filter.clinicId = req.auth!.clinicId || req.auth!.userId;
     
     // Hydrate all open conversations into the in-memory store so they show up
     const breqs = await bookingRequestsStore.list(filter);
@@ -83,7 +84,8 @@ chatRouter.get("/conversations", authRequired, async (req, res, next) => {
     } else {
       const allPersonalConvs = chatStore.listConversationsForUser(req.auth!.userId);
 
-      if (role === "clinicStaff" && req.auth!.clinicId) {
+      if (role === "clinicStaff") {
+        const activeClinicId = req.auth!.clinicId || req.auth!.userId;
         if (isClinicContext) {
           const allConvs = chatStore.listAllConversations();
           for (const c of allConvs) {
@@ -94,7 +96,7 @@ chatRouter.get("/conversations", authRequired, async (req, res, next) => {
               continue;
             }
             const breq = await bookingRequestsStore.get(c.bookingRequestId);
-            if (breq && breq.clinicId === req.auth!.clinicId) {
+            if (breq && breq.clinicId === activeClinicId) {
               items.push({ ...c, unreadCount: chatStore.unreadCount(c.id, req.auth!.userId) });
             }
           }
@@ -131,7 +133,7 @@ async function checkConvAccess(req: any, conv: any) {
   if (chatStore.isParticipant(conv.id, req.auth!.userId)) return true;
   if (req.auth!.role === "clinicStaff" && conv.bookingRequestId) {
     const breq = await bookingRequestsStore.get(conv.bookingRequestId);
-    if (breq && breq.clinicId === req.auth!.clinicId) return true;
+    if (breq && breq.clinicId === (req.auth!.clinicId || req.auth!.userId)) return true;
   }
   return false;
 }
@@ -147,8 +149,20 @@ chatRouter.get("/conversations/:id", authRequired, async (req, res, next) => {
     if (!(await checkConvAccess(req, conv))) {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
-    const breq = conv.bookingRequestId ? await bookingRequestsStore.get(conv.bookingRequestId) : null;
+    let breq: any = conv.bookingRequestId ? await bookingRequestsStore.get(conv.bookingRequestId) : null;
     const userOffer = breq?.userOfferId ? commerceStore.get(breq.userOfferId) : null;
+    
+    if (breq) {
+      const user = await UserModel.findById(breq.userId).lean() as any;
+      if (user) {
+        breq = {
+          ...breq,
+          customerName: user.fullName || user.displayName || null,
+          customerPhone: user.phone || null
+        };
+      }
+    }
+
     return res.json({ conversation: conv, bookingRequest: breq, userOffer });
   } catch (error) {
     next(error);

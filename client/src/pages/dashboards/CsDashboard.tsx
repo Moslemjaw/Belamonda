@@ -86,7 +86,13 @@ function KycQueue() {
                   </div>
                   <div className="text-xs text-surface-500 mt-0.5 flex items-center gap-2">
                     <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" /></svg>
-                    <span className="font-mono">{k.civilIdNumber}</span>
+                    <span className="font-mono">{k.civilIdNumberMasked || k.civilIdNumber || "—"}</span>
+                    {k.userPhone && (
+                      <>
+                        <span>·</span>
+                        <span className="font-mono">{k.userPhone}</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
@@ -142,11 +148,11 @@ function KycQueue() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-surface-50 p-4 rounded-2xl border border-surface-100">
                   <h4 className="text-sm font-bold text-surface-700 mb-3 text-center">{ar() ? "البطاقة المدنية (الجهة الأمامية)" : "Civil ID (Front)"}</h4>
-                  <img src={viewingKyc.civilIdFrontRef} alt="Civil ID Front" className="w-full h-auto rounded-lg shadow-sm" />
+                  <img src={viewingKyc.civilIdFrontRef?.startsWith('http') || viewingKyc.civilIdFrontRef?.startsWith('data:') ? viewingKyc.civilIdFrontRef : `/uploads/${viewingKyc.civilIdFrontRef}`} alt="Civil ID Front" className="w-full h-auto rounded-lg shadow-sm" />
                 </div>
                 <div className="bg-surface-50 p-4 rounded-2xl border border-surface-100">
                   <h4 className="text-sm font-bold text-surface-700 mb-3 text-center">{ar() ? "البطاقة المدنية (الجهة الخلفية)" : "Civil ID (Back)"}</h4>
-                  <img src={viewingKyc.civilIdBackRef} alt="Civil ID Back" className="w-full h-auto rounded-lg shadow-sm" />
+                  <img src={viewingKyc.civilIdBackRef?.startsWith('http') || viewingKyc.civilIdBackRef?.startsWith('data:') ? viewingKyc.civilIdBackRef : `/uploads/${viewingKyc.civilIdBackRef}`} alt="Civil ID Back" className="w-full h-auto rounded-lg shadow-sm" />
                 </div>
               </div>
             </div>

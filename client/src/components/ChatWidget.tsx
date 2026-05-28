@@ -434,6 +434,12 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                         {ar() ? "الحالة" : "Status"}:{" "}
                         <span className="badge-pink">{statusLabel(bookingRequest.status)}</span>
                       </div>
+                      {isStaff && (bookingRequest.customerName || bookingRequest.customerPhone) && (
+                        <div className="text-xs text-surface-600 mt-2 font-medium border-t border-brand-pink-100 pt-2">
+                          {bookingRequest.customerName && <div>{ar() ? "العميل" : "Customer"}: {bookingRequest.customerName}</div>}
+                          {bookingRequest.customerPhone && <div dir="ltr" className={ar() ? "text-right" : ""}>{bookingRequest.customerPhone}</div>}
+                        </div>
+                      )}
                       {bookingRequest.proposedAt && (
                         <div className="text-xs text-surface-600 mt-1">
                           {ar() ? "الموعد المقترح" : "Proposed"}: {kwDateTime(bookingRequest.proposedAt)}

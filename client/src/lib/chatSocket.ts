@@ -78,6 +78,8 @@ export type BookingRequest = {
   conversationId?: string;
   clinicNameEn?: string;
   clinicNameAr?: string;
+  customerName?: string;
+  customerPhone?: string;
   createdAt: string;
   updatedAt: string;
 };
