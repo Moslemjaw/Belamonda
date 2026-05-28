@@ -6,11 +6,12 @@ import { verifyAccessToken } from "../auth/token.js";
 import { chatStore } from "./chat.store.js";
 import { ensureConversationById } from "./chat.rehydrate.js";
 import { notifyChatRelatedUsers } from "../notifications/notifications.service.chat.js";
+import { bookingRequestsStore } from "../scheduling/bookingRequests.store.js";
 
 let io: IOServer | null = null;
 
 type AuthSocket = Socket & {
-  data: { userId: string; role: Role; rateBucket: number[] };
+  data: { userId: string; role: Role; clinicId?: string; rateBucket: number[] };
 };
 
 const RATE_LIMIT_WINDOW_MS = 5_000;
@@ -22,6 +23,16 @@ function rateLimitOk(s: AuthSocket) {
   if (s.data.rateBucket.length >= RATE_LIMIT_MAX_EVENTS) return false;
   s.data.rateBucket.push(now);
   return true;
+}
+
+async function checkSocketConvAccess(socket: AuthSocket, conv: any) {
+  if (socket.data.role === "admin") return true;
+  if (chatStore.isParticipant(conv.id, socket.data.userId)) return true;
+  if (socket.data.role === "clinicStaff" && conv.bookingRequestId) {
+    const breq = await bookingRequestsStore.get(conv.bookingRequestId);
+    if (breq && breq.clinicId === (socket.data.clinicId || socket.data.userId)) return true;
+  }
+  return false;
 }
 
 export function initChatSocket(httpServer: HttpServer) {
@@ -53,7 +64,7 @@ export function initChatSocket(httpServer: HttpServer) {
           : undefined);
       if (!token) return next(new Error("UNAUTHORIZED"));
       const payload = verifyAccessToken(token);
-      (socket as AuthSocket).data = { userId: payload.sub, role: payload.role, rateBucket: [] };
+      (socket as AuthSocket).data = { userId: payload.sub, role: payload.role, clinicId: payload.clinicId, rateBucket: [] };
       return next();
     } catch {
       return next(new Error("UNAUTHORIZED"));
@@ -68,7 +79,7 @@ export function initChatSocket(httpServer: HttpServer) {
       try {
         const conv = await ensureConversationById(payload?.conversationId);
         if (!conv) return ack?.({ ok: false, error: "NOT_FOUND" });
-        if (socket.data.role !== "admin" && !chatStore.isParticipant(conv.id, socket.data.userId)) {
+        if (!(await checkSocketConvAccess(socket, conv))) {
           return ack?.({ ok: false, error: "FORBIDDEN" });
         }
         socket.join(convRoom(conv.id));
@@ -97,7 +108,7 @@ export function initChatSocket(httpServer: HttpServer) {
           const conv = await ensureConversationById(payload?.conversationId);
           if (!conv) return ack?.({ ok: false, error: "NOT_FOUND" });
           if (socket.data.role === "admin") return ack?.({ ok: false, error: "ADMIN_READ_ONLY" });
-          if (!chatStore.isParticipant(conv.id, socket.data.userId)) return ack?.({ ok: false, error: "FORBIDDEN" });
+          if (!(await checkSocketConvAccess(socket, conv))) return ack?.({ ok: false, error: "FORBIDDEN" });
           const body = (payload.body ?? "").toString().slice(0, 4000).trim();
           const attachments = (payload.attachments ?? []).slice(0, 5);
           if (!body && attachments.length === 0) return ack?.({ ok: false, error: "EMPTY" });
@@ -131,7 +142,7 @@ export function initChatSocket(httpServer: HttpServer) {
       try {
         const conv = await ensureConversationById(payload?.conversationId);
         if (!conv) return;
-        if (!chatStore.isParticipant(conv.id, socket.data.userId)) return;
+        if (!(await checkSocketConvAccess(socket, conv))) return;
         socket.to(convRoom(conv.id)).emit("typing", {
           conversationId: conv.id,
           userId: socket.data.userId,
@@ -145,7 +156,7 @@ export function initChatSocket(httpServer: HttpServer) {
       try {
         const conv = await ensureConversationById(payload?.conversationId);
         if (!conv) return;
-        if (!chatStore.isParticipant(conv.id, socket.data.userId)) return;
+        if (!(await checkSocketConvAccess(socket, conv))) return;
         const cur = chatStore.markRead(conv.id, socket.data.userId, payload.lastMessageId);
         emitToConversation(conv.id, "read:update", {
           conversationId: conv.id,
