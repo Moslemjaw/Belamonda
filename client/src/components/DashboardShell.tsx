@@ -196,7 +196,7 @@ const getGroupForNavItem = (key: string, role: string, isAr: boolean): { name: s
     if (["invoices", "reports", "performance"].includes(key)) {
       return { name: isAr ? "المالية والتقارير" : "Financials & Reports", order: 3 };
     }
-    if (["profile"].includes(key)) {
+    if (["profile", "complaints"].includes(key)) {
       return { name: isAr ? "الحساب" : "Account", order: 4 };
     }
   }
@@ -209,7 +209,7 @@ const getGroupForNavItem = (key: string, role: string, isAr: boolean): { name: s
     if (["clinics", "users", "customers", "analytics", "reports"].includes(key)) {
       return { name: isAr ? "النظام والتقارير" : "System & Reports", order: 3 };
     }
-    if (["profile"].includes(key)) {
+    if (["profile", "complaints"].includes(key)) {
       return { name: isAr ? "الحساب" : "Account", order: 4 };
     }
   }
@@ -218,6 +218,9 @@ const getGroupForNavItem = (key: string, role: string, isAr: boolean): { name: s
   if (key === "home") return { name: isAr ? "نظرة عامة" : "Overview", order: 1 };
   if (["wallet", "appointments", "sessions"].includes(key)) {
     return { name: isAr ? "الخدمات" : "Services", order: 2 };
+  }
+  if (["profile", "complaints"].includes(key)) {
+    return { name: isAr ? "الحساب" : "Account", order: 3 };
   }
   return { name: isAr ? "أخرى" : "General", order: 99 };
 };
