@@ -36,24 +36,24 @@ export default function LoginPage() {
           className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-1000 hover:scale-105"
           style={{ backgroundImage: "url('/login-bg.png')" }}
         />
-        {/* Gradient Overlay for Readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-brand-pink-900/80 via-brand-pink-900/40 to-transparent mix-blend-multiply" />
-        <div className="absolute inset-0 bg-black/20" />
+        {/* Soft light overlay for readability */}
+        <div className="absolute inset-0 bg-white/20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-white/40 to-transparent" />
         
         {/* Decorative glass elements */}
-        <div className="absolute top-1/4 left-1/4 w-[40%] h-[40%] rounded-full bg-brand-pink-400/20 blur-3xl mix-blend-screen" />
-        <div className="absolute bottom-1/4 right-1/4 w-[50%] h-[50%] rounded-full bg-rose-300/20 blur-3xl mix-blend-screen" />
+        <div className="absolute top-1/4 left-1/4 w-[40%] h-[40%] rounded-full bg-brand-pink-300/30 blur-3xl mix-blend-multiply" />
+        <div className="absolute bottom-1/4 right-1/4 w-[50%] h-[50%] rounded-full bg-rose-200/30 blur-3xl mix-blend-multiply" />
 
         <div className="relative z-10 text-center max-w-lg animate-fade-in mt-12">
           <div className="flex items-center justify-center mb-8">
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-[2.5rem] p-8 shadow-2xl">
+            <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2.5rem] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
               <BelamondaLogo size={120} />
             </div>
           </div>
-          <h1 className="text-3xl lg:text-4xl font-bold text-white leading-snug drop-shadow-lg tracking-tight">
+          <h1 className="text-3xl lg:text-4xl font-black text-brand-pink-950 leading-snug drop-shadow-sm tracking-tight">
             {isAr ? "منصة الجمال والعناية الشاملة" : "Beauty & Wellness Platform"}
           </h1>
-          <p className="mt-5 text-white/90 text-lg leading-relaxed drop-shadow-md font-medium">
+          <p className="mt-5 text-brand-pink-900/90 text-lg leading-relaxed font-semibold">
             {isAr
               ? "اكتشفي العروض الحصرية، تتبعي الكاش باك الخاص بك، واحجزي جلساتك بسهولة."
               : "Discover exclusive offers, manage your cashback, and book your clinic sessions seamlessly."}
