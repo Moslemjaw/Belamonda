@@ -48,7 +48,7 @@ export default function LoginPage() {
       const res = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: resetPhone })
+        body: JSON.stringify({ phone: `+965${resetPhone}` })
       });
       if (!res.ok) throw new Error("Failed to request password reset");
       setView("reset");
@@ -71,7 +71,7 @@ export default function LoginPage() {
       const res = await fetch(`${API_BASE_URL}/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: resetPhone, otp: resetOtp, newPassword })
+        body: JSON.stringify({ phone: `+965${resetPhone}`, otp: resetOtp, newPassword })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to reset password");
@@ -261,13 +261,15 @@ export default function LoginPage() {
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-surface-400 group-focus-within:text-brand-pink-500 transition-colors">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                   </div>
+                  <span className="absolute inset-y-0 left-10 flex items-center text-sm font-bold text-surface-500 pointer-events-none select-none">+965</span>
                   <input
-                    type="text"
-                    className="w-full bg-surface-50 border border-surface-200 text-surface-900 rounded-2xl py-3.5 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-brand-pink-500/20 focus:border-brand-pink-500 transition-all font-medium text-sm"
+                    type="tel"
+                    className="w-full bg-surface-50 border border-surface-200 text-surface-900 rounded-2xl py-3.5 pl-[5.5rem] pr-4 focus:outline-none focus:ring-2 focus:ring-brand-pink-500/20 focus:border-brand-pink-500 transition-all font-medium text-sm"
                     placeholder={isAr ? "أدخلي رقم الهاتف..." : "Enter your phone..."}
                     value={resetPhone}
-                    onChange={(e) => setResetPhone(e.target.value)}
+                    onChange={(e) => setResetPhone(e.target.value.replace(/[^0-9]/g, ""))}
                     dir="ltr"
+                    maxLength={8}
                   />
                 </div>
               </div>
