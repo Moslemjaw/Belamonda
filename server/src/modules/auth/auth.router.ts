@@ -4,7 +4,7 @@ import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { signAccessToken } from "./token.js";
 import { kycStore } from "../kyc/kyc.store.js";
-import { registerCustomer, loginWithPassword, createStaffUserByAdmin } from "../../services/auth.service.js";
+import { registerCustomer, loginWithPassword, createStaffUserByAdmin, requestPasswordReset, resetPasswordWithOTP } from "../../services/auth.service.js";
 
 export const authRouter = Router();
 
@@ -51,6 +51,42 @@ authRouter.post("/login", async (req, res, next) => {
     await kycStore.ensureUser(r.userId, r.role);
     const token = signAccessToken({ sub: r.userId, role: r.role as any, clinicId: r.clinicId });
     return res.json({ accessToken: token, role: r.role, userId: r.userId, clinicId: r.clinicId });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const ForgotPasswordSchema = z.object({
+  phone: z.string().min(6)
+});
+
+authRouter.post("/forgot-password", async (req, res, next) => {
+  try {
+    const parsed = ForgotPasswordSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+
+    await requestPasswordReset(parsed.data.phone);
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const ResetPasswordSchema = z.object({
+  phone: z.string().min(6),
+  otp: z.string().min(6),
+  newPassword: z.string().min(8)
+});
+
+authRouter.post("/reset-password", async (req, res, next) => {
+  try {
+    const parsed = ResetPasswordSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+
+    const r = await resetPasswordWithOTP(parsed.data.phone, parsed.data.otp, parsed.data.newPassword);
+    if ("error" in r) return res.status(400).json({ error: r.error });
+
+    return res.json({ ok: true });
   } catch (e) {
     next(e);
   }

@@ -2,6 +2,8 @@ import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 import mongoose from "mongoose";
 import { UserModel } from "../models/user.model.js";
+import { OtpModel } from "../models/otp.model.js";
+import { sendSMS } from "./twilio.service.js";
 
 interface ReferrerLean {
   _id: mongoose.Types.ObjectId;
@@ -121,3 +123,57 @@ export async function loginWithPassword(input: { identifier: string; password: s
   };
 }
 
+export async function requestPasswordReset(phone: string) {
+  const normPhone = normIdentifier(phone);
+  const user = await UserModel.findOne({ phone: normPhone }).select("_id").lean();
+  
+  if (!user) {
+    // For security reasons, don't reveal if user exists or not, just return success
+    return { ok: true as const };
+  }
+
+  // Generate 6-digit OTP
+  const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Delete any existing OTPs for this phone to prevent spam
+  await OtpModel.deleteMany({ phone: normPhone });
+
+  // Save new OTP
+  await OtpModel.create({ phone: normPhone, code });
+
+  // Send SMS
+  try {
+    const message = `Your Belamonda password reset code is: ${code}. It expires in 10 minutes.`;
+    await sendSMS(normPhone, message);
+  } catch (err) {
+    console.error("Failed to send OTP SMS:", err);
+    // Don't fail the request if SMS fails, but log it
+  }
+
+  return { ok: true as const };
+}
+
+export async function resetPasswordWithOTP(phone: string, otp: string, newPassword: string) {
+  const normPhone = normIdentifier(phone);
+  
+  // Find OTP
+  const otpRecord = await OtpModel.findOne({ phone: normPhone, code: otp });
+  if (!otpRecord) {
+    return { error: "INVALID_OTP" as const };
+  }
+
+  // Find User
+  const user = await UserModel.findOne({ phone: normPhone });
+  if (!user) {
+    return { error: "USER_NOT_FOUND" as const };
+  }
+
+  // Update password
+  user.passwordHash = await bcrypt.hash(newPassword, 10);
+  await user.save();
+
+  // Delete OTP
+  await OtpModel.deleteOne({ _id: otpRecord._id });
+
+  return { ok: true as const };
+}

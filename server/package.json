@@ -33,6 +33,7 @@
     "qrcode": "^1.5.4",
     "socket.io": "4.8",
     "socket.io-client": "4.8",
+    "twilio": "^6.0.2",
     "xlsx": "^0.18.5",
     "zod": "^3.23.8"
   },
