@@ -28,9 +28,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-surface-50">
-      {/* Left Section - Premium Image Background */}
-      <div className="relative flex-1 hidden lg:flex flex-col items-center justify-center p-8 lg:p-16 overflow-hidden">
+    <div className="min-h-screen flex flex-col lg:flex-row bg-white lg:bg-surface-50">
+      {/* Top/Left Section - Premium Image Background */}
+      <div className="relative flex-none lg:flex-1 h-[35vh] lg:h-auto w-full flex flex-col items-center justify-center p-6 lg:p-16 overflow-hidden">
         {/* Background Image */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-transform duration-1000 hover:scale-105"
@@ -38,22 +38,23 @@ export default function LoginPage() {
         />
         {/* Soft light overlay for readability */}
         <div className="absolute inset-0 bg-white/20" />
-        <div className="absolute inset-0 bg-gradient-to-t from-white/80 via-white/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent lg:from-white/80 lg:via-white/40" />
         
         {/* Decorative glass elements */}
         <div className="absolute top-1/4 left-1/4 w-[40%] h-[40%] rounded-full bg-brand-pink-300/30 blur-3xl mix-blend-multiply" />
         <div className="absolute bottom-1/4 right-1/4 w-[50%] h-[50%] rounded-full bg-rose-200/30 blur-3xl mix-blend-multiply" />
 
-        <div className="relative z-10 text-center max-w-lg animate-fade-in mt-12">
-          <div className="flex items-center justify-center mb-8">
-            <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-[2.5rem] p-8 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
-              <BelamondaLogo size={120} />
+        <div className="relative z-10 text-center max-w-lg animate-fade-in mt-8 lg:mt-12">
+          <div className="flex items-center justify-center mb-4 lg:mb-8">
+            <div className="bg-white/40 backdrop-blur-xl border border-white/60 rounded-3xl lg:rounded-[2.5rem] p-5 lg:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
+              <div className="lg:hidden"><BelamondaLogo size={72} /></div>
+              <div className="hidden lg:block"><BelamondaLogo size={120} /></div>
             </div>
           </div>
-          <h1 className="text-3xl lg:text-4xl font-black text-brand-pink-950 leading-snug drop-shadow-sm tracking-tight">
+          <h1 className="hidden lg:block text-3xl lg:text-4xl font-black text-brand-pink-950 leading-snug drop-shadow-sm tracking-tight">
             {isAr ? "منصة الجمال والعناية الشاملة" : "Beauty & Wellness Platform"}
           </h1>
-          <p className="mt-5 text-brand-pink-900/90 text-lg leading-relaxed font-semibold">
+          <p className="hidden lg:block mt-5 text-brand-pink-900/90 text-lg leading-relaxed font-semibold">
             {isAr
               ? "اكتشفي العروض الحصرية، تتبعي الكاش باك الخاص بك، واحجزي جلساتك بسهولة."
               : "Discover exclusive offers, manage your cashback, and book your clinic sessions seamlessly."}
@@ -62,15 +63,12 @@ export default function LoginPage() {
       </div>
 
       {/* Right Section - Login Form */}
-      <div className="flex-1 flex flex-col justify-center p-6 sm:p-12 lg:p-20 relative bg-white lg:rounded-l-[3rem] lg:-ml-12 z-20 shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.05)]">
-        {/* Mobile-only background image to keep consistency */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center opacity-5 lg:hidden pointer-events-none"
-          style={{ backgroundImage: "url('/login-bg.png')" }}
-        />
-        
+      <div className="flex-1 flex flex-col justify-start lg:justify-center p-6 sm:p-12 lg:p-20 relative bg-white rounded-t-[2.5rem] -mt-10 lg:-mt-0 lg:rounded-t-none lg:rounded-l-[3rem] lg:-ml-12 z-20 shadow-[0_-20px_40px_-15px_rgba(0,0,0,0.05)] lg:shadow-[-20px_0_40px_-15px_rgba(0,0,0,0.05)]">
         <div className="w-full max-w-md mx-auto relative z-10 animate-slide-up">
-          <div className="flex justify-end items-center gap-3 mb-10">
+          {/* Mobile top handle for visual bottom-sheet feel */}
+          <div className="w-12 h-1.5 bg-surface-200 rounded-full mx-auto mb-6 lg:hidden" />
+          
+          <div className="flex justify-end items-center gap-3 mb-8 lg:mb-10">
             <Link to="/" className="text-xs font-bold text-surface-500 hover:text-brand-pink-600 transition-colors bg-surface-100 hover:bg-brand-pink-50 px-4 py-2 rounded-full">
               {isAr ? "الرئيسية" : "Home"}
             </Link>
@@ -80,11 +78,8 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="mb-10 text-center sm:text-start">
-            <div className="inline-block lg:hidden mb-6 bg-brand-pink-50 p-4 rounded-3xl">
-              <BelamondaLogo size={64} />
-            </div>
-            <h2 className="text-3xl font-black text-surface-900 tracking-tight">{t("welcomeBack")}</h2>
+          <div className="mb-8 lg:mb-10 text-center sm:text-start">
+            <h2 className="text-2xl lg:text-3xl font-black text-surface-900 tracking-tight">{t("welcomeBack")}</h2>
             <p className="mt-2 text-sm text-surface-500 font-medium">{t("loginSubtitle")}</p>
           </div>
 
