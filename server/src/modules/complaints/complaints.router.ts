@@ -8,7 +8,7 @@ import { UserModel } from "../../models/user.model.js";
 import { ClinicModel } from "../../models/clinic.model.js";
 
 const CreateSchema = z.object({
-  category: z.enum(["service_quality", "billing", "scheduling", "cashback", "clinic", "other"]),
+  category: z.enum(["service_quality", "billing", "scheduling", "cashback", "clinic", "other", "system"]),
   subject: z.string().min(3),
   description: z.string().min(10),
 });
