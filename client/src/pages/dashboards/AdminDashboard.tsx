@@ -3112,78 +3112,89 @@ export function UsersManager() {
                 <div className="border-t border-surface-200 pt-6">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-sm font-bold text-surface-900">{ar() ? "الاشتراكات والدفع" : "Memberships & Payment"}</h4>
-                    <button type="button" onClick={addEnrollmentRow} className="text-xs font-bold text-brand-pink-600 hover:text-brand-pink-700 flex items-center gap-1 transition-colors">
+                    <button type="button" onClick={addEnrollmentRow} className="text-xs font-bold text-brand-pink-600 bg-brand-pink-50 hover:bg-brand-pink-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors">
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
                       {ar() ? "إضافة باقة" : "Add Membership"}
                     </button>
                   </div>
                   <div className="space-y-4">
                     {addForm.enrollments.map((en, idx) => (
-                      <div key={idx} className="relative bg-surface-50 rounded-xl border border-surface-200 p-4 space-y-3">
+                      <div key={idx} className="relative bg-white rounded-xl border border-surface-200 shadow-sm overflow-hidden transition-all hover:border-brand-pink-200">
                         {addForm.enrollments.length > 1 && (
-                          <button type="button" onClick={() => removeEnrollmentRow(idx)} className="absolute top-2 right-2 w-6 h-6 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors">
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          <button type="button" onClick={() => removeEnrollmentRow(idx)} className="absolute top-3 rtl:left-3 ltr:right-3 w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors z-10" title={ar() ? "إزالة" : "Remove"}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                           </button>
                         )}
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400 mb-1">{ar() ? `باقة ${idx + 1}` : `Membership ${idx + 1}`}</div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "اختيار باقة/جلسة" : "Select Offer/Session"}</label>
-                            <select className="select-field" value={en.offerId} onChange={e => updateEnrollment(idx, { offerId: e.target.value })}>
-                              <option value="">{ar() ? "-- بدون اشتراك --" : "-- No Membership --"}</option>
-                              {offers.map((o: any) => <option key={o._id} value={o._id}>{ar() ? o.nameAr || o.name : o.name}</option>)}
-                            </select>
-                          </div>
-                          {en.offerId && (
-                            <div>
-                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "العيادة (إن وجدت)" : "Clinic (if applicable)"}</label>
-                              <select className="select-field" value={en.clinicId} onChange={e => updateEnrollment(idx, { clinicId: e.target.value })}>
-                                <option value="">{ar() ? "غير محدد" : "None"}</option>
-                                {clinics.map((c: any) => <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr || c.nameEn : c.nameEn}</option>)}
-                              </select>
-                            </div>
-                          )}
+                        <div className="px-5 py-3 border-b border-surface-100 bg-surface-50 flex items-center gap-2">
+                          <span className="flex items-center justify-center w-6 h-6 rounded-full bg-brand-pink-100 text-brand-pink-700 text-xs font-black">{idx + 1}</span>
+                          <span className="text-xs font-bold uppercase tracking-wider text-surface-600">{ar() ? "تفاصيل الباقة" : "Membership Details"}</span>
                         </div>
-                        {en.offerId && (
-                          <div className="grid grid-cols-2 gap-3">
+                        <div className="p-5 space-y-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "نوع الدفع" : "Purchase Mode"}</label>
-                              <select className="select-field" value={en.purchaseMode} onChange={e => updateEnrollment(idx, { purchaseMode: e.target.value })}>
-                                <option value="full">{ar() ? "دفع كامل" : "Full Payment"}</option>
-                                <option value="installments">{ar() ? "أقساط" : "Installments"}</option>
-                                <option value="deposit">{ar() ? "عربون" : "Deposit"}</option>
+                              <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "اختيار باقة/جلسة" : "Select Offer/Session"}</label>
+                              <select className="select-field w-full bg-surface-50" value={en.offerId} onChange={e => updateEnrollment(idx, { offerId: e.target.value })}>
+                                <option value="">{ar() ? "-- بدون اشتراك --" : "-- No Membership --"}</option>
+                                {offers.map((o: any) => <option key={o.id || o._id} value={o.id || o._id}>{ar() ? o.nameAr || o.name : o.name}</option>)}
                               </select>
                             </div>
-                            {en.purchaseMode === "installments" && (
+                            {en.offerId && (
                               <div>
-                                <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "عدد الأقساط" : "Installment Count"}</label>
-                                <select className="select-field" value={en.installmentCount} onChange={e => updateEnrollment(idx, { installmentCount: Number(e.target.value) })}>
-                                  <option value="2">2</option>
-                                  <option value="3">3</option>
+                                <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "العيادة (إن وجدت)" : "Clinic (if applicable)"}</label>
+                                <select className="select-field w-full bg-surface-50" value={en.clinicId} onChange={e => updateEnrollment(idx, { clinicId: e.target.value })}>
+                                  <option value="">{ar() ? "غير محدد" : "None"}</option>
+                                  {clinics.map((c: any) => <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr || c.nameEn : c.nameEn}</option>)}
                                 </select>
                               </div>
                             )}
-                            <div>
-                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "المبلغ المدفوع اليوم (KWD)" : "Amount Paid Today (KWD)"}</label>
-                              <input type="number" step="0.001" className="input-field" value={en.amountPaidKwd} onChange={e => updateEnrollment(idx, { amountPaidKwd: e.target.value })} placeholder="0.000" />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-surface-500 mb-1">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
-                              <select className="select-field" value={en.method} onChange={e => updateEnrollment(idx, { method: e.target.value })}>
-                                <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
-                                <option value="pos">POS</option>
-                                <option value="bank_transfer">{ar() ? "الدفع عن طريق خدمة العملاء" : "Paid by Customer Service"}</option>
-                                <option value="enet">ENET</option>
-                                <option value="wallet">{ar() ? "محفظة" : "Wallet"}</option>
-                                <option value="other">{ar() ? "أخرى" : "Other"}</option>
-                              </select>
-                            </div>
-                            <div className="sm:col-span-2 flex items-center gap-2">
-                              <input type="checkbox" id={`verifyPay-${idx}`} checked={en.isVerified} onChange={e => updateEnrollment(idx, { isVerified: e.target.checked })} className="w-4 h-4 text-brand-pink-600 rounded focus:ring-brand-pink-500" />
-                              <label htmlFor={`verifyPay-${idx}`} className="text-sm text-surface-700 font-medium">{ar() ? "الدفع مؤكد وموثق؟ (تفعيل فوري)" : "Payment is verified? (Instant Activation)"}</label>
-                            </div>
                           </div>
-                        )}
+                          
+                          {en.offerId && (
+                            <div className="pt-4 border-t border-surface-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "نوع الدفع" : "Purchase Mode"}</label>
+                                <select className="select-field w-full" value={en.purchaseMode} onChange={e => updateEnrollment(idx, { purchaseMode: e.target.value })}>
+                                  <option value="full">{ar() ? "دفع كامل" : "Full Payment"}</option>
+                                  <option value="installments">{ar() ? "أقساط" : "Installments"}</option>
+                                  <option value="deposit">{ar() ? "عربون" : "Deposit"}</option>
+                                </select>
+                              </div>
+                              {en.purchaseMode === "installments" && (
+                                <div>
+                                  <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "عدد الأقساط" : "Installment Count"}</label>
+                                  <select className="select-field w-full" value={en.installmentCount} onChange={e => updateEnrollment(idx, { installmentCount: Number(e.target.value) })}>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                  </select>
+                                </div>
+                              )}
+                              <div>
+                                <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "المبلغ المدفوع اليوم (KWD)" : "Amount Paid Today (KWD)"}</label>
+                                <input type="number" step="0.001" className="input-field w-full font-mono text-brand-pink-700 font-bold" value={en.amountPaidKwd} onChange={e => updateEnrollment(idx, { amountPaidKwd: e.target.value })} placeholder="0.000" />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
+                                <select className="select-field w-full" value={en.method} onChange={e => updateEnrollment(idx, { method: e.target.value })}>
+                                  <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
+                                  <option value="pos">POS</option>
+                                  <option value="bank_transfer">{ar() ? "رابط دفع خارجي" : "External Payment Link"}</option>
+                                  <option value="enet">ENET</option>
+                                  <option value="wallet">{ar() ? "محفظة كاش باك" : "Cashback Wallet"}</option>
+                                  <option value="other">{ar() ? "أخرى" : "Other"}</option>
+                                </select>
+                              </div>
+                              <div className="sm:col-span-2 mt-2 bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex items-start gap-3">
+                                <div className="flex items-center h-5">
+                                  <input type="checkbox" id={`verifyPay-${idx}`} checked={en.isVerified} onChange={e => updateEnrollment(idx, { isVerified: e.target.checked })} className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-emerald-300" />
+                                </div>
+                                <div>
+                                  <label htmlFor={`verifyPay-${idx}`} className="text-sm text-emerald-800 font-bold cursor-pointer block leading-none">{ar() ? "الدفع مؤكد وموثق؟ (تفعيل فوري)" : "Payment is verified? (Instant Activation)"}</label>
+                                  <p className="text-xs text-emerald-600 mt-1">{ar() ? "عند التفعيل سيتم إرسال إشعار للمستخدم وإتاحة الباقة في حسابه." : "When checked, the membership will be instantly available to the user."}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -30,3 +30,24 @@ export async function sendSMS(to: string, body: string) {
     throw error;
   }
 }
+
+export async function sendWhatsAppOTP(to: string, otpCode: string) {
+  if (!client) {
+    console.warn("Twilio client is not initialized. Simulating WhatsApp OTP:", { to, otpCode });
+    return;
+  }
+
+  try {
+    const message = await client.messages.create({
+      from: 'whatsapp:+14155238886',
+      contentSid: 'HX229f5a04fd0510ce1b071852155d3e75',
+      contentVariables: JSON.stringify({ "1": otpCode }),
+      to: `whatsapp:${to}`
+    });
+    console.log("WhatsApp sent successfully. SID:", message.sid);
+    return message;
+  } catch (error) {
+    console.error("Failed to send WhatsApp:", error);
+    throw error;
+  }
+}
