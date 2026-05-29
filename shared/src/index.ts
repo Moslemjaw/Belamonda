@@ -121,7 +121,7 @@ export type TaskStatus = "todo" | "in_progress" | "completed" | "archived";
 
 // ─── Complaints ─────────────────────────────────────
 export type ComplaintStatus = "open" | "in_progress" | "escalated" | "resolved" | "closed";
-export type ComplaintCategory = "service_quality" | "billing" | "scheduling" | "cashback" | "clinic" | "other";
+export type ComplaintCategory = "service_quality" | "billing" | "scheduling" | "cashback" | "clinic" | "other" | "system";
 
 // ─── Financial ──────────────────────────────────────
 export type PayableStatus = "pending" | "approved" | "paid";

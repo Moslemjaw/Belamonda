@@ -6,7 +6,7 @@ const ComplaintSchema = new Schema(
     userId: { type: String, required: true, index: true },
     category: {
       type: String,
-      enum: ["service_quality", "billing", "scheduling", "cashback", "clinic", "other"] satisfies ComplaintCategory[],
+      enum: ["service_quality", "billing", "scheduling", "cashback", "clinic", "other", "system"] satisfies ComplaintCategory[],
       required: true
     },
     subject: { type: String, required: true, trim: true },
