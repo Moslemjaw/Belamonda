@@ -361,7 +361,10 @@ export async function checkoutFull(input: {
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
   await assertRequiredEForm(input.userId, offer.fullPaymentEFormId);
-  await assertNoPendingForms(input.userId, [{ kind: "offer", refId: String(offer._id) }], [
+  await assertNoPendingForms(input.userId, [
+    { kind: "offer", refId: String(offer._id) },
+    { kind: "installment_plan", refId: "full" }
+  ], [
     offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
   ]);
 

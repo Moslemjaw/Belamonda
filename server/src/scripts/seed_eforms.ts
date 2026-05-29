@@ -345,7 +345,7 @@ async function main() {
 
   // Fetch offer IDs
   const offers = await OfferModel.find({
-    name: { $in: ["Jamali", "Mini Jamali", "Naumi Plus", "Sabaya"] },
+    name: { $in: ["Jamali", "Mini Jamali", "Naumi Plus", "Sabaya", "Naumi Silver", "Naumi Platinum"] },
   }).lean();
 
   const offerMap = new Map<string, string>();
@@ -366,6 +366,22 @@ async function main() {
     } else {
       console.log("⚠️  Naumi Classic offer not found in DB — forms will be created without offer linking (can be linked later from Admin panel)");
     }
+  }
+
+  // Check for Naumi Silver
+  if (!offerMap.has("Naumi Silver")) {
+    const naumiSilver = (await OfferModel.findOne({
+      name: { $regex: /naumi.*silver/i },
+    }).lean()) as any;
+    if (naumiSilver) offerMap.set("Naumi Silver", naumiSilver._id.toString());
+  }
+
+  // Check for Naumi Platinum
+  if (!offerMap.has("Naumi Platinum")) {
+    const naumiPlatinum = (await OfferModel.findOne({
+      name: { $regex: /naumi.*platinum/i },
+    }).lean()) as any;
+    if (naumiPlatinum) offerMap.set("Naumi Platinum", naumiPlatinum._id.toString());
   }
 
   // Define all form specs
@@ -427,6 +443,28 @@ async function main() {
     });
   }
 
+  // Naumi Silver
+  for (const pt of paymentTypes) {
+    allSpecs.push({
+      offerName: "Naumi Silver",
+      offerNameAr: "ناعمي سيلفر",
+      paymentType: pt,
+      termsAr: NAUMI_TERMS_AR,
+      termsEn: NAUMI_TERMS_EN,
+    });
+  }
+
+  // Naumi Platinum
+  for (const pt of paymentTypes) {
+    allSpecs.push({
+      offerName: "Naumi Platinum",
+      offerNameAr: "ناعمي بلاتينيوم",
+      paymentType: pt,
+      termsAr: NAUMI_TERMS_AR,
+      termsEn: NAUMI_TERMS_EN,
+    });
+  }
+
   let created = 0;
   let skipped = 0;
 
@@ -438,13 +476,20 @@ async function main() {
     const offerId = offerMap.get(spec.offerName);
     if (offerId) {
       doc.targets = [{ kind: "offer", refId: offerId }];
+      if (spec.paymentType === "full_payment") {
+        doc.targets.push({ kind: "installment_plan", refId: "full" });
+      } else if (spec.paymentType === "installments_2") {
+        doc.targets.push({ kind: "installment_plan", refId: "2" });
+      } else if (spec.paymentType === "deposit") {
+        doc.targets.push({ kind: "installment_plan", refId: "deposit" });
+      }
     }
 
     // Check if this form already exists (avoid duplicates)
     const existing = await EFormModel.findOne({ title: doc.title, archived: false }).lean();
     if (existing) {
-      console.log(`  🔄 Already exists: "${doc.title}" — updating fields...`);
-      await EFormModel.updateOne({ _id: existing._id }, { $set: { fields: doc.fields } });
+      console.log(`  🔄 Already exists: "${doc.title}" — updating fields and targets...`);
+      await EFormModel.updateOne({ _id: existing._id }, { $set: { fields: doc.fields, targets: doc.targets } });
       skipped++;
       continue;
     }

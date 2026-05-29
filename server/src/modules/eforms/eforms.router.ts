@@ -166,7 +166,8 @@ async function notifyAffectedCustomers(formId: string, formTitle: string, formTa
   const matchedUserIds = new Set<string>();
   for (const u of userOffers) {
     const ctx = [{ kind: "offer", refId: String(u.offerId) }];
-    if (u.purchaseMode === "deposit") ctx.push({ kind: "installment_plan", refId: "deposit" });
+    if (u.purchaseMode === "full") ctx.push({ kind: "installment_plan", refId: "full" });
+    else if (u.purchaseMode === "deposit") ctx.push({ kind: "installment_plan", refId: "deposit" });
     else if (u.purchaseMode === "enet") ctx.push({ kind: "installment_plan", refId: "4_enet" });
     else if (u.purchaseMode === "installments" && u.installmentCount) ctx.push({ kind: "installment_plan", refId: String(u.installmentCount) });
     
@@ -374,7 +375,8 @@ eformsRouter.get("/me/available", authRequired, async (req, res, next) => {
 
     const contexts = userOffers.map((u: any) => {
       const ctx = [{ kind: "offer", refId: String(u.offerId) }];
-      if (u.purchaseMode === "deposit") ctx.push({ kind: "installment_plan", refId: "deposit" });
+      if (u.purchaseMode === "full") ctx.push({ kind: "installment_plan", refId: "full" });
+      else if (u.purchaseMode === "deposit") ctx.push({ kind: "installment_plan", refId: "deposit" });
       else if (u.purchaseMode === "enet") ctx.push({ kind: "installment_plan", refId: "4_enet" });
       else if (u.purchaseMode === "installments" && u.installmentCount) ctx.push({ kind: "installment_plan", refId: String(u.installmentCount) });
       return ctx;
