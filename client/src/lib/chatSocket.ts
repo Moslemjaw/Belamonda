@@ -15,7 +15,7 @@ export function getChatSocket(token: string): Socket {
   }
   currentToken = token;
   socket = io(API_BASE_URL, {
-    transports: ["websocket", "polling"],
+    transports: ["websocket"],
     auth: { token },
     autoConnect: true,
     reconnection: true
