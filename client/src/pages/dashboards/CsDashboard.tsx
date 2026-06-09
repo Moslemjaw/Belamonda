@@ -2351,9 +2351,22 @@ function CustomersManager() {
                       onChange={e => setNewClinicId(e.target.value)}
                     >
                       <option value="">-- {ar() ? "اختر العيادة" : "Select Clinic"} --</option>
-                      {(clinicsData?.items || []).map((c: any) => (
-                        <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>
-                      ))}
+                      {(() => {
+                        let pool = (clinicsData?.items || []);
+                        if (clinicChangeModal?.type === "membership") {
+                          const uo = profile?.userOffers?.find((u: any) => u.id === clinicChangeModal.id);
+                          if (uo) {
+                            const baseOffer = offersData?.items?.find((o: any) => o.id === uo.offerId);
+                            const overrides = baseOffer?.branchSessionPrices || baseOffer?.clinicOverrides || [];
+                            if (overrides.length > 0) {
+                              const overrideClinicIds = overrides.map((b: any) => b.clinicId);
+                              pool = pool.filter((c: any) => overrideClinicIds.includes(c.id));
+                            }
+                          }
+                        }
+                        const clinicOptionsPool = pool.length > 0 ? pool : (clinicsData?.items || []);
+                        return clinicOptionsPool.map((c: any) => <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>);
+                      })()}
                     </select>
                   </div>
 

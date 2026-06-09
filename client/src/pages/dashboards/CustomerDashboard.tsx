@@ -4330,7 +4330,17 @@ export default function CustomerDashboard() {
              <div className="mb-6">
                 <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اختر العيادة الجديدة" : "Select New Clinic"}</label>
                 <select className="select-field w-full bg-surface-50" value={newClinicSelection} onChange={e => setNewClinicSelection(e.target.value)}>
-                   {(clinicsPublic?.items || []).map(c => <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>)}
+                   {(() => {
+                      const baseOffer = homeCatalogData?.items?.find((o: any) => o.id === showChangeClinicModal.offerId) || showChangeClinicModal;
+                      const overrides = baseOffer?.branchSessionPrices || baseOffer?.clinicOverrides || [];
+                      let pool = (clinicsPublic?.items || []);
+                      if (overrides.length > 0) {
+                         const overrideClinicIds = overrides.map((b: any) => b.clinicId);
+                         pool = pool.filter((c: any) => overrideClinicIds.includes(c.id));
+                      }
+                      const clinicOptionsPool = pool.length > 0 ? pool : (clinicsPublic?.items || []);
+                      return clinicOptionsPool.map((c: any) => <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>);
+                   })()}
                 </select>
              </div>
 
