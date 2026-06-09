@@ -137,13 +137,13 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="mb-8 lg:mb-10 text-center sm:text-start relative">
+          <div className="mb-8 lg:mb-10 text-center sm:text-start relative flex flex-col sm:block items-center">
             {view !== "login" && (
               <button 
                 onClick={() => { setView("login"); setError(null); setSuccessMsg(null); }}
-                className="absolute -top-2 rtl:-right-2 ltr:-left-2 text-surface-400 hover:text-brand-pink-600 transition-colors bg-surface-50 hover:bg-brand-pink-50 rounded-full p-2"
+                className="mb-4 sm:mb-0 sm:absolute sm:top-0 sm:rtl:-right-12 sm:ltr:-left-12 text-surface-400 hover:text-brand-pink-600 transition-colors bg-surface-50 hover:bg-brand-pink-50 rounded-full p-2 shrink-0"
               >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-5 h-5 rtl:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
               </button>
