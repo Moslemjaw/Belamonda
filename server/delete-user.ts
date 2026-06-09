@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
-dotenv.config();
+dotenv.config({ path: '.env.txt' });
 
 // Important models that might reference userId
 import { UserModel } from "./src/models/user.model.js";
@@ -13,8 +13,8 @@ async function main() {
   console.log("Connecting to", process.env.MONGODB_URI);
   await mongoose.connect(process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/belamonda");
   
-  const phoneToMatch = "905318501175";
-  const nameToMatch = "Musallam Jawish";
+  const phoneToMatch = "123123123";
+  const nameToMatch = "Test";
   
   // Try finding user by phone or name
   let user = await UserModel.findOne({ phone: new RegExp(phoneToMatch) });

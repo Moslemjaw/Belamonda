@@ -424,8 +424,8 @@ function PaymentsTab({ from, to }: { from: string; to: string }) {
                 <div key={p.id} className="p-4 flex flex-col gap-3">
                   <div className="flex items-start justify-between">
                     <div className="flex flex-col">
-                      <div className="font-bold text-surface-900 line-clamp-1">{p.offerName || "—"}</div>
-                      <div className="text-xs text-surface-500 mt-0.5">{p.clinicNameEn || "—"}</div>
+                      <div className="font-bold text-surface-900 line-clamp-1">{(p as any).customerName || p.offerName || "—"}</div>
+                      <div className="text-xs text-surface-500 mt-0.5">{p.offerName ? `${p.offerName} • ` : ""}{p.clinicNameEn || "—"}</div>
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-bold text-surface-900">{p.amountKwd} <span className="text-[10px] text-surface-500">KWD</span></div>
@@ -459,7 +459,10 @@ function PaymentsTab({ from, to }: { from: string; to: string }) {
                 <tbody>
                   {items.map((p: EnrichedPaymentItem) => (
                     <tr key={p.id}>
-                      <td className="font-mono text-[10px] text-surface-500 max-w-[80px] truncate">{p.userId}</td>
+                      <td className="font-medium text-surface-800 max-w-[120px]">
+                        <div className="truncate">{(p as any).customerName || p.userId}</div>
+                        {(p as any).customerPhone && <div className="text-[10px] text-surface-400 font-normal truncate">{(p as any).customerPhone}</div>}
+                      </td>
                       <td className="max-w-[140px]">
                         <div className="font-medium text-surface-800 truncate">{p.offerName || "—"}</div>
                         {p.membershipType && <div className="text-[10px] text-surface-400 capitalize">{p.membershipType}</div>}

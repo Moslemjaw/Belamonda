@@ -2977,7 +2977,7 @@ export default function CustomerDashboard() {
                   {ar() ? "تواصل مع العيادة وخدمة العملاء لتأكيد المواعيد." : "Coordinate with your clinic and customer relations to confirm appointments."}
                 </p>
               </div>
-              <ChatWidget conversationId={chatConvId} onRead={() => refetchChats()} />
+              <ChatWidget conversationId={chatConvId} onRead={() => refetchChats()} mobileBottomPadding={true} />
             </section>
           )}
 

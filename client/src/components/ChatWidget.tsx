@@ -95,6 +95,8 @@ interface Props {
   onRead?: () => void;
   /** If true, fetches clinic-only conversations. */
   clinicMode?: boolean;
+  /** If true, adds extra bottom padding on mobile to clear floating navigation bars. */
+  mobileBottomPadding?: boolean;
 }
 
 function getInitials(title: string): string {
@@ -106,7 +108,7 @@ function getInitials(title: string): string {
     .toUpperCase();
 }
 
-export default function ChatWidget({ conversationId: initialConvId, adminMode, showBookingActions, title, onRead, clinicMode }: Props) {
+export default function ChatWidget({ conversationId: initialConvId, adminMode, showBookingActions, title, onRead, clinicMode, mobileBottomPadding }: Props) {
   const { auth, getAuthHeader } = useAuth();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(initialConvId ?? null);
@@ -584,7 +586,7 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
               </div>
 
               {canSend && (
-                <div className="border-t border-surface-200 p-3 bg-white">
+                <div className={`border-t border-surface-200 p-3 bg-white ${mobileBottomPadding ? "pb-28 md:pb-3" : ""}`}>
                   {pendingAttach && (
                     <div className="text-xs text-surface-600 mb-2 flex items-center gap-2">
                       📎 {pendingAttach.filename}
