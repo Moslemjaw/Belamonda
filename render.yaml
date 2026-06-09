@@ -1,0 +1,17 @@
+# Blueprint: https://render.com/docs/blueprint-spec
+# After first deploy, set env vars in the Render dashboard (secrets are not committed):
+#   MONGODB_URI   — MongoDB Atlas connection string
+#   JWT_SECRET    — at least 32 random characters
+#   CLIENT_ORIGINS — your app URL, e.g. https://belamonda.onrender.com (comma-separated if several)
+services:
+  - type: web
+    name: belamonda
+    runtime: node
+    region: frankfurt
+    plan: free
+    buildCommand: npm run install:all && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
