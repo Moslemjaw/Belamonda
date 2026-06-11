@@ -616,7 +616,11 @@ usersRouter.patch("/me", authRequired, async (req, res, next) => {
         fullName: doc.fullName
       }
     });
-  } catch (e) {
+  } catch (e: any) {
+    if (e.code === 11000) {
+      const field = Object.keys(e.keyValue || {})[0] || "field";
+      return res.status(409).json({ error: `That ${field} is already in use by another account.` });
+    }
     next(e);
   }
 });
