@@ -1295,16 +1295,68 @@ function CustomersManager() {
   
   // Add Customer Modal states
   const [showAddModal, setShowAddModal] = useState(false);
-  type EnrollmentRow = { offerId: string; clinicId: string; purchaseMode: string; amountPaidKwd: string; method: string; isVerified: boolean; installmentCount: number };
+  
+  type CustomInstallment = { dueDate: string; amountKwd: string; isPaid: boolean; method: string; };
+  type EnrollmentRow = { 
+    offerId: string; 
+    clinicId: string; 
+    purchaseMode: string; 
+    amountPaidKwd: string; 
+    method: string; 
+    isVerified: boolean; 
+    installmentCount: number;
+    customInstallments?: CustomInstallment[];
+  };
+  
   const emptyRow: EnrollmentRow = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "cash", isVerified: true, installmentCount: 2 };
+  
   const [addForm, setAddForm] = useState({
     phone: "", fullName: "", email: "", password: "",
     enrollments: [{ ...emptyRow }] as EnrollmentRow[],
   });
   const [addingUser, setAddingUser] = useState(false);
 
+  // Dynamic public data
+  const { data: clinicsData } = useApi<{ items: any[] }>("/clinics");
+  const { data: offersData } = useApi<{ items: any[] }>("/offers");
+  const { data: plansData } = useApi<any[]>("/subscriptions/plans");
+
+  const generateInstallments = (count: number, offerId: string): CustomInstallment[] => {
+    const offer = offersData?.items?.find((o: any) => o.id === offerId || o._id === offerId);
+    const total = offer ? parseFloat(offer.subscriptionPriceKwd || "0") : 0;
+    const baseEach = Math.floor((total * 1000) / count) / 1000;
+    const remainder = total - (baseEach * count);
+    
+    const arr: CustomInstallment[] = [];
+    const now = new Date();
+    for (let i = 0; i < count; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() + (i * 30));
+      const amt = baseEach + (i === 0 ? remainder : 0);
+      arr.push({
+        dueDate: d.toISOString().split("T")[0],
+        amountKwd: amt.toFixed(3),
+        isPaid: i === 0,
+        method: "cash"
+      });
+    }
+    return arr;
+  };
+
   const updateEnrollment = (idx: number, patch: Partial<EnrollmentRow>) => {
-    setAddForm(p => ({ ...p, enrollments: p.enrollments.map((e, i) => i === idx ? { ...e, ...patch } : e) }));
+    setAddForm(p => {
+      const newList = [...p.enrollments];
+      const current = newList[idx];
+      
+      // Auto-generate installments if mode switched to installments or count changes
+      if (patch.purchaseMode === "installments" || (patch.installmentCount && current.purchaseMode === "installments")) {
+        const count = patch.installmentCount || current.installmentCount || 2;
+        patch.customInstallments = generateInstallments(count, patch.offerId || current.offerId);
+      }
+      
+      newList[idx] = { ...current, ...patch };
+      return { ...p, enrollments: newList };
+    });
   };
   const addEnrollmentRow = () => {
     setAddForm(p => ({ ...p, enrollments: [...p.enrollments, { ...emptyRow }] }));
@@ -1368,10 +1420,6 @@ function CustomersManager() {
   const [cashError, setCashError] = useState<string | null>(null);
   const [sessionAdjustingId, setSessionAdjustingId] = useState<string | null>(null);
 
-  // Dynamic public data
-  const { data: clinicsData } = useApi<{ items: any[] }>("/clinics");
-  const { data: offersData } = useApi<{ items: any[] }>("/offers");
-  const { data: plansData } = useApi<any[]>("/subscriptions/plans");
 
   const refetchProfile = async () => {
     if (!selectedUser) return;
@@ -2688,21 +2736,89 @@ function CustomersManager() {
                                   </select>
                                 </div>
                               )}
-                              <div>
-                                <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "المبلغ المدفوع اليوم (KWD)" : "Amount Paid Today (KWD)"}</label>
-                                <input type="number" step="0.001" className="input-field w-full font-mono text-brand-pink-700 font-bold" value={en.amountPaidKwd} onChange={e => updateEnrollment(idx, { amountPaidKwd: e.target.value })} placeholder="0.000" />
-                              </div>
-                              <div>
-                                <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
-                                <select className="select-field w-full" value={en.method} onChange={e => updateEnrollment(idx, { method: e.target.value })}>
-                                  <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
-                                  <option value="pos">POS</option>
-                                  <option value="bank_transfer">{ar() ? "رابط دفع خارجي" : "External Payment Link"}</option>
-                                  <option value="enet">ENET</option>
-                                  <option value="wallet">{ar() ? "محفظة كاش باك" : "Cashback Wallet"}</option>
-                                  <option value="other">{ar() ? "أخرى" : "Other"}</option>
-                                </select>
-                              </div>
+                              {en.purchaseMode !== "installments" ? (
+                                <>
+                                  <div>
+                                    <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "المبلغ المدفوع اليوم (KWD)" : "Amount Paid Today (KWD)"}</label>
+                                    <input type="number" step="0.001" className="input-field w-full font-mono text-brand-pink-700 font-bold" value={en.amountPaidKwd} onChange={e => updateEnrollment(idx, { amountPaidKwd: e.target.value })} placeholder="0.000" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
+                                    <select className="select-field w-full" value={en.method} onChange={e => updateEnrollment(idx, { method: e.target.value })}>
+                                      <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
+                                      <option value="pos">POS</option>
+                                      <option value="bank_transfer">{ar() ? "رابط دفع خارجي" : "External Payment Link"}</option>
+                                      <option value="enet">ENET</option>
+                                      <option value="wallet">{ar() ? "محفظة كاش باك" : "Cashback Wallet"}</option>
+                                      <option value="other">{ar() ? "أخرى" : "Other"}</option>
+                                    </select>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="sm:col-span-2 mt-2 space-y-3">
+                                  <label className="block text-xs font-bold text-surface-700">{ar() ? "جدول الأقساط" : "Installment Schedule"}</label>
+                                  <div className="bg-white border border-surface-200 rounded-xl overflow-hidden shadow-sm">
+                                    <table className="w-full text-left text-sm whitespace-nowrap">
+                                      <thead className="bg-surface-50 border-b border-surface-200 text-xs text-surface-500 uppercase">
+                                        <tr>
+                                          <th className="px-3 py-2 font-semibold">#</th>
+                                          <th className="px-3 py-2 font-semibold">{ar() ? "تاريخ الاستحقاق" : "Due Date"}</th>
+                                          <th className="px-3 py-2 font-semibold">{ar() ? "المبلغ" : "Amount (KWD)"}</th>
+                                          <th className="px-3 py-2 font-semibold text-center">{ar() ? "مدفوع؟" : "Paid?"}</th>
+                                          <th className="px-3 py-2 font-semibold">{ar() ? "الطريقة" : "Method"}</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-surface-100">
+                                        {(en.customInstallments || []).map((inst, iIdx) => (
+                                          <tr key={iIdx}>
+                                            <td className="px-3 py-2 font-bold text-surface-500">{iIdx + 1}</td>
+                                            <td className="px-3 py-2">
+                                              <input type="date" className="input-field text-xs py-1 px-2 w-full min-w-[110px]" value={inst.dueDate} onChange={e => {
+                                                const newInsts = [...(en.customInstallments || [])];
+                                                newInsts[iIdx].dueDate = e.target.value;
+                                                updateEnrollment(idx, { customInstallments: newInsts });
+                                              }} />
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <input type="number" step="0.001" className="input-field text-xs py-1 px-2 w-full min-w-[80px]" value={inst.amountKwd} onChange={e => {
+                                                const newInsts = [...(en.customInstallments || [])];
+                                                newInsts[iIdx].amountKwd = e.target.value;
+                                                updateEnrollment(idx, { customInstallments: newInsts });
+                                              }} />
+                                            </td>
+                                            <td className="px-3 py-2 text-center">
+                                              <input type="checkbox" className="w-4 h-4 text-brand-pink-600 rounded" checked={inst.isPaid} onChange={e => {
+                                                const newInsts = [...(en.customInstallments || [])];
+                                                newInsts[iIdx].isPaid = e.target.checked;
+                                                updateEnrollment(idx, { customInstallments: newInsts });
+                                              }} />
+                                            </td>
+                                            <td className="px-3 py-2">
+                                              <select className="select-field text-xs py-1 px-2 w-full min-w-[100px]" value={inst.method} disabled={!inst.isPaid} onChange={e => {
+                                                const newInsts = [...(en.customInstallments || [])];
+                                                newInsts[iIdx].method = e.target.value;
+                                                updateEnrollment(idx, { customInstallments: newInsts });
+                                              }}>
+                                                <option value="cash">{ar() ? "في العيادة" : "In Clinic"}</option>
+                                                <option value="pos">POS</option>
+                                                <option value="bank_transfer">{ar() ? "رابط دفع" : "Pay Link"}</option>
+                                                <option value="enet">ENET</option>
+                                                <option value="other">{ar() ? "أخرى" : "Other"}</option>
+                                              </select>
+                                            </td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                    <div className="px-4 py-2 bg-surface-50 border-t border-surface-200 flex justify-between text-xs font-bold text-surface-600">
+                                      <span>{ar() ? "المتبقي:" : "Amount Left:"}</span>
+                                      <span>
+                                        {Math.max(0, (offersData?.items?.find((o: any) => o.id === en.offerId || o._id === en.offerId)?.subscriptionPriceKwd || 0) - (en.customInstallments || []).reduce((sum, inst) => sum + (parseFloat(inst.amountKwd) || 0), 0)).toFixed(3)} KWD
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                               <div className="sm:col-span-2 mt-2 bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex items-start gap-3">
                                 <div className="flex items-center h-5">
                                   <input type="checkbox" id={`verifyPay-${idx}`} checked={en.isVerified} onChange={e => updateEnrollment(idx, { isVerified: e.target.checked })} className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-emerald-300" />

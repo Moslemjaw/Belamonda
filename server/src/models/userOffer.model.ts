@@ -9,7 +9,8 @@ const InstallmentEntrySchema = new Schema(
     dueDate: { type: Date },
     paid: { type: Boolean, default: false },
     paidAt: { type: Date },
-    paymentId: { type: Schema.Types.ObjectId, ref: "Payment" }
+    paymentId: { type: Schema.Types.ObjectId, ref: "Payment" },
+    method: { type: String }
   },
   { _id: false }
 );

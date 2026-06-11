@@ -630,7 +630,13 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       amountPaidKwd: z.string().optional(),
       method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "other"]).optional(),
       isVerified: z.boolean().optional(),
-      installmentCount: z.number().optional()
+      installmentCount: z.number().optional(),
+      customInstallments: z.array(z.object({
+        dueDate: z.string(),
+        amountKwd: z.string(),
+        isPaid: z.boolean(),
+        method: z.string()
+      })).optional()
     });
 
     const parsed = z.object({
@@ -671,7 +677,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
     }
 
     // Build enrollments list: either from new enrollments[] array or legacy single offerId
-    type EnrollmentItem = { offerId: string; clinicId?: string; purchaseMode?: string; amountPaidKwd?: string; method?: string; isVerified?: boolean; installmentCount?: number };
+    type EnrollmentItem = { offerId: string; clinicId?: string; purchaseMode?: string; amountPaidKwd?: string; method?: string; isVerified?: boolean; installmentCount?: number; customInstallments?: any[] };
     let enrollments: EnrollmentItem[] = [];
     if (d.enrollments && d.enrollments.length > 0) {
       enrollments = d.enrollments;
@@ -697,52 +703,98 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       const amountKwd = parseFloat(en.amountPaidKwd || "0").toFixed(3);
 
       let uoStatus = isVerified ? (purchaseMode === "deposit" ? "reserved" : "active") : "pending_payment";
-      const paymentStatus = isVerified ? "completed" : "pending";
       const expiresAt = new Date(now.getTime() + (offer.validityDays || 30) * 24 * 60 * 60 * 1000);
 
       let schedule: any[] = [];
+      let calculatedTotalPaidKwd = 0;
+      let installmentsPaidCount = 0;
+
       if (purchaseMode === "installments") {
-        const count = en.installmentCount === 3 ? 3 : 2;
-        const total = parseFloat(offer.subscriptionPriceKwd || "0");
-        const baseEach = Math.floor((total * 1000) / count) / 1000;
-        const remainder = total - (baseEach * count);
-        for (let i = 0; i < count; i++) {
-          const amt = baseEach + (i === 0 ? remainder : 0);
-          schedule.push({ number: i + 1, amountKwd: amt.toFixed(3), dueDate: new Date(now.getTime() + i * 30 * 24 * 60 * 60 * 1000), paid: i === 0 && isVerified, paidAt: (i === 0 && isVerified) ? now : null });
+        if (en.customInstallments && en.customInstallments.length > 0) {
+          schedule = en.customInstallments.map((inst: any, i: number) => {
+            const paid = inst.isPaid && isVerified;
+            if (paid) {
+              calculatedTotalPaidKwd += parseFloat(inst.amountKwd || "0");
+              installmentsPaidCount++;
+            }
+            return {
+              number: i + 1,
+              amountKwd: parseFloat(inst.amountKwd || "0").toFixed(3),
+              dueDate: new Date(inst.dueDate),
+              paid,
+              paidAt: paid ? now : null,
+              method: inst.method
+            };
+          });
+        } else {
+          // fallback to old logic
+          const count = en.installmentCount === 3 ? 3 : 2;
+          const total = parseFloat(offer.subscriptionPriceKwd || "0");
+          const baseEach = Math.floor((total * 1000) / count) / 1000;
+          const remainder = total - (baseEach * count);
+          for (let i = 0; i < count; i++) {
+            const amt = baseEach + (i === 0 ? remainder : 0);
+            const paid = i === 0 && isVerified;
+            if (paid) {
+              calculatedTotalPaidKwd += amt;
+              installmentsPaidCount++;
+            }
+            schedule.push({ number: i + 1, amountKwd: amt.toFixed(3), dueDate: new Date(now.getTime() + i * 30 * 24 * 60 * 60 * 1000), paid, paidAt: paid ? now : null, method: paid ? method : undefined });
+          }
         }
       }
 
+      const finalAmountKwd = purchaseMode === "installments" 
+        ? calculatedTotalPaidKwd.toFixed(3) 
+        : amountKwd;
+
       const uo = await UserOfferModel.create({
         userId: String(user._id), offerId: offer._id, clinicId: en.clinicId || undefined,
-        status: uoStatus, purchaseMode, paymentMethod: method, paymentAmountKwd: amountKwd, cashbackAppliedKwd: "0.000",
-        installmentCount: purchaseMode === "installments" ? (en.installmentCount === 3 ? 3 : 2) : undefined,
-        installmentsPaid: (purchaseMode === "installments" && isVerified) ? 1 : 0,
+        status: uoStatus, purchaseMode, paymentMethod: purchaseMode === "installments" ? "other" : method, paymentAmountKwd: finalAmountKwd, cashbackAppliedKwd: "0.000",
+        installmentCount: purchaseMode === "installments" ? schedule.length : undefined,
+        installmentsPaid: purchaseMode === "installments" ? installmentsPaidCount : 0,
         installmentSchedule: purchaseMode === "installments" ? schedule : undefined,
-        nextInstallmentDueAt: purchaseMode === "installments" ? schedule[isVerified ? 1 : 0]?.dueDate : undefined,
+        nextInstallmentDueAt: purchaseMode === "installments" ? schedule.find(s => !s.paid)?.dueDate : undefined,
         membershipType: offer.membershipType,
         activatedAt: (uoStatus === "active") ? now : undefined, expiresAt: (uoStatus === "active") ? expiresAt : undefined,
         paymentConfirmedBy: isVerified ? req.auth!.userId : undefined, paymentConfirmedAt: isVerified ? now : undefined,
       });
 
-      const payment = await PaymentModel.create({
-        userId: String(user._id), offerId: offer._id, userOfferId: uo._id,
-        amountKwd, grossAmountKwd: amountKwd, cashbackAppliedKwd: "0.000", method,
-        purpose: purchaseMode === "installments" ? "installment" : (purchaseMode === "deposit" ? "deposit" : "enrollment_full"),
-        status: paymentStatus, provider: "manual", isManual: true, manualLabel: "Admin Manual Enroll",
-        confirmedBy: isVerified ? req.auth!.userId : undefined, confirmedAt: isVerified ? now : undefined,
-        createdByUserId: req.auth!.userId, clinicId: en.clinicId || undefined,
-        installmentNumber: purchaseMode === "installments" ? 1 : undefined,
-      });
+      let firstPaymentId = null;
 
-      if (purchaseMode === "installments" && isVerified && schedule.length > 0) {
-        schedule[0].paymentId = payment._id;
-        await UserOfferModel.findByIdAndUpdate(uo._id, { $set: { installmentSchedule: schedule, paymentId: payment._id } });
-      } else if (uoStatus === "active" || uoStatus === "reserved") {
+      if (purchaseMode === "installments") {
+        for (let i = 0; i < schedule.length; i++) {
+          const inst = schedule[i];
+          if (inst.paid) {
+            const payment = await PaymentModel.create({
+              userId: String(user._id), offerId: offer._id, userOfferId: uo._id,
+              amountKwd: inst.amountKwd, grossAmountKwd: inst.amountKwd, cashbackAppliedKwd: "0.000", method: inst.method || "other",
+              purpose: "installment",
+              status: "completed", provider: "manual", isManual: true, manualLabel: "Admin Manual Enroll - Installment",
+              confirmedBy: req.auth!.userId, confirmedAt: now,
+              createdByUserId: req.auth!.userId, clinicId: en.clinicId || undefined,
+              installmentNumber: inst.number,
+            });
+            schedule[i].paymentId = payment._id;
+            if (!firstPaymentId) firstPaymentId = payment._id;
+          }
+        }
+        await UserOfferModel.findByIdAndUpdate(uo._id, { $set: { installmentSchedule: schedule, paymentId: firstPaymentId } });
+      } else {
+        const payment = await PaymentModel.create({
+          userId: String(user._id), offerId: offer._id, userOfferId: uo._id,
+          amountKwd: finalAmountKwd, grossAmountKwd: finalAmountKwd, cashbackAppliedKwd: "0.000", method,
+          purpose: purchaseMode === "deposit" ? "deposit" : "enrollment_full",
+          status: isVerified ? "completed" : "pending", provider: "manual", isManual: true, manualLabel: "Admin Manual Enroll",
+          confirmedBy: isVerified ? req.auth!.userId : undefined, confirmedAt: isVerified ? now : undefined,
+          createdByUserId: req.auth!.userId, clinicId: en.clinicId || undefined,
+        });
+        firstPaymentId = payment._id;
         await UserOfferModel.findByIdAndUpdate(uo._id, { $set: { paymentId: payment._id } });
       }
 
       await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
-      results.push({ offerId: en.offerId, userOfferId: String(uo._id), paymentId: String(payment._id) });
+      results.push({ offerId: en.offerId, userOfferId: String(uo._id), paymentId: firstPaymentId ? String(firstPaymentId) : undefined });
     }
 
     return res.json({
