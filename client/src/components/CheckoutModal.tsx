@@ -21,6 +21,9 @@ type Offer = {
   clinicTransferFeeKwd?: string;
   subscriptionPriceKwd: string;
   validityDays: number;
+  isGroupOffer?: boolean;
+  groupSizeRequired?: number;
+  groupRewardType?: string;
   allowFullPayment: boolean;
   allowInstallments: boolean;
   maxInstallments: number;
@@ -316,12 +319,19 @@ export default function CheckoutModal({
   // Resolve the effective subscription price — use branch override if available.
   const effectiveSubscriptionPriceKwd = useMemo(() => {
     const chosenId = needsBranchPicker ? selectedClinicId : (clinic?.id || allowedBranchIds[0] || "");
+    let priceKwd = offer.subscriptionPriceKwd;
     if (chosenId && offer.branchSubscriptionPrices?.length) {
       const match = offer.branchSubscriptionPrices.find((b) => b.clinicId === chosenId);
-      if (match) return match.priceKwd;
+      if (match) priceKwd = match.priceKwd;
     }
-    return offer.subscriptionPriceKwd;
-  }, [selectedClinicId, clinic, needsBranchPicker, allowedBranchIds, offer.branchSubscriptionPrices, offer.subscriptionPriceKwd]);
+    const isGroup = offer.isGroupOffer || offer.membershipType === "group";
+    if (isGroup && offer.groupRewardType === "split_bill" && offer.groupSizeRequired && offer.groupSizeRequired > 1) {
+      const totalMils = parseKwd(priceKwd);
+      const splitMils = Math.floor(totalMils / offer.groupSizeRequired);
+      priceKwd = fmtKwd(splitMils);
+    }
+    return priceKwd;
+  }, [selectedClinicId, clinic, needsBranchPicker, allowedBranchIds, offer.branchSubscriptionPrices, offer.subscriptionPriceKwd, offer.isGroupOffer, offer.membershipType, offer.groupRewardType, offer.groupSizeRequired]);
 
   const grossKwd = mode === "deposit" ? offer.depositAmountKwd : effectiveSubscriptionPriceKwd;
   const grossMils = parseKwd(grossKwd);

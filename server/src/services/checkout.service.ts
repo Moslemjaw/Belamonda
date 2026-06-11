@@ -121,11 +121,17 @@ export function resolvePurchaseClinicObjectId(
 
 /** Resolves the effective membership price, preferring the branch-specific override if one exists. */
 export function getEffectiveSubscriptionPrice(offer: OfferDoc, clinicId?: unknown): string {
+  let priceKwd = offer.subscriptionPriceKwd;
   if (clinicId && Array.isArray((offer as any).branchSubscriptionPrices)) {
     const override = (offer as any).branchSubscriptionPrices.find((b: any) => b.clinicId === String(clinicId));
-    if (override) return override.priceKwd;
+    if (override) priceKwd = override.priceKwd;
   }
-  return offer.subscriptionPriceKwd;
+  const isGroup = offer.isGroupOffer || offer.membershipType === "group";
+  if (isGroup && offer.groupRewardType === "split_bill" && offer.groupSizeRequired && offer.groupSizeRequired > 1) {
+    const totalMils = mils(priceKwd);
+    priceKwd = fmt(Math.floor(totalMils / offer.groupSizeRequired));
+  }
+  return priceKwd;
 }
 
 
