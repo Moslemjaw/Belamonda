@@ -1982,8 +1982,7 @@ export default function CustomerDashboard() {
                   const activeOffers = offers.filter(o => 
                     !(o.maxSessions && o.sessionsUsed >= o.maxSessions && !o.allowExtraPaidSessions) && 
                     !o.isStandalone &&
-                    o.status !== "expired" &&
-                    o.status !== "completed"
+                    (o.status === "active" || o.status === "pending_payment" || o.status === "reserved" || o.status === "pending payment")
                   );
                   return activeOffers.length === 0 ? (
                     <div className="bg-white border border-surface-200 border-dashed rounded-2xl sm:rounded-3xl p-6 sm:p-8 lg:p-10 text-center text-surface-500 flex flex-col items-center justify-center">

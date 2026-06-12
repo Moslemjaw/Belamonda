@@ -160,7 +160,7 @@ offersRouter.get("/", async (req, res, next) => {
 });
 
 // Admin list
-offersRouter.get("/admin", authRequired, requireRole(["admin"]), async (_req, res, next) => {
+offersRouter.get("/admin", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (_req, res, next) => {
   try {
     const items = await listOffersAdmin();
     return res.json({ items });

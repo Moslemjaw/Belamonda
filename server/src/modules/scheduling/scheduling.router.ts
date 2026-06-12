@@ -506,6 +506,16 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
        const bookingRoute: "clinic" | "cs" =
          parsed.data.schedulingMode === "belamonda_cs" ? "cs" : "clinic";
 
+       const openStatuses = ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted"];
+       const existingStandalone = await BookingRequestModel.findOne({
+         userId: req.auth!.userId,
+         isStandalone: true,
+         status: { $in: openStatuses }
+       });
+       if (existingStandalone) {
+         return res.status(409).json({ error: "ALREADY_HAVE_OPEN_REQUEST" });
+       }
+
        // Standalone booking flow: create booking request only.
        // Do NOT create Offer/UserOffer records.
        const standalonePrice = String(parsed.data.standalonePrice ?? "0.000");
@@ -582,6 +592,16 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     // Gate: required-before-booking e-forms
     if (pendingForms.length) {
       return res.status(409).json({ error: "EFORMS_REQUIRED", forms: pendingForms });
+    }
+
+    // Gate: prevent multiple open booking requests for the same membership
+    const openStatuses = ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted"];
+    const existingReq = await BookingRequestModel.findOne({
+      userOfferId: uo.id,
+      status: { $in: openStatuses }
+    });
+    if (existingReq) {
+      return res.status(409).json({ error: "ALREADY_HAVE_OPEN_REQUEST" });
     }
 
     // Calculate if this is an extra session

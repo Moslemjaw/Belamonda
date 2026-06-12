@@ -394,14 +394,12 @@ commerceRouter.post("/me/user-offers/:uoId/change-clinic", authRequired, require
 });
 
 /** Customer cancels their own active membership. */
-commerceRouter.delete("/me/user-offers/:id", authRequired, requireRole(["customer"]), async (req, res, next) => {
+commerceRouter.delete("/me/user-offers/:id", authRequired, async (req, res, next) => {
   try {
-    const { id } = req.params;
-    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "INVALID_ID" });
-    const uo = await UserOfferModel.findOne({ _id: id, userId: req.auth!.userId });
-    if (!uo) return res.status(404).json({ error: "Membership not found or not owned by you" });
-    const result = await userOfferService.cancelUserOffer(id);
-    if (result === "not_found") return res.status(404).json({ error: "Membership not found" });
+    const uo = await UserOfferModel.findOne({ _id: req.params.id, userId: req.auth!.userId }).lean();
+    if (!uo) return res.status(404).json({ error: "Not found" });
+    const result = await userOfferService.deleteUserOffer(req.params.id);
+    if (result === "not_found") return res.status(404).json({ error: "Not found" });
     if (result === "already_cancelled") return res.status(409).json({ error: "Already cancelled" });
     return res.json({ ok: true });
   } catch (e) {
@@ -814,7 +812,7 @@ commerceRouter.get("/admin/user-offers", authRequired, requireRole(["admin", "cs
 
 commerceRouter.delete("/admin/user-offers/:id", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
-    const result = await userOfferService.cancelUserOffer(req.params.id);
+    const result = await userOfferService.deleteUserOffer(req.params.id);
     if (result === "not_found") return res.status(404).json({ error: "Membership not found" });
     if (result === "already_cancelled") return res.status(409).json({ error: "Already cancelled" });
     return res.json({ ok: true });

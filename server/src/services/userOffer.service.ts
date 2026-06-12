@@ -218,12 +218,67 @@ export async function listAllUserOffers() {
   return attachOfferNames(serialized);
 }
 
-export async function cancelUserOffer(id: string): Promise<"ok" | "not_found" | "already_cancelled"> {
+export async function deleteUserOffer(id: string): Promise<"ok" | "not_found" | "already_cancelled"> {
   if (!mongoose.isValidObjectId(id)) return "not_found";
   const doc = await UserOfferModel.findById(id).lean<UserOfferDoc | null>();
   if (!doc) return "not_found";
-  if (doc.status === "cancelled") return "already_cancelled";
-  await UserOfferModel.findByIdAndUpdate(id, { $set: { status: "cancelled" } });
+
+  // Check for cashback to reverse
+  const { WalletModel, WalletTxnModel } = await import("../models/kyc.model.js");
+  
+  const walletTxns = await WalletTxnModel.find({
+    userId: doc.userId,
+    $or: [
+      { "reference.id": id },
+      { "reference.id": new RegExp(`^${id}_inst_`) }
+    ]
+  }).lean();
+
+  if (walletTxns.length > 0) {
+    const idsToDelete = walletTxns.map(t => t._id);
+    await WalletTxnModel.deleteMany({ _id: { $in: idsToDelete } });
+    
+    // Recalculate wallet for the user
+    const wallet = await WalletModel.findOne({ userId: doc.userId });
+    if (wallet) {
+      const allTxns = await WalletTxnModel.find({ userId: doc.userId }).sort({ createdAt: 1 }).lean();
+      let ceiling = 0, locked = 0, unlocked = 0;
+      for (const txn of allTxns as any[]) {
+        const amt = typeof txn.amountKwd === "string" ? kwdMils(txn.amountKwd) : 0;
+        switch (txn.type) {
+          case "offer_cashback_credit":
+            locked += amt; ceiling += amt; break;
+          case "installment_unlock":
+          case "signup_bonus":
+          case "unlock":
+            locked -= amt; unlocked += amt; break;
+          case "deduction":
+            unlocked -= amt; break;
+          case "adjustment":
+            unlocked += amt; break;
+          case "session_reward":
+          case "invoice_reward":
+            unlocked += amt; ceiling += amt; break;
+        }
+      }
+      wallet.lockedKwd = (Math.max(0, locked) / 1000).toFixed(3);
+      wallet.unlockedKwd = (Math.max(0, unlocked) / 1000).toFixed(3);
+      wallet.ceilingKwd = (Math.max(0, ceiling) / 1000).toFixed(3);
+      await wallet.save();
+    }
+  }
+
+  const { BookingRequestModel } = await import("../models/bookingRequest.model.js");
+  const { BookingSessionModel } = await import("../models/bookingSession.model.js");
+  const { PaymentModel } = await import("../models/payment.model.js");
+  const { ClinicChangeRequestModel } = await import("../models/clinicChangeRequest.model.js");
+
+  await BookingRequestModel.deleteMany({ userOfferId: id });
+  await BookingSessionModel.deleteMany({ userOfferId: id });
+  await PaymentModel.deleteMany({ userOfferId: id });
+  await ClinicChangeRequestModel.deleteMany({ userOfferId: id });
+
+  await UserOfferModel.findByIdAndDelete(id);
   return "ok";
 }
 

@@ -1319,7 +1319,7 @@ function CustomersManager() {
 
   // Dynamic public data
   const { data: clinicsData } = useApi<{ items: any[] }>("/clinics");
-  const { data: offersData } = useApi<{ items: any[] }>("/offers");
+  const { data: offersData } = useApi<{ items: any[] }>("/offers/admin");
   const { data: plansData } = useApi<any[]>("/subscriptions/plans");
 
   const generateInstallments = (count: number, offerId: string): CustomInstallment[] => {
