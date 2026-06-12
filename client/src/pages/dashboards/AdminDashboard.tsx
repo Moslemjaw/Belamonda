@@ -2138,6 +2138,8 @@ export function UserProfilePanel({
   const isAdmin = myRole === "admin";
   const isCS = myRole === "cs" || myRole === "cs_director" || myRole === "legal";
   const isFinance = myRole === "finance";
+  
+  const userIsActive = user.isActive ?? user.kyc;
 
   const [tab, setTab] = useState<ProfileTab>("overview");
   const [profile, setProfile] = useState<any>(null);
@@ -2249,7 +2251,7 @@ export function UserProfilePanel({
 
   const handleStatusToggle = async () => {
     if (!(isAdmin || isCS)) return;
-    const newActive = !user.kyc;
+    const newActive = !userIsActive;
     setStatusSaving(true);
     try {
       await apiFetch(`/users/admin/${user.id}`, {
@@ -2364,8 +2366,8 @@ export function UserProfilePanel({
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-lg font-bold text-surface-900">{user.fullName || user.username || user.phone || "—"}</h2>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[user.role] ?? "bg-surface-100 text-surface-600"}`}>{user.role}</span>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${user.kyc ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
-              {user.kyc ? (ar() ? "نشط" : "Active") : (ar() ? "معطّل" : "Disabled")}
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${userIsActive ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
+              {userIsActive ? (ar() ? "نشط" : "Active") : (ar() ? "معطّل" : "Disabled")}
             </span>
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
@@ -2470,11 +2472,11 @@ export function UserProfilePanel({
                   )}
                   {(isAdmin || isCS) && (
                     <button
-                      className={`btn-secondary btn-sm disabled:opacity-50 ${user.kyc ? "text-red-500 hover:bg-red-50 hover:border-red-200" : "text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200"}`}
+                      className={`btn-secondary btn-sm disabled:opacity-50 ${userIsActive ? "text-red-500 hover:bg-red-50 hover:border-red-200" : "text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200"}`}
                       disabled={statusSaving}
                       onClick={() => void handleStatusToggle()}
                     >
-                      {statusSaving ? "…" : user.kyc ? (ar() ? "تعطيل" : "Disable") : (ar() ? "تفعيل" : "Enable")}
+                      {statusSaving ? "…" : userIsActive ? (ar() ? "تعطيل" : "Disable") : (ar() ? "تفعيل" : "Enable")}
                     </button>
                   )}
                   {(isAdmin || isCS) && user.role === "customer" && (

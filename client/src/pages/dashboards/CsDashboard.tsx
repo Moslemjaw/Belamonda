@@ -1286,7 +1286,7 @@ function SchedulingTool() {
 }
 
 function CustomersManager() {
-  const { getAuthHeader } = useAuth();
+  const { getAuthHeader, impersonateUser } = useAuth();
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState<any[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
@@ -1620,9 +1620,17 @@ function CustomersManager() {
           <UserProfilePanel 
             user={selectedUser} 
             onClose={() => { setSelectedUser(null); }} 
-            onRoleChange={() => {}} 
-            onStatusChange={() => {}} 
-            onLoginAs={() => {}} 
+            onRoleChange={(role) => {
+              const updated = { ...selectedUser, role };
+              setSelectedUser(updated);
+              setUsers(users.map(u => u.id === updated.id ? updated : u));
+            }}
+            onStatusChange={(active) => {
+              const updated = { ...selectedUser, isActive: active };
+              setSelectedUser(updated);
+              setUsers(users.map(u => u.id === updated.id ? updated : u));
+            }}
+            onLoginAs={() => void impersonateUser(selectedUser.id).catch((e: any) => alert(e.message))}
           />
         </div>
       ) : (
