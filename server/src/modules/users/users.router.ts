@@ -949,3 +949,34 @@ usersRouter.patch("/admin/:id/subscription", authRequired, requireRole(["admin",
   }
 });
 
+usersRouter.delete("/:id/all-data", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const objectId = new mongoose.Types.ObjectId(id);
+    const db = mongoose.connection.db;
+    if (!db) {
+      return res.status(500).json({ error: "DB_NOT_CONNECTED" });
+    }
+
+    const collections = await db.listCollections().toArray();
+    for (const col of collections) {
+      const collection = db.collection(col.name);
+      await collection.deleteMany({ userId: id });
+      await collection.deleteMany({ userId: objectId });
+      
+      // Also delete the user from the users collection itself
+      if (col.name === "users") {
+        await collection.deleteOne({ _id: objectId });
+      }
+    }
+
+    return res.json({ success: true, message: "User and all related data deleted successfully." });
+  } catch (e) {
+    next(e);
+  }
+});
+

@@ -2462,6 +2462,23 @@ export function UserProfilePanel({
                       {statusSaving ? "…" : user.kyc ? (ar() ? "تعطيل" : "Disable") : (ar() ? "تفعيل" : "Enable")}
                     </button>
                   )}
+                  {isAdmin && user.role === "customer" && (
+                    <button
+                      className="btn-secondary btn-sm disabled:opacity-50 text-red-600 hover:bg-red-50 hover:border-red-200"
+                      onClick={async () => {
+                        if (!window.confirm(ar() ? "هل أنت متأكد أنك تريد حذف هذا العميل وجميع بياناته بشكل نهائي؟ لا يمكن التراجع عن هذا الإجراء." : "Are you sure you want to permanently delete this customer and all their associated data? This action cannot be undone.")) return;
+                        try {
+                          await apiFetch(`/users/${user._id}/all-data`, { method: "DELETE", headers: getAuthHeader() });
+                          alert(ar() ? "تم الحذف بنجاح" : "Customer and data deleted successfully.");
+                          void fetchUsers();
+                        } catch (err: any) {
+                          alert(err.message || "Failed to delete user data");
+                        }
+                      }}
+                    >
+                      {ar() ? "حذف العميل والبيانات" : "Delete Customer & All Data"}
+                    </button>
+                  )}
                 </div>
               </div>
             )}
