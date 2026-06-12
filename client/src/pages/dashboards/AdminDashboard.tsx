@@ -2184,14 +2184,14 @@ export function UserProfilePanel({
   }));
 
   useEffect(() => {
-    if (!isAdmin) return;
+    if (!isAdmin && !isCS) return;
     apiFetch("/offers/admin", { headers: getAuthHeader() })
       .then((d: any) => setAllOffers(d.items ?? []))
       .catch(() => {});
     apiFetch("/clinics", { headers: getAuthHeader() })
       .then((d: any) => setAllClinics(Array.isArray(d) ? d : (d.items ?? [])))
       .catch(() => {});
-  }, [isAdmin]);
+  }, [isAdmin, isCS]);
 
   const handleGrantMembership = async () => {
     if (grantEnrollments.some(e => !e.offerId)) { setGrantError(ar() ? "الرجاء اختيار العرض" : "Select an offer for all rows"); return; }
@@ -2507,8 +2507,8 @@ export function UserProfilePanel({
             {/* ── MEMBERSHIPS ── */}
             {tab === "memberships" && (
               <div className="space-y-3">
-                {/* Grant Membership (admin only) */}
-                {isAdmin && (
+                {/* Grant Membership (admin or CS) */}
+                {(isAdmin || isCS) && (
                   <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-4">
                       <div className="text-xs font-bold text-emerald-800 uppercase">{ar() ? "منح عضوية" : "Grant Membership"}</div>
