@@ -2468,7 +2468,7 @@ export function UserProfilePanel({
                       onClick={async () => {
                         if (!window.confirm(ar() ? "هل أنت متأكد أنك تريد حذف هذا العميل وجميع بياناته بشكل نهائي؟ لا يمكن التراجع عن هذا الإجراء." : "Are you sure you want to permanently delete this customer and all their associated data? This action cannot be undone.")) return;
                         try {
-                          await apiFetch(`/users/${user._id}/all-data`, { method: "DELETE", headers: getAuthHeader() });
+                          await apiFetch(`/users/${user.id}/all-data`, { method: "DELETE", headers: getAuthHeader() });
                           alert(ar() ? "تم الحذف بنجاح" : "Customer and data deleted successfully.");
                           void fetchUsers();
                         } catch (err: any) {
