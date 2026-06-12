@@ -2136,7 +2136,7 @@ export function UserProfilePanel({
   const { auth, getAuthHeader } = useAuth();
   const myRole = auth?.role ?? "";
   const isAdmin = myRole === "admin";
-  const isCS = myRole === "cs";
+  const isCS = myRole === "cs" || myRole === "cs_director" || myRole === "legal";
   const isFinance = myRole === "finance";
 
   const [tab, setTab] = useState<ProfileTab>("overview");
@@ -2388,7 +2388,7 @@ export function UserProfilePanel({
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {(isAdmin || isFinance) && (
+          {(isAdmin || isFinance || isCS) && (
             <button
               className="btn-secondary btn-sm flex items-center gap-1.5 text-emerald-700 hover:bg-emerald-50 border-emerald-200"
               onClick={() => void downloadExcel(`/users/admin/${user.id}/export`, `user_${user.name}_report.xlsx`)}
