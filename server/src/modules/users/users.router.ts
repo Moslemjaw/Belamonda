@@ -798,6 +798,21 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       }
 
       await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
+
+      // Grant cashback for manual enrollments (same as regular checkout)
+      if (isVerified && uoStatus === "active") {
+        const { grantCashbackForPayment } = await import("../../services/checkout.service.js");
+        if (purchaseMode === "installments") {
+          // Grant proportionally for each paid installment
+          for (let i = 0; i < installmentsPaidCount; i++) {
+            await grantCashbackForPayment(String(user._id), offer, String(uo._id), i + 1, schedule.length);
+          }
+        } else {
+          // Full payment — grant all at once
+          await grantCashbackForPayment(String(user._id), offer, String(uo._id), 1, 1);
+        }
+      }
+
       results.push({ offerId: en.offerId, userOfferId: String(uo._id), paymentId: firstPaymentId ? String(firstPaymentId) : undefined });
     }
 

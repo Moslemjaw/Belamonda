@@ -302,7 +302,7 @@ function buildSchedule(perAmount: string, count: number, firstDueOffsetDays = 0,
  *
  * For full payment, call with installmentNumber=1, totalInstallments=1.
  */
-async function grantCashbackForPayment(
+export async function grantCashbackForPayment(
   userId: string,
   offer: OfferDoc | { signupCashbackKwd?: string },
   userOfferId: string,
