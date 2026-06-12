@@ -248,7 +248,7 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
 });
 
 // Per-user Excel export — admin / finance
-usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "finance"]), async (req, res, next) => {
+usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "finance", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const { id } = req.params;
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "INVALID_ID" });
@@ -826,7 +826,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
   }
 });
 
-usersRouter.patch("/admin/:id", authRequired, requireRole(["admin"]), async (req, res, next) => {
+usersRouter.patch("/admin/:id", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
     const parsed = z
@@ -964,7 +964,7 @@ usersRouter.patch("/admin/:id/subscription", authRequired, requireRole(["admin",
   }
 });
 
-usersRouter.delete("/:id/all-data", authRequired, requireRole(["admin"]), async (req, res, next) => {
+usersRouter.delete("/:id/all-data", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {

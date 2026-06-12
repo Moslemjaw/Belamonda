@@ -2230,7 +2230,7 @@ export function UserProfilePanel({
   }, [user.id]);
 
   const handleRoleSave = async () => {
-    if (!isAdmin || !pendingRole || pendingRole === user.role) return;
+    if (!(isAdmin || isCS) || !pendingRole || pendingRole === user.role) return;
     setRoleChanging(true);
     setRoleSaveError(null);
     try {
@@ -2248,7 +2248,7 @@ export function UserProfilePanel({
   };
 
   const handleStatusToggle = async () => {
-    if (!isAdmin) return;
+    if (!(isAdmin || isCS)) return;
     const newActive = !user.kyc;
     setStatusSaving(true);
     try {
@@ -2268,23 +2268,17 @@ export function UserProfilePanel({
   const handleCashbackAdjust = async (sign: 1 | -1) => {
     const amt = parseFloat(cashAmt);
     if (!amt || amt <= 0) { setCashError(ar() ? "أدخل مبلغاً صحيحاً" : "Enter a valid amount"); return; }
-    if (isAdmin && !cashReason.trim()) { setCashError(ar() ? "السبب مطلوب" : "Reason is required"); return; }
+    if ((isAdmin || isCS) && !cashReason.trim()) { setCashError(ar() ? "السبب مطلوب" : "Reason is required"); return; }
     setCashSaving(true);
     setCashError(null);
     try {
       const kwd = `${Math.floor(amt)}.${String(Math.round((amt % 1) * 1000)).padStart(3, "0")}`;
       const signedKwd = sign === -1 ? `-${kwd}` : kwd;
-      if (isAdmin) {
+      if (isAdmin || isCS) {
         await apiFetch("/wallet/admin/adjust", {
           method: "POST",
           headers: getAuthHeader(),
           body: JSON.stringify({ userId: user.id, amountKwd: signedKwd, reason: cashReason })
-        });
-      } else if (isCS && sign === -1) {
-        await apiFetch("/wallet/cs/deduct", {
-          method: "POST",
-          headers: getAuthHeader(),
-          body: JSON.stringify({ userId: user.id, amountKwd: kwd, reference: { kind: "userOffer", id: "cs_manual" } })
         });
       }
       setCashAmt("");
@@ -2451,8 +2445,8 @@ export function UserProfilePanel({
                 </div>
                 {/* Membership card */}
                 {user.role === "customer" && <AdminCustomerCard userId={user.id} />}
-                {/* Role change (admin only) */}
-                {isAdmin && (
+                {/* Role change (admin or CS) */}
+                {(isAdmin || isCS) && (
                   <div className="bg-white rounded-xl p-4 border border-surface-200">
                     <div className="text-xs font-bold text-surface-500 uppercase mb-2">{ar() ? "تغيير الدور" : "Change Role"}</div>
                     <div className="flex gap-2 flex-wrap">
@@ -2468,13 +2462,13 @@ export function UserProfilePanel({
                 )}
                 {/* Action buttons */}
                 <div className="flex gap-2 flex-wrap pt-2">
-                  {isAdmin && (
+                  {(isAdmin || isCS) && (
                     <button className="btn-primary btn-sm flex items-center gap-1.5" onClick={onLoginAs}>
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg>
                       {ar() ? "دخول كـ مستخدم" : "Login As User"}
                     </button>
                   )}
-                  {isAdmin && (
+                  {(isAdmin || isCS) && (
                     <button
                       className={`btn-secondary btn-sm disabled:opacity-50 ${user.kyc ? "text-red-500 hover:bg-red-50 hover:border-red-200" : "text-emerald-600 hover:bg-emerald-50 hover:border-emerald-200"}`}
                       disabled={statusSaving}
@@ -2483,7 +2477,7 @@ export function UserProfilePanel({
                       {statusSaving ? "…" : user.kyc ? (ar() ? "تعطيل" : "Disable") : (ar() ? "تفعيل" : "Enable")}
                     </button>
                   )}
-                  {isAdmin && user.role === "customer" && (
+                  {(isAdmin || isCS) && user.role === "customer" && (
                     <button
                       className="btn-secondary btn-sm disabled:opacity-50 text-red-600 hover:bg-red-50 hover:border-red-200"
                       onClick={async () => {
@@ -2769,7 +2763,7 @@ export function UserProfilePanel({
                         value={cashAmt}
                         onChange={e => setCashAmt(e.target.value)}
                       />
-                      {isAdmin && (
+                      {(isAdmin || isCS) && (
                         <input
                           type="text"
                           placeholder={ar() ? "السبب (مطلوب)" : "Reason (required)"}
@@ -2780,7 +2774,7 @@ export function UserProfilePanel({
                       )}
                     </div>
                     <div className="flex gap-2 mt-2">
-                      {isAdmin && (
+                      {(isAdmin || isCS) && (
                         <button className="btn-primary btn-sm flex-1 disabled:opacity-50" disabled={cashSaving} onClick={() => void handleCashbackAdjust(1)}>
                           {cashSaving ? "…" : (ar() ? "+ إضافة" : "+ Add")}
                         </button>
