@@ -732,7 +732,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
           });
         } else {
           // fallback to old logic
-          const count = en.installmentCount === 3 ? 3 : 2;
+          const count = en.installmentCount || 2;
           const total = parseFloat(offer.subscriptionPriceKwd || "0");
           const baseEach = Math.floor((total * 1000) / count) / 1000;
           const remainder = total - (baseEach * count);

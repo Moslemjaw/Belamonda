@@ -2561,6 +2561,7 @@ export function UserProfilePanel({
                                   <select className="select-field w-full" value={en.installmentCount} onChange={e => updateGrantEnrollment(idx, { installmentCount: Number(e.target.value) })}>
                                     <option value="2">2</option>
                                     <option value="3">3</option>
+                                    <option value="4">4</option>
                                   </select>
                                 </div>
                               )}
@@ -3354,6 +3355,7 @@ export function UsersManager() {
                                   <select className="select-field w-full" value={en.installmentCount} onChange={e => updateEnrollment(idx, { installmentCount: Number(e.target.value) })}>
                                     <option value="2">2</option>
                                     <option value="3">3</option>
+                                    <option value="4">4</option>
                                   </select>
                                 </div>
                               )}
