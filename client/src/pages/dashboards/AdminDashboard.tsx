@@ -2706,6 +2706,32 @@ export function UserProfilePanel({
                         <div><span className="text-surface-400">{ar() ? "الانتهاء" : "Expires"}</span><div className="font-bold mt-0.5">{fmt(m.expiresAt)}</div></div>
                         <div><span className="text-surface-400">{ar() ? "تاريخ الإنشاء" : "Created"}</span><div className="font-bold mt-0.5">{fmt(m.createdAt)}</div></div>
                       </div>
+                      <div className="mt-4 pt-3 border-t border-surface-100 flex justify-end">
+                        <button
+                          onClick={async () => {
+                            const confirmCancel = window.confirm(
+                              ar()
+                                ? "هل أنت متأكد من حذف هذه العضوية؟"
+                                : "Are you sure you want to delete this membership?"
+                            );
+                            if (!confirmCancel) return;
+                            try {
+                              await apiFetch(`/commerce/admin/user-offers/${m.id}`, {
+                                method: "DELETE",
+                                headers: getAuthHeader()
+                              });
+                              const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
+                              setProfile(d);
+                            } catch (e: any) {
+                              alert(e.message || "Failed to cancel membership");
+                            }
+                          }}
+                          className="flex items-center gap-1.5 text-xs text-red-500 hover:text-red-700 font-bold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl transition-colors"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          {ar() ? "حذف العضوية" : "Delete Membership"}
+                        </button>
+                      </div>
                     </div>
                   );
                 })}

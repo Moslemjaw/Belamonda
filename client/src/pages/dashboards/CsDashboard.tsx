@@ -1389,21 +1389,55 @@ function CustomersManager() {
   };
 
   // Grant modal states
-  const [showGrantModal, setShowGrantModal] = useState(false);
-  const [grantType, setGrantType] = useState<"offer" | "session">("session");
-  const [grantItem, setGrantItem] = useState("");
-  const [grantClinicId, setGrantClinicId] = useState("");
-  const [grantPaid, setGrantPaid] = useState(false);
-  const [grantPrice, setGrantPrice] = useState("0.000");
-  const [grantScheduledAt, setGrantScheduledAt] = useState("");
-  const [grantOfferId, setGrantOfferId] = useState("");
-  const [grantSessionsUsed, setGrantSessionsUsed] = useState(0);
-  const [grantCustomName, setGrantCustomName] = useState("");
-  const [grantCustomSessions, setGrantCustomSessions] = useState("10");
-  const [grantCustomPrice, setGrantCustomPrice] = useState("0.000");
-  const [grantMembershipType, setGrantMembershipType] = useState("free_sessions");
+  const defaultGrantEnrollment = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "bank_transfer", isVerified: true, installmentCount: 2, customInstallments: [] };
+  const [grantEnrollments, setGrantEnrollments] = useState<any[]>([{ ...defaultGrantEnrollment }]);
   const [grantSaving, setGrantSaving] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
+  const [grantSuccess, setGrantSuccess] = useState(false);
+
+  const addGrantEnrollmentRow = () => setGrantEnrollments(p => [...p, { ...defaultGrantEnrollment }]);
+  const removeGrantEnrollmentRow = (idx: number) => setGrantEnrollments(p => p.filter((_, i) => i !== idx));
+  const updateGrantEnrollment = (idx: number, updates: any) => setGrantEnrollments(p => p.map((x, i) => {
+    if (i !== idx) return x;
+    const next = { ...x, ...updates };
+    if (updates.purchaseMode === "installments" || (updates.installmentCount && next.purchaseMode === "installments")) {
+      const count = next.installmentCount || 2;
+      const arr = [];
+      const now = new Date();
+      for (let j = 0; j < count; j++) {
+        const d = new Date(now.getTime() + j * 30 * 24 * 60 * 60 * 1000);
+        arr.push({ dueDate: d.toISOString().split("T")[0], amountKwd: "", isPaid: false, method: "cash" });
+      }
+      next.customInstallments = arr;
+    }
+    return next;
+  }));
+
+  const handleGrantMembership = async () => {
+    if (grantEnrollments.some(e => !e.offerId)) { setGrantError(ar() ? "الرجاء اختيار العرض" : "Select an offer for all rows"); return; }
+    setGrantSaving(true);
+    setGrantError(null);
+    setGrantSuccess(false);
+    try {
+      await apiFetch("/users/admin/manual-enroll", {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ 
+          phone: selectedUser.phone || selectedUser.username || `phone_${selectedUser.id}`, 
+          fullName: selectedUser.fullName || "Customer", 
+          email: selectedUser.email,
+          enrollments: grantEnrollments 
+        }),
+      });
+      setGrantSuccess(true);
+      setGrantEnrollments([{ ...defaultGrantEnrollment }]);
+      await refetchProfile();
+    } catch (e: any) {
+      setGrantError(e.message);
+    } finally {
+      setGrantSaving(false);
+    }
+  };
 
   // Clinic Transfer modal states
   const [clinicChangeModal, setClinicChangeModal] = useState<{ type: "membership" | "session" | "request"; id: string; currentClinicId: string; defaultFee: string } | null>(null);
@@ -1759,6 +1793,158 @@ function CustomersManager() {
                   {ar() ? "الاشتراكات والعروض" : "Memberships & Offers"}
                   <span className="bg-brand-pink-100 text-brand-pink-700 text-[10px] px-2 py-0.5 rounded-md">{(profile?.memberships ?? []).length}</span>
                 </h4>
+
+                {/* Grant Membership */}
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="text-xs font-bold text-emerald-800 uppercase">{ar() ? "منح عضوية" : "Grant Membership"}</div>
+                    <button type="button" onClick={addGrantEnrollmentRow} className="text-xs font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
+                      {ar() ? "إضافة باقة أخرى" : "Add Another"}
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    {grantEnrollments.map((en, idx) => (
+                      <div key={idx} className="relative bg-white rounded-xl border border-emerald-100 shadow-sm overflow-hidden p-4">
+                        {grantEnrollments.length > 1 && (
+                          <button type="button" onClick={() => removeGrantEnrollmentRow(idx)} className="absolute top-3 rtl:left-3 ltr:right-3 w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-100 flex items-center justify-center transition-colors z-10" title={ar() ? "إزالة" : "Remove"}>
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "اختيار باقة/جلسة" : "Select Offer/Session"}</label>
+                            <select className="select-field w-full bg-surface-50" value={en.offerId} onChange={e => updateGrantEnrollment(idx, { offerId: e.target.value })}>
+                              <option value="">{ar() ? "-- بدون اشتراك --" : "-- No Membership --"}</option>
+                              {(offersData?.items || []).map((o: any) => <option key={o.id || o._id} value={o.id || o._id}>{ar() ? o.nameAr || o.name : o.name}</option>)}
+                            </select>
+                          </div>
+                          {en.offerId && (
+                            <div>
+                              <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "العيادة (إن وجدت)" : "Clinic (if applicable)"}</label>
+                              <select className="select-field w-full bg-surface-50" value={en.clinicId} onChange={e => updateGrantEnrollment(idx, { clinicId: e.target.value })}>
+                                <option value="">{ar() ? "غير محدد" : "None"}</option>
+                                {(clinicsData?.items || []).map((c: any) => <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr || c.nameEn : c.nameEn}</option>)}
+                              </select>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {en.offerId && (
+                          <div className="pt-4 mt-4 border-t border-surface-100 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "نوع الدفع" : "Purchase Mode"}</label>
+                              <select className="select-field w-full" value={en.purchaseMode} onChange={e => updateGrantEnrollment(idx, { purchaseMode: e.target.value })}>
+                                <option value="full">{ar() ? "دفع كامل" : "Full Payment"}</option>
+                                <option value="installments">{ar() ? "أقساط" : "Installments"}</option>
+                                <option value="deposit">{ar() ? "عربون" : "Deposit"}</option>
+                              </select>
+                            </div>
+                            {en.purchaseMode === "installments" && (
+                              <div>
+                                <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "عدد الأقساط" : "Installment Count"}</label>
+                                <select className="select-field w-full" value={en.installmentCount} onChange={e => updateGrantEnrollment(idx, { installmentCount: Number(e.target.value) })}>
+                                  <option value="2">2</option>
+                                  <option value="3">3</option>
+                                  <option value="4">4</option>
+                                </select>
+                              </div>
+                            )}
+                            {en.purchaseMode !== "installments" ? (
+                              <>
+                                <div>
+                                  <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "المبلغ المدفوع (KWD)" : "Amount Paid (KWD)"}</label>
+                                  <input type="number" step="0.001" className="input-field w-full font-mono text-emerald-700 font-bold" value={en.amountPaidKwd} onChange={e => updateGrantEnrollment(idx, { amountPaidKwd: e.target.value })} placeholder="0.000" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
+                                  <select className="select-field w-full" value={en.method} onChange={e => updateGrantEnrollment(idx, { method: e.target.value })}>
+                                    <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
+                                    <option value="pos">POS</option>
+                                    <option value="bank_transfer">{ar() ? "رابط دفع خارجي" : "External Payment Link"}</option>
+                                    <option value="enet">ENET</option>
+                                    <option value="wallet">{ar() ? "محفظة كاش باك" : "Cashback Wallet"}</option>
+                                    <option value="other">{ar() ? "أخرى" : "Other"}</option>
+                                  </select>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="sm:col-span-2 mt-2 space-y-3">
+                                <label className="block text-xs font-bold text-surface-700">{ar() ? "جدول الأقساط" : "Installment Schedule"}</label>
+                                <div className="bg-white border border-surface-200 rounded-xl overflow-hidden shadow-sm">
+                                  <table className="w-full text-left text-sm whitespace-nowrap">
+                                    <thead className="bg-surface-50 border-b border-surface-200 text-xs text-surface-500 uppercase">
+                                      <tr>
+                                        <th className="px-3 py-2 font-semibold">#</th>
+                                        <th className="px-3 py-2 font-semibold">{ar() ? "تاريخ الاستحقاق" : "Due Date"}</th>
+                                        <th className="px-3 py-2 font-semibold">{ar() ? "المبلغ" : "Amount (KWD)"}</th>
+                                        <th className="px-3 py-2 font-semibold text-center">{ar() ? "مدفوع؟" : "Paid?"}</th>
+                                        <th className="px-3 py-2 font-semibold">{ar() ? "الطريقة" : "Method"}</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-surface-100">
+                                      {(en.customInstallments || []).map((inst: any, iIdx: number) => (
+                                        <tr key={iIdx}>
+                                          <td className="px-3 py-2 font-bold text-surface-500">{iIdx + 1}</td>
+                                          <td className="px-3 py-2">
+                                            <input type="date" className="input-field text-xs py-1 px-2 w-full min-w-[110px]" value={inst.dueDate} onChange={e => {
+                                              const newInsts = [...(en.customInstallments || [])];
+                                              newInsts[iIdx].dueDate = e.target.value;
+                                              updateGrantEnrollment(idx, { customInstallments: newInsts });
+                                            }} />
+                                          </td>
+                                          <td className="px-3 py-2">
+                                            <input type="number" step="0.001" className="input-field text-xs py-1 px-2 w-full min-w-[80px]" value={inst.amountKwd} onChange={e => {
+                                              const newInsts = [...(en.customInstallments || [])];
+                                              newInsts[iIdx].amountKwd = e.target.value;
+                                              updateGrantEnrollment(idx, { customInstallments: newInsts });
+                                            }} />
+                                          </td>
+                                          <td className="px-3 py-2 text-center">
+                                            <input type="checkbox" className="w-4 h-4 text-emerald-600 rounded" checked={inst.isPaid} onChange={e => {
+                                              const newInsts = [...(en.customInstallments || [])];
+                                              newInsts[iIdx].isPaid = e.target.checked;
+                                              updateGrantEnrollment(idx, { customInstallments: newInsts });
+                                            }} />
+                                          </td>
+                                          <td className="px-3 py-2">
+                                            <select className="select-field text-xs py-1 px-2 w-full min-w-[100px]" value={inst.method} disabled={!inst.isPaid} onChange={e => {
+                                              const newInsts = [...(en.customInstallments || [])];
+                                              newInsts[iIdx].method = e.target.value;
+                                              updateGrantEnrollment(idx, { customInstallments: newInsts });
+                                            }}>
+                                              <option value="cash">{ar() ? "في العيادة" : "In Clinic"}</option>
+                                              <option value="pos">POS</option>
+                                              <option value="bank_transfer">{ar() ? "رابط دفع" : "Pay Link"}</option>
+                                            </select>
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 flex items-center gap-4">
+                    <button
+                      className="btn-primary"
+                      disabled={grantSaving}
+                      onClick={() => void handleGrantMembership()}
+                    >
+                      {grantSaving ? "…" : (ar() ? "حفظ باقات العضوية" : "Grant Memberships")}
+                    </button>
+                    {grantError && <div className="text-xs text-red-600">{grantError}</div>}
+                    {grantSuccess && <div className="text-xs text-emerald-700 font-medium">✓ {ar() ? "تم منح العضوية بنجاح" : "Membership granted successfully"}</div>}
+                  </div>
+                </div>
+
                 {!(profile?.memberships?.length) ? (
                   <div className="bg-white rounded-xl p-8 border border-surface-100 flex flex-col items-center justify-center text-center">
                     <div className="w-12 h-12 bg-brand-pink-50 rounded-full flex items-center justify-center mb-3">
