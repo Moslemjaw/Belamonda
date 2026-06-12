@@ -2470,7 +2470,7 @@ export function UserProfilePanel({
                         try {
                           await apiFetch(`/users/${user.id}/all-data`, { method: "DELETE", headers: getAuthHeader() });
                           alert(ar() ? "تم الحذف بنجاح" : "Customer and data deleted successfully.");
-                          void fetchUsers();
+                          window.location.reload();
                         } catch (err: any) {
                           alert(err.message || "Failed to delete user data");
                         }
