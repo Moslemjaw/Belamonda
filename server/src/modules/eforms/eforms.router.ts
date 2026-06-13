@@ -550,7 +550,15 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
       let display = "—";
       if (Array.isArray(value)) display = value.join(", ");
       else if (value !== undefined && value !== null && value !== "") display = String(value);
-      if (f.type === "signature" || f.type === "file_upload") display = lang === "ar" ? "(مرفق)" : "(see attached)";
+
+      // For signature/file, show inline image or label
+      if (f.type === "signature") {
+        // Skip – we render a dedicated signature box below
+        continue;
+      }
+      if (f.type === "file_upload") {
+        display = lang === "ar" ? "(مرفق)" : "(see attached)";
+      }
       
       let label = f.labelEn;
       if (lang === "ar" && f.labelAr) label = f.labelAr;
@@ -561,238 +569,257 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
       
       fieldsHtml += `
         <div class="field-row">
-          <div class="field-label">${safeLabel}${f.required ? " *" : ""}</div>
+          <div class="field-label">${safeLabel}${f.required ? " <span class='req'>*</span>" : ""}</div>
           <div class="field-value">${safeDisplay}</div>
         </div>
       `;
     }
 
+    // ── Signature block ──
     let signatureHtml = "";
-    const sigTitle = lang === "en" ? "Customer Signature" : lang === "ar" ? "توقيع المشترك" : "Customer Signature / توقيع المشترك";
-    const sigMissing = lang === "en" ? "Signature stored electronically." : lang === "ar" ? "تم حفظ التوقيع إلكترونياً" : "Signature stored electronically.<br/><span style=\"font-size: 11px;\">تم حفظ التوقيع إلكترونياً</span>";
+    const sigTitle = lang === "en" ? "Customer Signature" : lang === "ar" ? "توقيع المشترك" : "توقيع المشترك / Customer Signature";
+    const sigMissing = lang === "en"
+      ? "Signature stored electronically."
+      : lang === "ar"
+        ? "تم حفظ التوقيع إلكترونياً"
+        : "تم حفظ التوقيع إلكترونياً<br/>Signature stored electronically.";
 
     if (sub.signatureRef) {
+      let imgSrc = "";
       if (sub.signatureRef.startsWith("data:image/")) {
-        signatureHtml = `
-          <div class="signature-box">
-            <div class="signature-title">${sigTitle}</div>
-            <img class="signature-img" src="${sub.signatureRef}" alt="Signature" />
-            <div class="signature-meta">
-              Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}<br>
-              IP: ${sub.ip ?? "—"} | User Agent: ${sub.userAgent ?? "—"}
-            </div>
-          </div>
-        `;
+        imgSrc = sub.signatureRef;
       } else {
         const sigPath = path.resolve(process.cwd(), "uploads", sub.signatureRef.replace(/^\/?uploads\//, ""));
         if (fs.existsSync(sigPath)) {
           try {
             const base64 = fs.readFileSync(sigPath).toString("base64");
             const ext = sigPath.endsWith(".jpg") || sigPath.endsWith(".jpeg") ? "jpeg" : "png";
-            signatureHtml = `
-              <div class="signature-box">
-                <div class="signature-title">${sigTitle}</div>
-                <img class="signature-img" src="data:image/${ext};base64,${base64}" alt="Signature" />
-                <div class="signature-meta">
-                  Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}<br>
-                  IP: ${sub.ip ?? "—"} | User Agent: ${sub.userAgent ?? "—"}
-                </div>
-              </div>
-            `;
-          } catch (e) {
-            signatureHtml = `<div class="signature-box">Signature image could not be embedded</div>`;
-          }
-        } else {
-          signatureHtml = `<div class="signature-box">
-            <div class="signature-title">${sigTitle}</div>
-            <div style="padding: 20px 0; color: #64748b; font-weight: 500;">
-              <svg style="width: 32px; height: 32px; margin: 0 auto 10px; color: #94a3b8;" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <br/>
-              ${sigMissing}
-            </div>
-            <div class="signature-meta">
-              Date: ${sub.createdAt ? new Date(sub.createdAt).toUTCString() : "—"}<br>
-              IP: ${sub.ip ?? "—"} | User Agent: ${sub.userAgent ?? "—"}
-            </div>
-          </div>`;
+            imgSrc = `data:image/${ext};base64,${base64}`;
+          } catch { /* ignore */ }
         }
+      }
+
+      if (imgSrc) {
+        signatureHtml = `
+          <div class="signature-box">
+            <div class="signature-title">${sigTitle}</div>
+            <img class="signature-img" src="${imgSrc}" alt="Signature" />
+            <div class="signature-meta">
+              ${lang !== "ar" ? "Date" : "التاريخ"}: ${sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "—"}
+            </div>
+          </div>
+        `;
+      } else {
+        signatureHtml = `
+          <div class="signature-box">
+            <div class="signature-title">${sigTitle}</div>
+            <div class="sig-placeholder">${sigMissing}</div>
+            <div class="signature-meta">
+              ${lang !== "ar" ? "Date" : "التاريخ"}: ${sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "—"}
+            </div>
+          </div>
+        `;
       }
     }
 
+    // ── Attachments ──
     let attachmentsHtml = "";
     if ((sub.uploadedFileRefs ?? []).length) {
       const attachTitle = lang === "en" ? "Attached Files" : lang === "ar" ? "الملفات المرفقة" : "Attached Files / الملفات المرفقة";
-      attachmentsHtml += `
-        <div class="section" style="margin-top: 30px;">
-          <div class="section-title">${attachTitle}</div>
-      `;
+      attachmentsHtml += `<div class="attachments-section"><div class="attachments-title">${attachTitle}</div><ul class="attachments-list">`;
       for (const r of sub.uploadedFileRefs ?? []) {
         const basename = path.basename(r);
         const underscoreIdx = basename.indexOf("_", basename.indexOf("_") + 1);
         const displayName = underscoreIdx !== -1 ? basename.slice(underscoreIdx + 1) : basename;
-        attachmentsHtml += `<div class="field-row" style="font-size: 12px; color: #475569;">• ${displayName}</div>`;
+        attachmentsHtml += `<li>${displayName}</li>`;
       }
-      attachmentsHtml += `</div>`;
+      attachmentsHtml += `</ul></div>`;
     }
 
     const formTitle = sub.formTitle || "Form Submission";
     const metaCustomer = lang === "ar" ? "رقم العميل" : "Customer ID";
-    const metaSubmission = lang === "ar" ? "رقم النموذج" : "Submission ID";
+    const metaSubmission = lang === "ar" ? "رقم النموذج" : "Submission";
     const metaDate = lang === "ar" ? "التاريخ" : "Date";
     const metaVersion = lang === "ar" ? "الإصدار" : "Version";
 
-    const html = `
-    <!DOCTYPE html>
-    <html lang="${isRtl ? "ar" : "en"}" dir="${isRtl ? "rtl" : "ltr"}">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-      <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-          font-family: ${isRtl ? "'Tajawal'" : "'Inter'"}, sans-serif;
-          color: #1e293b; line-height: 1.7; margin: 0; padding: 0; background: #fff;
-        }
-        .page { max-width: 800px; margin: 0 auto; padding: 48px 40px; }
+    const html = `<!DOCTYPE html>
+<html lang="${isRtl ? "ar" : "en"}" dir="${isRtl ? "rtl" : "ltr"}">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: ${isRtl ? "'Tajawal'" : "'Inter'"}, 'Segoe UI', sans-serif;
+      color: #1e293b; line-height: 1.65; background: #fff;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
 
-        /* ── Header ── */
-        .header {
-          text-align: center; margin-bottom: 36px; padding-bottom: 28px;
-          border-bottom: 3px solid #db2777;
-          background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 50%, #fbcfe8 100%);
-          margin: -48px -40px 36px -40px; padding: 40px 40px 28px 40px;
-          border-radius: 0 0 24px 24px;
-        }
-        .logo {
-          color: #db2777; font-size: 36px; font-weight: 800;
-          letter-spacing: -1.5px; margin-bottom: 4px;
-          text-shadow: 0 1px 2px rgba(219,39,119,0.1);
-        }
-        .logo-sub { font-size: 11px; color: #9ca3af; letter-spacing: 3px; text-transform: uppercase; font-weight: 600; margin-bottom: 16px; }
-        .title { font-size: 22px; font-weight: 700; color: #0f172a; margin-top: 8px; }
+    .page { max-width: 780px; margin: 0 auto; padding: 0; }
 
-        /* ── Meta Box ── */
-        .meta-box {
-          background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
-          padding: 18px 24px; margin-bottom: 32px;
-          display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
-          font-size: 12px; color: #475569; direction: ltr; text-align: left;
-        }
-        .meta-item { display: flex; flex-direction: column; gap: 2px; }
-        .meta-label { font-weight: 700; color: #0f172a; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .meta-value { font-weight: 500; color: #334155; font-size: 12px; word-break: break-all; }
+    /* ── Header ── */
+    .header {
+      background: linear-gradient(135deg, #831843 0%, #be185d 40%, #db2777 100%);
+      color: #fff; text-align: center;
+      padding: 32px 40px 26px; position: relative; overflow: hidden;
+    }
+    .header::before {
+      content: ''; position: absolute; inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    }
+    .header-inner { position: relative; z-index: 1; }
+    .logo { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 2px; }
+    .logo-sub {
+      font-size: 10px; letter-spacing: 4px; text-transform: uppercase;
+      opacity: 0.7; font-weight: 500; margin-bottom: 14px;
+    }
+    .header-divider {
+      width: 48px; height: 2px; background: rgba(255,255,255,0.4);
+      margin: 0 auto 14px;
+    }
+    .title { font-size: 18px; font-weight: 700; }
 
-        /* ── Content ── */
-        .section { margin-bottom: 30px; }
-        .section-title { font-size: 15px; font-weight: 700; color: #db2777; border-bottom: 2px solid #fce7f3; padding-bottom: 6px; margin-bottom: 16px; }
+    /* ── Meta strip ── */
+    .meta-strip {
+      display: flex; background: #fdf2f8; border-bottom: 1px solid #fce7f3;
+      font-size: 10px; direction: ltr; text-align: left;
+    }
+    .meta-cell {
+      flex: 1; padding: 10px 16px; border-${isRtl ? "left" : "right"}: 1px solid #fce7f3;
+    }
+    .meta-cell:last-child { border: none; }
+    .meta-lbl { font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #9d174d; font-size: 8px; margin-bottom: 1px; }
+    .meta-val { color: #1e293b; font-weight: 600; word-break: break-all; font-size: 10px; }
 
-        .field-row {
-          display: flex; border-bottom: 1px solid #f1f5f9; padding: 12px 0;
-          page-break-inside: avoid; align-items: flex-start;
-        }
-        .field-row:last-child { border-bottom: none; }
-        .field-label { flex: 0 0 38%; font-weight: 600; color: #475569; font-size: 13px; ${isRtl ? "padding-left: 16px;" : "padding-right: 16px;"} }
-        .field-value { flex: 1; font-size: 14px; font-weight: 500; color: #0f172a; }
+    /* ── Body ── */
+    .body { padding: 28px 36px 20px; }
 
-        .static-text {
-          background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-          padding: 24px; border-radius: 12px; font-size: 14px; color: #334155;
-          margin: 24px 0; white-space: pre-line; line-height: 1.9;
-          page-break-inside: auto;
-          ${isRtl ? "border-right: 4px solid #db2777;" : "border-left: 4px solid #db2777;"}
-          text-align: start; unicode-bidi: plaintext;
-        }
+    /* ── Static text clauses ── */
+    .static-text {
+      background: #fafafa; border: 1px solid #f1f5f9;
+      ${isRtl ? "border-right: 3px solid #db2777;" : "border-left: 3px solid #db2777;"}
+      border-radius: 6px; padding: 16px 20px; margin: 16px 0;
+      font-size: 12.5px; color: #334155; line-height: 1.85;
+      white-space: pre-line; text-align: start; unicode-bidi: plaintext;
+      page-break-inside: auto;
+    }
 
-        /* ── Signature ── */
-        .signature-box {
-          border: 2px solid #e2e8f0; border-radius: 16px; padding: 28px;
-          text-align: center; margin-top: 40px; page-break-inside: avoid;
-          background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-        }
-        .signature-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: #0f172a; }
-        .signature-img {
-          max-height: 140px; max-width: 340px; display: block; margin: 0 auto;
-          mix-blend-mode: multiply; border-radius: 8px;
-          padding: 12px; background: #fff; border: 1px solid #e2e8f0;
-        }
-        .signature-meta { font-size: 11px; color: #94a3b8; margin-top: 16px; direction: ltr; line-height: 1.5; }
+    /* ── Input field rows ── */
+    .field-row {
+      display: flex; align-items: baseline;
+      padding: 10px 0; border-bottom: 1px solid #f1f5f9;
+      page-break-inside: avoid;
+    }
+    .field-row:last-child { border-bottom: none; }
+    .field-label {
+      flex: 0 0 35%; font-weight: 600; font-size: 12px; color: #64748b;
+      ${isRtl ? "padding-left: 12px;" : "padding-right: 12px;"}
+    }
+    .field-value { flex: 1; font-size: 13px; font-weight: 600; color: #0f172a; }
+    .req { color: #db2777; }
 
-        /* ── Footer ── */
-        .footer {
-          text-align: center; font-size: 10px; color: #94a3b8;
-          margin-top: 48px; padding-top: 20px;
-          border-top: 2px solid #f1f5f9; direction: ltr;
-        }
+    /* ── Signature ── */
+    .signature-box {
+      margin: 28px 0 0; border: 1.5px solid #e2e8f0; border-radius: 10px;
+      padding: 22px; text-align: center; page-break-inside: avoid;
+      background: #fafafa;
+    }
+    .signature-title {
+      font-size: 12px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: #9d174d; margin-bottom: 14px;
+    }
+    .signature-img {
+      max-height: 110px; max-width: 280px; display: block; margin: 0 auto;
+      mix-blend-mode: multiply; background: #fff; border: 1px solid #e2e8f0;
+      border-radius: 6px; padding: 8px;
+    }
+    .sig-placeholder { color: #94a3b8; font-size: 11px; padding: 16px 0; }
+    .signature-meta {
+      font-size: 9px; color: #94a3b8; margin-top: 12px; direction: ltr;
+    }
 
-        @media print {
-          body { padding: 0; }
-          .page { padding: 24px; }
-          .header { margin: -24px -24px 24px -24px; padding: 24px 24px 20px 24px; border-radius: 0; }
-          .no-print { display: none !important; }
-        }
-        @media screen and (max-width: 600px) {
-          .page { padding: 20px 16px; }
-          .header { margin: -20px -16px 24px -16px; padding: 24px 16px 20px 16px; }
-          .meta-box { grid-template-columns: repeat(2, 1fr); }
-          .field-row { flex-direction: column; gap: 4px; }
-          .field-label { flex: none; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="page">
-        <div class="header">
-          <div class="logo">Belamonda</div>
-          <div class="logo-sub">Beauty & Wellness</div>
-          <div class="title">${formTitle}</div>
-        </div>
+    /* ── Attachments ── */
+    .attachments-section { margin-top: 20px; }
+    .attachments-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.5px; color: #9d174d; margin-bottom: 6px;
+    }
+    .attachments-list {
+      list-style: none; padding: 0; font-size: 11px; color: #475569;
+    }
+    .attachments-list li::before { content: '📎 '; }
+    .attachments-list li { padding: 2px 0; }
 
-        <div class="meta-box">
-          <div class="meta-item">
-            <span class="meta-label">${metaCustomer}</span>
-            <span class="meta-value">${sub.userId}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">${metaSubmission}</span>
-            <span class="meta-value">${String(sub._id)}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">${metaDate}</span>
-            <span class="meta-value">${sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB") : "—"}</span>
-          </div>
-          <div class="meta-item">
-            <span class="meta-label">${metaVersion}</span>
-            <span class="meta-value">v${sub.formVersion}</span>
-          </div>
-        </div>
+    /* ── Footer ── */
+    .footer {
+      text-align: center; font-size: 8px; color: #cbd5e1;
+      padding: 16px 36px; border-top: 1px solid #f1f5f9;
+      direction: ltr;
+    }
 
-        <div class="content">
-          ${fieldsHtml}
-        </div>
-
-        ${signatureHtml}
-        ${attachmentsHtml}
-
-        <div class="footer">
-          Generated by Belamonda System • ${new Date().toISOString()}<br>
-          IP: ${sub.ip ?? "—"} • UA: ${sub.userAgent ?? "—"}
-        </div>
+    @page { margin: 12mm 10mm; size: A4; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="header-inner">
+        <div class="logo">Belamonda</div>
+        <div class="logo-sub">Beauty & Wellness</div>
+        <div class="header-divider"></div>
+        <div class="title">${formTitle.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
       </div>
-      <script>
-        window.onload = function() {
-          setTimeout(() => { window.print(); }, 500);
-        };
-      </script>
-    </body>
-    </html>
-    `;
+    </div>
 
-    res.setHeader("Content-Type", "text/html; charset=utf-8");
-    return res.send(html);
+    <div class="meta-strip">
+      <div class="meta-cell"><div class="meta-lbl">${metaCustomer}</div><div class="meta-val">${sub.userId}</div></div>
+      <div class="meta-cell"><div class="meta-lbl">${metaSubmission}</div><div class="meta-val">${String(sub._id)}</div></div>
+      <div class="meta-cell"><div class="meta-lbl">${metaDate}</div><div class="meta-val">${sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "—"}</div></div>
+      <div class="meta-cell"><div class="meta-lbl">${metaVersion}</div><div class="meta-val">v${sub.formVersion}</div></div>
+    </div>
+
+    <div class="body">
+      ${fieldsHtml}
+      ${signatureHtml}
+      ${attachmentsHtml}
+    </div>
+
+    <div class="footer">
+      Belamonda System &bull; Generated ${new Date().toISOString()} &bull; IP: ${(sub.ip ?? "—").replace(/</g, "&lt;")}
+    </div>
+  </div>
+</body>
+</html>`;
+
+    // ── Generate actual PDF with Puppeteer ──
+    const format = req.query.format;
+    if (format === "html") {
+      // Allow ?format=html for debugging
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      return res.send(html);
+    }
+
+    let browser;
+    try {
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
+      });
+      const page = await browser.newPage();
+      await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 15000 });
+      const pdfBuffer = await page.pdf({
+        format: "A4",
+        printBackground: true,
+        margin: { top: "0", right: "0", bottom: "0", left: "0" }
+      });
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="form-${String(sub._id)}.pdf"`);
+      return res.send(pdfBuffer);
+    } finally {
+      if (browser) await browser.close().catch(() => {});
+    }
   } catch (e) {
     console.error("PDF generation error:", e);
     next(e);
