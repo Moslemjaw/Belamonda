@@ -644,119 +644,83 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
 <html lang="${isRtl ? "ar" : "en"}" dir="${isRtl ? "rtl" : "ltr"}">
 <head>
   <meta charset="UTF-8">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap');
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+    html, body {
+      width: 100%; margin: 0; padding: 0;
       font-family: ${isRtl ? "'Tajawal'" : "'Inter'"}, 'Segoe UI', sans-serif;
-      color: #1e293b; line-height: 1.65; background: #fff;
+      color: #1e293b; line-height: 1.6; background: #fff;
       -webkit-print-color-adjust: exact; print-color-adjust: exact;
     }
 
-    .page { max-width: 780px; margin: 0 auto; padding: 0; }
+    .page { width: 100%; padding: 0; }
 
-    /* ── Header ── */
     .header {
       background: linear-gradient(135deg, #831843 0%, #be185d 40%, #db2777 100%);
       color: #fff; text-align: center;
-      padding: 32px 40px 26px; position: relative; overflow: hidden;
+      padding: 24px 28px 20px; position: relative; overflow: hidden;
     }
     .header::before {
       content: ''; position: absolute; inset: 0;
       background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
     }
     .header-inner { position: relative; z-index: 1; }
-    .logo { font-size: 32px; font-weight: 800; letter-spacing: -1px; margin-bottom: 2px; }
-    .logo-sub {
-      font-size: 10px; letter-spacing: 4px; text-transform: uppercase;
-      opacity: 0.7; font-weight: 500; margin-bottom: 14px;
-    }
-    .header-divider {
-      width: 48px; height: 2px; background: rgba(255,255,255,0.4);
-      margin: 0 auto 14px;
-    }
-    .title { font-size: 18px; font-weight: 700; }
+    .logo { font-size: 26px; font-weight: 800; letter-spacing: -1px; margin-bottom: 2px; }
+    .logo-sub { font-size: 8px; letter-spacing: 4px; text-transform: uppercase; opacity: 0.7; font-weight: 500; margin-bottom: 8px; }
+    .header-divider { width: 36px; height: 2px; background: rgba(255,255,255,0.4); margin: 0 auto 8px; }
+    .title { font-size: 14px; font-weight: 700; }
 
-    /* ── Meta strip ── */
     .meta-strip {
       display: flex; background: #fdf2f8; border-bottom: 1px solid #fce7f3;
-      font-size: 10px; direction: ltr; text-align: left;
+      font-size: 8px; direction: ltr; text-align: left;
     }
-    .meta-cell {
-      flex: 1; padding: 10px 16px; border-${isRtl ? "left" : "right"}: 1px solid #fce7f3;
-    }
+    .meta-cell { flex: 1; padding: 6px 10px; border-${isRtl ? "left" : "right"}: 1px solid #fce7f3; }
     .meta-cell:last-child { border: none; }
-    .meta-lbl { font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #9d174d; font-size: 8px; margin-bottom: 1px; }
-    .meta-val { color: #1e293b; font-weight: 600; word-break: break-all; font-size: 10px; }
+    .meta-lbl { font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #9d174d; font-size: 7px; margin-bottom: 1px; }
+    .meta-val { color: #1e293b; font-weight: 600; word-break: break-all; font-size: 8px; }
 
-    /* ── Body ── */
-    .body { padding: 28px 36px 20px; }
+    .body { padding: 16px 24px 12px; }
 
-    /* ── Static text clauses ── */
     .static-text {
       background: #fafafa; border: 1px solid #f1f5f9;
       ${isRtl ? "border-right: 3px solid #db2777;" : "border-left: 3px solid #db2777;"}
-      border-radius: 6px; padding: 16px 20px; margin: 16px 0;
-      font-size: 12.5px; color: #334155; line-height: 1.85;
+      border-radius: 4px; padding: 10px 14px; margin: 8px 0;
+      font-size: 10px; color: #334155; line-height: 1.7;
       white-space: pre-line; text-align: start; unicode-bidi: plaintext;
-      page-break-inside: auto;
+      page-break-inside: avoid;
     }
 
-    /* ── Input field rows ── */
     .field-row {
       display: flex; align-items: baseline;
-      padding: 10px 0; border-bottom: 1px solid #f1f5f9;
+      padding: 6px 0; border-bottom: 1px solid #f1f5f9;
       page-break-inside: avoid;
     }
     .field-row:last-child { border-bottom: none; }
-    .field-label {
-      flex: 0 0 35%; font-weight: 600; font-size: 12px; color: #64748b;
-      ${isRtl ? "padding-left: 12px;" : "padding-right: 12px;"}
-    }
-    .field-value { flex: 1; font-size: 13px; font-weight: 600; color: #0f172a; }
+    .field-label { flex: 0 0 35%; font-weight: 600; font-size: 10px; color: #64748b; ${isRtl ? "padding-left: 8px;" : "padding-right: 8px;"} }
+    .field-value { flex: 1; font-size: 11px; font-weight: 600; color: #0f172a; }
     .req { color: #db2777; }
 
-    /* ── Signature ── */
     .signature-box {
-      margin: 28px 0 0; border: 1.5px solid #e2e8f0; border-radius: 10px;
-      padding: 22px; text-align: center; page-break-inside: avoid;
+      margin: 16px 0 0; border: 1.5px solid #e2e8f0; border-radius: 8px;
+      padding: 16px; text-align: center; page-break-inside: avoid;
       background: #fafafa;
     }
-    .signature-title {
-      font-size: 12px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 1px; color: #9d174d; margin-bottom: 14px;
-    }
-    .signature-img {
-      max-height: 110px; max-width: 280px; display: block; margin: 0 auto;
-      mix-blend-mode: multiply; background: #fff; border: 1px solid #e2e8f0;
-      border-radius: 6px; padding: 8px;
-    }
-    .sig-placeholder { color: #94a3b8; font-size: 11px; padding: 16px 0; }
-    .signature-meta {
-      font-size: 9px; color: #94a3b8; margin-top: 12px; direction: ltr;
-    }
+    .signature-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #9d174d; margin-bottom: 10px; }
+    .signature-img { max-height: 80px; max-width: 200px; display: block; margin: 0 auto; mix-blend-mode: multiply; background: #fff; border: 1px solid #e2e8f0; border-radius: 4px; padding: 4px; }
+    .sig-placeholder { color: #94a3b8; font-size: 9px; padding: 10px 0; }
+    .signature-meta { font-size: 7px; color: #94a3b8; margin-top: 8px; direction: ltr; }
 
-    /* ── Attachments ── */
-    .attachments-section { margin-top: 20px; }
-    .attachments-title {
-      font-size: 11px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.5px; color: #9d174d; margin-bottom: 6px;
-    }
-    .attachments-list {
-      list-style: none; padding: 0; font-size: 11px; color: #475569;
-    }
-    .attachments-list li::before { content: '📎 '; }
+    .attachments-section { margin-top: 12px; page-break-inside: avoid; }
+    .attachments-title { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #9d174d; margin-bottom: 4px; }
+    .attachments-list { list-style: none; padding: 0; font-size: 9px; color: #475569; }
     .attachments-list li { padding: 2px 0; }
 
-    /* ── Footer ── */
     .footer {
-      text-align: center; font-size: 8px; color: #cbd5e1;
-      padding: 16px 36px; border-top: 1px solid #f1f5f9;
-      direction: ltr;
+      text-align: center; font-size: 7px; color: #cbd5e1;
+      padding: 10px 24px; border-top: 1px solid #f1f5f9; direction: ltr;
     }
-
-    @page { margin: 12mm 10mm; size: A4; }
   </style>
 </head>
 <body>
@@ -769,20 +733,17 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
         <div class="title">${safeTitle}</div>
       </div>
     </div>
-
     <div class="meta-strip">
       <div class="meta-cell"><div class="meta-lbl">${metaCustomer}</div><div class="meta-val">${sub.userId}</div></div>
       <div class="meta-cell"><div class="meta-lbl">${metaSubmission}</div><div class="meta-val">${String(sub._id)}</div></div>
       <div class="meta-cell"><div class="meta-lbl">${metaDate}</div><div class="meta-val">${sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "—"}</div></div>
       <div class="meta-cell"><div class="meta-lbl">${metaVersion}</div><div class="meta-val">v${sub.formVersion}</div></div>
     </div>
-
     <div class="body">
       ${fieldsHtml}
       ${signatureHtml}
       ${attachmentsHtml}
     </div>
-
     <div class="footer">
       Belamonda System &bull; Generated ${new Date().toISOString()} &bull; IP: ${safeIp}
     </div>
