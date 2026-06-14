@@ -532,6 +532,11 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
 
     let fieldsHtml = "";
     let compCount = 0;
+    let pageNum = 1;
+    const FIRST_PAGE_LIMIT = 4;
+    const OTHER_PAGE_LIMIT = 6;
+    let pageItemCount = 0;
+
     for (const f of fields) {
       if (f.type === "signature") continue;
 
@@ -568,9 +573,12 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
         `;
       }
 
-      compCount++;
-      if (compCount % 6 === 0) {
-        fieldsHtml += `<div class="html2pdf__page-break" style="page-break-after: always; height: 10px;"></div>`;
+      pageItemCount++;
+      const limit = pageNum === 1 ? FIRST_PAGE_LIMIT : OTHER_PAGE_LIMIT;
+      if (pageItemCount >= limit) {
+        fieldsHtml += `<div class="html2pdf__page-break"></div>`;
+        pageItemCount = 0;
+        pageNum++;
       }
     }
 

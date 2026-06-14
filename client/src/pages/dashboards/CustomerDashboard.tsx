@@ -649,7 +649,7 @@ function MyFormsSection() {
       const finalName = `Belamonda-${cleanTitle}-${cleanCustomer}.pdf`;
 
       const opt = {
-        margin: 0,
+        margin: [0, 0, 5, 0],
         filename: finalName,
         image: { type: "jpeg", quality: 1 },
         html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
