@@ -377,15 +377,24 @@ export function EFormsAdminPanel() {
       const container = document.createElement("div");
       container.innerHTML = htmlText;
       document.body.appendChild(container);
+      
+      // Fix for empty PDF: Ensure container has dimensions and is rendered, but invisible to the user.
       container.style.position = "absolute";
-      container.style.left = "-9999px";
-      container.style.top = "-9999px";
+      container.style.left = "0";
+      container.style.top = "0";
+      container.style.width = "800px"; // A4 approximate width in pixels
+      container.style.zIndex = "-9999";
+      container.style.visibility = "hidden";
+      container.style.background = "white";
+
+      // Wait a moment for the DOM and fonts to apply
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
       const opt = {
         margin: [0, 0],
         filename: `form-${s.id}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
       };
 
