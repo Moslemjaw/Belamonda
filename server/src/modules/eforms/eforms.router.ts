@@ -543,7 +543,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
         else content = textAr ? `${textAr}\n\n${textEn}` : textEn;
         
         const safeContent = String(content || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        fieldsHtml += `<div class="static-text">${safeContent.replace(/\n/g, "<br>")}</div>`;
+        fieldsHtml += `<div class="item-wrapper"><div class="static-text">${safeContent.replace(/\n/g, "<br>")}</div></div>`;
       } else {
         const value = answersByKey.get(f.key);
         let display = "—";
@@ -560,9 +560,11 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
         const safeDisplay = String(display || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         
         fieldsHtml += `
-          <div class="field-row">
-            <div class="field-label">${safeLabel}${f.required ? " <span class='req'>*</span>" : ""}</div>
-            <div class="field-value">${safeDisplay}</div>
+          <div class="item-wrapper">
+            <div class="field-row">
+              <div class="field-label">${safeLabel}${f.required ? " <span class='req'>*</span>" : ""}</div>
+              <div class="field-value">${safeDisplay}</div>
+            </div>
           </div>
         `;
       }
@@ -682,19 +684,22 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
 
     .body { padding: 16px 24px 12px; }
 
+    .item-wrapper {
+      padding: 12px 0;
+      page-break-inside: avoid;
+    }
+
     .static-text {
       background: #fafafa; border: 1px solid #f1f5f9;
       ${isRtl ? "border-right: 3px solid #db2777;" : "border-left: 3px solid #db2777;"}
-      border-radius: 4px; padding: 10px 14px; margin: 8px 0;
+      border-radius: 4px; padding: 12px 14px; margin: 0;
       font-size: 10px; color: #334155; line-height: 1.7;
       white-space: pre-line; text-align: start; unicode-bidi: plaintext;
-      page-break-inside: avoid;
     }
 
     .field-row {
       display: flex; align-items: baseline;
       padding: 6px 0; border-bottom: 1px solid #f1f5f9;
-      page-break-inside: avoid;
     }
     .field-row:last-child { border-bottom: none; }
     .field-label { flex: 0 0 35%; font-weight: 600; font-size: 10px; color: #64748b; ${isRtl ? "padding-left: 8px;" : "padding-right: 8px;"} }
@@ -745,8 +750,8 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     </div>
     <div class="body">
       ${fieldsHtml}
-      ${signatureHtml}
-      ${attachmentsHtml}
+      ${signatureHtml ? `<div class="item-wrapper">${signatureHtml}</div>` : ""}
+      ${attachmentsHtml ? `<div class="item-wrapper">${attachmentsHtml}</div>` : ""}
     </div>
     <div class="footer">
       Belamonda System &bull; Generated ${new Date().toISOString()} &bull; IP: ${safeIp}
