@@ -531,12 +531,6 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     const fields = ((sub.formSnapshot ?? []) as any[]).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     let fieldsHtml = "";
-    let compCount = 0;
-    let pageNum = 1;
-    const FIRST_PAGE_LIMIT = 4;
-    const OTHER_PAGE_LIMIT = 6;
-    let pageItemCount = 0;
-
     for (const f of fields) {
       if (f.type === "signature") continue;
 
@@ -571,14 +565,6 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
             <div class="field-value">${safeDisplay}</div>
           </div>
         `;
-      }
-
-      pageItemCount++;
-      const limit = pageNum === 1 ? FIRST_PAGE_LIMIT : OTHER_PAGE_LIMIT;
-      if (pageItemCount >= limit) {
-        fieldsHtml += `<div class="html2pdf__page-break"></div>`;
-        pageItemCount = 0;
-        pageNum++;
       }
     }
 
