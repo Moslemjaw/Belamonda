@@ -745,7 +745,6 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     </div>
     <div class="body">
       ${fieldsHtml}
-      <div class="html2pdf__page-break"></div>
       ${signatureHtml}
       ${attachmentsHtml}
     </div>
