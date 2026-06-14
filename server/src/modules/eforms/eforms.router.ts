@@ -540,7 +540,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
         else if (lang === "en") content = textEn || textAr;
         else content = textAr ? `${textAr}\n\n${textEn}` : textEn;
         
-        const safeContent = content.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const safeContent = String(content || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         fieldsHtml += `<div class="static-text">${safeContent.replace(/\n/g, "<br>")}</div>`;
         continue;
       }
@@ -551,20 +551,15 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
       else if (value !== undefined && value !== null && value !== "") display = String(value);
 
       // For signature/file, show inline image or label
-      if (f.type === "signature") {
-        // Skip – we render a dedicated signature box below
-        continue;
-      }
-      if (f.type === "file_upload") {
-        display = lang === "ar" ? "(مرفق)" : "(see attached)";
-      }
+      if (f.type === "signature") continue;
+      if (f.type === "file_upload") display = lang === "ar" ? "(مرفق)" : "(see attached)";
       
-      let label = f.labelEn;
+      let label = f.labelEn || "";
       if (lang === "ar" && f.labelAr) label = f.labelAr;
-      else if (lang === "both" && f.labelAr) label = `${f.labelAr} / ${f.labelEn}`;
+      else if (lang === "both" && f.labelAr) label = `${f.labelAr} / ${f.labelEn || ""}`;
       
-      const safeLabel = label.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      const safeDisplay = display.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeLabel = String(label || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const safeDisplay = String(display || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       
       fieldsHtml += `
         <div class="field-row">
@@ -598,13 +593,14 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
         }
       }
 
+      const formattedDate = sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "—";
       if (imgSrc) {
         signatureHtml = `
           <div class="signature-box">
             <div class="signature-title">${sigTitle}</div>
             <img class="signature-img" src="${imgSrc}" alt="Signature" />
             <div class="signature-meta">
-              ${lang !== "ar" ? "Date" : "التاريخ"}: ${sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "—"}
+              ${lang !== "ar" ? "Date" : "التاريخ"}: ${formattedDate}
             </div>
           </div>
         `;
@@ -614,7 +610,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
             <div class="signature-title">${sigTitle}</div>
             <div class="sig-placeholder">${sigMissing}</div>
             <div class="signature-meta">
-              ${lang !== "ar" ? "Date" : "التاريخ"}: ${sub.createdAt ? new Date(sub.createdAt).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "—"}
+              ${lang !== "ar" ? "Date" : "التاريخ"}: ${formattedDate}
             </div>
           </div>
         `;
@@ -627,10 +623,11 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
       const attachTitle = lang === "en" ? "Attached Files" : lang === "ar" ? "الملفات المرفقة" : "Attached Files / الملفات المرفقة";
       attachmentsHtml += `<div class="attachments-section"><div class="attachments-title">${attachTitle}</div><ul class="attachments-list">`;
       for (const r of sub.uploadedFileRefs ?? []) {
+        if (!r) continue;
         const basename = path.basename(r);
         const underscoreIdx = basename.indexOf("_", basename.indexOf("_") + 1);
         const displayName = underscoreIdx !== -1 ? basename.slice(underscoreIdx + 1) : basename;
-        attachmentsHtml += `<li>${displayName}</li>`;
+        attachmentsHtml += `<li>${String(displayName || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</li>`;
       }
       attachmentsHtml += `</ul></div>`;
     }
@@ -640,6 +637,8 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     const metaSubmission = lang === "ar" ? "رقم النموذج" : "Submission";
     const metaDate = lang === "ar" ? "التاريخ" : "Date";
     const metaVersion = lang === "ar" ? "الإصدار" : "Version";
+    const safeTitle = String(formTitle || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const safeIp = String(sub.ip || "—").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     const html = `<!DOCTYPE html>
 <html lang="${isRtl ? "ar" : "en"}" dir="${isRtl ? "rtl" : "ltr"}">
@@ -767,7 +766,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
         <div class="logo">Belamonda</div>
         <div class="logo-sub">Beauty & Wellness</div>
         <div class="header-divider"></div>
-        <div class="title">${formTitle.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
+        <div class="title">${safeTitle}</div>
       </div>
     </div>
 
@@ -785,7 +784,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     </div>
 
     <div class="footer">
-      Belamonda System &bull; Generated ${new Date().toISOString()} &bull; IP: ${(sub.ip ?? "—").replace(/</g, "&lt;")}
+      Belamonda System &bull; Generated ${new Date().toISOString()} &bull; IP: ${safeIp}
     </div>
   </div>
 </body>
