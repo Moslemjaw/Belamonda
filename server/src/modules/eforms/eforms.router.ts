@@ -687,6 +687,9 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     .item-wrapper {
       padding: 12px 0;
       page-break-inside: avoid;
+      break-inside: avoid;
+      display: inline-block;
+      width: 100%;
     }
 
     .static-text {
