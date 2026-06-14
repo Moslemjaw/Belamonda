@@ -2257,7 +2257,7 @@ function EFormsViewer() {
         image: { type: "jpeg", quality: 1 },
         html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "avoid-all"] }
+        pagebreak: { mode: 'css', avoid: '.item-wrapper' }
       };
 
       const element = iframe.contentWindow?.document.documentElement;
