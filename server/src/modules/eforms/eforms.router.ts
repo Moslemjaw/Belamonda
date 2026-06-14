@@ -4,7 +4,6 @@ import fs from "fs";
 import multer from "multer";
 import mongoose from "mongoose";
 import { z } from "zod";
-import puppeteer from "puppeteer";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { UserOfferModel } from "../../models/userOffer.model.js";
@@ -794,32 +793,17 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
 
     // ── Generate actual PDF with Puppeteer ──
     const format = req.query.format;
-    if (format === "html") {
-      // Allow ?format=html for debugging
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      return res.send(html);
-    }
-
-    let browser;
-    try {
-      browser = await puppeteer.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]
-      });
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: "domcontentloaded", timeout: 15000 });
-      const pdfBuffer = await page.pdf({
-        format: "A4",
-        printBackground: true,
-        margin: { top: "0", right: "0", bottom: "0", left: "0" }
-      });
-
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `inline; filename="form-${String(sub._id)}.pdf"`);
-      return res.send(pdfBuffer);
-    } finally {
-      if (browser) await browser.close().catch(() => {});
-    }
+    
+    // We return HTML because Puppeteer fails on Render (missing OS dependencies).
+    // The client will handle printing this HTML as a PDF.
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(html + `
+      <script>
+        window.onload = function() {
+          setTimeout(() => { window.print(); }, 500);
+        };
+      </script>
+    `);
   } catch (e) {
     console.error("PDF generation error:", e);
     next(e);

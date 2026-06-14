@@ -365,16 +365,9 @@ export function EFormsAdminPanel() {
 
   const downloadPdf = (s: SubmissionItem) => {
     const token = (getAuthHeader() as any)?.Authorization?.replace("Bearer ", "");
-    const url = `${API_BASE_URL}/eforms/submissions/${s.id}/pdf`;
-    void fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error("Failed"))))
-      .then((blob) => {
-        const u = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = u; a.download = `form-${s.id}.pdf`; document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(() => URL.revokeObjectURL(u), 5000);
-      })
-      .catch((e) => alert(e.message));
+    const langParam = ar() ? "ar" : "en";
+    const url = `${API_BASE_URL}/eforms/submissions/${s.id}/pdf?token=${encodeURIComponent(token || "")}&lang=${langParam}`;
+    window.open(url, "_blank");
   };
 
   return (
