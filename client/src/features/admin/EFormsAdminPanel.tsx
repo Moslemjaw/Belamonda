@@ -374,32 +374,33 @@ export function EFormsAdminPanel() {
       if (!res.ok) throw new Error("Failed to load PDF data");
       const htmlText = await res.text();
       
-      const container = document.createElement("div");
-      container.innerHTML = htmlText;
-      document.body.appendChild(container);
-      
-      // Fix for empty PDF: Ensure container has dimensions and is rendered, but invisible to the user.
-      container.style.position = "absolute";
-      container.style.left = "0";
-      container.style.top = "0";
-      container.style.width = "800px"; // A4 approximate width in pixels
-      container.style.zIndex = "-9999";
-      container.style.visibility = "hidden";
-      container.style.background = "white";
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "absolute";
+      iframe.style.width = "800px";
+      iframe.style.height = "1200px";
+      iframe.style.left = "-9999px";
+      document.body.appendChild(iframe);
 
-      // Wait a moment for the DOM and fonts to apply
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      iframe.contentWindow?.document.open();
+      iframe.contentWindow?.document.write(htmlText);
+      iframe.contentWindow?.document.close();
+
+      // Wait for fonts/images to load inside iframe
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       const opt = {
         margin: [0, 0],
         filename: `form-${s.id}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
+        image: { type: "jpeg", quality: 1 },
         html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
       };
 
-      await html2pdf().set(opt).from(container).save();
-      container.remove();
+      const element = iframe.contentWindow?.document.documentElement;
+      if (element) {
+        await html2pdf().set(opt).from(element).save();
+      }
+      iframe.remove();
     } catch (e: any) {
       alert("Error generating PDF: " + e.message);
     }

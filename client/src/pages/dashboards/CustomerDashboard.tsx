@@ -628,30 +628,32 @@ function MyFormsSection() {
       if (!res.ok) throw new Error("Failed to load PDF data");
       const htmlText = await res.text();
       
-      const container = document.createElement("div");
-      container.innerHTML = htmlText;
-      document.body.appendChild(container);
-      
-      container.style.position = "absolute";
-      container.style.left = "0";
-      container.style.top = "0";
-      container.style.width = "800px";
-      container.style.zIndex = "-9999";
-      container.style.visibility = "hidden";
-      container.style.background = "white";
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "absolute";
+      iframe.style.width = "800px";
+      iframe.style.height = "1200px";
+      iframe.style.left = "-9999px";
+      document.body.appendChild(iframe);
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      iframe.contentWindow?.document.open();
+      iframe.contentWindow?.document.write(htmlText);
+      iframe.contentWindow?.document.close();
+
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       const opt = {
         margin: [0, 0],
         filename: `form-${id}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
+        image: { type: "jpeg", quality: 1 },
         html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
       };
 
-      await html2pdf().set(opt).from(container).save();
-      container.remove();
+      const element = iframe.contentWindow?.document.documentElement;
+      if (element) {
+        await html2pdf().set(opt).from(element).save();
+      }
+      iframe.remove();
     } catch (e: any) { alert(e.message); }
   };
 
