@@ -389,12 +389,12 @@ export function EFormsAdminPanel() {
       await new Promise((resolve) => setTimeout(resolve, 800));
 
       const opt = {
-        margin: [10, 0, 10, 0],
+        margin: 0,
         filename: `form-${s.id}.pdf`,
         image: { type: "jpeg", quality: 1 },
         html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["avoid-all", "css"] }
+        pagebreak: { mode: ["css", "avoid-all"] }
       };
 
       const element = iframe.contentWindow?.document.documentElement;
