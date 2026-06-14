@@ -531,7 +531,10 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     const fields = ((sub.formSnapshot ?? []) as any[]).slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     let fieldsHtml = "";
+    let compCount = 0;
     for (const f of fields) {
+      if (f.type === "signature") continue;
+
       if (f.type === "static_text") {
         const textEn = f.labelEn || "";
         const textAr = f.labelAr || "";
@@ -542,31 +545,33 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
         
         const safeContent = String(content || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         fieldsHtml += `<div class="static-text">${safeContent.replace(/\n/g, "<br>")}</div>`;
-        continue;
-      }
-      
-      const value = answersByKey.get(f.key);
-      let display = "—";
-      if (Array.isArray(value)) display = value.join(", ");
-      else if (value !== undefined && value !== null && value !== "") display = String(value);
+      } else {
+        const value = answersByKey.get(f.key);
+        let display = "—";
+        if (Array.isArray(value)) display = value.join(", ");
+        else if (value !== undefined && value !== null && value !== "") display = String(value);
 
-      // For signature/file, show inline image or label
-      if (f.type === "signature") continue;
-      if (f.type === "file_upload") display = lang === "ar" ? "(مرفق)" : "(see attached)";
-      
-      let label = f.labelEn || "";
-      if (lang === "ar" && f.labelAr) label = f.labelAr;
-      else if (lang === "both" && f.labelAr) label = `${f.labelAr} / ${f.labelEn || ""}`;
-      
-      const safeLabel = String(label || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      const safeDisplay = String(display || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      
-      fieldsHtml += `
-        <div class="field-row">
-          <div class="field-label">${safeLabel}${f.required ? " <span class='req'>*</span>" : ""}</div>
-          <div class="field-value">${safeDisplay}</div>
-        </div>
-      `;
+        if (f.type === "file_upload") display = lang === "ar" ? "(مرفق)" : "(see attached)";
+        
+        let label = f.labelEn || "";
+        if (lang === "ar" && f.labelAr) label = f.labelAr;
+        else if (lang === "both" && f.labelAr) label = `${f.labelAr} / ${f.labelEn || ""}`;
+        
+        const safeLabel = String(label || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const safeDisplay = String(display || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        
+        fieldsHtml += `
+          <div class="field-row">
+            <div class="field-label">${safeLabel}${f.required ? " <span class='req'>*</span>" : ""}</div>
+            <div class="field-value">${safeDisplay}</div>
+          </div>
+        `;
+      }
+
+      compCount++;
+      if (compCount % 6 === 0) {
+        fieldsHtml += `<div class="html2pdf__page-break" style="page-break-after: always; height: 10px;"></div>`;
+      }
     }
 
     // ── Signature block ──
