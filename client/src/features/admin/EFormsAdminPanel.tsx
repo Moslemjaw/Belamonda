@@ -398,7 +398,7 @@ export function EFormsAdminPanel() {
         image: { type: "jpeg", quality: 1 },
         html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "avoid-all"] }
+        pagebreak: { mode: ["legacy", "css", "avoid-all"] }
       };
 
       const element = iframe.contentWindow?.document.documentElement;

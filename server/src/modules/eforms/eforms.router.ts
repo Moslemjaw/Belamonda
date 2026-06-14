@@ -715,6 +715,10 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     .field-value { flex: 1; font-size: 11px; font-weight: 600; color: #0f172a; }
     .req { color: #db2777; }
 
+    .html2pdf__page-break {
+      display: block; clear: both; page-break-before: always;
+    }
+
     .signature-box {
       margin: 16px 0 0; border: 1.5px solid #e2e8f0; border-radius: 8px;
       padding: 16px; text-align: center; page-break-inside: avoid;
@@ -755,6 +759,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     </div>
     <div class="body">
       ${fieldsHtml}
+      <div class="html2pdf__page-break"></div>
       ${signatureHtml}
       ${attachmentsHtml}
     </div>
