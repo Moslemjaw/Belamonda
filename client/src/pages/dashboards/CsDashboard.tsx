@@ -2216,8 +2216,9 @@ function EFormsViewer() {
 
   useEffect(() => { fetchSubmissions(); }, []);
 
-  const downloadPdf = async (subId: string) => {
+  const downloadPdf = async (sub: any) => {
     try {
+      const subId = sub.id || sub;
       const headers = getAuthHeader();
       let token = "";
       if (headers?.Authorization?.startsWith("Bearer ")) {
@@ -2244,9 +2245,15 @@ function EFormsViewer() {
 
       await new Promise((resolve) => setTimeout(resolve, 800));
 
+      const title = sub.formTitle || "Form";
+      const customer = sub.userName || sub.userId || subId;
+      const cleanTitle = title.replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, "").trim().replace(/\s+/g, "-");
+      const cleanCustomer = customer.replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, "").trim().replace(/\s+/g, "-");
+      const finalName = `Belamonda-${cleanTitle}-${cleanCustomer}.pdf`;
+
       const opt = {
         margin: 0,
-        filename: `form-${subId}.pdf`,
+        filename: finalName,
         image: { type: "jpeg", quality: 1 },
         html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
@@ -2299,7 +2306,7 @@ function EFormsViewer() {
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {s.signatureRef && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{ar() ? "موقّع" : "Signed"}</span>}
-                <button className="icon-btn" onClick={(e) => { e.stopPropagation(); downloadPdf(s.id); }} title={ar() ? "تحميل PDF" : "Download PDF"}>
+                <button className="icon-btn" onClick={(e) => { e.stopPropagation(); downloadPdf(s); }} title={ar() ? "تحميل PDF" : "Download PDF"}>
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 </button>
               </div>
@@ -2347,7 +2354,7 @@ function EFormsViewer() {
             </div>
             <div className="px-6 pb-6 pt-4 border-t border-surface-100 shrink-0 flex gap-3">
               <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm" onClick={() => setSelectedSub(null)}>{ar() ? "إغلاق" : "Close"}</button>
-              <button className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm text-sm" onClick={() => downloadPdf(selectedSub.id)}>{ar() ? "تحميل PDF" : "Download PDF"}</button>
+              <button className="flex-1 bg-indigo-500 hover:bg-indigo-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm text-sm" onClick={() => downloadPdf(selectedSub)}>{ar() ? "تحميل PDF" : "Download PDF"}</button>
             </div>
           </div>
         </div>, document.body

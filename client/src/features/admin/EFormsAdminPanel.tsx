@@ -388,9 +388,13 @@ export function EFormsAdminPanel() {
       // Wait for fonts/images to load inside iframe
       await new Promise((resolve) => setTimeout(resolve, 800));
 
+      const cleanTitle = (s.formTitle || "Form").replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, "").trim().replace(/\s+/g, "-");
+      const cleanCustomer = (s.userName || s.userId || "").replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, "").trim().replace(/\s+/g, "-");
+      const finalName = `Belamonda-${cleanTitle}-${cleanCustomer}.pdf`;
+
       const opt = {
         margin: 0,
-        filename: `form-${s.id}.pdf`,
+        filename: finalName,
         image: { type: "jpeg", quality: 1 },
         html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },

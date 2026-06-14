@@ -618,8 +618,9 @@ function MyFormsSection() {
   const subs = subsData?.items ?? [];
   const available = avail?.items ?? [];
 
-  const downloadPdf = async (id: string) => {
+  const downloadPdf = async (sub: any) => {
     try {
+      const id = sub.id || sub;
       const token = (getAuthHeader() as any)?.Authorization?.replace("Bearer ", "");
       const langParam = ar() ? "ar" : "en";
       const url = `${API_BASE_URL}/eforms/submissions/${id}/pdf?token=${encodeURIComponent(token || "")}&lang=${langParam}`;
@@ -641,9 +642,15 @@ function MyFormsSection() {
 
       await new Promise((resolve) => setTimeout(resolve, 800));
 
+      const title = sub.formTitle || "Form";
+      const customer = sub.userName || sub.userId || id;
+      const cleanTitle = title.replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, "").trim().replace(/\s+/g, "-");
+      const cleanCustomer = customer.replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, "").trim().replace(/\s+/g, "-");
+      const finalName = `Belamonda-${cleanTitle}-${cleanCustomer}.pdf`;
+
       const opt = {
         margin: 0,
-        filename: `form-${id}.pdf`,
+        filename: finalName,
         image: { type: "jpeg", quality: 1 },
         html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
@@ -697,7 +704,7 @@ function MyFormsSection() {
                   <div className="font-bold text-surface-900 text-sm">{s.formTitle}</div>
                   <div className="text-xs text-surface-400">{s.createdAt ? new Date(s.createdAt).toLocaleString() : ""} • v{s.formVersion}</div>
                 </div>
-                <button className="btn-secondary btn-sm text-xs" onClick={() => downloadPdf(s.id)}>{ar() ? "تنزيل PDF" : "Download PDF"}</button>
+                <button className="btn-secondary btn-sm text-xs" onClick={() => downloadPdf(s)}>{ar() ? "تنزيل PDF" : "Download PDF"}</button>
               </div>
             ))}
           </div>

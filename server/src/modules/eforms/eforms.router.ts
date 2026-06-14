@@ -719,7 +719,8 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
 
     .footer {
       text-align: center; font-size: 7px; color: #cbd5e1;
-      padding: 10px 24px; border-top: 1px solid #f1f5f9; direction: ltr;
+      padding: 10px 24px 40px; border-top: 1px solid #f1f5f9; direction: ltr;
+      page-break-inside: avoid;
     }
   </style>
 </head>
