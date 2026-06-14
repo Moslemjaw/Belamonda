@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import html2pdf from "html2pdf.js";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -618,11 +619,32 @@ function MyFormsSection() {
   const available = avail?.items ?? [];
 
   const downloadPdf = async (id: string) => {
-    const token = (getAuthHeader() as any)?.Authorization?.replace("Bearer ", "");
     try {
+      const token = (getAuthHeader() as any)?.Authorization?.replace("Bearer ", "");
       const langParam = ar() ? "ar" : "en";
       const url = `${API_BASE_URL}/eforms/submissions/${id}/pdf?token=${encodeURIComponent(token || "")}&lang=${langParam}`;
-      window.open(url, "_blank");
+      
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed to load PDF data");
+      const htmlText = await res.text();
+      
+      const container = document.createElement("div");
+      container.innerHTML = htmlText;
+      document.body.appendChild(container);
+      container.style.position = "absolute";
+      container.style.left = "-9999px";
+      container.style.top = "-9999px";
+
+      const opt = {
+        margin: [0, 0],
+        filename: `form-${id}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+      };
+
+      await html2pdf().set(opt).from(container).save();
+      container.remove();
     } catch (e: any) { alert(e.message); }
   };
 

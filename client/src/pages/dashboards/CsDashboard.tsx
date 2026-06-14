@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import html2pdf from "html2pdf.js";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
@@ -2225,7 +2226,28 @@ function EFormsViewer() {
       const baseUrl = (import.meta as any).env.VITE_API_URL || "";
       const langParam = ar() ? "ar" : "en";
       const url = `${baseUrl}/eforms/submissions/${subId}/pdf?token=${encodeURIComponent(token)}&lang=${langParam}`;
-      window.open(url, "_blank");
+      
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) throw new Error("Failed to load PDF data");
+      const htmlText = await res.text();
+      
+      const container = document.createElement("div");
+      container.innerHTML = htmlText;
+      document.body.appendChild(container);
+      container.style.position = "absolute";
+      container.style.left = "-9999px";
+      container.style.top = "-9999px";
+
+      const opt = {
+        margin: [0, 0],
+        filename: `form-${subId}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" }
+      };
+
+      await html2pdf().set(opt).from(container).save();
+      container.remove();
     } catch (e: any) { alert(e.message); }
   };
 

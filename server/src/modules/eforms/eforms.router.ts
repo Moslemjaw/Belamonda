@@ -793,16 +793,9 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     // ── Generate actual PDF with Puppeteer ──
     const format = req.query.format;
     
-    // We return HTML because Puppeteer fails on Render (missing OS dependencies).
-    // The client will handle printing this HTML as a PDF.
+    // We return HTML and the client uses html2pdf.js to convert it to a file silently.
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    return res.send(html + `
-      <script>
-        window.onload = function() {
-          setTimeout(() => { window.print(); }, 500);
-        };
-      </script>
-    `);
+    return res.send(html);
   } catch (e) {
     console.error("PDF generation error:", e);
     next(e);
