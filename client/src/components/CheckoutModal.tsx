@@ -598,7 +598,7 @@ export default function CheckoutModal({
                       <button
                         key={n}
                         onClick={() => setInstallments(n)}
-                        className={`flex-shrink-0 px-4 py-2 rounded-xl border text-sm font-bold ${installments === n ? "bg-brand-pink-50 border-brand-pink-300 text-brand-pink-700" : "border-surface-200 text-surface-600"}`}
+                        className={`flex-1 min-w-fit px-2 py-2 rounded-xl border text-sm font-bold ${installments === n ? "bg-brand-pink-50 border-brand-pink-300 text-brand-pink-700" : "border-surface-200 text-surface-600"}`}
                       >
                         {n} {t("payments", "دفعات")}
                       </button>
