@@ -600,18 +600,85 @@ commerceRouter.get("/cs/clinic-change-requests", authRequired, requireRole(["cs"
 commerceRouter.post("/admin/user-offers/:uoId/adjust-installments", authRequired, requireRole(["cs", "legal", "admin", "cs_director"]), async (req, res, next) => {
   try {
     const delta = typeof req.body?.delta === "number" ? Math.round(req.body.delta) : 0;
+    const method = typeof req.body?.method === "string" ? req.body.method : undefined;
     if (delta === 0 || Math.abs(delta) > 1) return res.status(400).json({ error: "INVALID_DELTA" });
+    if (delta > 0 && !method) return res.status(400).json({ error: "METHOD_REQUIRED" });
     if (!mongoose.isValidObjectId(req.params.uoId)) return res.status(400).json({ error: "INVALID_ID" });
 
-    const uo = await UserOfferModel.findById(req.params.uoId).lean();
+    const uo = await UserOfferModel.findById(req.params.uoId).lean() as any;
     if (!uo) return res.status(404).json({ error: "NOT_FOUND" });
 
-    const current = (uo as any).installmentsPaid ?? 0;
+    const current = uo.installmentsPaid ?? 0;
     const nextVal = Math.max(0, current + delta);
     if (nextVal === current) return res.json({ ok: true, installmentsPaid: current });
 
-    await UserOfferModel.findByIdAndUpdate(req.params.uoId, { $set: { installmentsPaid: nextVal } });
-    return res.json({ ok: true, installmentsPaid: nextVal });
+    // Update the installment schedule entry
+    const schedule = uo.installmentSchedule || [];
+    if (delta > 0 && schedule.length > 0) {
+      // Find the next unpaid installment and mark it as paid with the method
+      const idx = schedule.findIndex((s: any) => !s.paid);
+      if (idx !== -1) {
+        schedule[idx].paid = true;
+        schedule[idx].paidAt = new Date();
+        schedule[idx].method = method;
+
+        // Create a Payment record so it shows in Finance
+        const { PaymentModel } = await import("../../models/payment.model.js");
+        const payment = await PaymentModel.create({
+          userId: uo.userId,
+          offerId: uo.offerId,
+          userOfferId: uo._id,
+          amountKwd: schedule[idx].amountKwd,
+          grossAmountKwd: schedule[idx].amountKwd,
+          cashbackAppliedKwd: "0.000",
+          status: "completed",
+          method: method,
+          purpose: "installment",
+          provider: "manual",
+          isManual: true,
+          manualLabel: "Admin Installment Payment",
+          installmentNumber: schedule[idx].number,
+          createdAt: new Date(),
+        });
+        schedule[idx].paymentId = payment._id;
+
+        // Update the next installment due date
+        const nextUnpaid = schedule.find((s: any) => !s.paid);
+        await UserOfferModel.findByIdAndUpdate(req.params.uoId, {
+          $set: {
+            installmentsPaid: nextVal,
+            installmentSchedule: schedule,
+            nextInstallmentDueAt: nextUnpaid?.dueDate || undefined,
+          }
+        });
+      } else {
+        await UserOfferModel.findByIdAndUpdate(req.params.uoId, { $set: { installmentsPaid: nextVal } });
+      }
+    } else if (delta < 0 && schedule.length > 0) {
+      // Find the last paid installment and mark it as unpaid
+      const lastPaidIdx = [...schedule].reverse().findIndex((s: any) => s.paid);
+      if (lastPaidIdx !== -1) {
+        const idx = schedule.length - 1 - lastPaidIdx;
+        schedule[idx].paid = false;
+        schedule[idx].paidAt = undefined;
+        schedule[idx].method = undefined;
+        schedule[idx].paymentId = undefined;
+        const nextUnpaid = schedule.find((s: any) => !s.paid);
+        await UserOfferModel.findByIdAndUpdate(req.params.uoId, {
+          $set: {
+            installmentsPaid: nextVal,
+            installmentSchedule: schedule,
+            nextInstallmentDueAt: nextUnpaid?.dueDate || undefined,
+          }
+        });
+      } else {
+        await UserOfferModel.findByIdAndUpdate(req.params.uoId, { $set: { installmentsPaid: nextVal } });
+      }
+    } else {
+      await UserOfferModel.findByIdAndUpdate(req.params.uoId, { $set: { installmentsPaid: nextVal } });
+    }
+
+    return res.json({ ok: true, installmentsPaid: nextVal, method });
   } catch (e) {
     next(e);
   }

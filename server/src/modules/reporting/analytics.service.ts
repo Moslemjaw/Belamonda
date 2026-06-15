@@ -640,6 +640,7 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
         amountLeftKwd,
         dueDate: inst.dueDate,
         paidAt: inst.paidAt,
+        method: inst.method || undefined,
         status: inst.paid ? "paid" : (due && due.getTime() < now.getTime() ? "late" : "upcoming"),
       });
     }

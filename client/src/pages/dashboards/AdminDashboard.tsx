@@ -2342,13 +2342,22 @@ export function UserProfilePanel({
     }
   };
 
-  const handleAdjustInstallments = async (membershipId: string, delta: number) => {
+  const [installMethodModal, setInstallMethodModal] = useState<{ membershipId: string } | null>(null);
+  const [installMethodValue, setInstallMethodValue] = useState("cash");
+
+  const handleAdjustInstallments = async (membershipId: string, delta: number, method?: string) => {
+    if (delta > 0 && !method) {
+      // Open the method picker modal
+      setInstallMethodModal({ membershipId });
+      setInstallMethodValue("cash");
+      return;
+    }
     setInstallmentAdjustingId(membershipId + (delta > 0 ? "_inc" : "_dec"));
     try {
       await apiFetch(`/commerce/admin/user-offers/${membershipId}/adjust-installments`, {
         method: "POST",
         headers: getAuthHeader(),
-        body: JSON.stringify({ delta }),
+        body: JSON.stringify({ delta, method }),
       });
       const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
       setProfile(d);
@@ -3035,6 +3044,45 @@ export function UserProfilePanel({
           </>
         )}
       </div>
+
+      {/* Payment Method Modal for Installment Increment */}
+      {installMethodModal && (
+        <div className="fixed inset-0 bg-black/40 z-[200] flex items-center justify-center p-4" onClick={() => setInstallMethodModal(null)}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-bold text-surface-900 mb-4">{ar() ? "طريقة الدفع" : "Payment Method"}</h3>
+            <select
+              className="select-field w-full mb-4"
+              value={installMethodValue}
+              onChange={e => setInstallMethodValue(e.target.value)}
+            >
+              <option value="cash">{ar() ? "نقد" : "Cash"}</option>
+              <option value="knet">{ar() ? "كي نت" : "KNET"}</option>
+              <option value="bank_transfer">{ar() ? "تحويل بنكي" : "Bank Transfer"}</option>
+              <option value="card">{ar() ? "بطاقة ائتمان" : "Credit Card"}</option>
+              <option value="link">{ar() ? "رابط دفع" : "Payment Link"}</option>
+              <option value="other">{ar() ? "أخرى" : "Other"}</option>
+            </select>
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 rounded-xl text-sm font-bold text-surface-500 hover:bg-surface-100 transition-colors"
+                onClick={() => setInstallMethodModal(null)}
+              >
+                {ar() ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                className="btn-primary px-5 py-2 text-sm rounded-xl font-bold transition-all"
+                onClick={() => {
+                  const mid = installMethodModal.membershipId;
+                  setInstallMethodModal(null);
+                  handleAdjustInstallments(mid, +1, installMethodValue);
+                }}
+              >
+                {ar() ? "تأكيد الدفع" : "Confirm Payment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -559,6 +559,11 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${i.status === "paid" ? "bg-emerald-50 text-emerald-700" : i.status === "late" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
                       {i.status === "paid" ? (ar() ? "مدفوع" : "Paid") : i.status === "late" ? (ar() ? "متأخر" : "Late") : (ar() ? "قادم" : "Upcoming")}
                     </span>
+                    {i.method && (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700">
+                        {i.method === "cash" ? (ar() ? "نقد" : "Cash") : i.method === "knet" ? "KNET" : i.method === "bank_transfer" ? (ar() ? "تحويل بنكي" : "Bank Transfer") : i.method === "card" ? (ar() ? "بطاقة" : "Card") : i.method === "link" ? (ar() ? "رابط" : "Link") : i.method}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
@@ -574,6 +579,7 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
                     <th className="text-center">#</th>
                     <th className="text-right">{ar() ? "المبلغ" : "Amount"}</th>
                     <th>{ar() ? "تاريخ الاستحقاق" : "Due Date"}</th>
+                    <th>{ar() ? "طريقة الدفع" : "Method"}</th>
                     <th>{ar() ? "الحالة" : "Status"}</th>
                   </tr>
                 </thead>
@@ -585,6 +591,15 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
                       <td className="text-center text-surface-500">{i.installmentNumber}</td>
                       <td className="text-right font-bold text-surface-900">{i.amountKwd} KWD</td>
                       <td className="text-surface-600">{i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "—"}</td>
+                      <td>
+                        {i.method ? (
+                          <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700">
+                            {i.method === "cash" ? (ar() ? "نقد" : "Cash") : i.method === "knet" ? "KNET" : i.method === "bank_transfer" ? (ar() ? "تحويل بنكي" : "Bank Transfer") : i.method === "card" ? (ar() ? "بطاقة" : "Card") : i.method === "link" ? (ar() ? "رابط" : "Link") : i.method}
+                          </span>
+                        ) : (
+                          <span className="text-surface-300">—</span>
+                        )}
+                      </td>
                       <td>
                         <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${i.status === "paid" ? "bg-emerald-50 text-emerald-700" : i.status === "late" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-700"}`}>
                           {i.status === "paid" ? (ar() ? "مدفوع" : "Paid") : i.status === "late" ? (ar() ? "متأخر" : "Late") : (ar() ? "قادم" : "Upcoming")}
