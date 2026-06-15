@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import html2pdf from "html2pdf.js";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -643,25 +642,19 @@ function MyFormsSection() {
       await new Promise((resolve) => setTimeout(resolve, 800));
 
       const title = sub.formTitle || "Form";
-      const customer = sub.userName || sub.userId || id;
       const cleanTitle = title.replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, "").trim().replace(/\s+/g, "-");
+      const customer = sub.userName || sub.userId || id;
       const cleanCustomer = customer.replace(/[^a-zA-Z0-9\u0600-\u06FF\s-]/g, "").trim().replace(/\s+/g, "-");
-      const finalName = `Belamonda-${cleanTitle}-${cleanCustomer}.pdf`;
+      const finalName = `Belamonda-${cleanTitle}-${cleanCustomer}`;
 
-      const opt = {
-        margin: [0, 0, 5, 0],
-        filename: finalName,
-        image: { type: "jpeg", quality: 1 },
-        html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: 'css', avoid: '.item-wrapper' }
-      };
-
-      const element = iframe.contentWindow?.document.documentElement;
-      if (element) {
-        await html2pdf().set(opt).from(element).save();
+      if (iframe.contentDocument) {
+        iframe.contentDocument.title = finalName;
       }
-      iframe.remove();
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      
+      setTimeout(() => iframe.remove(), 2000);
+
     } catch (e: any) { alert(e.message); }
   };
 
