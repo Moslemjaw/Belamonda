@@ -42,7 +42,7 @@ const ar = () => i18n.language === "ar";
 // Helpers
 // ===========================================================================
 
-type Period = "daily" | "weekly" | "monthly" | "yearly";
+type Period = "daily" | "weekly" | "monthly" | "yearly" | "all" | "custom";
 
 function isoDate(d: Date) {
   return d.toISOString();
@@ -55,14 +55,17 @@ function rangeForPeriod(period: Period): { from: string; to: string } {
   const from = new Date(now);
   from.setUTCHours(0, 0, 0, 0);
   if (period === "daily") {
-    from.setUTCDate(from.getUTCDate() - 30); // last 30 days
+    from.setUTCDate(from.getUTCDate() - 1); // today only
   } else if (period === "weekly") {
-    from.setUTCDate(from.getUTCDate() - 7 * 12); // last 12 weeks
+    from.setUTCDate(from.getUTCDate() - 7); // last 7 days
   } else if (period === "monthly") {
-    from.setUTCMonth(from.getUTCMonth() - 12); // last 12 months
-  } else {
-    from.setUTCFullYear(from.getUTCFullYear() - 5); // last 5 years
+    from.setUTCMonth(from.getUTCMonth() - 1); // last 30 days
+  } else if (period === "yearly") {
+    from.setUTCFullYear(from.getUTCFullYear() - 1); // last year
+  } else if (period === "all") {
+    from.setUTCFullYear(2020, 0, 1); // far back enough to cover all data
   }
+  // "custom" → don't compute, caller keeps existing from/to
   return { from: isoDate(from), to: isoDate(to) };
 }
 
@@ -122,19 +125,23 @@ const STATUS_BADGE: Record<string, string> = {
 function FilterBar({
   period, onPeriodChange,
   from, to, onFromChange, onToChange,
+  onCustomDateChange,
 }: {
   period: Period;
   onPeriodChange: (p: Period) => void;
   from: string; to: string;
   onFromChange: (s: string) => void;
   onToChange: (s: string) => void;
+  onCustomDateChange: (from: string, to: string) => void;
 }) {
   const periods: { key: Period; label: string }[] = [
     { key: "daily", label: ar() ? "يومي" : "Daily" },
     { key: "weekly", label: ar() ? "أسبوعي" : "Weekly" },
     { key: "monthly", label: ar() ? "شهري" : "Monthly" },
     { key: "yearly", label: ar() ? "سنوي" : "Yearly" },
+    { key: "all", label: ar() ? "الكل" : "All" },
   ];
+  const isActive = (k: Period) => period === k;
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-surface-200 bg-white p-4 shadow-sm">
       <div className="flex w-full sm:w-auto mx-auto sm:mx-0 rounded-xl bg-surface-100 p-1">
@@ -142,7 +149,7 @@ function FilterBar({
           <button
             key={p.key}
             onClick={() => onPeriodChange(p.key)}
-            className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center ${period === p.key ? "bg-white text-brand-pink-600 shadow-sm scale-100" : "text-surface-600 hover:text-surface-900 scale-95 hover:scale-100"}`}
+            className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center ${isActive(p.key) ? "bg-white text-brand-pink-600 shadow-sm scale-100" : "text-surface-600 hover:text-surface-900 scale-95 hover:scale-100"}`}
           >{p.label}</button>
         ))}
       </div>
@@ -152,14 +159,16 @@ function FilterBar({
           value={from.slice(0, 10)}
           onChange={e => {
             const d = new Date(e.target.value); d.setUTCHours(0,0,0,0);
-            onFromChange(isoDate(d));
+            const newFrom = isoDate(d);
+            onCustomDateChange(newFrom, to);
           }} />
         <label className="text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
         <input type="date" className="input-field text-xs py-1.5 h-auto max-w-[130px]"
           value={to.slice(0, 10)}
           onChange={e => {
             const d = new Date(e.target.value); d.setUTCHours(23,59,59,999);
-            onToChange(isoDate(d));
+            const newTo = isoDate(d);
+            onCustomDateChange(from, newTo);
           }} />
       </div>
     </div>
@@ -1869,12 +1878,39 @@ export default function FinanceDashboard() {
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
 
+  // Clicking a period button → recalculate the dates from today
   const handlePeriodChange = (p: Period) => {
     setPeriod(p);
-    const r = rangeForPeriod(p);
-    setFrom(r.from);
-    setTo(r.to);
+    if (p !== "custom") {
+      const r = rangeForPeriod(p);
+      setFrom(r.from);
+      setTo(r.to);
+    }
   };
+
+  // Manually changing the date pickers → switch to "custom" mode
+  const handleCustomDateChange = (newFrom: string, newTo: string) => {
+    setPeriod("custom");
+    setFrom(newFrom);
+    setTo(newTo);
+  };
+
+  // Determine the timeseries granularity based on the active period
+  const chartPeriod: "daily" | "weekly" | "monthly" | "yearly" = useMemo(() => {
+    if (period === "daily") return "daily";
+    if (period === "weekly") return "weekly";
+    if (period === "yearly") return "yearly";
+    if (period === "all" || period === "custom") {
+      // Auto-detect best granularity based on date range span
+      const diffMs = new Date(to).getTime() - new Date(from).getTime();
+      const diffDays = diffMs / (1000 * 60 * 60 * 24);
+      if (diffDays <= 31) return "daily";
+      if (diffDays <= 120) return "weekly";
+      if (diffDays <= 730) return "monthly";
+      return "yearly";
+    }
+    return "monthly";
+  }, [period, from, to]);
 
   const navItems = [
     { key: "home", icon: Icons.dashboard, label: ar() ? "نظرة عامة" : "Overview" },
@@ -1905,10 +1941,11 @@ export default function FinanceDashboard() {
             from={from} to={to}
             onFromChange={setFrom}
             onToChange={setTo}
+            onCustomDateChange={handleCustomDateChange}
           />
         )}
 
-        {activeNav === "home" && <OverviewTab period={period} from={from} to={to} />}
+        {activeNav === "home" && <OverviewTab period={chartPeriod} from={from} to={to} />}
         {activeNav === "payments" && <PaymentsTab from={from} to={to} />}
         {activeNav === "installments" && <InstallmentsTab from={from} to={to} />}
         {activeNav === "customers" && <CustomersTab from={from} to={to} />}
