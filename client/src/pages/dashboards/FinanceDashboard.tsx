@@ -123,54 +123,28 @@ const STATUS_BADGE: Record<string, string> = {
 // ===========================================================================
 
 function FilterBar({
-  period, onPeriodChange,
-  from, to, onFromChange, onToChange,
+  from, to,
   onCustomDateChange,
 }: {
-  period: Period;
-  onPeriodChange: (p: Period) => void;
   from: string; to: string;
-  onFromChange: (s: string) => void;
-  onToChange: (s: string) => void;
   onCustomDateChange: (from: string, to: string) => void;
 }) {
-  const periods: { key: Period; label: string }[] = [
-    { key: "daily", label: ar() ? "يومي" : "Daily" },
-    { key: "weekly", label: ar() ? "أسبوعي" : "Weekly" },
-    { key: "monthly", label: ar() ? "شهري" : "Monthly" },
-    { key: "yearly", label: ar() ? "سنوي" : "Yearly" },
-    { key: "all", label: ar() ? "الكل" : "All" },
-  ];
-  const isActive = (k: Period) => period === k;
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-2xl border border-surface-200 bg-white p-4 shadow-sm">
-      <div className="flex w-full sm:w-auto mx-auto sm:mx-0 rounded-xl bg-surface-100 p-1">
-        {periods.map(p => (
-          <button
-            key={p.key}
-            onClick={() => onPeriodChange(p.key)}
-            className={`flex-1 sm:flex-none px-2 sm:px-4 py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all text-center ${isActive(p.key) ? "bg-white text-brand-pink-600 shadow-sm scale-100" : "text-surface-600 hover:text-surface-900 scale-95 hover:scale-100"}`}
-          >{p.label}</button>
-        ))}
-      </div>
-      <div className="flex items-center justify-center sm:justify-end gap-2 text-xs w-full sm:w-auto mt-1 sm:mt-0">
-        <label className="text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
-        <input type="date" className="input-field text-xs py-1.5 h-auto max-w-[130px]"
-          value={from.slice(0, 10)}
-          onChange={e => {
-            const d = new Date(e.target.value); d.setUTCHours(0,0,0,0);
-            const newFrom = isoDate(d);
-            onCustomDateChange(newFrom, to);
-          }} />
-        <label className="text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
-        <input type="date" className="input-field text-xs py-1.5 h-auto max-w-[130px]"
-          value={to.slice(0, 10)}
-          onChange={e => {
-            const d = new Date(e.target.value); d.setUTCHours(23,59,59,999);
-            const newTo = isoDate(d);
-            onCustomDateChange(from, newTo);
-          }} />
-      </div>
+    <div className="flex items-center justify-center sm:justify-end gap-2 text-xs rounded-2xl border border-surface-200 bg-white p-4 shadow-sm">
+      <label className="text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
+      <input type="date" className="input-field text-xs py-1.5 h-auto max-w-[130px]"
+        value={from.slice(0, 10)}
+        onChange={e => {
+          const d = new Date(e.target.value); d.setUTCHours(0,0,0,0);
+          onCustomDateChange(isoDate(d), to);
+        }} />
+      <label className="text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
+      <input type="date" className="input-field text-xs py-1.5 h-auto max-w-[130px]"
+        value={to.slice(0, 10)}
+        onChange={e => {
+          const d = new Date(e.target.value); d.setUTCHours(23,59,59,999);
+          onCustomDateChange(from, isoDate(d));
+        }} />
     </div>
   );
 }
@@ -1936,11 +1910,7 @@ export default function FinanceDashboard() {
       <div className="space-y-5 animate-fade-in">
         {activeNav !== "manual" && activeNav !== "profile" && (
           <FilterBar
-            period={period}
-            onPeriodChange={handlePeriodChange}
             from={from} to={to}
-            onFromChange={setFrom}
-            onToChange={setTo}
             onCustomDateChange={handleCustomDateChange}
           />
         )}
