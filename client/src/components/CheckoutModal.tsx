@@ -50,7 +50,7 @@ type CheckoutBody = {
   offerId: string;
   userOfferId?: string;
   applyCashbackKwd?: string;
-  count?: 2 | 3;
+  count?: number;
   expectedCompletionDate?: string;
   preferredPlan?: "full" | "installments_2" | "installments_3" | "installments_4_enet";
 };
@@ -88,7 +88,7 @@ export default function CheckoutModal({
   const { getAuthHeader } = useAuth();
   const [step, setStep] = useState<"choose" | "details" | "processing" | "eform" | "result">("choose");
   const [mode, setMode] = useState<PayMode | null>(null);
-  const [installments, setInstallments] = useState<2 | 3>(2);
+  const [installments, setInstallments] = useState<number>(2);
   const [useCashback, setUseCashback] = useState(false);
   const [cashbackKwd, setCashbackKwd] = useState("0.000");
   const [completionDate, setCompletionDate] = useState<string>("");
@@ -451,7 +451,7 @@ export default function CheckoutModal({
                   amount={t("Flexible", "مرن")}
                 />
               )}
-              {offer.allowInstallments && offer.maxInstallments >= 4 && (
+              {offer.allowENet && (
                 <ChoiceCard
                   active={mode === "enet"}
                   onClick={() => setMode("enet")}
@@ -593,12 +593,12 @@ export default function CheckoutModal({
               {mode === "installments" && (
                 <div className="rounded-2xl border border-surface-200 p-4">
                   <div className="text-sm font-bold text-surface-900 mb-2">{t("How many installments?", "كم قسط؟")}</div>
-                  <div className="flex gap-2">
-                    {[2, 3].filter((n) => n <= (offer.maxInstallments ?? 1)).map((n) => (
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {Array.from({ length: Math.max(0, (offer.maxInstallments ?? 1) - 1) }, (_, i) => i + 2).map((n) => (
                       <button
                         key={n}
-                        onClick={() => setInstallments(n as 2 | 3)}
-                        className={`flex-1 py-2 rounded-xl border text-sm font-bold ${installments === n ? "bg-brand-pink-50 border-brand-pink-300 text-brand-pink-700" : "border-surface-200 text-surface-600"}`}
+                        onClick={() => setInstallments(n)}
+                        className={`flex-shrink-0 px-4 py-2 rounded-xl border text-sm font-bold ${installments === n ? "bg-brand-pink-50 border-brand-pink-300 text-brand-pink-700" : "border-surface-200 text-surface-600"}`}
                       >
                         {n} {t("payments", "دفعات")}
                       </button>

@@ -35,7 +35,7 @@ const FullSchema = z.object({
 const InstallmentsSchema = z.object({
   offerId: z.string().min(1),
   userOfferId: z.string().optional(),
-  count: z.union([z.literal(2), z.literal(3)]),
+  count: z.number().int().min(2),
   applyCashbackKwd: KwdString.optional(),
   groupInviteCode: z.string().optional(),
   clinicId: z.string().optional()
