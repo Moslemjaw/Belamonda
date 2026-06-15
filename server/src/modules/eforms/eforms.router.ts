@@ -309,7 +309,7 @@ eformsRouter.delete("/admin/forms/:id", authRequired, requireRole(["admin", "leg
 });
 
 // ── Admin: list submissions ──
-eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "legal", "cs_director"]), async (req, res, next) => {
+eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "legal", "cs_director", "finance"]), async (req, res, next) => {
   try {
     const filter: Record<string, unknown> = {};
     if (typeof req.query.formId === "string" && mongoose.isValidObjectId(req.query.formId)) {
@@ -521,7 +521,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
 
     const isOwner = sub.userId === req.auth!.userId;
-    const isStaff = req.auth!.role === "admin" || req.auth!.role === "legal" || req.auth!.role === "cs_director";
+    const isStaff = req.auth!.role === "admin" || req.auth!.role === "legal" || req.auth!.role === "cs_director" || req.auth!.role === "finance";
     if (!isOwner && !isStaff) return res.status(403).json({ error: "FORBIDDEN" });
 
     const lang = req.query.lang === "en" ? "en" : req.query.lang === "ar" ? "ar" : "both";
