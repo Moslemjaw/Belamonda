@@ -140,8 +140,8 @@ export async function requestPasswordReset(phone: string) {
     return { ok: true as const };
   }
 
-  // Generate 6-digit OTP
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  // Generate 6-digit OTP (Hardcoded to 123456 temporarily for testing)
+  const code = "123456";
   console.log(`[AUTH] Generated OTP for ${normPhone}: ${code}`);
 
   // Delete any existing OTPs for this phone to prevent spam
