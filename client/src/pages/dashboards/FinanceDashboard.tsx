@@ -1873,7 +1873,7 @@ function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
 // EFORMS VIEWER
 // ===========================================================================
 
-function EFormsViewer() {
+function EFormsViewer({ from, to }: { from: string; to: string }) {
   const { getAuthHeader } = useAuth();
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1882,13 +1882,13 @@ function EFormsViewer() {
   const fetchSubmissions = async () => {
     setLoading(true);
     try {
-      const res = await apiFetch("/eforms/admin/submissions", { headers: getAuthHeader() }) as any;
+      const res = await apiFetch(`/eforms/admin/submissions?from=${from}&to=${to}`, { headers: getAuthHeader() }) as any;
       setSubmissions(res.items || []);
     } catch (e: any) { console.error(e); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchSubmissions(); }, []);
+  useEffect(() => { fetchSubmissions(); }, [from, to]);
 
   const downloadPdf = async (sub: any) => {
     try {
@@ -2114,7 +2114,7 @@ export default function FinanceDashboard() {
         {activeNav === "clinics" && <ClinicsTab from={from} to={to} />}
         {activeNav === "reports" && <ReportsTab from={from} to={to} />}
         {activeNav === "manual" && <ManualEntriesTab from={from} to={to} />}
-        {activeNav === "eforms" && <EFormsViewer />}
+        {activeNav === "eforms" && <EFormsViewer from={from} to={to} />}
         {activeNav === "relief" && <ReliefTab from={from} to={to} />}
         {activeNav === "profile" && <ProfileTab />}
       </div>

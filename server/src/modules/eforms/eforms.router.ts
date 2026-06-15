@@ -316,6 +316,12 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
       filter.formId = new mongoose.Types.ObjectId(req.query.formId);
     }
     if (typeof req.query.userId === "string") filter.userId = req.query.userId;
+    if (typeof req.query.from === "string" && typeof req.query.to === "string") {
+      filter.createdAt = {
+        $gte: new Date(req.query.from),
+        $lte: new Date(req.query.to),
+      };
+    }
     const rows = await EFormSubmissionModel.find(filter)
       .sort({ createdAt: -1 })
       .limit(200)
