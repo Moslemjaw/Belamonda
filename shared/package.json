@@ -16,6 +16,7 @@
     "typescript": "^5.6.3"
   },
   "dependencies": {
+    "@belamonda/server": "file:../server",
     "belamonda": "file:.."
   }
 }

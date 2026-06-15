@@ -462,7 +462,7 @@ export async function checkoutInstallments(input: {
   userId: string;
   offerId: string;
   userOfferId?: string;
-  count: 2 | 3;
+  count: number;
   applyCashbackKwd?: string;
   groupInviteCode?: string;
   clinicId?: string;
