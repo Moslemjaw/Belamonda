@@ -242,7 +242,13 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
         belmondoPlan: user.belmondoPlan ?? "basic",
         belmondoProExpiresAt: user.belmondoProExpiresAt ? new Date(user.belmondoProExpiresAt).toISOString() : undefined,
         belmondoProCommitmentEndsAt: user.belmondoProCommitmentEndsAt ? new Date(user.belmondoProCommitmentEndsAt).toISOString() : undefined,
-        belmondoProPaymentType: user.belmondoProPaymentType
+        belmondoProPaymentType: user.belmondoProPaymentType,
+        staffNotes: (user as any).staffNotes?.map((n: any) => ({
+          id: String(n._id),
+          text: n.text,
+          createdAt: n.createdAt ? new Date(n.createdAt).toISOString() : undefined,
+          authorName: n.authorName || "Staff"
+        })) || []
       },
       wallet: walletItem,
       kyc: kycItem,
@@ -251,6 +257,37 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
       sessions: sessionItems,
       bookingSessions: bookingSessionsList,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+usersRouter.post("/admin/:id/notes", authRequired, requireRole([...STAFF_ROLES]), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { text } = req.body;
+    if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "INVALID_ID" });
+    if (!text || typeof text !== "string" || text.trim().length === 0) {
+      return res.status(400).json({ error: "INVALID_TEXT" });
+    }
+
+    const me = await UserModel.findById(req.auth!.userId).lean();
+    const newNote = {
+      text: text.trim(),
+      createdAt: new Date(),
+      authorId: req.auth!.userId,
+      authorName: me ? (me.fullName || me.username || "Staff") : "Staff"
+    };
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      id,
+      { $push: { staffNotes: newNote } },
+      { new: true }
+    );
+
+    if (!updatedUser) return res.status(404).json({ error: "NOT_FOUND" });
+
+    return res.json({ success: true, note: updatedUser.staffNotes?.[updatedUser.staffNotes.length - 1] });
   } catch (e) {
     next(e);
   }

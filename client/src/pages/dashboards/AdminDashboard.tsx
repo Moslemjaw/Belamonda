@@ -2118,7 +2118,7 @@ function AdminSettings() {
 }
 
 // ── User Profile Panel (tabbed) ──────────────────────────────────────────────
-export type ProfileTab = "overview" | "memberships" | "cashback" | "sessions" | "payments" | "kyc";
+export type ProfileTab = "overview" | "memberships" | "cashback" | "sessions" | "payments" | "kyc" | "notes";
 
 export function UserProfilePanel({
   user,
@@ -2158,6 +2158,9 @@ export function UserProfilePanel({
   const [cashError, setCashError] = useState<string | null>(null);
   const [sessionAdjustingId, setSessionAdjustingId] = useState<string | null>(null);
   const [installmentAdjustingId, setInstallmentAdjustingId] = useState<string | null>(null);
+
+  const [newNote, setNewNote] = useState("");
+  const [noteSaving, setNoteSaving] = useState(false);
 
   const defaultGrantEnrollment = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "bank_transfer", isVerified: true, installmentCount: 2, customInstallments: [] };
   const [grantEnrollments, setGrantEnrollments] = useState<any[]>([{ ...defaultGrantEnrollment }]);
@@ -2268,6 +2271,32 @@ export function UserProfilePanel({
     }
   };
 
+  const handleAddNote = async () => {
+    if (!newNote.trim()) return;
+    setNoteSaving(true);
+    try {
+      const res = await apiFetch(`/users/admin/${user._id || user.id}/notes`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ text: newNote }),
+      }) as any;
+      setNewNote("");
+      if (res.note) {
+        setProfile((prev: any) => ({
+          ...prev,
+          user: {
+            ...prev.user,
+            staffNotes: [...(prev.user.staffNotes || []), res.note]
+          }
+        }));
+      }
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setNoteSaving(false);
+    }
+  };
+
   const handleCashbackAdjust = async (sign: 1 | -1) => {
     const amt = parseFloat(cashAmt);
     if (!amt || amt <= 0) { setCashError(ar() ? "أدخل مبلغاً صحيحاً" : "Enter a valid amount"); return; }
@@ -2349,6 +2378,7 @@ export function UserProfilePanel({
     { key: "sessions", label: "Sessions", labelAr: "الجلسات" },
     { key: "payments", label: "Payments", labelAr: "الدفعات" },
     { key: "kyc", label: "KYC / Civil ID", labelAr: "الهوية" },
+    { key: "notes", label: "Notes", labelAr: "الملاحظات" },
   ];
 
   const statusBadge = (s: string) => {
@@ -2956,6 +2986,50 @@ export function UserProfilePanel({
                     </div>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* ── NOTES ── */}
+            {tab === "notes" && (
+              <div className="space-y-4">
+                <div className="bg-white rounded-xl border border-surface-200 p-5">
+                  <h4 className="font-bold text-surface-900 mb-4">{ar() ? "إضافة ملاحظة" : "Add Note"}</h4>
+                  <textarea
+                    className="input-field w-full h-24 p-3 mb-3 resize-none"
+                    placeholder={ar() ? "اكتب ملاحظتك هنا..." : "Type your note here..."}
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                  />
+                  <div className="flex justify-end">
+                    <button
+                      className="btn-primary px-5 py-2 text-sm rounded-xl font-bold transition-all disabled:opacity-50"
+                      onClick={handleAddNote}
+                      disabled={noteSaving || !newNote.trim()}
+                    >
+                      {noteSaving ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "حفظ الملاحظة" : "Save Note")}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {profile.user.staffNotes?.length > 0 ? (
+                    profile.user.staffNotes.slice().reverse().map((note: any, idx: number) => (
+                      <div key={note.id || idx} className="bg-surface-50 rounded-xl p-4 border border-surface-100">
+                        <div className="text-surface-800 text-sm whitespace-pre-wrap leading-relaxed">{note.text}</div>
+                        <div className="flex items-center gap-2 mt-3 text-xs text-surface-400">
+                          <span className="font-bold text-surface-500">{note.authorName}</span>
+                          <span>•</span>
+                          <span>{fmt(note.createdAt)}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-surface-400 text-sm">
+                      <svg className="w-10 h-10 mx-auto mb-2 text-surface-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                      {ar() ? "لا توجد ملاحظات بعد" : "No notes yet"}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </>
