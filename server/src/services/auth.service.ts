@@ -142,6 +142,7 @@ export async function requestPasswordReset(phone: string) {
 
   // Generate 6-digit OTP
   const code = Math.floor(100000 + Math.random() * 900000).toString();
+  console.log(`[AUTH] Generated OTP for ${normPhone}: ${code}`);
 
   // Delete any existing OTPs for this phone to prevent spam
   await OtpModel.deleteMany({ phone: { $in: [normPhone, barePhone, withPrefix] } });
@@ -155,8 +156,13 @@ export async function requestPasswordReset(phone: string) {
     await sendWhatsAppOTP(e164Phone, code);
     console.log("OTP WhatsApp dispatched to", e164Phone);
   } catch (err) {
-    console.error("Failed to send OTP WhatsApp:", err);
-    // Don't fail the request if WhatsApp fails, but log it
+    console.error("Failed to send OTP WhatsApp, falling back to SMS:", err);
+    try {
+      await sendSMS(withPrefix, `Your Belamonda OTP is: ${code}`);
+      console.log("OTP SMS dispatched to", withPrefix);
+    } catch (smsErr) {
+      console.error("Failed to send OTP SMS as well:", smsErr);
+    }
   }
 
   return { ok: true as const };
