@@ -2157,6 +2157,7 @@ export function UserProfilePanel({
   const [cashSaving, setCashSaving] = useState(false);
   const [cashError, setCashError] = useState<string | null>(null);
   const [sessionAdjustingId, setSessionAdjustingId] = useState<string | null>(null);
+  const [installmentAdjustingId, setInstallmentAdjustingId] = useState<string | null>(null);
 
   const defaultGrantEnrollment = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "bank_transfer", isVerified: true, installmentCount: 2, customInstallments: [] };
   const [grantEnrollments, setGrantEnrollments] = useState<any[]>([{ ...defaultGrantEnrollment }]);
@@ -2309,6 +2310,23 @@ export function UserProfilePanel({
       alert(e.message);
     } finally {
       setSessionAdjustingId(null);
+    }
+  };
+
+  const handleAdjustInstallments = async (membershipId: string, delta: number) => {
+    setInstallmentAdjustingId(membershipId + (delta > 0 ? "_inc" : "_dec"));
+    try {
+      await apiFetch(`/commerce/admin/user-offers/${membershipId}/adjust-installments`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ delta }),
+      });
+      const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
+      setProfile(d);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setInstallmentAdjustingId(null);
     }
   };
 
@@ -2696,7 +2714,25 @@ export function UserProfilePanel({
                             </div>
                           </div>
                         )}
-                        <div><span className="text-surface-400">{ar() ? "الأقساط المدفوعة" : "Installments Paid"}</span><div className="font-bold mt-0.5">{m.installmentsPaid}/{m.installmentCount ?? "—"}</div></div>
+                        <div>
+                          <span className="text-surface-400">{ar() ? "الأقساط المدفوعة" : "Installments Paid"}</span>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <button
+                              className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-red-100 hover:text-red-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
+                              disabled={installmentAdjustingId !== null || (m.installmentsPaid ?? 0) <= 0}
+                              onClick={() => handleAdjustInstallments(m.id, -1)}
+                              title={ar() ? "تقليل" : "Decrement"}
+                            >−</button>
+                            <span className="font-bold">{m.installmentsPaid}</span>
+                            <button
+                              className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-emerald-100 hover:text-emerald-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
+                              disabled={installmentAdjustingId !== null}
+                              onClick={() => handleAdjustInstallments(m.id, +1)}
+                              title={ar() ? "زيادة" : "Increment"}
+                            >+</button>
+                            <span className="text-surface-400 text-sm">/ {m.installmentCount ?? "—"}</span>
+                          </div>
+                        </div>
                         <div><span className="text-surface-400">{ar() ? "المبلغ (د.ك)" : "Amount (KWD)"}</span><div className="font-bold mt-0.5">{m.paymentAmountKwd ?? "—"}</div></div>
                         <div><span className="text-surface-400">{ar() ? "التفعيل" : "Activated"}</span><div className="font-bold mt-0.5">{fmt(m.activatedAt)}</div></div>
                         <div><span className="text-surface-400">{ar() ? "الانتهاء" : "Expires"}</span><div className="font-bold mt-0.5">{fmt(m.expiresAt)}</div></div>

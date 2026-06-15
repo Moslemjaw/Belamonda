@@ -597,6 +597,26 @@ commerceRouter.get("/cs/clinic-change-requests", authRequired, requireRole(["cs"
   }
 });
 
+commerceRouter.post("/admin/user-offers/:uoId/adjust-installments", authRequired, requireRole(["cs", "legal", "admin", "cs_director"]), async (req, res, next) => {
+  try {
+    const delta = typeof req.body?.delta === "number" ? Math.round(req.body.delta) : 0;
+    if (delta === 0 || Math.abs(delta) > 1) return res.status(400).json({ error: "INVALID_DELTA" });
+    if (!mongoose.isValidObjectId(req.params.uoId)) return res.status(400).json({ error: "INVALID_ID" });
+
+    const uo = await UserOfferModel.findById(req.params.uoId).lean();
+    if (!uo) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const current = (uo as any).installmentsPaid ?? 0;
+    const nextVal = Math.max(0, current + delta);
+    if (nextVal === current) return res.json({ ok: true, installmentsPaid: current });
+
+    await UserOfferModel.findByIdAndUpdate(req.params.uoId, { $set: { installmentsPaid: nextVal } });
+    return res.json({ ok: true, installmentsPaid: nextVal });
+  } catch (e) {
+    next(e);
+  }
+});
+
 /** CS/Admin: approve a clinic change request — updates the membership's clinicId. */
 commerceRouter.post("/cs/clinic-change-requests/:id/approve", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
