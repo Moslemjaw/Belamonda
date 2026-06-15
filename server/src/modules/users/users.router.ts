@@ -271,7 +271,7 @@ usersRouter.post("/admin/:id/notes", authRequired, requireRole([...STAFF_ROLES])
       return res.status(400).json({ error: "INVALID_TEXT" });
     }
 
-    const me = await UserModel.findById(req.auth!.userId).lean();
+    const me = await UserModel.findById(req.auth!.userId).lean() as any;
     const newNote = {
       text: text.trim(),
       createdAt: new Date(),
