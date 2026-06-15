@@ -1501,7 +1501,7 @@ interface ManualEntry {
   createdAt: string;
 }
 
-function ManualEntriesTab() {
+function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
   const { getAuthHeader } = useAuth();
 
   const [amount, setAmount] = useState("");
@@ -1526,13 +1526,16 @@ function ManualEntriesTab() {
 
   const load = () => {
     setLoadingList(true);
-    apiFetch("/reporting/finance/manual-payments", { headers: getAuthHeader() })
+    let url = "/reporting/finance/manual-payments?";
+    if (from) url += `from=${from}&`;
+    if (to) url += `to=${to}`;
+    apiFetch(url, { headers: getAuthHeader() })
       .then((d: any) => setEntries(d.items || []))
       .catch(() => {})
       .finally(() => setLoadingList(false));
   };
 
-  useEffect(load, []);
+  useEffect(() => { load(); }, [from, to]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1908,7 +1911,7 @@ export default function FinanceDashboard() {
       subtitle={ar() ? "الإيرادات، الأرباح، والتحليلات" : "Revenue, Profit & Analytics"}
     >
       <div className="space-y-5 animate-fade-in">
-        {activeNav !== "manual" && activeNav !== "profile" && (
+        {activeNav !== "profile" && (
           <FilterBar
             from={from} to={to}
             onCustomDateChange={handleCustomDateChange}
@@ -1922,7 +1925,7 @@ export default function FinanceDashboard() {
         {activeNav === "analytics" && <AnalyticsTab from={from} to={to} />}
         {activeNav === "clinics" && <ClinicsTab from={from} to={to} />}
         {activeNav === "reports" && <ReportsTab from={from} to={to} />}
-        {activeNav === "manual" && <ManualEntriesTab />}
+        {activeNav === "manual" && <ManualEntriesTab from={from} to={to} />}
         {activeNav === "relief" && <ReliefTab from={from} to={to} />}
         {activeNav === "profile" && <ProfileTab />}
       </div>

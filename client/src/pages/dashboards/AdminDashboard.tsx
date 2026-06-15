@@ -2977,7 +2977,7 @@ const ROLE_COLORS: Record<string, string> = {
   user: "bg-surface-100 text-surface-600",
 };
 
-export function UsersManager() {
+export function UsersManager({ from, to }: { from?: string; to?: string }) {
   const { auth, login, getAuthHeader, impersonateUser } = useAuth();
   const canExport = auth?.role === "admin" || auth?.role === "finance";
   const [selectedUser, setSelectedUser] = useState<any>(null);
@@ -3090,7 +3090,10 @@ export function UsersManager() {
       referredByUsername?: string | null;
     }
     interface AdminUsersResponse { items: AdminUserItem[]; }
-    apiFetch("/users/admin", { headers: getAuthHeader() })
+    let url = "/users/admin?";
+    if (from) url += `from=${from}&`;
+    if (to) url += `to=${to}`;
+    apiFetch(url, { headers: getAuthHeader() })
       .then((d) => {
         setUsers(((d as AdminUsersResponse).items || []).map((u) => ({
           id: u.id,
@@ -3109,7 +3112,7 @@ export function UsersManager() {
       });
   };
 
-  useEffect(() => { loadUsers(); }, []);
+  useEffect(() => { loadUsers(); }, [from, to]);
 
   const filtered = users.filter(u => {
     const matchSearch = (u.name ?? "").toLowerCase().includes(search.toLowerCase()) || (u.phone ?? "").includes(search);

@@ -260,7 +260,15 @@ reportingRouter.post("/finance/manual-payment", authRequired, requireRole(FINANC
 reportingRouter.get("/finance/manual-payments", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {
     const limit = Math.min(500, Number(str(req.query.limit)) || 200);
-    const docs = await PaymentModel.find({ isManual: true }).populate("clinicId", "nameEn").sort({ createdAt: -1 }).limit(limit).lean();
+    const q: any = { isManual: true };
+    const fromStr = str(req.query.from);
+    const toStr = str(req.query.to);
+    if (fromStr || toStr) {
+      q.createdAt = {};
+      if (fromStr) q.createdAt.$gte = new Date(fromStr);
+      if (toStr) q.createdAt.$lte = new Date(new Date(toStr).setUTCHours(23, 59, 59, 999));
+    }
+    const docs = await PaymentModel.find(q).populate("clinicId", "nameEn").sort({ createdAt: -1 }).limit(limit).lean();
     const items = docs.map((d: any) => ({
       id: d._id.toString(),
       amountKwd: d.amountKwd,

@@ -57,6 +57,15 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
     if (role && role !== "all") filter.role = role;
     if (status === "active") filter.isActive = true;
     if (status === "disabled") filter.isActive = false;
+
+    const fromStr = typeof req.query.from === "string" ? req.query.from : undefined;
+    const toStr = typeof req.query.to === "string" ? req.query.to : undefined;
+    if (fromStr || toStr) {
+      filter.createdAt = {};
+      if (fromStr) filter.createdAt.$gte = new Date(fromStr);
+      if (toStr) filter.createdAt.$lte = new Date(new Date(toStr).setUTCHours(23, 59, 59, 999));
+    }
+
     if (q) {
       filter.$or = [
         { username: { $regex: q, $options: "i" } },
