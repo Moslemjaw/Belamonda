@@ -131,7 +131,8 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
     // Enrich memberships & scheduled sessions with offer names
     const offerIds = [...new Set([
       ...memberships.map((m: any) => String(m.offerId)),
-      ...bookingSessions.map((s: any) => String(s.offerId))
+      ...bookingSessions.map((s: any) => String(s.offerId)),
+      ...sessions.map((s: any) => String(s.offerId))
     ].filter(Boolean))];
     const offers = offerIds.length
       ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr maxSessions").lean<{ _id: mongoose.Types.ObjectId; name: string; nameAr?: string; maxSessions?: number }[]>()
@@ -190,6 +191,9 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
       status: s.status,
       clinicId: s.clinicId,
       userOfferId: s.userOfferId ? String(s.userOfferId) : undefined,
+      offerId: s.offerId ? String(s.offerId) : undefined,
+      offerName: s.isStandalone ? s.standaloneName : (offerMap[String(s.offerId)]?.name ?? "—"),
+      offerNameAr: s.isStandalone ? s.standaloneName : offerMap[String(s.offerId)]?.nameAr,
       requestedAt: s.createdAt ? new Date(s.createdAt).toISOString() : undefined,
     }));
 
