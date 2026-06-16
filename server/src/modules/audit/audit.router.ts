@@ -51,24 +51,60 @@ auditRouter.get("/", authRequired, requireRole(["admin"]), async (req, res) => {
     ]);
 
     const { UserModel } = await import("../../models/user.model.js");
-    const userIds = [...new Set(items.map(i => String(i.actorId)).filter(id => id !== "system" && mongoose.isValidObjectId(id)))];
-    const users = await UserModel.find({ _id: { $in: userIds } }).select("fullName").lean();
-    const userMap = new Map(users.map((u: any) => [String(u._id), u.fullName]));
+    const { OfferModel } = await import("../../models/offer.model.js");
+    const { PaymentModel } = await import("../../models/payment.model.js");
+    const { KycSubmissionModel } = await import("../../models/kyc.model.js");
+
+    const userIds = new Set<string>();
+    const offerIds = new Set<string>();
+    const paymentIds = new Set<string>();
+    const kycIds = new Set<string>();
+
+    items.forEach(i => {
+      if (i.actorId !== "system" && mongoose.isValidObjectId(i.actorId)) userIds.add(String(i.actorId));
+      const tid = String(i.targetEntityId);
+      if (mongoose.isValidObjectId(tid)) {
+        if (i.targetEntityType === "User") userIds.add(tid);
+        if (i.targetEntityType === "Offer") offerIds.add(tid);
+        if (i.targetEntityType === "Payment") paymentIds.add(tid);
+        if (i.targetEntityType === "KycSubmission") kycIds.add(tid);
+      }
+    });
+
+    const [offersList, paymentsList, kycList] = await Promise.all([
+      OfferModel.find({ _id: { $in: [...offerIds] } }).select("name").lean(),
+      PaymentModel.find({ _id: { $in: [...paymentIds] } }).select("amountKwd purpose").lean(),
+      KycSubmissionModel.find({ _id: { $in: [...kycIds] } }).select("userId").lean(),
+    ]);
+
+    kycList.forEach((k: any) => userIds.add(k.userId));
+    const usersList = await UserModel.find({ _id: { $in: [...userIds] } }).select("fullName phone").lean();
+
+    const entityNames = new Map<string, string>();
+    usersList.forEach((u: any) => entityNames.set(`User:${u._id}`, u.fullName || u.phone || String(u._id)));
+    offersList.forEach((o: any) => entityNames.set(`Offer:${o._id}`, o.name || String(o._id)));
+    paymentsList.forEach((p: any) => entityNames.set(`Payment:${p._id}`, `${p.amountKwd} KWD (${p.purpose.replace(/_/g, " ")})`));
+    kycList.forEach((k: any) => entityNames.set(`KycSubmission:${k._id}`, entityNames.get(`User:${k.userId}`) || String(k._id)));
 
     res.json({
-      items: items.map(i => ({
-        id:               String(i._id),
-        actorId:          String(i.actorId),
-        actorName:        i.actorId === "system" ? "System" : (userMap.get(String(i.actorId)) || "Unknown User"),
-        actorRole:        i.actorRole,
-        actionType:       i.actionType,
-        targetEntityType: i.targetEntityType,
-        targetEntityId:   String(i.targetEntityId),
-        beforeState:      i.beforeState,
-        afterState:       i.afterState,
-        metadata:         i.metadata,
-        createdAt:        i.createdAt,
-      })),
+      items: items.map(i => {
+        const actorId = String(i.actorId);
+        const targetId = String(i.targetEntityId);
+        return {
+          id:               String(i._id),
+          actorId,
+          actorName:        actorId === "system" ? "System" : (entityNames.get(`User:${actorId}`) || "Unknown User"),
+          actorRole:        i.actorRole,
+          actionType:       i.actionType,
+          targetEntityType: i.targetEntityType,
+          targetEntityId:   targetId,
+          targetEntityName: entityNames.get(`${i.targetEntityType}:${targetId}`) || null,
+          beforeState:      i.beforeState,
+          afterState:       i.afterState,
+          metadata:         i.metadata,
+          createdAt:        i.createdAt,
+        };
+      }),
       total,
       page,
       limit,

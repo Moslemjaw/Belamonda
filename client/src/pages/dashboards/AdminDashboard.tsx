@@ -3914,7 +3914,11 @@ function AuditLogViewer() {
                       </td>
                       <td className="text-xs">
                         <span className="font-medium text-surface-700">{log.targetEntityType}</span>
-                        <div className="font-mono text-[10px] text-surface-400 truncate max-w-[120px]">{log.targetEntityId}</div>
+                        {log.targetEntityName ? (
+                          <div className="text-[11px] font-bold text-surface-900 truncate max-w-[150px] mt-0.5" title={log.targetEntityName}>{log.targetEntityName}</div>
+                        ) : (
+                          <div className="font-mono text-[10px] text-surface-400 truncate max-w-[120px]">{log.targetEntityId}</div>
+                        )}
                       </td>
                       <td className="text-xs text-surface-500 max-w-[160px]">
                         {log.metadata?.username && <span className="font-medium text-surface-700">@{log.metadata.username}</span>}
