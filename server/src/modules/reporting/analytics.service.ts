@@ -729,6 +729,30 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
     BookingSessionModel.countDocuments({ status: "completed", scheduledAt: { $gte: monthStart } }),
   ]);
 
+  // Expected total revenue = sum of offer prices for all active/reserved/pending user offers
+  const allUserOffers = await UserOfferModel.find({
+    status: { $in: ["active", "pending_payment", "reserved"] },
+  }).select("offerId installmentSchedule purchaseMode").lean();
+
+  const allOfferIds = [...new Set(allUserOffers.map((uo: any) => uo.offerId?.toString()).filter(Boolean))];
+  const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
+  const offerPriceMap = new Map(allOfferDocs.map((o: any) => [o._id.toString(), o.subscriptionPriceKwd]));
+
+  let expectedTotalMils = 0;
+  let unpaidInstallmentsMils = 0;
+
+  for (const uo of allUserOffers as any[]) {
+    const offerPrice = offerPriceMap.get(uo.offerId?.toString());
+    if (offerPrice) expectedTotalMils += parseKwd(offerPrice);
+
+    // Calculate unpaid installments
+    if (uo.purchaseMode === "installments" && uo.installmentSchedule) {
+      for (const inst of uo.installmentSchedule) {
+        if (!inst.paid) unpaidInstallmentsMils += parseKwd(inst.amountKwd);
+      }
+    }
+  }
+
   return {
     revenueKwd,
     netCollectedKwd: fmtKwd(netMils),
@@ -755,6 +779,8 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
     pendingPaymentsKwd: fmtKwd(pendingMils),
     sessionsToday,
     sessionsThisMonth,
+    expectedTotalRevenueKwd: fmtKwd(expectedTotalMils),
+    unpaidInstallmentsKwd: fmtKwd(unpaidInstallmentsMils),
   };
 }
 

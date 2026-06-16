@@ -262,6 +262,12 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
         <KpiCard label={ar() ? "جلسات اليوم / الشهر" : "Sessions Today / Month"} value={`${snapshot?.sessionsToday ?? 0} / ${snapshot?.sessionsThisMonth ?? 0}`} color="text-blue-600" />
       </div>
 
+      {/* Expected Revenue & Unpaid Installments */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <KpiCard label={ar() ? "الإيرادات المتوقعة (الكل مدفوع)" : "Expected Total Revenue"} value={`${snapshot?.expectedTotalRevenueKwd ?? "0.000"} KWD`} sub={ar() ? "إذا تم دفع جميع الأقساط" : "if all installments are fully paid"} color="text-teal-600" icon="📊" />
+        <KpiCard label={ar() ? "أقساط غير مدفوعة" : "Unpaid Installments"} value={`${snapshot?.unpaidInstallmentsKwd ?? "0.000"} KWD`} sub={ar() ? "مبالغ أقساط لم تُسدد بعد" : "outstanding installment amounts"} color="text-red-600" icon="⏳" />
+      </div>
+
       {/* Revenue Trend Chart */}
       <div className="card-elevated p-5 border border-surface-200 shadow-sm">
         <div className="flex items-center justify-between mb-4">
