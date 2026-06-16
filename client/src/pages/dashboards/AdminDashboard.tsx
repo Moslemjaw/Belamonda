@@ -2958,7 +2958,7 @@ export function UserProfilePanel({
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-bold text-surface-900">{ar() ? "بيانات الهوية" : "Identity Details"}</h4>
                         <div className="flex items-center gap-2">
-                          {user.verificationStatus === "approved" && (
+                          {profile.kyc.status === "approved" && (
                             <button onClick={handleUnverify} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
                               {ar() ? "إلغاء التوثيق" : "Unverify Account"}
                             </button>
