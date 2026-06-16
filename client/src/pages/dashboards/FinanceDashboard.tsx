@@ -36,6 +36,7 @@ import {
 import { apiFetch, API_BASE_URL } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { UserProfilePanel, UsersManager } from "./AdminDashboard";
+import { fmtDate } from "../../lib/dateFormat";
 
 const ar = () => i18n.language === "ar";
 
@@ -455,7 +456,7 @@ function PaymentsTab({ from, to }: { from: string; to: string }) {
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-bold text-surface-900">{p.amountKwd} <span className="text-[10px] text-surface-500">KWD</span></div>
-                      <div className="text-[10px] text-surface-400 mt-0.5">{new Date(p.createdAt).toLocaleDateString()}</div>
+                      <div className="text-[10px] text-surface-400 mt-0.5">{fmtDate(p.createdAt)}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -506,7 +507,7 @@ function PaymentsTab({ from, to }: { from: string; to: string }) {
                           {p.status}
                         </span>
                       </td>
-                      <td className="text-surface-500 whitespace-nowrap">{new Date(p.createdAt).toLocaleDateString()}</td>
+                      <td className="text-surface-500 whitespace-nowrap">{fmtDate(p.createdAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -566,7 +567,7 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-bold text-surface-900">{i.amountKwd} <span className="text-[10px] text-surface-500">KWD</span></div>
-                      <div className="text-[10px] text-surface-400 mt-0.5">{i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "—"}</div>
+                      <div className="text-[10px] text-surface-400 mt-0.5">{fmtDate(i.dueDate)}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -607,7 +608,7 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
                       <td className="font-medium">{i.offerName}</td>
                       <td className="text-center text-surface-500">{i.installmentNumber}</td>
                       <td className="text-right font-bold text-surface-900">{i.amountKwd} KWD</td>
-                      <td className="text-surface-600">{i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "—"}</td>
+                      <td className="text-surface-600">{fmtDate(i.dueDate)}</td>
                       <td>
                         {i.method ? (
                           <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700">
@@ -952,7 +953,7 @@ function ReportsTab({ from, to }: { from: string; to: string }) {
             </p>
           </div>
           <div className="text-[11px] text-surface-500 bg-surface-50 px-2 py-1 rounded-md whitespace-nowrap">
-            {new Date(from).toLocaleDateString()} → {new Date(to).toLocaleDateString()}
+            {fmtDate(from)} → {fmtDate(to)}
           </div>
         </div>
 
@@ -1051,7 +1052,7 @@ function ClinicRowDetail({ clinicId, from, to }: { clinicId: string; from: strin
             <tbody>
               {data.invoices.slice(0, 8).map(inv => (
                 <tr key={inv.id}>
-                  <td className="text-surface-500">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                  <td className="text-surface-500">{fmtDate(inv.createdAt)}</td>
                   <td className="font-medium">{inv.customerName}</td>
                   <td className="text-surface-500 capitalize">{inv.membershipType ?? "—"}</td>
                   <td className="text-right font-bold text-surface-900">{inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}</td>
@@ -1330,7 +1331,7 @@ function ReliefTab({ from, to }: { from: string; to: string }) {
                     </td>
                     <td className="text-surface-600">{PURPOSE_LABELS[p.purpose ?? ""] ?? (p.purpose || "—")}</td>
                     <td className="text-right font-black text-rose-600">{p.amountKwd} KWD</td>
-                    <td className="text-surface-500 whitespace-nowrap">{new Date(p.createdAt).toLocaleDateString()}</td>
+                    <td className="text-surface-500 whitespace-nowrap">{fmtDate(p.createdAt)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1481,7 +1482,7 @@ function ProfileTab() {
           {me?.createdAt && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-3">
               <span className="text-xs uppercase tracking-wider text-surface-400 font-bold w-36 shrink-0">{ar() ? "تاريخ الانضمام" : "Member Since"}</span>
-              <span className="text-sm font-medium text-surface-800">{new Date(me.createdAt).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" })}</span>
+              <span className="text-sm font-medium text-surface-800">{fmtDate(me.createdAt)}</span>
             </div>
           )}
         </div>
@@ -1795,7 +1796,7 @@ function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
                 <div className="flex items-start justify-between">
                   <div>
                     <div className="font-bold text-emerald-700 text-lg">{e.amountKwd} KWD</div>
-                    <div className="text-[11px] text-surface-400 mt-0.5 font-mono">{new Date(e.createdAt).toLocaleDateString()} • {new Date(e.createdAt).toLocaleTimeString()}</div>
+                    <div className="text-[11px] text-surface-400 mt-0.5 font-mono">{fmtDate(e.createdAt)} • {new Date(e.createdAt).toLocaleTimeString()}</div>
                   </div>
                   <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full shrink-0 ${statusBadge[e.status] ?? "bg-surface-100 text-surface-500"}`}>{e.status}</span>
                 </div>
@@ -1844,7 +1845,7 @@ function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
                 {entries.map(e => (
                   <tr key={e.id}>
                     <td className="text-xs font-mono text-surface-500 whitespace-nowrap">
-                      {new Date(e.createdAt).toLocaleDateString()}<br />
+                      {fmtDate(e.createdAt)}<br />
                       <span className="text-[10px]">{new Date(e.createdAt).toLocaleTimeString()}</span>
                     </td>
                     <td className="font-medium text-surface-900 whitespace-nowrap text-xs">

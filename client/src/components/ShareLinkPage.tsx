@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { fmtDate } from "../lib/dateFormat";
 import { useAuth } from "../app/AuthContext";
 import i18n from "../app/i18n";
 import { apiFetch, SITE_BASE_URL } from "../lib/api";
@@ -258,7 +259,7 @@ export default function ShareLinkPage({ hideHeader }: { hideHeader?: boolean } =
                       {u.fullName || u.username || t("Customer", "عميل")}
                     </div>
                     <div className="text-xs text-surface-400">
-                      {t("Joined", "انضم")} {new Date(u.joinedAt).toLocaleDateString()}
+                      {t("Joined", "انضم")} {fmtDate(u.joinedAt)}
                     </div>
                   </div>
                 </div>

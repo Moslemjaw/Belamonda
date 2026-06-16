@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { fmtDate } from "../../lib/dateFormat";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
@@ -207,7 +208,7 @@ export function PaymentQueue() {
     const purchaseMode = p.purchaseMode || "full";
     const schedule: any[] = p.installmentSchedule || [];
     const installmentRows = purchaseMode === "installments" && schedule.length > 0
-      ? schedule.map((inst: any) => `<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:7px 8px;color:#666;font-size:12px">${isAr ? `القسط ${inst.number}` : `Installment ${inst.number}`}</td><td style="padding:7px 8px;text-align:right;font-weight:700;font-size:12px;color:${inst.paid ? "#059669" : "#1a1a1a"}">${inst.amountKwd} KWD${inst.paid ? (isAr ? " ✓ مدفوع" : " ✓ Paid") : inst.dueDate ? ` · ${new Date(inst.dueDate).toLocaleDateString()}` : ""}</td></tr>`).join("")
+      ? schedule.map((inst: any) => `<tr style="border-bottom:1px solid #f5f5f5"><td style="padding:7px 8px;color:#666;font-size:12px">${isAr ? `القسط ${inst.number}` : `Installment ${inst.number}`}</td><td style="padding:7px 8px;text-align:right;font-weight:700;font-size:12px;color:${inst.paid ? "#059669" : "#1a1a1a"}">${inst.amountKwd} KWD${inst.paid ? (isAr ? " ✓ مدفوع" : " ✓ Paid") : inst.dueDate ? ` · ${fmtDate(inst.dueDate)}` : ""}</td></tr>`).join("")
       : "";
 
     const modeLabel = purchaseMode === "installments"
@@ -378,7 +379,7 @@ export function PaymentQueue() {
                     <div className="space-y-2 mb-3">
                       {schedule.map((inst: any) => (
                         <div key={inst.number} className="flex justify-between items-center text-sm">
-                          <span className="text-blue-800">{ar() ? `القسط ${inst.number}` : `Installment ${inst.number}`}{inst.dueDate ? ` · ${new Date(inst.dueDate).toLocaleDateString()}` : ""}</span>
+                          <span className="text-blue-800">{ar() ? `القسط ${inst.number}` : `Installment ${inst.number}`}{inst.dueDate ? ` · ${fmtDate(inst.dueDate)}` : ""}</span>
                           <span className={`font-bold ${inst.paid ? "text-emerald-600" : "text-blue-900"}`}>
                             {inst.amountKwd} KWD {inst.paid ? "✓" : ""}
                           </span>
@@ -543,7 +544,7 @@ function PaymentsManager() {
                       <div className="text-sm text-surface-500 mt-0.5">{uo.userPhone || "—"} • {ar() && uo.offerNameAr ? uo.offerNameAr : (uo.offerName || uo.offerId)}</div>
                       <div className="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-lg inline-flex items-center gap-1 mt-2 border border-red-100">
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-                        {ar() ? `متأخر ${overdueDays} يوم` : `${overdueDays} days overdue`} ({new Date(uo.nextInstallmentDueAt).toLocaleDateString()})
+                        {ar() ? `متأخر ${overdueDays} يوم` : `${overdueDays} days overdue`} ({fmtDate(uo.nextInstallmentDueAt)})
                       </div>
                     </div>
                   </div>
@@ -593,7 +594,7 @@ function PaymentsManager() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="bg-blue-50 text-blue-700 font-semibold px-2.5 py-1 rounded-lg border border-blue-100 text-xs">
-                          {new Date(uo.nextInstallmentDueAt).toLocaleDateString()}
+                          {fmtDate(uo.nextInstallmentDueAt)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right font-black text-surface-900">
@@ -1131,8 +1132,8 @@ function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, clinicI
                       <div><span className="text-surface-400 block">{ar() ? "العرض" : "Offer ID"}</span><span className="font-mono text-surface-700">{o.offerId}</span></div>
                       <div><span className="text-surface-400 block">{ar() ? "العيادة" : "Clinic"}</span><span className="font-bold text-surface-700">{o.clinicId}</span></div>
                       {o.paymentMethod && <div><span className="text-surface-400 block">{ar() ? "طريقة الدفع" : "Pay Method"}</span><span className="font-bold text-surface-700">{o.paymentMethod}</span></div>}
-                      {o.activatedAt && <div><span className="text-surface-400 block">{ar() ? "تم التفعيل" : "Activated"}</span><span className="font-bold text-surface-700">{new Date(o.activatedAt).toLocaleDateString()}</span></div>}
-                      {o.expiresAt && <div><span className="text-surface-400 block">{ar() ? "ينتهي" : "Expires"}</span><span className="font-bold text-surface-700">{new Date(o.expiresAt).toLocaleDateString()}</span></div>}
+                      {o.activatedAt && <div><span className="text-surface-400 block">{ar() ? "تم التفعيل" : "Activated"}</span><span className="font-bold text-surface-700">{fmtDate(o.activatedAt)}</span></div>}
+                      {o.expiresAt && <div><span className="text-surface-400 block">{ar() ? "ينتهي" : "Expires"}</span><span className="font-bold text-surface-700">{fmtDate(o.expiresAt)}</span></div>}
                       {o.groupInviteCode && <div><span className="text-surface-400 block">{ar() ? "كود الدعوة" : "Invite Code"}</span><span className="font-mono font-bold text-purple-600">{o.groupInviteCode}</span></div>}
                       {o.sharedWith?.length > 0 && <div><span className="text-surface-400 block">{ar() ? "مشارك مع" : "Shared With"}</span><span className="font-bold text-purple-600">{o.sharedWith.length} {ar() ? "عضو" : "members"}</span></div>}
                       {o.cashbackAppliedKwd && o.cashbackAppliedKwd !== '0.000' && <div><span className="text-surface-400 block">{ar() ? "كاش باك مطبق" : "CB Applied"}</span><span className="font-bold text-emerald-600">{o.cashbackAppliedKwd} KWD</span></div>}
@@ -2973,7 +2974,7 @@ export default function CsDashboard() {
                       <td className="text-sm font-bold text-surface-700">{c.userName || c.userId}</td>
                       <td><span className="badge-sage">{c.category}</span></td>
                       <td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{translateComplaintStatus(c.status)}</span></td>
-                      <td className="text-xs">{new Date(c.createdAt).toLocaleDateString()}</td>
+                      <td className="text-xs">{fmtDate(c.createdAt)}</td>
                     </tr>
                   ))}
                   {filteredComplaints.length === 0 && <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div className="empty-state-title">{ar() ? "لا شكاوى" : "No complaints"}</div><div className="empty-state-sub">{ar() ? "لم يتم العثور على نتائج للفلتر الحالي." : "No results found for current filters."}</div></div></td></tr>}

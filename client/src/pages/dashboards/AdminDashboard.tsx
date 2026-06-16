@@ -17,6 +17,7 @@ import { SessionTypesAdminPanel } from "../../features/admin/SessionTypesAdminPa
 import ChatWidget from "../../components/ChatWidget";
 import AdminBookingsMonitor from "../../components/AdminBookingsMonitor";
 import ShareLinkPage from "../../components/ShareLinkPage";
+import { fmtDate } from "../../lib/dateFormat";
 import NotificationSettingsPanel from "../../features/admin/NotificationSettingsPanel";
 import QRCodeCanvas from "../../components/QRCodeCanvas";
 
@@ -1622,7 +1623,7 @@ function TasksManager() {
                      </div>
                   </td>
                   <td><span className={t.status === "completed" ? "badge-green" : t.status === "in_progress" ? "badge-yellow" : "badge-gray"}>{t.status}</span></td>
-                  <td className="text-xs text-surface-500 font-medium">{new Date(t.dueDate).toLocaleDateString()}</td>
+                  <td className="text-xs text-surface-500 font-medium">{fmtDate(t.dueDate)}</td>
                 </tr>
               ))}
               {(data?.items || []).length === 0 && <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg></div><div className="empty-state-title">{ar() ? "لا توجد مهام حالية" : "No active tasks"}</div><div className="empty-state-sub">{ar() ? "لا توجد مهام تتطلب اهتمامك الآن." : "All caught up — nothing to action right now."}</div></div></td></tr>}
@@ -1829,7 +1830,7 @@ function ComplaintsView() {
                   <td className="text-sm font-bold text-surface-700">{c.userName || c.userId}</td>
                   <td><span className="badge-sage">{c.category}</span></td>
                   <td><span className={c.status === "resolved" ? "badge-green" : c.status === "open" ? "badge-red" : "badge-yellow"}>{translateComplaintStatus(c.status)}</span></td>
-                  <td className="text-xs">{new Date(c.createdAt).toLocaleDateString()}</td>
+                  <td className="text-xs">{fmtDate(c.createdAt)}</td>
                 </tr>
               ))}
               {filteredItems.length === 0 && <tr><td colSpan={5}><div className="empty-state"><div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div><div className="empty-state-title">{ar() ? "لا توجد شكاوى" : "No complaints"}</div><div className="empty-state-sub">{ar() ? "لم يتم العثور على نتائج للفلتر الحالي." : "No results found for the current filters."}</div></div></td></tr>}
@@ -2415,7 +2416,7 @@ export function UserProfilePanel({
     return "bg-surface-100 text-surface-600";
   };
 
-  const fmt = (d?: string) => d ? new Date(d).toLocaleDateString("en-KW") : "—";
+  const fmt = (d?: string) => fmtDate(d);
 
   return (
     <div className="card-elevated animate-slide-up relative bg-surface-50 overflow-hidden">
@@ -3746,10 +3747,10 @@ function AdminReservationsPanel() {
                       <td className="px-4 py-3 text-surface-600">{planLabel(r.reservationPreferredPlan)}</td>
                       <td className="px-4 py-3 text-surface-600 text-xs">
                         {r.reservationExpiresAt
-                          ? new Date(r.reservationExpiresAt).toLocaleDateString()
+                          ? fmtDate(r.reservationExpiresAt)
                           : r.status === "active" ? <span className="text-emerald-600 font-medium">{ar() ? "تم التحويل" : "Converted"}</span> : "—"}
                       </td>
-                      <td className="px-4 py-3 text-surface-500 text-xs">{new Date(r.createdAt ?? "").toLocaleDateString()}</td>
+                      <td className="px-4 py-3 text-surface-500 text-xs">{fmtDate(r.createdAt)}</td>
                     </tr>
                   );
                 })}
@@ -3903,7 +3904,7 @@ function AuditLogViewer() {
                   <Fragment key={log.id}>
                     <tr className={`hover:bg-surface-50/50 transition-colors ${expandedId === log.id ? "bg-surface-50" : ""}`}>
                       <td className="text-xs text-surface-500 whitespace-nowrap">
-                        <div>{new Date(log.createdAt).toLocaleDateString()}</div>
+                        <div>{fmtDate(log.createdAt)}</div>
                         <div className="text-[10px] text-surface-400">{new Date(log.createdAt).toLocaleTimeString()}</div>
                       </td>
                       <td>
@@ -4278,7 +4279,7 @@ function NoticesAdminPanel() {
                         {ar() ? "جميع العيادات" : "All Clinics"}
                       </span>
                     )}
-                    <span className="text-[10px] text-surface-400">{new Date(n.createdAt).toLocaleDateString()}</span>
+                    <span className="text-[10px] text-surface-400">{fmtDate(n.createdAt)}</span>
                   </div>
                   <p className="text-sm font-medium text-surface-900 leading-snug">{n.message}</p>
                   {n.messageAr && <p className="text-sm text-surface-500 mt-0.5 text-right" dir="rtl">{n.messageAr}</p>}
@@ -4351,7 +4352,7 @@ function KycReviewCard({ items }: { items: any[] }) {
                 <div className="text-[10px] text-surface-500 mt-0.5 font-mono">
                   {k.civilIdNumberMasked || k.civilIdNumber || "—"} {k.userPhone ? `· ${k.userPhone}` : ""}
                 </div>
-                <div className="text-[10px] text-surface-400 mt-0.5">{new Date(k.createdAt).toLocaleDateString()}</div>
+                <div className="text-[10px] text-surface-400 mt-0.5">{fmtDate(k.createdAt)}</div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full uppercase">Pending</span>

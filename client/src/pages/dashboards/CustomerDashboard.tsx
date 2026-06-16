@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { fmtDate, fmtDateTime } from "../../lib/dateFormat";
 import { createPortal } from "react-dom";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -185,7 +186,7 @@ function SessionPaymentRow({
           <div className="font-bold text-amber-900 text-sm">{ar ? "رسوم الجلسة مطلوبة" : "Session fee required"}</div>
           <div className="text-xs text-amber-700 mt-0.5">{ar ? "العيادة:" : "Clinic:"} <span className="font-semibold">{clinicName}</span></div>
           {request.preferredAt && (
-            <div className="text-xs text-amber-600 mt-0.5">{ar ? "التاريخ المفضل:" : "Preferred:"} {new Date(request.preferredAt).toLocaleDateString()}</div>
+            <div className="text-xs text-amber-600 mt-0.5">{ar ? "التاريخ المفضل:" : "Preferred:"} {fmtDate(request.preferredAt)}</div>
           )}
         </div>
       </div>
@@ -826,7 +827,7 @@ function InvoiceUploader({ getAuthHeader, ar, isPro, onContactCS }: { getAuthHea
                       </a>
                       <div>
                         <div className="font-bold text-surface-900">{req.invoiceAmountKwd} KWD</div>
-                        <div className="text-xs text-surface-500">{new Date(req.createdAt).toLocaleDateString()}</div>
+                        <div className="text-xs text-surface-500">{fmtDate(req.createdAt)}</div>
                       </div>
                     </div>
                     <div className="text-right flex flex-col items-end">
@@ -934,7 +935,7 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
             </div>
             <div className="bg-surface-50 p-4 rounded-xl border border-surface-100">
               <div className="text-sm text-surface-500 mb-1">{ar ? "ينتهي في" : "Expires At"}</div>
-              <div className="font-bold text-surface-900">{expiresAt ? new Date(expiresAt).toLocaleDateString() : "—"}</div>
+              <div className="font-bold text-surface-900">{fmtDate(expiresAt)}</div>
             </div>
           </div>
         </div>
@@ -996,7 +997,7 @@ function SubscriptionPage({ getAuthHeader, ar, currentPlan, expiresAt, commitmen
               <div key={r.id} className="card-elevated p-4 flex items-center justify-between">
                 <div>
                   <div className="font-bold text-surface-900">{r.amountKwd} KWD <span className="text-sm text-surface-500 capitalize">({r.paymentOption || "Plan"})</span></div>
-                  <div className="text-xs text-surface-500">{new Date(r.createdAt).toLocaleDateString()}</div>
+                  <div className="text-xs text-surface-500">{fmtDate(r.createdAt)}</div>
                 </div>
                 <div>
                   {r.status === "pending" && <span className="text-xs px-3 py-1 bg-orange-100 text-orange-700 rounded-full font-bold">{ar ? "قيد المراجعة" : "Pending"}</span>}
@@ -2723,7 +2724,7 @@ export default function CustomerDashboard() {
                               <div className="min-w-0">
                                 <div className="font-bold text-surface-900 text-sm truncate">{(uo as { offerName?: string }).offerName || homeCatalogData?.items?.find((x: any) => x.id === uo.offerId)?.name || uo.offerId}</div>
                                 <div className="text-[11px] text-surface-500 mt-0.5">
-                                  {uo.activatedAt && <>{ar() ? "مفعّل:" : "Activated:"} {new Date(uo.activatedAt).toLocaleDateString()} · </>}
+                                  {uo.activatedAt && <>{ar() ? "مفعّل:" : "Activated:"} {fmtDate(uo.activatedAt)} · </>}
                                   {ar() ? "الجلسات:" : "Sessions:"} {uo.sessionsUsed ?? 0}{uo.maxSessions ? ` / ${uo.maxSessions}` : " / ∞"}
                                 </div>
                               </div>
@@ -2743,7 +2744,7 @@ export default function CustomerDashboard() {
                                   <div className="mt-3 flex items-center justify-between gap-2">
                                     <div className="text-[11px] text-surface-600">
                                       {ar() ? "القسط القادم" : "Next"}: <span className="font-bold text-surface-900">{nextInst.amountKwd} KWD</span>
-                                      <span className="text-surface-400"> · {new Date(nextInst.dueDate).toLocaleDateString()}</span>
+                                      <span className="text-surface-400"> · {fmtDate(nextInst.dueDate)}</span>
                                     </div>
                                     <button
                                       onClick={async () => {
@@ -2989,7 +2990,7 @@ export default function CustomerDashboard() {
                           </div>
                           <div className="flex sm:flex-col items-center sm:items-end justify-between">
                             <div className="font-black text-brand-pink-500">{o.paymentAmountKwd || o.amount || o.subscriptionPriceKwd || o.totalSignupCashbackKwd || "0"} KWD</div>
-                            <div className="text-[10px] text-surface-400 mt-1">{o.createdAt ? new Date(o.createdAt).toLocaleDateString() : ""}</div>
+                            <div className="text-[10px] text-surface-400 mt-1">{fmtDate(o.createdAt)}</div>
                           </div>
                         </div>
                       ))}
@@ -3125,7 +3126,7 @@ export default function CustomerDashboard() {
                                   <div>
                                     <div className="font-semibold text-surface-900 text-sm">{ar() ? meta.ar : meta.en}</div>
                                     {txn.reason && <div className="text-xs text-surface-400 mt-0.5">{txn.reason}</div>}
-                                    <div className="text-xs text-surface-400 mt-0.5">{new Date(txn.createdAt).toLocaleDateString()} {new Date(txn.createdAt).toLocaleTimeString()}</div>
+                                    <div className="text-xs text-surface-400 mt-0.5">{fmtDateTime(txn.createdAt)}</div>
                                   </div>
                                 </div>
                                 <div className="text-right">
@@ -3182,7 +3183,7 @@ export default function CustomerDashboard() {
                             <div>
                               <div className="font-semibold text-surface-900 text-sm">{ar() ? "رسوم جلسة" : "Session fee"}</div>
                               <div className="text-xs text-surface-400 mt-0.5">
-                                {new Date(p.createdAt).toLocaleDateString()} · <span className={`font-medium ${p.status === "completed" ? "text-emerald-600" : "text-amber-600"}`}>{p.status}</span>
+                                {fmtDate(p.createdAt)} · <span className={`font-medium ${p.status === "completed" ? "text-emerald-600" : "text-amber-600"}`}>{p.status}</span>
                               </div>
                             </div>
                           </div>
@@ -3208,7 +3209,7 @@ export default function CustomerDashboard() {
                           </div>
                           <div>
                             <div className="font-semibold text-surface-900 text-sm">{txn.description || txn.type.replace(/_/g, ' ').toUpperCase()}</div>
-                            <div className="text-xs text-surface-400 mt-0.5">{new Date(txn.createdAt).toLocaleDateString()} {new Date(txn.createdAt).toLocaleTimeString()}</div>
+                            <div className="text-xs text-surface-400 mt-0.5">{fmtDateTime(txn.createdAt)}</div>
                           </div>
                         </div>
                         <div className="font-bold text-surface-900">{txn.amount} KWD</div>
@@ -3472,7 +3473,7 @@ export default function CustomerDashboard() {
                               <div>
                                 <div className="text-surface-400 font-medium">{ar() ? "ينتهي في" : "Expires"}</div>
                                 <div className={`font-bold mt-0.5 ${urgent ? "text-red-600" : "text-surface-700"}`}>
-                                  {new Date(r.reservationExpiresAt).toLocaleDateString()}
+                                  {fmtDate(r.reservationExpiresAt)}
                                   {daysLeft !== null && daysLeft >= 0 && (
                                     <span className="ml-1 text-[11px]">({daysLeft}d)</span>
                                   )}
@@ -3482,13 +3483,13 @@ export default function CustomerDashboard() {
                             {isConverted && r.activatedAt && (
                               <div>
                                 <div className="text-surface-400 font-medium">{ar() ? "تفعيل في" : "Activated"}</div>
-                                <div className="font-bold text-emerald-600 mt-0.5">{new Date(r.activatedAt).toLocaleDateString()}</div>
+                                <div className="font-bold text-emerald-600 mt-0.5">{fmtDate(r.activatedAt)}</div>
                               </div>
                             )}
                             {r.reservationCompletionExpectedAt && (
                               <div>
                                 <div className="text-surface-400 font-medium">{ar() ? "موعد الإكمال المتوقع" : "Expected completion"}</div>
-                                <div className="font-bold text-surface-700 mt-0.5">{new Date(r.reservationCompletionExpectedAt).toLocaleDateString()}</div>
+                                <div className="font-bold text-surface-700 mt-0.5">{fmtDate(r.reservationCompletionExpectedAt)}</div>
                               </div>
                             )}
                           </div>
@@ -3672,7 +3673,7 @@ export default function CustomerDashboard() {
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-surface-900 text-sm">{n.title || n.type}</div>
                           {n.body && <div className="text-xs text-surface-500 mt-0.5 leading-relaxed">{n.body}</div>}
-                          <div className="text-[10px] text-surface-400 mt-1">{new Date(n.createdAt).toLocaleDateString()}</div>
+                          <div className="text-[10px] text-surface-400 mt-1">{fmtDate(n.createdAt)}</div>
                           {n.type === "form_signature_required" && n.actionUrl && (
                             <button
                               className="mt-2 text-xs font-bold text-white bg-brand-pink-500 hover:bg-brand-pink-600 px-3 py-1.5 rounded-xl transition-colors"

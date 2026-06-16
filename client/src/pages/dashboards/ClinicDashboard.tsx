@@ -6,6 +6,7 @@ import { useAuth } from "../../app/AuthContext";
 import { useClinicSchedule, useMyClinicReport, invalidateCache } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL } from "../../lib/api";
 import { sharedClinics } from "../../lib/clinics";
+import { fmtDate } from "../../lib/dateFormat";
 import i18n from "../../app/i18n";
 import ChatWidget from "../../components/ChatWidget";
 import ShareLinkPage from "../../components/ShareLinkPage";
@@ -41,7 +42,7 @@ function SessionCard({ session, onMark, onMarkPaid }: { session: any; onMark: (i
 
   const allGreen = isOfferActive && isPaymentConfirmed && isIntervalMet;
   const time = new Date(session.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const date = new Date(session.scheduledAt).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  const date = fmtDate(session.scheduledAt);
 
   const gross = parseFloat(session.sessionPriceKwd || "0");
   const isFree = gross === 0;
@@ -324,7 +325,7 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
               <tbody>
                 {invoices.map(inv => (
                   <tr key={inv.id}>
-                    <td className="text-surface-500 whitespace-nowrap">{new Date(inv.createdAt).toLocaleDateString()}</td>
+                    <td className="text-surface-500 whitespace-nowrap">{fmtDate(inv.createdAt)}</td>
                     <td>
                       <div className="font-medium text-surface-900">{inv.customerName}</div>
                       {inv.customerPhone && <div className="text-xs text-surface-400">{inv.customerPhone}</div>}
@@ -460,8 +461,8 @@ function ClinicReportTable({ data, loading, from, to }: {
   const sessions = data?.sessions ?? [];
   const invoices = data?.invoices ?? [];
 
-  const fmtDate = (iso: string) =>
-    iso ? new Date(iso).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  const fmtDateLocal = (iso: string) =>
+    iso ? fmtDate(iso) : "—";
   const fmtTime = (iso: string) =>
     iso ? new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "";
 
@@ -519,7 +520,7 @@ function ClinicReportTable({ data, loading, from, to }: {
                     <td className="px-4 py-3 text-xs text-surface-400 font-mono">{i + 1}</td>
                     <td className="px-4 py-3 font-semibold text-surface-900 whitespace-nowrap">{s.customerName || "—"}</td>
                     <td className="px-4 py-3 text-surface-600 font-mono text-xs" dir="ltr">{s.customerPhone || "—"}</td>
-                    <td className="px-4 py-3 text-surface-700 whitespace-nowrap">{fmtDate(s.scheduledAt)}</td>
+                    <td className="px-4 py-3 text-surface-700 whitespace-nowrap">{fmtDateLocal(s.scheduledAt)}</td>
                     <td className="px-4 py-3 text-surface-500">{fmtTime(s.scheduledAt)}</td>
                     <td className="px-4 py-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${SESSION_STATUS_STYLE[s.status] ?? "bg-surface-100 text-surface-500"}`}>
@@ -552,7 +553,7 @@ function ClinicReportTable({ data, loading, from, to }: {
                     <td className="px-4 py-3 text-xs text-surface-400 font-mono">{i + 1}</td>
                     <td className="px-4 py-3 font-semibold text-surface-900 whitespace-nowrap">{inv.customerName || "—"}</td>
                     <td className="px-4 py-3 text-surface-600 font-mono text-xs" dir="ltr">{inv.customerPhone || "—"}</td>
-                    <td className="px-4 py-3 text-surface-700 whitespace-nowrap">{fmtDate(inv.createdAt)}</td>
+                    <td className="px-4 py-3 text-surface-700 whitespace-nowrap">{fmtDateLocal(inv.createdAt)}</td>
                     <td className="px-4 py-3 text-surface-600 text-xs">{inv.membershipType || "—"}</td>
                     <td className="px-4 py-3 font-bold text-surface-900">{inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}</td>
                     <td className="px-4 py-3 text-emerald-700 font-bold">{inv.cashbackDeductedKwd ? `${inv.cashbackDeductedKwd} KWD` : "—"}</td>
@@ -1008,12 +1009,12 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                         </div>
                       </div>
                       <div className="text-sm font-bold text-surface-900 hidden sm:block mt-2">
-                        {new Date(s.scheduledAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {fmtDate(s.scheduledAt)}
                         <span className="text-surface-300 mx-2">•</span>
                         {new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                       </div>
                       <div className="text-xs text-surface-500 sm:hidden mt-1">
-                        {new Date(s.scheduledAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {fmtDate(s.scheduledAt)}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
@@ -1051,7 +1052,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                 <tbody>
                   {payments.map((p: any) => (
                     <tr key={p.id} className="border-t border-surface-100">
-                      <td className="py-2 px-3 text-surface-600">{p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "—"}</td>
+                      <td className="py-2 px-3 text-surface-600">{p.createdAt ? fmtDate(p.createdAt) : "—"}</td>
                       <td className="py-2 px-3 font-bold text-emerald-700">{p.amountKwd} KWD</td>
                       <td className="py-2 px-3 text-surface-600">{p.method}</td>
                       <td className="py-2 px-3 text-surface-600">{p.purpose}{p.installmentNumber ? ` #${p.installmentNumber}` : ""}</td>
