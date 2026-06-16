@@ -148,6 +148,32 @@ export const kycStore = {
     return { ...sub, id: sub._id.toString() };
   },
 
+  async unverifyUser(userId: string, actionBy: string) {
+    if (!mongoose.isValidObjectId(userId)) return null;
+    const user = await UserModel.findByIdAndUpdate(userId, {
+      verificationStatus: "unverified",
+      $unset: { civilIdNumberMasked: "" }
+    }, { new: true });
+    
+    if (!user) return null;
+
+    // Optional: Also mark all pending/approved KYC submissions as rejected or expired?
+    // Let's just reject any pending or approved ones to be safe
+    await KycSubmissionModel.updateMany(
+      { userId, status: { $in: ["pending", "approved"] } },
+      { 
+        $set: { 
+          status: "rejected", 
+          rejectionReason: "Account unverified by admin",
+          reviewedAt: new Date(),
+          reviewedBy: actionBy
+        } 
+      }
+    );
+
+    return { ok: true };
+  },
+
   async listApprovedUserIds() {
     const users = await UserModel.find({ verificationStatus: "approved" }).select("_id").lean<UserDoc[]>();
     return users.map(u => u._id.toString());

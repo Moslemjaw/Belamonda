@@ -127,6 +127,28 @@ kycRouter.post("/cs/:submissionId/reject", authRequired, requireRole(["legal", "
   }
 });
 
+// Admin unverify user account
+kycRouter.post("/admin/:userId/unverify", authRequired, requireRole(["legal", "admin", "cs_director"]), async (req, res, next) => {
+  try {
+    const updated = await kycStore.unverifyUser(req.params.userId, req.auth!.userId);
+    if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+    
+    const { logAuditAction } = await import("../../services/audit.service.js");
+    await logAuditAction({
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role as any,
+      actionType: "reject_kyc", // reusing reject_kyc or we could use unverify_user
+      targetEntityType: "User",
+      targetEntityId: req.params.userId,
+      afterState: { verificationStatus: "unverified" },
+      metadata: { action: "unverify_account" },
+    });
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // Customer wallet view (SRS FR-12). For now returns wallet only when approved.
 kycRouter.get("/me/wallet", authRequired, async (req, res, next) => {
   try {

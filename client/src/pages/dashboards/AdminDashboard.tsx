@@ -2241,6 +2241,17 @@ export function UserProfilePanel({
       .finally(() => setProfileLoading(false));
   }, [user.id]);
 
+  const handleUnverify = async () => {
+    if (!confirm(ar() ? "هل أنت متأكد من رغبتك في إلغاء توثيق هذا الحساب؟" : "Are you sure you want to unverify this account?")) return;
+    try {
+      await apiFetch(`/kyc/admin/${user.id}/unverify`, { method: "POST", headers: getAuthHeader() });
+      const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
+      setProfile(d);
+    } catch (e: any) {
+      alert(e.message);
+    }
+  };
+
   const handleRoleSave = async () => {
     if (!(isAdmin || isCS) || !pendingRole || pendingRole === user.role) return;
     setRoleChanging(true);
@@ -2946,9 +2957,16 @@ export function UserProfilePanel({
                     <div className="bg-white rounded-xl border border-surface-200 p-5">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-bold text-surface-900">{ar() ? "بيانات الهوية" : "Identity Details"}</h4>
-                        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${profile.kyc.status === "approved" ? "bg-emerald-50 text-emerald-700" : profile.kyc.status === "rejected" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"}`}>
-                          {profile.kyc.status}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          {user.verificationStatus === "approved" && (
+                            <button onClick={handleUnverify} className="text-xs font-bold px-3 py-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors">
+                              {ar() ? "إلغاء التوثيق" : "Unverify Account"}
+                            </button>
+                          )}
+                          <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${profile.kyc.status === "approved" ? "bg-emerald-50 text-emerald-700" : profile.kyc.status === "rejected" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"}`}>
+                            {profile.kyc.status}
+                          </span>
+                        </div>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
