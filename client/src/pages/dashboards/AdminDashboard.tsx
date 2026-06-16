@@ -11,6 +11,7 @@ import { OfferTemplate, getOfferTemplates, saveOfferTemplates, upsertOfferTempla
 import { sharedClinics } from "../../lib/clinics";
 import { CategoriesAdminPanel } from "../../features/admin/CategoriesAdminPanel";
 import { EFormsAdminPanel } from "../../features/admin/EFormsAdminPanel";
+import { KycQueue, PaymentQueue, BookingRequestsQueue } from "./CsDashboard";
 import { AdminSubscriptionsDashboard } from "./AdminSubscriptionsDashboard";
 import { SessionTypesAdminPanel } from "../../features/admin/SessionTypesAdminPanel";
 import ChatWidget from "../../components/ChatWidget";
@@ -4477,64 +4478,13 @@ export default function AdminDashboard() {
             </div>
 
             {/* ── Needs Attention ── */}
+            {/* ── Needs Attention ── */}
             <div>
               <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "يحتاج إلى اهتمام" : "Needs Attention"}</h3>
-              <div className="grid gap-5 lg:grid-cols-3">
-
-                {/* Pending KYC */}
-                <KycReviewCard items={kycData?.items || []} />
-
-                {/* Pending Payments */}
-                <div className="card-elevated bg-white rounded-xl overflow-hidden">
-                  <div className="px-5 py-3.5 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-                      <span className="text-sm font-bold text-blue-800">{ar() ? "مدفوعات معلقة" : "Pending Payments"}</span>
-                    </div>
-                    <span className="text-xs font-black bg-blue-500 text-white px-2 py-0.5 rounded-full">{(paymentsData?.items || []).length}</span>
-                  </div>
-                  <div className="divide-y divide-surface-100">
-                    {(paymentsData?.items || []).slice(0, 5).map((p: any) => (
-                      <div key={p.id} className="px-5 py-3 flex items-center justify-between">
-                        <div>
-                          <div className="text-xs font-bold text-surface-700 font-mono">{p.id.slice(-8)}</div>
-                          <div className="text-[10px] text-surface-400 mt-0.5">{new Date(p.createdAt).toLocaleDateString()}</div>
-                        </div>
-                        <span className="text-[10px] font-bold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full uppercase">Pending</span>
-                      </div>
-                    ))}
-                    {(paymentsData?.items || []).length === 0 && (
-                      <div className="px-5 py-6 text-center text-xs text-surface-400">{ar() ? "لا توجد مدفوعات معلقة" : "No pending payments"}</div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Open Complaints */}
-                <div className="card-elevated bg-white rounded-xl overflow-hidden">
-                  <div className="px-5 py-3.5 bg-rose-50 border-b border-rose-100 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
-                      <span className="text-sm font-bold text-rose-800">{ar() ? "شكاوى مفتوحة" : "Open Complaints"}</span>
-                    </div>
-                    <span className="text-xs font-black bg-rose-500 text-white px-2 py-0.5 rounded-full">
-                      {(complaintsData?.items || []).filter((c: any) => c.status === "open").length}
-                    </span>
-                  </div>
-                  <div className="divide-y divide-surface-100">
-                    {(complaintsData?.items || []).filter((c: any) => c.status === "open").slice(0, 5).map((c: any) => (
-                      <div key={c.id} className="px-5 py-3">
-                        <div className="text-xs font-bold text-surface-700 truncate">{c.subject}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] text-surface-400">{new Date(c.createdAt).toLocaleDateString()}</span>
-                          <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full">{c.category}</span>
-                        </div>
-                      </div>
-                    ))}
-                    {(complaintsData?.items || []).filter((c: any) => c.status === "open").length === 0 && (
-                      <div className="px-5 py-6 text-center text-xs text-surface-400">{ar() ? "لا توجد شكاوى مفتوحة" : "No open complaints"}</div>
-                    )}
-                  </div>
-                </div>
+              <div className="grid gap-6 lg:grid-cols-3 items-start">
+                <KycQueue />
+                <PaymentQueue />
+                <BookingRequestsQueue />
               </div>
             </div>
 

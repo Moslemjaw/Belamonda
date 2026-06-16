@@ -18,7 +18,7 @@ import { UserProfilePanel } from "./AdminDashboard";
 
 const ar = () => i18n.language === "ar";
 
-function KycQueue() {
+export function KycQueue() {
   const { getAuthHeader } = useAuth();
   const { data, loading, refetch } = useKycQueue();
   const [processing, setProcessing] = useState<string | null>(null);
@@ -176,7 +176,7 @@ function KycQueue() {
 
 
 
-function PaymentQueue() {
+export function PaymentQueue() {
   const { getAuthHeader } = useAuth();
   const { data, loading, refetch } = usePendingPayments();
   const [processing, setProcessing] = useState<string | null>(null);
@@ -668,7 +668,7 @@ function PaymentsManager() {
   );
 }
 
-function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string, clinicId: string) => void }) {
+export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string, clinicId: string) => void }) {
   const { getAuthHeader } = useAuth();
   const { data, refetch } = useBookingRequests("pending");
   const [processing, setProcessing] = useState<string | null>(null);
