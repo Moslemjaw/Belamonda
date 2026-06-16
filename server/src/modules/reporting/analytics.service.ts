@@ -753,6 +753,8 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
     }
   }
 
+  console.log("[FinanceSnapshot] expectedTotalMils:", expectedTotalMils, "unpaidInstallmentsMils:", unpaidInstallmentsMils);
+
   return {
     revenueKwd,
     netCollectedKwd: fmtKwd(netMils),

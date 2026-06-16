@@ -3886,7 +3886,7 @@ function AuditLogViewer() {
               <thead className="bg-surface-50">
                 <tr>
                   <th className="w-36">{ar() ? "الوقت" : "Timestamp"}</th>
-                  <th>{ar() ? "الدور" : "Role"}</th>
+                  <th>{ar() ? "المستخدم" : "User"}</th>
                   <th>{ar() ? "الإجراء" : "Action"}</th>
                   <th>{ar() ? "الكيان" : "Target"}</th>
                   <th>{ar() ? "ملاحظات" : "Notes"}</th>
@@ -3902,6 +3902,7 @@ function AuditLogViewer() {
                         <div className="text-[10px] text-surface-400">{new Date(log.createdAt).toLocaleTimeString()}</div>
                       </td>
                       <td>
+                        <div className="font-bold text-surface-900 mb-0.5 text-xs">{log.actorName}</div>
                         <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide ${AUDIT_ROLE_COLORS[log.actorRole] ?? "bg-surface-100 text-surface-600"}`}>
                           {log.actorRole}
                         </span>

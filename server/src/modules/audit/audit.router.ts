@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
+import mongoose from "mongoose";
 import { AuditLogModel } from "../../models/auditLog.model.js";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
@@ -49,10 +50,16 @@ auditRouter.get("/", authRequired, requireRole(["admin"]), async (req, res) => {
       AuditLogModel.countDocuments(query),
     ]);
 
+    const { UserModel } = await import("../../models/user.model.js");
+    const userIds = [...new Set(items.map(i => String(i.actorId)).filter(id => id !== "system" && mongoose.isValidObjectId(id)))];
+    const users = await UserModel.find({ _id: { $in: userIds } }).select("fullName").lean();
+    const userMap = new Map(users.map((u: any) => [String(u._id), u.fullName]));
+
     res.json({
       items: items.map(i => ({
         id:               String(i._id),
         actorId:          String(i.actorId),
+        actorName:        i.actorId === "system" ? "System" : (userMap.get(String(i.actorId)) || "Unknown User"),
         actorRole:        i.actorRole,
         actionType:       i.actionType,
         targetEntityType: i.targetEntityType,
