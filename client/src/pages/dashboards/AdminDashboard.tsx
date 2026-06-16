@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
-import { useApi, useKycQueue, usePendingPayments, useComplaints, useProducts, useFinanceSnapshot, useAdminReservations, type ReservationItem, invalidateCache } from "../../hooks/useApi";
+import { useApi, useKycQueue, usePendingPayments, useComplaints, useProducts, useFinanceSnapshot, useAdminReservations, useBookingRequests, type ReservationItem, invalidateCache } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL, SITE_BASE_URL } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { allTreatments } from "../../lib/treatments";
@@ -4417,6 +4417,7 @@ export default function AdminDashboard() {
   const { data: financeData } = useFinanceSnapshot({}, { lazy: activeNav !== "home" });
   const { data: complaintsData } = useComplaints({ lazy: activeNav !== "home" });
   const { data: reservationsData } = useAdminReservations({ lazy: activeNav !== "home" });
+  const { data: bookingRequests } = useBookingRequests("pending");
   const { data: recentAuditData } = useApi<{ items: any[] }>("/audit?limit=6&page=1", { lazy: activeNav !== "home" });
   const fs = financeData?.snapshot;
 
@@ -4447,24 +4448,29 @@ export default function AdminDashboard() {
         {activeNav === "home" && (
           <div className="space-y-8 animate-fade-in">
 
-            {/* ── KPI Cards ── */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-6">
-              <KpiCard icon={Icons.chart} label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={fs?.totalRevenue || "0.000"} sub="KWD" isHighlighted />
+            {/* ── KPI Cards: Row 1 ── */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-6 mb-5">
+              <KpiCard icon={Icons.chart} label={ar() ? "الإيرادات المتوقعة" : "Expected Revenue"} value={fs?.expectedTotalRevenueKwd || "0.000"} sub="KWD" isHighlighted />
+              <KpiCard accent="emerald" icon={Icons.chart} label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={fs?.totalRevenue || "0.000"} sub="KWD" />
+              <KpiCard accent="red" icon={Icons.cash} label={ar() ? "أقساط غير مدفوعة" : "Unpaid Installment"} value={fs?.unpaidInstallmentsKwd || "0.000"} sub="KWD" />
               <KpiCard accent="blue" icon={Icons.cash} label={ar() ? "مدفوعات معلقة" : "Pending Payments"} value={(paymentsData?.items || []).length} sub={`${fs?.pendingPaymentsKwd || "0.000"} KWD`} />
-              <KpiCard accent="amber" icon={Icons.shield} label={ar() ? "تحققات KYC معلقة" : "Pending KYC"} value={(kycData?.items || []).length} sub={ar() ? "بانتظار المراجعة" : "awaiting review"} />
+              <KpiCard accent="indigo" icon={Icons.calendar} label={ar() ? "حجوزات معلقة" : "Pending Bookings"} value={(bookingRequests?.items || []).length} sub={ar() ? "بانتظار التأكيد" : "awaiting confirmation"} />
+              <KpiCard accent="amber" icon={Icons.shield} label={ar() ? "تحققات KYC" : "Pending KYC"} value={(kycData?.items || []).length} sub={ar() ? "بانتظار المراجعة" : "awaiting review"} />
+            </div>
+
+            {/* ── KPI Cards: Row 2 ── */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-3">
               <KpiCard accent="rose" icon={Icons.complaint} label={ar() ? "شكاوى مفتوحة" : "Open Complaints"} value={(complaintsData?.items || []).filter((c: any) => c.status === "open").length} sub={ar() ? "تتطلب متابعة" : "require follow-up"} />
-              <KpiCard accent="emerald" icon={Icons.clinic} label={ar() ? "العروض النشطة" : "Active Offers"} value={(offersData?.items || []).filter((o: any) => o.isActive !== false).length} sub={ar() ? "في الكتالوج" : "in catalog"} />
+              <KpiCard accent="teal" icon={Icons.clinic} label={ar() ? "العروض النشطة" : "Active Offers"} value={(offersData?.items || []).filter((o: any) => o.isActive !== false).length} sub={ar() ? "في الكتالوج" : "in catalog"} />
               <KpiCard accent="violet" icon={Icons.calendar} label={ar() ? "حجوزات العربون" : "Reservations"} value={(reservationsData?.items || []).length} sub={ar() ? "نشطة" : "active"} />
             </div>
 
             {/* ── Financial Snapshot ── */}
             <div>
-              <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "النظرة المالية" : "Financial Snapshot"}</h3>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-4">
+              <h3 className="text-base font-bold text-surface-900 mb-4 mt-6">{ar() ? "النظرة المالية" : "Financial Snapshot"}</h3>
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
                 {[
                   { label: ar() ? "الإيرادات" : "Revenue", value: fs?.totalRevenue || "0.000", color: "text-surface-900", border: "border-l-surface-400" },
-                  { label: ar() ? "متوقعة" : "Expected", value: fs?.expectedTotalRevenueKwd || "0.000", color: "text-teal-600", border: "border-l-teal-400" },
-                  { label: ar() ? "غير مدفوعة" : "Unpaid Inst.", value: fs?.unpaidInstallmentsKwd || "0.000", color: "text-red-600", border: "border-l-red-400" },
                   { label: ar() ? "معلقة" : "Pending", value: fs?.pendingPaymentsKwd || "0.000", color: "text-blue-600", border: "border-l-blue-400" },
                   { label: ar() ? "كاش باك مقفل" : "CB Locked", value: fs?.totalCashbackLocked || "0.000", color: "text-amber-600", border: "border-l-amber-400" },
                   { label: ar() ? "كاش باك متاح" : "CB Unlocked", value: fs?.totalCashbackUnlocked || "0.000", color: "text-brand-pink-600", border: "border-l-brand-pink-400" },
