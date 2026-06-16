@@ -723,14 +723,26 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
 
   return (
     <div className="card-elevated p-5 relative">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-base font-bold text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
-        <div className="flex items-center gap-2">
-          <span className="badge-pink">{(data?.items || []).length} {ar() ? "معلق" : "pending"}</span>
+      <div className="editorial-header justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <span className="accent" />
+          <div>
+            <h3>{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
+            <div className="meta">{ar() ? "إدارة وتأكيد مواعيد العملاء" : "Manage and confirm customer appointments"}</div>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 ms-auto">
+          {(data?.items || []).length > 0 && <span className="status-pill-pending"><span className="dot" aria-hidden="true" />{(data?.items || []).length} {ar() ? "معلق" : "pending"}</span>}
         </div>
       </div>
       {(data?.items || []).length === 0 ? (
-        <div className="text-center text-sm text-surface-400 py-8">✅ {ar() ? "لا توجد طلبات حجز معلقة" : "No pending booking requests"}</div>
+        <div className="text-center py-12">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-3">
+            <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" /></svg>
+          </div>
+          <div className="text-sm font-bold text-surface-900">{ar() ? "لا توجد طلبات حجز معلقة" : "No pending booking requests"}</div>
+          <div className="text-xs text-surface-500 mt-1">{ar() ? "كل المواعيد تم تأكيدها" : "All appointments have been confirmed"}</div>
+        </div>
       ) : (data?.items || []).map((b: any) => (
         <div key={b.id} className="flex items-center gap-4 py-3 border-b border-surface-100 last:border-0">
           <div className="avatar avatar-sm bg-blue-100 text-blue-700">{(b.customerName || b.userId)?.charAt(0)?.toUpperCase()}</div>
