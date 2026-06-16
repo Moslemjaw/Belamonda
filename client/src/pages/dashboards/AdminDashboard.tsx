@@ -2793,6 +2793,22 @@ export function UserProfilePanel({
                         <div><span className="text-surface-400">{ar() ? "التفعيل" : "Activated"}</span><div className="font-bold mt-0.5">{fmt(m.activatedAt)}</div></div>
                         <div><span className="text-surface-400">{ar() ? "الانتهاء" : "Expires"}</span><div className="font-bold mt-0.5">{fmt(m.expiresAt)}</div></div>
                         <div><span className="text-surface-400">{ar() ? "تاريخ الإنشاء" : "Created"}</span><div className="font-bold mt-0.5">{fmt(m.createdAt)}</div></div>
+                        {m.purchaseMode === "installments" && m.installmentSchedule && m.installmentSchedule.some((i: any) => !i.paid) && (
+                          <div className="sm:col-span-4 mt-2 p-3 bg-amber-50 rounded-xl border border-amber-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div>
+                              <span className="text-amber-700 font-bold">{ar() ? "المبلغ المتبقي (غير مدفوع)" : "Unpaid Amount Left"}</span>
+                              <div className="text-lg font-black text-amber-600">
+                                {m.installmentSchedule.filter((i: any) => !i.paid).reduce((sum: number, i: any) => sum + parseFloat(i.amountKwd || "0"), 0).toFixed(3)} KWD
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <span className="text-amber-700 font-bold">{ar() ? "تواريخ الاستحقاق القادمة" : "Upcoming Due Dates"}</span>
+                              <div className="text-xs font-bold text-amber-600 mt-0.5">
+                                {m.installmentSchedule.filter((i: any) => !i.paid).map((i: any) => fmt(i.dueDate)).join(" • ")}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="mt-4 pt-3 border-t border-surface-100 flex justify-end">
                         <button
