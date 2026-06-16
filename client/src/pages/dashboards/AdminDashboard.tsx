@@ -124,7 +124,7 @@ function AdminCustomerCard({ userId }: { userId: string }) {
   );
 }
 
-function KpiCard({ label, value, sub, icon, isHighlighted, trend, accent = "pink" }: { label: string; value: string | number; sub?: string; icon: React.ReactNode; isHighlighted?: boolean; trend?: string; accent?: "pink" | "teal" | "amber" | "blue" | "violet" | "emerald" | "rose" }) {
+function KpiCard({ label, value, sub, icon, isHighlighted, trend, accent = "pink" }: { label: string; value: string | number; sub?: string; icon: React.ReactNode; isHighlighted?: boolean; trend?: string; accent?: "pink" | "teal" | "amber" | "blue" | "violet" | "emerald" | "rose" | "red" | "indigo" }) {
   const accentMap: Record<string, { iconBg: string; iconText: string; blob: string }> = {
     pink:    { iconBg: "bg-brand-pink-100",  iconText: "text-brand-pink-600",  blob: "bg-brand-pink-50/60" },
     teal:    { iconBg: "bg-brand-sage-100",  iconText: "text-brand-sage-700",  blob: "bg-brand-sage-50/60" },
@@ -133,10 +133,14 @@ function KpiCard({ label, value, sub, icon, isHighlighted, trend, accent = "pink
     violet:  { iconBg: "bg-violet-100",      iconText: "text-violet-600",      blob: "bg-violet-50/60" },
     emerald: { iconBg: "bg-emerald-100",     iconText: "text-emerald-600",     blob: "bg-emerald-50/60" },
     rose:    { iconBg: "bg-rose-100",        iconText: "text-rose-600",        blob: "bg-rose-50/60" },
+    red:     { iconBg: "bg-red-100",         iconText: "text-red-600",         blob: "bg-red-50/60" },
+    indigo:  { iconBg: "bg-indigo-100",      iconText: "text-indigo-600",      blob: "bg-indigo-50/60" },
   };
-  const a = accentMap[accent];
+
+  const a = accentMap[accent] || accentMap.pink;
+
   return (
-    <div className={`card-elevated p-6 flex flex-col justify-between relative overflow-hidden group ${isHighlighted ? 'bg-gradient-to-br from-brand-pink-500 to-brand-pink-700 text-white border-none shadow-brand-pink-500/30 shadow-lg' : 'bg-white'}`}>
+    <div className={`relative p-5 rounded-2xl border ${isHighlighted ? 'bg-gradient-to-br from-brand-pink-500 to-brand-pink-600 border-brand-pink-500 text-white shadow-xl shadow-brand-pink-500/20' : 'bg-white border-surface-200'} group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5`}>
       <div className={`absolute top-0 right-0 w-32 h-32 rounded-bl-[100px] -z-10 transition-transform duration-500 group-hover:scale-110 ${isHighlighted ? 'bg-white/10' : a.blob}`} />
       <div className="flex justify-between items-start mb-6">
         <div className={`flex h-14 w-14 items-center justify-center rounded-2xl shadow-sm ${isHighlighted ? 'bg-white/20 text-white backdrop-blur-md' : `${a.iconBg} ${a.iconText}`}`}>
