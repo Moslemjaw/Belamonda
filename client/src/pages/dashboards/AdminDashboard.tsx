@@ -4460,9 +4460,11 @@ export default function AdminDashboard() {
             {/* ── Financial Snapshot ── */}
             <div>
               <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "النظرة المالية" : "Financial Snapshot"}</h3>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-4">
                 {[
                   { label: ar() ? "الإيرادات" : "Revenue", value: fs?.totalRevenue || "0.000", color: "text-surface-900", border: "border-l-surface-400" },
+                  { label: ar() ? "متوقعة" : "Expected", value: fs?.expectedTotalRevenueKwd || "0.000", color: "text-teal-600", border: "border-l-teal-400" },
+                  { label: ar() ? "غير مدفوعة" : "Unpaid Inst.", value: fs?.unpaidInstallmentsKwd || "0.000", color: "text-red-600", border: "border-l-red-400" },
                   { label: ar() ? "معلقة" : "Pending", value: fs?.pendingPaymentsKwd || "0.000", color: "text-blue-600", border: "border-l-blue-400" },
                   { label: ar() ? "كاش باك مقفل" : "CB Locked", value: fs?.totalCashbackLocked || "0.000", color: "text-amber-600", border: "border-l-amber-400" },
                   { label: ar() ? "كاش باك متاح" : "CB Unlocked", value: fs?.totalCashbackUnlocked || "0.000", color: "text-brand-pink-600", border: "border-l-brand-pink-400" },
