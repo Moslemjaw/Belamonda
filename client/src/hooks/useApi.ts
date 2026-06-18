@@ -233,6 +233,9 @@ export type FinanceSnapshot = {
   pendingPaymentsKwd: string;
   sessionsToday: number;
   sessionsThisMonth: number;
+  expectedTotalRevenueKwd?: string;
+  unpaidInstallmentsKwd?: string;
+  paidTowardMembershipsKwd?: string;
 };
 
 export function useFinanceSnapshot(filters: { from?: string; to?: string } = {}, opts?: { lazy?: boolean }) {

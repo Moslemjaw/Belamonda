@@ -754,27 +754,42 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
   const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
   const offerPriceMap = new Map(allOfferDocs.map((o: any) => [o._id.toString(), o.subscriptionPriceKwd]));
 
+  // Fetch actual completed payments for these specific user offers
+  const allUoIds = allUserOffers.map((uo: any) => uo._id).filter(Boolean);
+  const uoPayments = await PaymentModel.find({
+    userOfferId: { $in: allUoIds },
+    status: "completed",
+  }).select("userOfferId amountKwd").lean();
+
+  // Build a map: userOfferId → total paid (millifils)
+  const paidPerUoMap = new Map<string, number>();
+  for (const p of uoPayments as any[]) {
+    const id = p.userOfferId?.toString();
+    if (id) {
+      paidPerUoMap.set(id, (paidPerUoMap.get(id) || 0) + parseKwd(p.amountKwd));
+    }
+  }
+
   let expectedTotalMils = 0;
-  let unpaidInstallmentsMils = 0;
+  let paidTowardMembershipsMils = 0;
 
   for (const uo of allUserOffers as any[]) {
     let uoTotal = 0;
     if (uo.purchaseMode === "installments") {
       for (const inst of (uo.installmentSchedule || [])) {
-        const amt = parseKwd(inst.amountKwd || "0");
-        uoTotal += amt;
-        if (!inst.paid) unpaidInstallmentsMils += amt;
+        uoTotal += parseKwd(inst.amountKwd || "0");
       }
     } else {
       uoTotal = parseKwd(uo.paymentAmountKwd || offerPriceMap.get(uo.offerId?.toString()) || "0");
-      if (uo.status === "pending_payment") {
-        unpaidInstallmentsMils += uoTotal;
-      }
     }
     expectedTotalMils += uoTotal;
+    paidTowardMembershipsMils += paidPerUoMap.get(uo._id.toString()) || 0;
   }
 
-  console.log("[FinanceSnapshot] expectedTotalMils:", expectedTotalMils, "unpaidInstallmentsMils:", unpaidInstallmentsMils);
+  // Unpaid = Expected - Paid (always balances: Expected = Paid + Unpaid)
+  const unpaidInstallmentsMils = Math.max(0, expectedTotalMils - paidTowardMembershipsMils);
+
+  console.log("[FinanceSnapshot] expectedTotalMils:", expectedTotalMils, "paidTowardMembershipsMils:", paidTowardMembershipsMils, "unpaidInstallmentsMils:", unpaidInstallmentsMils);
 
   return {
     revenueKwd,
@@ -804,6 +819,7 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
     sessionsThisMonth,
     expectedTotalRevenueKwd: fmtKwd(expectedTotalMils),
     unpaidInstallmentsKwd: fmtKwd(unpaidInstallmentsMils),
+    paidTowardMembershipsKwd: fmtKwd(paidTowardMembershipsMils),
   };
 }
 
