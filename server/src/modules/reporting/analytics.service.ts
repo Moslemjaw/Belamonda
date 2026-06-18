@@ -287,7 +287,7 @@ export async function computeRevenueByOffer(filters: { from?: string; to?: strin
   if (dateFilter) q.createdAt = dateFilter;
   const payments = await PaymentModel.find(q).select("offerId amountKwd grossAmountKwd cashbackAppliedKwd").lean();
 
-  const map = new Map<string, { revenue: number; net: number; cashback: number; count: number }>();
+  const map = new Map<string, { revenue: number; net: number; cashback: number; count: number; actualSales: number; expected: number; needsOfferPriceCount: number }>();
   for (const p of payments as any[]) {
     const k = p.offerId?.toString();
     if (!k) continue;
@@ -309,7 +309,7 @@ export async function computeRevenueByOffer(filters: { from?: string; to?: strin
   for (const uo of userOffers as any[]) {
     const k = uo.offerId?.toString();
     if (!k) continue;
-    const cur = map.get(k) ?? { revenue: 0, net: 0, cashback: 0, count: 0, actualSales: 0, expected: 0 };
+    const cur = map.get(k) ?? { revenue: 0, net: 0, cashback: 0, count: 0, actualSales: 0, expected: 0, needsOfferPriceCount: 0 };
     cur.actualSales = (cur.actualSales || 0) + 1;
     
     let expected = 0;
@@ -320,7 +320,7 @@ export async function computeRevenueByOffer(filters: { from?: string; to?: strin
       expected = parseKwd(uo.paymentAmountKwd || "0"); // we will fallback to offer price later if this is 0
       if (expected === 0 && uo.purchaseMode !== "discount") {
         // flag it so we can add the offer price later
-        (cur as any).needsOfferPriceCount = ((cur as any).needsOfferPriceCount || 0) + 1;
+        cur.needsOfferPriceCount = (cur.needsOfferPriceCount || 0) + 1;
       }
     }
     cur.expected = (cur.expected || 0) + expected;
@@ -343,7 +343,7 @@ export async function computeRevenueByOffer(filters: { from?: string; to?: strin
         profitKwd: fmtKwd(v.net),
         salesCount: v.actualSales || 0,
         paymentsCount: v.count,
-        expectedKwd: fmtKwd((v.expected || 0) + ((v as any).needsOfferPriceCount || 0) * parseKwd(o?.subscriptionPriceKwd || "0")),
+        expectedKwd: fmtKwd((v.expected || 0) + (v.needsOfferPriceCount || 0) * parseKwd(o?.subscriptionPriceKwd || "0")),
       };
     })
     .sort((a, b) => parseKwd(b.revenueKwd) - parseKwd(a.revenueKwd));
