@@ -396,6 +396,17 @@ export async function computeDetailedCustomersReport(filters: { from?: string; t
       { username: { $in: userIds } },
     ],
   }).select("username displayName fullName phone referredBy").lean().catch(() => []);
+
+  // Fetch all actual completed payments to calculate true Paid Amount
+  const uoIds = userOffers.map((u: any) => u._id).filter(Boolean);
+  const uoPayments = await PaymentModel.find({ userOfferId: { $in: uoIds }, status: "completed" }).select("userOfferId amountKwd").lean().catch(() => []);
+  const uoPaidMap = new Map<string, number>();
+  for (const p of uoPayments as any[]) {
+    const id = p.userOfferId?.toString();
+    if (id) {
+      uoPaidMap.set(id, (uoPaidMap.get(id) || 0) + parseKwd(p.amountKwd));
+    }
+  }
   
   const userMap = new Map<string, any>();
   const referrerIds = new Set<string>();
@@ -432,31 +443,36 @@ export async function computeDetailedCustomersReport(filters: { from?: string; t
     let firstDate = "";
     let secDate = "";
     let thirdDate = "";
-    let paidMils = 0;
-    let totalMils = parseKwd(offer?.subscriptionPriceKwd || "0");
+    
+    // True paid amount from actual payment records
+    const paidMils = uoPaidMap.get(uo._id.toString()) || 0;
+    
+    // Calculate total expected amount
+    let totalMils = 0;
+    if (uo.purchaseMode === "installments") {
+      const sched = uo.installmentSchedule || [];
+      for (const inst of sched) {
+        totalMils += parseKwd(inst.amountKwd || "0");
+      }
+    } else {
+      totalMils = parseKwd(uo.paymentAmountKwd || offer?.subscriptionPriceKwd || "0");
+    }
 
     if (uo.purchaseMode === "installments") {
       const sched = uo.installmentSchedule || [];
       if (sched[0]) {
          depositAmt = sched[0].amountKwd;
-         if (sched[0].paid) { paidMils += parseKwd(sched[0].amountKwd); firstDate = sched[0].paidAt ? new Date(sched[0].paidAt).toISOString().slice(0,10) : ""; }
+         if (sched[0].paid) firstDate = sched[0].paidAt ? new Date(sched[0].paidAt).toISOString().slice(0,10) : "";
       }
       if (sched[1]) {
          inst2Amt = sched[1].amountKwd;
-         if (sched[1].paid) { paidMils += parseKwd(sched[1].amountKwd); secDate = sched[1].paidAt ? new Date(sched[1].paidAt).toISOString().slice(0,10) : ""; }
+         if (sched[1].paid) secDate = sched[1].paidAt ? new Date(sched[1].paidAt).toISOString().slice(0,10) : "";
       }
       if (sched[2]) {
          inst3Amt = sched[2].amountKwd;
-         if (sched[2].paid) { paidMils += parseKwd(sched[2].amountKwd); thirdDate = sched[2].paidAt ? new Date(sched[2].paidAt).toISOString().slice(0,10) : ""; }
-      }
-      for (let i = 3; i < sched.length; i++) {
-         if (sched[i].paid) paidMils += parseKwd(sched[i].amountKwd);
+         if (sched[2].paid) thirdDate = sched[2].paidAt ? new Date(sched[2].paidAt).toISOString().slice(0,10) : "";
       }
     } else {
-      const amtMils = parseKwd(uo.paymentAmountKwd || offer?.subscriptionPriceKwd || "0");
-      if (uo.status === "active" || uo.status === "expired" || uo.status === "reserved") {
-         paidMils = uo.purchaseMode === "deposit" ? parseKwd(uo.depositAmountKwd || "0") : amtMils;
-      }
       firstDate = uo.paymentConfirmedAt ? new Date(uo.paymentConfirmedAt).toISOString().slice(0, 10) : "";
       if (uo.purchaseMode === "deposit") {
          depositAmt = uo.depositAmountKwd || "0.000";
@@ -729,10 +745,10 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
     BookingSessionModel.countDocuments({ status: "completed", scheduledAt: { $gte: monthStart } }),
   ]);
 
-  // Expected total revenue = sum of offer prices for all active/reserved/pending user offers
+  // Expected total revenue = sum of true prices for all active/reserved/pending user offers
   const allUserOffers = await UserOfferModel.find({
     status: { $in: ["active", "pending_payment", "reserved"] },
-  }).select("offerId installmentSchedule purchaseMode").lean();
+  }).select("offerId installmentSchedule purchaseMode paymentAmountKwd status").lean();
 
   const allOfferIds = [...new Set(allUserOffers.map((uo: any) => uo.offerId?.toString()).filter(Boolean))];
   const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
@@ -742,15 +758,20 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
   let unpaidInstallmentsMils = 0;
 
   for (const uo of allUserOffers as any[]) {
-    const offerPrice = offerPriceMap.get(uo.offerId?.toString());
-    if (offerPrice) expectedTotalMils += parseKwd(offerPrice);
-
-    // Calculate unpaid installments
-    if (uo.purchaseMode === "installments" && uo.installmentSchedule) {
-      for (const inst of uo.installmentSchedule) {
-        if (!inst.paid) unpaidInstallmentsMils += parseKwd(inst.amountKwd);
+    let uoTotal = 0;
+    if (uo.purchaseMode === "installments") {
+      for (const inst of (uo.installmentSchedule || [])) {
+        const amt = parseKwd(inst.amountKwd || "0");
+        uoTotal += amt;
+        if (!inst.paid) unpaidInstallmentsMils += amt;
+      }
+    } else {
+      uoTotal = parseKwd(uo.paymentAmountKwd || offerPriceMap.get(uo.offerId?.toString()) || "0");
+      if (uo.status === "pending_payment") {
+        unpaidInstallmentsMils += uoTotal;
       }
     }
+    expectedTotalMils += uoTotal;
   }
 
   console.log("[FinanceSnapshot] expectedTotalMils:", expectedTotalMils, "unpaidInstallmentsMils:", unpaidInstallmentsMils);
