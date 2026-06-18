@@ -211,7 +211,7 @@ reportingRouter.get("/finance/clinic-export", authRequired, requireRole(FINANCE_
 
 const ManualPaymentSchema = z.object({
   amountKwd: z.string().regex(/^\d+(\.\d{1,3})?$/, "Invalid amount"),
-  method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "other"]),
+  method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]),
   purpose: z.enum(["enrollment_full", "installment", "deposit", "deposit_balance", "enrollment_enet", "session_payment", "manual_entry"]).default("manual_entry"),
   status: z.enum(["completed", "pending", "failed", "refunded"]).default("completed"),
   manualLabel: z.string().max(200).optional(),

@@ -745,7 +745,7 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
     BookingSessionModel.countDocuments({ status: "completed", scheduledAt: { $gte: monthStart } }),
   ]);
 
-  // Fetch all active/reserved/pending user offers to calculate Unpaid amounts
+  // Fetch all active/reserved/pending user offers to calculate Expected amounts
   const allUserOffers = await UserOfferModel.find({
     status: { $in: ["active", "pending_payment", "reserved"] },
   }).select("offerId installmentSchedule purchaseMode paymentAmountKwd status").lean();
@@ -754,27 +754,43 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
   const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
   const offerPriceMap = new Map(allOfferDocs.map((o: any) => [o._id.toString(), o.subscriptionPriceKwd]));
 
-  let unpaidInstallmentsMils = 0;
+  // Fetch actual completed payments for these specific user offers
+  const allUoIds = allUserOffers.map((uo: any) => uo._id).filter(Boolean);
+  const uoPayments = await PaymentModel.find({
+    userOfferId: { $in: allUoIds },
+    status: "completed",
+  }).select("userOfferId amountKwd").lean();
 
-  for (const uo of allUserOffers as any[]) {
-    if (uo.purchaseMode === "installments") {
-      for (const inst of (uo.installmentSchedule || [])) {
-        if (!inst.paid) {
-          unpaidInstallmentsMils += parseKwd(inst.amountKwd || "0");
-        }
-      }
-    } else {
-      if (uo.status === "pending_payment") {
-        unpaidInstallmentsMils += parseKwd(uo.paymentAmountKwd || offerPriceMap.get(uo.offerId?.toString()) || "0");
-      }
+  // Build a map: userOfferId → total paid (millifils)
+  const paidPerUoMap = new Map<string, number>();
+  for (const p of uoPayments as any[]) {
+    const id = p.userOfferId?.toString();
+    if (id) {
+      paidPerUoMap.set(id, (paidPerUoMap.get(id) || 0) + parseKwd(p.amountKwd));
     }
   }
 
-  // To make the math perfectly align for the user across all dashboards:
-  // Expected Total Revenue = Total Revenue (All Completed Payments) + Unpaid Amounts
-  const expectedTotalMils = revenueMils + unpaidInstallmentsMils;
+  let expectedTotalMils = 0;
+  let paidTowardMembershipsMils = 0;
 
-  console.log("[FinanceSnapshot] expectedTotalMils:", expectedTotalMils, "revenueMils:", revenueMils, "unpaidInstallmentsMils:", unpaidInstallmentsMils);
+  for (const uo of allUserOffers as any[]) {
+    let uoTotal = 0;
+    if (uo.purchaseMode === "installments") {
+      for (const inst of (uo.installmentSchedule || [])) {
+        uoTotal += parseKwd(inst.amountKwd || "0");
+      }
+    } else {
+      uoTotal = parseKwd(uo.paymentAmountKwd || offerPriceMap.get(uo.offerId?.toString()) || "0");
+    }
+    
+    expectedTotalMils += uoTotal;
+    paidTowardMembershipsMils += paidPerUoMap.get(uo._id.toString()) || 0;
+  }
+
+  // Unpaid = Expected - Paid
+  const unpaidInstallmentsMils = Math.max(0, expectedTotalMils - paidTowardMembershipsMils);
+
+  console.log("[FinanceSnapshot] expectedTotalMils:", expectedTotalMils, "paidTowardMembershipsMils:", paidTowardMembershipsMils, "unpaidInstallmentsMils:", unpaidInstallmentsMils);
 
   return {
     revenueKwd,
@@ -804,6 +820,7 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
     sessionsThisMonth,
     expectedTotalRevenueKwd: fmtKwd(expectedTotalMils),
     unpaidInstallmentsKwd: fmtKwd(unpaidInstallmentsMils),
+    paidTowardMembershipsKwd: fmtKwd(paidTowardMembershipsMils),
   };
 }
 

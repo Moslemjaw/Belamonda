@@ -1848,6 +1848,7 @@ function CustomersManager() {
                                       <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
                                       <option value="pos">POS</option>
                                       <option value="bank_transfer">{ar() ? "رابط دفع خارجي" : "External Payment Link"}</option>
+                                      <option value="free_package">{ar() ? "باقة مجانية" : "Free Package"}</option>
                                       <option value="enet">ENET</option>
                                       <option value="wallet">{ar() ? "محفظة كاش باك" : "Cashback Wallet"}</option>
                                       <option value="other">{ar() ? "أخرى" : "Other"}</option>

@@ -14,7 +14,7 @@ const PaymentSchema = new Schema(
     currency: { type: String, default: "KWD", uppercase: true },
     method: {
       type: String,
-      enum: ["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "other"],
+      enum: ["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"],
       required: true
     },
     purpose: {

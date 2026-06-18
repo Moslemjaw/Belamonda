@@ -2647,6 +2647,7 @@ export function UserProfilePanel({
                                       <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
                                       <option value="pos">POS</option>
                                       <option value="bank_transfer">{ar() ? "رابط دفع خارجي" : "External Payment Link"}</option>
+                                      <option value="free_package">{ar() ? "باقة مجانية" : "Free Package"}</option>
                                       <option value="enet">ENET</option>
                                       <option value="wallet">{ar() ? "محفظة كاش باك" : "Cashback Wallet"}</option>
                                       <option value="other">{ar() ? "أخرى" : "Other"}</option>
@@ -2701,6 +2702,7 @@ export function UserProfilePanel({
                                                 <option value="cash">{ar() ? "في العيادة" : "In Clinic"}</option>
                                                 <option value="pos">POS</option>
                                                 <option value="bank_transfer">{ar() ? "رابط دفع" : "Pay Link"}</option>
+                                                <option value="free_package">{ar() ? "باقة مجانية" : "Free Package"}</option>
                                               </select>
                                             </td>
                                           </tr>
@@ -3099,6 +3101,7 @@ export function UserProfilePanel({
               <option value="cash">{ar() ? "نقد" : "Cash"}</option>
               <option value="knet">{ar() ? "كي نت" : "KNET"}</option>
               <option value="bank_transfer">{ar() ? "تحويل بنكي" : "Bank Transfer"}</option>
+              <option value="free_package">{ar() ? "باقة مجانية" : "Free Package"}</option>
               <option value="card">{ar() ? "بطاقة ائتمان" : "Credit Card"}</option>
               <option value="link">{ar() ? "رابط دفع" : "Payment Link"}</option>
               <option value="other">{ar() ? "أخرى" : "Other"}</option>
@@ -4491,7 +4494,7 @@ export default function AdminDashboard() {
             {/* ── KPI Cards: Row 1 ── */}
             <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-6 mb-5">
               <KpiCard icon={Icons.chart} label={ar() ? "الإيرادات المتوقعة" : "Expected Revenue"} value={fs?.expectedTotalRevenueKwd || "0.000"} sub="KWD" isHighlighted />
-              <KpiCard accent="emerald" icon={Icons.chart} label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={fs?.totalRevenue || "0.000"} sub="KWD" />
+              <KpiCard accent="emerald" icon={Icons.chart} label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={fs?.paidTowardMembershipsKwd || "0.000"} sub="KWD" />
               <KpiCard accent="red" icon={Icons.cash} label={ar() ? "أقساط غير مدفوعة" : "Unpaid Installment"} value={fs?.unpaidInstallmentsKwd || "0.000"} sub="KWD" />
               <KpiCard accent="blue" icon={Icons.cash} label={ar() ? "مدفوعات معلقة" : "Pending Payments"} value={(paymentsData?.items || []).length} sub={`${fs?.pendingPaymentsKwd || "0.000"} KWD`} />
               <KpiCard accent="indigo" icon={Icons.calendar} label={ar() ? "حجوزات معلقة" : "Pending Bookings"} value={(bookingRequests?.items || []).length} sub={ar() ? "بانتظار التأكيد" : "awaiting confirmation"} />

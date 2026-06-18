@@ -8,7 +8,7 @@ export async function createCompletedEnrollmentPayment(input: {
   offerId: string;
   userOfferId: string;
   amountKwd: string;
-  method: "bank_transfer" | "cash" | "pos" | "other";
+  method: "bank_transfer" | "cash" | "pos" | "free_package" | "other";
   proofRef: string;
   confirmedBy: string;
 }) {

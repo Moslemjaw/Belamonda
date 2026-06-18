@@ -96,7 +96,7 @@ const PIE_COLORS = [COLORS.pink, COLORS.emerald, COLORS.indigo, COLORS.amber, CO
 
 const METHOD_LABELS: Record<string, string> = {
   bank_transfer: "Paid by Customer Service", cash: "Paid in Clinic", pos: "POS",
-  card_mock: "Card (Online)", enet: "ENET", wallet: "Wallet", other: "Other",
+  card_mock: "Card (Online)", enet: "ENET", wallet: "Wallet", free_package: "Free Package", other: "Other",
 };
 const PURPOSE_LABELS: Record<string, string> = {
   enrollment_full: "Membership", installment: "Installment",
@@ -111,6 +111,7 @@ const METHOD_COLORS: Record<string, string> = {
   card_mock: "bg-indigo-50 text-indigo-700 border-indigo-200",
   enet: "bg-brand-pink-50 text-brand-pink-700 border-brand-pink-200",
   wallet: "bg-amber-50 text-amber-700 border-amber-200",
+  free_package: "bg-surface-100 text-surface-600 border-surface-200",
   other: "bg-surface-100 text-surface-600 border-surface-200",
 };
 const STATUS_BADGE: Record<string, string> = {
@@ -266,7 +267,7 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {/* Row 1: Core Financials */}
         <KpiCard label={ar() ? "الإيرادات المتوقعة (الكل مدفوع)" : "Expected Total Revenue"} value={`${snapshot?.expectedTotalRevenueKwd ?? "0.000"} KWD`} sub={ar() ? "إذا تم دفع جميع الأقساط" : "if all installments are fully paid"} color="text-teal-600" icon="📊" />
-        <KpiCard label={ar() ? "إجمالي الإيرادات (المحصل)" : "Total Revenue (Collected)"} value={`${revenue} KWD`} sub={`${totals?.transactions ?? 0} ${ar() ? "معاملة" : "transactions"}`} color="text-emerald-600" icon="💰" />
+        <KpiCard label={ar() ? "إجمالي الإيرادات (المحصل)" : "Total Revenue (Collected)"} value={`${snapshot?.paidTowardMembershipsKwd ?? "0.000"} KWD`} sub={`${totals?.transactions ?? 0} ${ar() ? "معاملة" : "transactions"}`} color="text-emerald-600" icon="💰" />
         <KpiCard label={ar() ? "أقساط غير مدفوعة" : "Unpaid Installments"} value={`${snapshot?.unpaidInstallmentsKwd ?? "0.000"} KWD`} sub={ar() ? "مبالغ أقساط لم تُسدد بعد" : "outstanding installment amounts"} color="text-red-600" icon="⏳" />
 
         {/* Row 2: Breakdowns & Pending */}

@@ -246,7 +246,7 @@ async function createPayment(input: {
   amountKwd: string;
   cashbackAppliedKwd: string;
   grossAmountKwd: string;
-  method: "card_mock" | "enet" | "bank_transfer" | "cash" | "pos" | "other" | string;
+  method: "card_mock" | "enet" | "bank_transfer" | "cash" | "pos" | "free_package" | "other" | string;
   purpose: "enrollment_full" | "installment" | "deposit" | "deposit_balance" | "enrollment_enet";
   provider: "mock" | "enet" | "manual" | string;
   providerRef: string;

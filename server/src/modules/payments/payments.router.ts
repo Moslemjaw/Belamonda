@@ -18,7 +18,7 @@ const KwdString = z.string().regex(/^\d+(\.\d{3})$/);
 const ConfirmPaymentSchema = z.object({
   userOfferId: z.string().min(1),
   proofRef: z.string().min(1),
-  method: z.enum(["bank_transfer", "cash", "pos", "other"]),
+  method: z.enum(["bank_transfer", "cash", "pos", "free_package", "other"]),
   amountKwd: KwdString
 });
 

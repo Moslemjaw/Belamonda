@@ -682,7 +682,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       clinicId: z.string().optional(),
       purchaseMode: z.enum(["full", "installments", "deposit"]).optional(),
       amountPaidKwd: z.string().optional(),
-      method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "other"]).optional(),
+      method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]).optional(),
       isVerified: z.boolean().optional(),
       installmentCount: z.number().optional(),
       customInstallments: z.array(z.object({
@@ -703,7 +703,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       clinicId: z.string().optional(),
       purchaseMode: z.enum(["full", "installments", "deposit"]).optional(),
       amountPaidKwd: z.string().optional(),
-      method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "other"]).optional(),
+      method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]).optional(),
       isVerified: z.boolean().optional(),
       installmentCount: z.number().optional(),
       // Multiple enrollments
@@ -946,7 +946,7 @@ usersRouter.patch("/admin/:id/subscription", authRequired, requireRole(["admin",
     const parsed = z.object({
       plan: z.enum(["basic", "pro"]),
       planId: z.string().optional(),
-      method: z.enum(["bank_transfer", "cash", "pos", "enet", "wallet", "other"]).optional()
+      method: z.enum(["bank_transfer", "cash", "pos", "enet", "wallet", "free_package", "other"]).optional()
     }).safeParse(req.body);
 
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
