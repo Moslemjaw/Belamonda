@@ -291,7 +291,7 @@ export async function computeRevenueByOffer(filters: { from?: string; to?: strin
   for (const p of payments as any[]) {
     const k = p.offerId?.toString();
     if (!k) continue;
-    const cur = map.get(k) ?? { revenue: 0, net: 0, cashback: 0, count: 0, actualSales: 0, expected: 0 };
+    const cur = map.get(k) ?? { revenue: 0, net: 0, cashback: 0, count: 0, actualSales: 0, expected: 0, needsOfferPriceCount: 0 };
     const net = parseKwd(p.amountKwd);
     const cb = parseKwd(p.cashbackAppliedKwd || "0.000");
     const gross = p.grossAmountKwd ? parseKwd(p.grossAmountKwd) : net + cb;
