@@ -799,6 +799,7 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
                   <div className="font-bold text-surface-900 line-clamp-1">{o.offerName}</div>
                   <div className="text-right shrink-0">
                     <div className="font-bold text-emerald-700">{o.revenueKwd}</div>
+                    <div className="text-[10px] text-surface-500">{ar() ? "المتوقع:" : "Expected:"} {o.expectedKwd}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -819,6 +820,7 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
                   <th>{ar() ? "النوع" : "Type"}</th>
                   <th className="text-center">{ar() ? "المبيعات" : "Sales"}</th>
                   <th className="text-right">{ar() ? "الإيرادات" : "Revenue"}</th>
+                  <th className="text-right">{ar() ? "المتوقع" : "Expected"}</th>
                   <th className="text-right">{ar() ? "كاش باك" : "Cashback"}</th>
                 </tr>
               </thead>
@@ -831,6 +833,7 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
                     <td className="text-xs text-surface-500 capitalize">{o.membershipType}</td>
                     <td className="text-center"><span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md text-xs font-bold">{o.salesCount}</span></td>
                     <td className="text-right font-bold text-emerald-700">{o.revenueKwd}</td>
+                    <td className="text-right font-bold text-blue-700">{o.expectedKwd}</td>
                     <td className="text-right text-amber-600">{o.cashbackKwd}</td>
                   </tr>
                 ))}

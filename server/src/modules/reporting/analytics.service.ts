@@ -291,7 +291,7 @@ export async function computeRevenueByOffer(filters: { from?: string; to?: strin
   for (const p of payments as any[]) {
     const k = p.offerId?.toString();
     if (!k) continue;
-    const cur = map.get(k) ?? { revenue: 0, net: 0, cashback: 0, count: 0 };
+    const cur = map.get(k) ?? { revenue: 0, net: 0, cashback: 0, count: 0, actualSales: 0, expected: 0 };
     const net = parseKwd(p.amountKwd);
     const cb = parseKwd(p.cashbackAppliedKwd || "0.000");
     const gross = p.grossAmountKwd ? parseKwd(p.grossAmountKwd) : net + cb;
@@ -299,6 +299,31 @@ export async function computeRevenueByOffer(filters: { from?: string; to?: strin
     cur.net += net;
     cur.cashback += cb;
     cur.count++;
+    map.set(k, cur);
+  }
+
+  const uoQuery: Record<string, unknown> = { status: { $in: ["active", "pending_payment", "reserved"] } };
+  if (dateFilter) uoQuery.createdAt = dateFilter;
+  const userOffers = await UserOfferModel.find(uoQuery).select("offerId purchaseMode paymentAmountKwd installmentSchedule").lean();
+
+  for (const uo of userOffers as any[]) {
+    const k = uo.offerId?.toString();
+    if (!k) continue;
+    const cur = map.get(k) ?? { revenue: 0, net: 0, cashback: 0, count: 0, actualSales: 0, expected: 0 };
+    cur.actualSales = (cur.actualSales || 0) + 1;
+    
+    let expected = 0;
+    if (uo.purchaseMode === "free") expected = 0;
+    else if (uo.purchaseMode === "installments") {
+      expected = (uo.installmentSchedule || []).reduce((sum: number, inst: any) => sum + parseKwd(inst.amountKwd || "0"), 0);
+    } else {
+      expected = parseKwd(uo.paymentAmountKwd || "0"); // we will fallback to offer price later if this is 0
+      if (expected === 0 && uo.purchaseMode !== "discount") {
+        // flag it so we can add the offer price later
+        (cur as any).needsOfferPriceCount = ((cur as any).needsOfferPriceCount || 0) + 1;
+      }
+    }
+    cur.expected = (cur.expected || 0) + expected;
     map.set(k, cur);
   }
 
@@ -316,7 +341,9 @@ export async function computeRevenueByOffer(filters: { from?: string; to?: strin
         revenueKwd: fmtKwd(v.revenue),
         cashbackKwd: fmtKwd(v.cashback),
         profitKwd: fmtKwd(v.net),
-        salesCount: v.count,
+        salesCount: v.actualSales || 0,
+        paymentsCount: v.count,
+        expectedKwd: fmtKwd((v.expected || 0) + ((v as any).needsOfferPriceCount || 0) * parseKwd(o?.subscriptionPriceKwd || "0")),
       };
     })
     .sort((a, b) => parseKwd(b.revenueKwd) - parseKwd(a.revenueKwd));
@@ -1045,6 +1072,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         { key: "membershipType", header: "Membership Type" },
         { key: "salesCount", header: "Sales" },
         { key: "revenueKwd", header: "Revenue (KWD)", numFmt: "0.000" },
+        { key: "expectedKwd", header: "Expected Revenue (KWD)", numFmt: "0.000" },
         { key: "cashbackKwd", header: "Cashback (KWD)", numFmt: "0.000" },
         { key: "profitKwd", header: "Profit (KWD)", numFmt: "0.000" },
       ],
@@ -1053,6 +1081,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         membershipType: o.membershipType,
         salesCount: o.salesCount,
         revenueKwd: Number.parseFloat(o.revenueKwd),
+        expectedKwd: Number.parseFloat(o.expectedKwd || "0"),
         cashbackKwd: Number.parseFloat(o.cashbackKwd),
         profitKwd: Number.parseFloat(o.profitKwd),
       })),
