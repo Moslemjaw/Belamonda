@@ -5,7 +5,7 @@ import { requireRole } from "../../middlewares/requireRole.js";
 import { kycStore } from "../kyc/kyc.store.js";
 import { notifyCashbackUpdated } from "../notifications/notifications.service.js";
 
-const KwdString = z.string().regex(/^\\d+(\\.\\d{3})$/);
+const KwdString = z.string().regex(/^\d+(\.\d{3})$/);
 
 const DeductSchema = z.object({
   userId: z.string().min(1),
@@ -15,7 +15,7 @@ const DeductSchema = z.object({
 
 const AdminAdjustSchema = z.object({
   userId: z.string().min(1),
-  amountKwd: z.string().regex(/^-?\\d+(\\.\\d{3})$/),
+  amountKwd: z.string().regex(/^-?\d+(\.\d{3})$/),
   reason: z.string().min(3)
 });
 

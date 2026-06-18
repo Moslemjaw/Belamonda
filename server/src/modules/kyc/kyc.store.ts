@@ -451,7 +451,14 @@ export const kycStore = {
 
     const nextUnlocked = unlocked + delta;
     if (nextUnlocked < 0) return { error: "UNLOCKED_BELOW_ZERO" as const };
-    if (locked + nextUnlocked > ceiling) return { error: "CEILING_EXCEEDED" as const };
+
+    // Auto-expand ceiling when admin adds cashback so adjustment is never blocked
+    const nextTotal = locked + nextUnlocked;
+    let nextCeiling = ceiling;
+    if (nextTotal > ceiling) {
+      nextCeiling = nextTotal;
+      wallet.ceilingKwd = fmtKwd(nextCeiling);
+    }
 
     wallet.unlockedKwd = fmtKwd(nextUnlocked);
     await wallet.save();
