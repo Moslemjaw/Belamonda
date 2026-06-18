@@ -1824,6 +1824,8 @@ function CustomersManager() {
                                   <option value="full">{ar() ? "دفع كامل" : "Full Payment"}</option>
                                   <option value="installments">{ar() ? "أقساط" : "Installments"}</option>
                                   <option value="deposit">{ar() ? "عربون" : "Deposit"}</option>
+                                  <option value="free">{ar() ? "عضوية مجانية" : "Free Membership"}</option>
+                                  <option value="discount">{ar() ? "خصم خاص" : "Discount"}</option>
                                 </select>
                               </div>
                               {en.purchaseMode === "installments" && (
@@ -1840,7 +1842,7 @@ function CustomersManager() {
                                 <>
                                   <div>
                                     <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "المبلغ المدفوع اليوم (KWD)" : "Amount Paid Today (KWD)"}</label>
-                                    <input type="number" step="0.001" className="input-field w-full font-mono text-brand-pink-700 font-bold" value={en.amountPaidKwd} onChange={e => updateEnrollment(idx, { amountPaidKwd: e.target.value })} placeholder="0.000" />
+                                    <input type="number" step="0.001" min="0" className="input-field w-full font-mono text-brand-pink-700 font-bold" value={en.amountPaidKwd} onChange={e => updateEnrollment(idx, { amountPaidKwd: e.target.value })} disabled={en.purchaseMode === "free"} placeholder="0.000" />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"}</label>

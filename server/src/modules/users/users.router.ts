@@ -680,7 +680,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
     const enrollmentSchema = z.object({
       offerId: z.string().min(1),
       clinicId: z.string().optional(),
-      purchaseMode: z.enum(["full", "installments", "deposit"]).optional(),
+      purchaseMode: z.enum(["full", "installments", "deposit", "free", "discount"]).optional(),
       amountPaidKwd: z.string().optional(),
       method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]).optional(),
       isVerified: z.boolean().optional(),
@@ -701,7 +701,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       // Legacy single-offer fields (backward compat)
       offerId: z.string().optional(),
       clinicId: z.string().optional(),
-      purchaseMode: z.enum(["full", "installments", "deposit"]).optional(),
+      purchaseMode: z.enum(["full", "installments", "deposit", "free", "discount"]).optional(),
       amountPaidKwd: z.string().optional(),
       method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]).optional(),
       isVerified: z.boolean().optional(),
@@ -798,13 +798,19 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
         }
       }
 
-      const finalAmountKwd = purchaseMode === "installments" 
+      let finalAmountKwd = purchaseMode === "installments" 
         ? calculatedTotalPaidKwd.toFixed(3) 
         : amountKwd;
+      let finalMethod = purchaseMode === "installments" ? "other" : method;
+
+      if (purchaseMode === "free") {
+        finalAmountKwd = "0.000";
+        finalMethod = "free_package";
+      }
 
       const uo = await UserOfferModel.create({
         userId: String(user._id), offerId: offer._id, clinicId: en.clinicId || undefined,
-        status: uoStatus, purchaseMode, paymentMethod: purchaseMode === "installments" ? "other" : method, paymentAmountKwd: finalAmountKwd, cashbackAppliedKwd: "0.000",
+        status: uoStatus, purchaseMode, paymentMethod: finalMethod, paymentAmountKwd: finalAmountKwd, cashbackAppliedKwd: "0.000",
         installmentCount: purchaseMode === "installments" ? schedule.length : undefined,
         installmentsPaid: purchaseMode === "installments" ? installmentsPaidCount : 0,
         installmentSchedule: purchaseMode === "installments" ? schedule : undefined,
@@ -837,7 +843,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       } else {
         const payment = await PaymentModel.create({
           userId: String(user._id), offerId: offer._id, userOfferId: uo._id,
-          amountKwd: finalAmountKwd, grossAmountKwd: finalAmountKwd, cashbackAppliedKwd: "0.000", method,
+          amountKwd: finalAmountKwd, grossAmountKwd: finalAmountKwd, cashbackAppliedKwd: "0.000", method: finalMethod,
           purpose: purchaseMode === "deposit" ? "deposit" : "enrollment_full",
           status: isVerified ? "completed" : "pending", provider: "manual", isManual: true, manualLabel: "Admin Manual Enroll",
           confirmedBy: isVerified ? req.auth!.userId : undefined, confirmedAt: isVerified ? now : undefined,

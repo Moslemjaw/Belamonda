@@ -2623,6 +2623,8 @@ export function UserProfilePanel({
                                   <option value="full">{ar() ? "دفع كامل" : "Full Payment"}</option>
                                   <option value="installments">{ar() ? "أقساط" : "Installments"}</option>
                                   <option value="deposit">{ar() ? "عربون" : "Deposit"}</option>
+                                  <option value="free">{ar() ? "عضوية مجانية" : "Free Membership"}</option>
+                                  <option value="discount">{ar() ? "خصم خاص" : "Discount"}</option>
                                 </select>
                               </div>
                               {en.purchaseMode === "installments" && (
@@ -2639,7 +2641,14 @@ export function UserProfilePanel({
                                 <>
                                   <div>
                                     <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "المبلغ المدفوع (KWD)" : "Amount Paid (KWD)"}</label>
-                                    <input type="number" step="0.001" className="input-field w-full font-mono text-emerald-700 font-bold" value={en.amountPaidKwd} onChange={e => updateGrantEnrollment(idx, { amountPaidKwd: e.target.value })} placeholder="0.000" />
+                                    <input 
+                                      type="number" step="0.001" min="0"
+                                      className="input-field w-full font-mono text-emerald-700 font-bold"
+                                      value={en.amountPaidKwd}
+                                      onChange={e => updateGrantEnrollment(idx, { amountPaidKwd: e.target.value })}
+                                      disabled={en.purchaseMode === "free"}
+                                      placeholder="0.000" 
+                                    />
                                   </div>
                                   <div>
                                     <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
@@ -3574,6 +3583,8 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                                   <option value="full">{ar() ? "دفع كامل" : "Full Payment"}</option>
                                   <option value="installments">{ar() ? "أقساط" : "Installments"}</option>
                                   <option value="deposit">{ar() ? "عربون" : "Deposit"}</option>
+                                  <option value="free">{ar() ? "عضوية مجانية" : "Free Membership"}</option>
+                                  <option value="discount">{ar() ? "خصم خاص" : "Discount"}</option>
                                 </select>
                               </div>
                               {en.purchaseMode === "installments" && (

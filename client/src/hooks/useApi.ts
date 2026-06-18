@@ -129,7 +129,7 @@ export function useWallet(opts?: { lazy?: boolean }) {
 export type MyOfferItem = {
   id: string; offerId: string; clinicId: string; status: string;
   sessionsUsed: number; activatedAt?: string; expiresAt?: string;
-  purchaseMode?: "full" | "installments" | "deposit" | "enet" | "deposit_completed";
+  purchaseMode?: "full" | "installments" | "deposit" | "enet" | "deposit_completed" | "free" | "discount";
   installmentCount?: number;
   installmentsPaid?: number;
   installmentSchedule?: Array<{ number: number; amountKwd: string; dueDate: string; paid: boolean; paidAt?: string }>;

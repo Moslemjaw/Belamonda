@@ -70,7 +70,7 @@ const UserOfferSchema = new Schema(
     // === Purchase flow extensions (Task #2) ===
     purchaseMode: {
       type: String,
-      enum: ["full", "installments", "deposit", "enet"]
+      enum: ["full", "installments", "deposit", "enet", "free", "discount"]
     },
     cashbackAppliedKwd: { type: String, default: "0.000", match: /^\d+(\.\d{3})$/ },
 
