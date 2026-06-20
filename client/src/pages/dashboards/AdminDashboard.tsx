@@ -3449,6 +3449,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                   <th>{ar() ? "الصلاحية" : "Role"}</th>
                   <th>{ar() ? "الحالة" : "Status"}</th>
                   <th>{ar() ? "مؤشرات" : "Flags"}</th>
+                  <th>{ar() ? "تأكيد الاتصال" : "Confirmation"}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -3490,11 +3491,13 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                         {u.referredByUsername && (
                            <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-1.5 py-0.5 rounded border border-indigo-200" title="Referred">🔗 {ar() ? "إحالة" : "Referred"}</span>
                         )}
-                        <label className="flex items-center gap-1.5 bg-surface-50 border border-surface-200 px-1.5 py-0.5 rounded text-[10px] font-bold text-surface-600 cursor-pointer hover:bg-surface-100 transition-colors" title={ar() ? "تم الاتصال لتأكيد العميل" : "Customer confirmation call done"}>
-                          <input type="checkbox" checked={u.isConfirmationCallDone} onChange={() => toggleConfirmationCall(u.id, u.isConfirmationCallDone)} className="w-3 h-3 text-brand-pink-600 focus:ring-brand-pink-500 border-surface-300 rounded cursor-pointer" />
-                          <span>{ar() ? "تأكيد اتصال" : "Confirmed"}</span>
-                        </label>
                       </div>
+                    </td>
+                    <td>
+                      <label className="flex items-center gap-1.5 bg-surface-50 border border-surface-200 px-1.5 py-0.5 rounded text-[10px] font-bold text-surface-600 cursor-pointer hover:bg-surface-100 transition-colors w-max" title={ar() ? "تم الاتصال لتأكيد العميل" : "Customer confirmation call done"}>
+                        <input type="checkbox" checked={u.isConfirmationCallDone} onChange={() => toggleConfirmationCall(u.id, u.isConfirmationCallDone)} className="w-3 h-3 text-brand-pink-600 focus:ring-brand-pink-500 border-surface-300 rounded cursor-pointer" />
+                        <span>{ar() ? "تأكيد اتصال" : "Confirmed"}</span>
+                      </label>
                     </td>
                     <td className="text-right">
                       <button
@@ -3508,7 +3511,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={5}>
+                    <td colSpan={6}>
                       <div className="empty-state">
                         <div className="empty-state-icon">
                           <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
