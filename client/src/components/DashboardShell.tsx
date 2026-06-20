@@ -157,7 +157,7 @@ function NotificationPanel({
 const getGroupForNavItem = (key: string, role: string, isAr: boolean): { name: string; order: number } => {
   if (role === "admin") {
     if (key === "home") return { name: isAr ? "نظرة عامة" : "Overview", order: 1 };
-    if (["offers", "subscriptions", "categories", "treatments", "standalone"].includes(key)) {
+    if (["offers", "subscriptions", "promotions", "categories", "treatments", "standalone"].includes(key)) {
       return { name: isAr ? "إدارة الكتالوج" : "Catalog Management", order: 2 };
     }
     if (["users", "clinics", "bookings", "reservations"].includes(key)) {
