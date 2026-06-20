@@ -256,8 +256,8 @@ export type FinanceTimePoint = {
   transactions: number;
 };
 
-export function useFinanceTimeseries(period: "daily" | "weekly" | "monthly" | "yearly", filters: { from?: string; to?: string } = {}) {
-  const p = new URLSearchParams({ period });
+export function useFinanceTimeseries(period: "daily" | "weekly" | "monthly" | "yearly" | "all" | "custom", filters: { from?: string; to?: string } = {}) {
+  const p = new URLSearchParams({ period: (period === "all" || period === "custom" ? "monthly" : period) });
   if (filters.from) p.set("from", filters.from);
   if (filters.to) p.set("to", filters.to);
   return useApi<{
@@ -273,7 +273,7 @@ export function useRevenueByOffer(filters: { from?: string; to?: string } = {}) 
   if (filters.to) p.set("to", filters.to);
   const q = p.toString() ? `?${p.toString()}` : "";
   return useApi<{
-    items: Array<{ offerId: string; offerName: string; membershipType: string; revenueKwd: string; cashbackKwd: string; profitKwd: string; salesCount: number }>;
+    items: Array<{ offerId: string; offerName: string; membershipType: string; revenueKwd: string; expectedKwd?: string; cashbackKwd: string; profitKwd: string; salesCount: number }>;
   }>(`/reporting/finance/by-offer${q}`, { deps: [filters.from, filters.to] });
 }
 
@@ -304,7 +304,7 @@ export function useFinanceInstallments(filters: { from?: string; to?: string } =
   const q = p.toString() ? `?${p.toString()}` : "";
   return useApi<{
     summary: { paidKwd: string; upcomingKwd: string; lateKwd: string; forecastKwd: string; lateCount: number; upcomingCount: number };
-    items: Array<{ userOfferId: string; userId: string; offerName: string; installmentNumber: number; amountKwd: string; dueDate?: string; status: "paid" | "late" | "upcoming"; customerName?: string }>;
+    items: Array<{ userOfferId: string; userId: string; offerName: string; installmentNumber: number; amountKwd: string; dueDate?: string; status: "paid" | "late" | "upcoming"; customerName?: string; method?: string }>;
   }>(`/reporting/finance/installments${q}`, { deps: [filters.from, filters.to] });
 }
 

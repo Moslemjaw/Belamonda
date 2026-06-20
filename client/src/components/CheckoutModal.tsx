@@ -27,6 +27,7 @@ type Offer = {
   allowFullPayment: boolean;
   allowInstallments: boolean;
   maxInstallments: number;
+  allowENet?: boolean;
   allowDeposit: boolean;
   depositAmountKwd: string;
   cashbackEligible?: boolean;

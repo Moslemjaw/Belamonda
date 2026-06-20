@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate, useParams } from "react-router-dom";
+import { Routes, Route, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../app/AuthContext";
 import LoginPage from "../pages/LoginPage";
 import HomePage from "../pages/HomePage";
@@ -8,6 +8,7 @@ import SignupPage from "../pages/SignupPage";
 import OfferDetailPage from "../pages/OfferDetailPage";
 import MembershipPage from "../pages/MembershipPage";
 import ClinicsPage from "../pages/ClinicsPage";
+import PromoPage from "../pages/PromoPage";
 
 const EFormFillPage = lazy(() => import("../pages/EFormFillPage"));
 const CustomerDashboard = lazy(() => import("../pages/dashboards/CustomerDashboard"));
@@ -63,6 +64,17 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function AuthRedirect({ children }: { children: React.ReactNode }) {
+  const { auth } = useAuth();
+  const [params] = useSearchParams();
+  if (auth) {
+    const offerId = params.get("offerId");
+    if (offerId) return <Navigate to={`/memberships/${offerId}`} replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
+  return <>{children}</>;
+}
+
 export default function App() {
   const { auth } = useAuth();
 
@@ -74,10 +86,11 @@ export default function App() {
       <Route path="/memberships" element={<MembershipPage />} />
       <Route path="/offers/:id" element={<OfferRedirect />} />
       <Route path="/memberships/:id" element={<OfferDetailPage />} />
+      <Route path="/promo/:slug" element={<PromoPage />} />
       
       <Route path="/clinics" element={<ClinicsPage />} />
-      <Route path="/signup" element={auth ? <Navigate to="/dashboard" replace /> : <SignupPage />} />
-      <Route path="/login" element={auth ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
+      <Route path="/signup" element={<AuthRedirect><SignupPage /></AuthRedirect>} />
+      <Route path="/login" element={<AuthRedirect><LoginPage /></AuthRedirect>} />
       <Route
         path="/dashboard"
         element={

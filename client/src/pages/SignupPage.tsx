@@ -9,7 +9,15 @@ export default function SignupPage() {
   const { i18n } = useTranslation();
   const nav = useNavigate();
   const [params] = useSearchParams();
-  const next = params.get("next") || "/dashboard";
+  const offerId = params.get("offerId");
+  const promoSlug = params.get("promo");
+  
+  // Determine where to redirect after signup
+  let next = params.get("next") || "/dashboard";
+  if (offerId) {
+    next = `/memberships/${offerId}`;
+  }
+  
   const refCode = params.get("ref") || undefined;
   const isAr = i18n.language === "ar";
   const t = (en: string, ar: string) => (isAr ? ar : en);
@@ -304,7 +312,7 @@ export default function SignupPage() {
           <div className="mt-10 pt-8 border-t border-surface-100">
             <p className="text-center text-sm text-surface-500 font-medium">
               {t("Already have an account?", "لديكِ حساب؟")}{" "}
-              <Link to="/login" className="font-bold text-brand-pink-600 hover:text-brand-pink-800 transition-colors ml-1">
+              <Link to={`/login?${params.toString()}`} className="font-bold text-brand-pink-600 hover:text-brand-pink-800 transition-colors ml-1">
                 {t("Sign in", "سجّلي الدخول")}
               </Link>
             </p>

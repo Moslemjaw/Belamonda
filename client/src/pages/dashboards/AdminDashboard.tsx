@@ -14,6 +14,7 @@ import { EFormsAdminPanel } from "../../features/admin/EFormsAdminPanel";
 import { KycQueue, PaymentQueue, BookingRequestsQueue } from "./CsDashboard";
 import { AdminSubscriptionsDashboard } from "./AdminSubscriptionsDashboard";
 import { SessionTypesAdminPanel } from "../../features/admin/SessionTypesAdminPanel";
+import { PromotionsManager } from "../../components/PromotionsManager";
 import ChatWidget from "../../components/ChatWidget";
 import AdminBookingsMonitor from "../../components/AdminBookingsMonitor";
 import ShareLinkPage from "../../components/ShareLinkPage";
@@ -4584,6 +4585,7 @@ export default function AdminDashboard() {
     { key: "categories", icon: Icons.clipboard, label: ar() ? "الفئات" : "Categories" },
     { key: "treatments", icon: Icons.calendar, label: ar() ? "العلاجات" : "Treatments" },
     { key: "standalone", icon: Icons.calendar, label: ar() ? "الجلسات" : "Sessions" },
+    { key: "promotions", icon: Icons.offers, label: ar() ? "عروض الشركات" : "Promotions" },
     { key: "users", icon: Icons.users, label: t("users") },
     { key: "clinics", icon: Icons.clinic, label: t("clinics") },
     { key: "tasks", icon: Icons.clipboard, label: t("tasks") },
@@ -4658,6 +4660,7 @@ export default function AdminDashboard() {
               <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
                 {([
                   { key: "offers",     icon: Icons.offers,    label: ar() ? "العضويات"  : "Memberships",  color: "text-brand-pink-600 bg-brand-pink-50 hover:bg-brand-pink-100" },
+                  { key: "promotions", icon: Icons.offers,    label: ar() ? "عروض الشركات" : "Promotions",   color: "text-rose-600 bg-rose-50 hover:bg-rose-100" },
                   { key: "users",      icon: Icons.users,     label: ar() ? "المستخدمون" : "Users",         color: "text-blue-600 bg-blue-50 hover:bg-blue-100" },
                   { key: "clinics",    icon: Icons.clinic,    label: ar() ? "العيادات"   : "Clinics",       color: "text-emerald-600 bg-emerald-50 hover:bg-emerald-100" },
                   { key: "complaints", icon: Icons.complaint, label: ar() ? "الشكاوى"    : "Complaints",    color: "text-rose-600 bg-rose-50 hover:bg-rose-100" },
@@ -4710,8 +4713,9 @@ export default function AdminDashboard() {
 
           </div>
         )}
-        {activeNav === "offers" && <OffersManager />}
-        {activeNav === "categories" && <CategoriesAdminPanel />}
+        { activeNav === "offers" && <OffersManager /> }
+        { activeNav === "promotions" && <PromotionsManager /> }
+        { activeNav === "categories" && <CategoriesAdminPanel /> }
         {activeNav === "treatments" && <SessionTypesAdminPanel />}
         {activeNav === "standalone" && <SessionsManager />}
         {activeNav === "clinics" && <ClinicsManager />}
