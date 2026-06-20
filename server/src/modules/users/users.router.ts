@@ -694,6 +694,9 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
         amountKwd: z.string(),
         isPaid: z.boolean(),
         method: z.string()
+      })).optional(),
+      historicalSessions: z.array(z.object({
+        date: z.string()
       })).optional()
     });
 
@@ -710,6 +713,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]).optional(),
       isVerified: z.boolean().optional(),
       installmentCount: z.number().optional(),
+      historicalSessions: z.array(z.object({ date: z.string() })).optional(),
       // Multiple enrollments
       enrollments: z.array(enrollmentSchema).optional(),
     }).safeParse(req.body);
@@ -735,12 +739,12 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
     }
 
     // Build enrollments list: either from new enrollments[] array or legacy single offerId
-    type EnrollmentItem = { offerId: string; clinicId?: string; purchaseMode?: string; amountPaidKwd?: string; method?: string; isVerified?: boolean; installmentCount?: number; customInstallments?: any[] };
+    type EnrollmentItem = { offerId: string; clinicId?: string; purchaseMode?: string; amountPaidKwd?: string; method?: string; isVerified?: boolean; installmentCount?: number; customInstallments?: any[]; historicalSessions?: { date: string }[] };
     let enrollments: EnrollmentItem[] = [];
     if (d.enrollments && d.enrollments.length > 0) {
       enrollments = d.enrollments;
     } else if (d.offerId) {
-      enrollments = [{ offerId: d.offerId, clinicId: d.clinicId, purchaseMode: d.purchaseMode, amountPaidKwd: d.amountPaidKwd, method: d.method, isVerified: d.isVerified, installmentCount: d.installmentCount }];
+      enrollments = [{ offerId: d.offerId, clinicId: d.clinicId, purchaseMode: d.purchaseMode, amountPaidKwd: d.amountPaidKwd, method: d.method, isVerified: d.isVerified, installmentCount: d.installmentCount, historicalSessions: d.historicalSessions }];
     }
 
     if (enrollments.length === 0) {
@@ -817,6 +821,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
         status: uoStatus, purchaseMode, paymentMethod: finalMethod, paymentAmountKwd: finalAmountKwd, cashbackAppliedKwd: "0.000",
         installmentCount: purchaseMode === "installments" ? schedule.length : undefined,
         installmentsPaid: purchaseMode === "installments" ? installmentsPaidCount : 0,
+        sessionsUsed: en.historicalSessions?.length || 0,
         installmentSchedule: purchaseMode === "installments" ? schedule : undefined,
         nextInstallmentDueAt: purchaseMode === "installments" ? schedule.find(s => !s.paid)?.dueDate : undefined,
         membershipType: offer.membershipType,
@@ -855,6 +860,24 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
         });
         firstPaymentId = payment._id;
         await UserOfferModel.findByIdAndUpdate(uo._id, { $set: { paymentId: payment._id } });
+      }
+
+      if (en.historicalSessions && en.historicalSessions.length > 0) {
+        const { BookingSessionModel } = await import("../../models/bookingSession.model.js");
+        for (const hs of en.historicalSessions) {
+          await BookingSessionModel.create({
+            userOfferId: uo._id,
+            userId: String(user._id),
+            offerId: offer._id,
+            clinicId: en.clinicId || offer.clinicIds?.[0] || offer.clinicId,
+            scheduledAt: new Date(hs.date),
+            status: "completed",
+            scheduledBy: req.auth!.userId,
+            completedAt: new Date(hs.date),
+            markedBy: req.auth!.userId,
+            notes: "Historical session logged during enrollment",
+          });
+        }
       }
 
       await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
@@ -1057,4 +1080,3 @@ usersRouter.delete("/:id/all-data", authRequired, requireRole(["admin", "cs", "l
     next(e);
   }
 });
-

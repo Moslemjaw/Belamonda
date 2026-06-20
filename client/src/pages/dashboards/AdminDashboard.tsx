@@ -2168,7 +2168,7 @@ export function UserProfilePanel({
   const [newNote, setNewNote] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
 
-  const defaultGrantEnrollment = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "bank_transfer", isVerified: true, installmentCount: 2, customInstallments: [] };
+  const defaultGrantEnrollment = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "bank_transfer", isVerified: true, installmentCount: 2, customInstallments: [], historicalSessions: [] };
   const [grantEnrollments, setGrantEnrollments] = useState<any[]>([{ ...defaultGrantEnrollment }]);
   const [grantSaving, setGrantSaving] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
@@ -2721,6 +2721,43 @@ export function UserProfilePanel({
                                   </div>
                                 </div>
                               )}
+                              
+                              <div className="sm:col-span-2 mt-4 pt-4 border-t border-surface-100">
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="block text-xs font-bold text-surface-700">{ar() ? "جلسات سابقة (تاريخية)" : "Historical Sessions"}</label>
+                                  <button type="button" onClick={() => {
+                                    const newEn = [...grantEnrollments];
+                                    if (!newEn[idx].historicalSessions) newEn[idx].historicalSessions = [];
+                                    newEn[idx].historicalSessions.push({ date: new Date().toISOString().split('T')[0] });
+                                    setGrantEnrollments(newEn);
+                                  }} className="text-xs font-bold text-brand-pink-600 hover:underline">
+                                    + {ar() ? "إضافة جلسة سابقة" : "Add Past Session"}
+                                  </button>
+                                </div>
+                                <p className="text-[10px] text-surface-500 mb-3 leading-relaxed">{ar() ? "استخدم هذا الخيار لتسجيل الجلسات التي تمت بالفعل في النظام القديم، سيتم خصمها من الباقة واحتساب فترة التبريد (التأخير بين الجلسات) بناءً عليها حتى يتم قفل الحجز لحين انتهاء المدة." : "Log sessions that were already done in a previous system. This will deduct from the package quota and trigger the cooling interval to lock future bookings until the time elapses."}</p>
+                                
+                                {en.historicalSessions && en.historicalSessions.length > 0 && (
+                                  <div className="space-y-2">
+                                    {en.historicalSessions.map((hs: any, hsIdx: number) => (
+                                      <div key={hsIdx} className="flex items-center gap-2">
+                                        <div className="text-xs font-bold text-surface-400 w-6">{hsIdx + 1}.</div>
+                                        <input type="date" className="input-field text-xs py-1" value={hs.date} onChange={e => {
+                                          const newEn = [...grantEnrollments];
+                                          newEn[idx].historicalSessions[hsIdx].date = e.target.value;
+                                          setGrantEnrollments(newEn);
+                                        }} />
+                                        <button type="button" onClick={() => {
+                                          const newEn = [...grantEnrollments];
+                                          newEn[idx].historicalSessions.splice(hsIdx, 1);
+                                          setGrantEnrollments(newEn);
+                                        }} className="text-red-500 hover:text-red-700 p-1">
+                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
                           )}
                         </div>
@@ -3173,9 +3210,10 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
     isVerified: boolean; 
     installmentCount: number;
     customInstallments?: CustomInstallment[];
+    historicalSessions?: { date: string }[];
   };
   
-  const emptyRow: EnrollmentRow = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "cash", isVerified: true, installmentCount: 2 };
+  const emptyRow: EnrollmentRow = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "cash", isVerified: true, installmentCount: 2, historicalSessions: [] };
   
   const [addForm, setAddForm] = useState({
     phone: "", fullName: "", email: "", password: "",
@@ -3706,7 +3744,45 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                                   </div>
                                 </div>
                               )}
-                              <div className="sm:col-span-2 mt-2 bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex items-start gap-3">
+
+                              <div className="sm:col-span-2 mt-4 pt-4 border-t border-surface-100">
+                                <div className="flex items-center justify-between mb-2">
+                                  <label className="block text-xs font-bold text-surface-700">{ar() ? "جلسات سابقة (تاريخية)" : "Historical Sessions"}</label>
+                                  <button type="button" onClick={() => {
+                                    const newEn = [...addForm.enrollments];
+                                    if (!newEn[idx].historicalSessions) newEn[idx].historicalSessions = [];
+                                    newEn[idx].historicalSessions!.push({ date: new Date().toISOString().split('T')[0] });
+                                    setAddForm({ ...addForm, enrollments: newEn });
+                                  }} className="text-xs font-bold text-brand-pink-600 hover:underline">
+                                    + {ar() ? "إضافة جلسة سابقة" : "Add Past Session"}
+                                  </button>
+                                </div>
+                                <p className="text-[10px] text-surface-500 mb-3 leading-relaxed">{ar() ? "استخدم هذا الخيار لتسجيل الجلسات التي تمت بالفعل في النظام القديم، سيتم خصمها من الباقة واحتساب فترة التبريد (التأخير بين الجلسات) بناءً عليها حتى يتم قفل الحجز لحين انتهاء المدة." : "Log sessions that were already done in a previous system. This will deduct from the package quota and trigger the cooling interval to lock future bookings until the time elapses."}</p>
+                                
+                                {en.historicalSessions && en.historicalSessions.length > 0 && (
+                                  <div className="space-y-2">
+                                    {en.historicalSessions.map((hs: any, hsIdx: number) => (
+                                      <div key={hsIdx} className="flex items-center gap-2">
+                                        <div className="text-xs font-bold text-surface-400 w-6">{hsIdx + 1}.</div>
+                                        <input type="date" className="input-field text-xs py-1" value={hs.date} onChange={e => {
+                                          const newEn = [...addForm.enrollments];
+                                          newEn[idx].historicalSessions![hsIdx].date = e.target.value;
+                                          setAddForm({ ...addForm, enrollments: newEn });
+                                        }} />
+                                        <button type="button" onClick={() => {
+                                          const newEn = [...addForm.enrollments];
+                                          newEn[idx].historicalSessions!.splice(hsIdx, 1);
+                                          setAddForm({ ...addForm, enrollments: newEn });
+                                        }} className="text-red-500 hover:text-red-700 p-1">
+                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="sm:col-span-2 mt-4 bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex items-start gap-3">
                                 <div className="flex items-center h-5">
                                   <input type="checkbox" id={`verifyPay-${idx}`} checked={en.isVerified} onChange={e => updateEnrollment(idx, { isVerified: e.target.checked })} className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-emerald-300" />
                                 </div>
