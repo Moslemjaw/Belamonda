@@ -28,6 +28,7 @@ interface UserLean {
   createdAt?: Date;
   updatedAt?: Date;
   civilIdNumberMasked?: string;
+  isConfirmationCallDone?: boolean;
   belmondoPlan?: "basic" | "pro";
   belmondoProExpiresAt?: Date;
   belmondoProCommitmentEndsAt?: Date;
@@ -43,6 +44,7 @@ interface UserPatch {
   role?: string;
   isActive?: boolean;
   clinicId?: mongoose.Types.ObjectId;
+  isConfirmationCallDone?: boolean;
 }
 
 const STAFF_ROLES = ["admin", "cs", "finance", "legal", "cs_director"] as const;
@@ -98,6 +100,7 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
       role: u.role,
       clinicId: u.clinicId ? String(u.clinicId) : undefined,
       isActive: u.isActive !== false,
+      isConfirmationCallDone: u.isConfirmationCallDone ?? false,
       civilIdNumberMasked: u.civilIdNumberMasked,
       createdAt: u.createdAt ? new Date(u.createdAt).toISOString() : undefined,
       updatedAt: u.updatedAt ? new Date(u.updatedAt).toISOString() : undefined,
@@ -242,6 +245,7 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
         phone: user.phone,
         role: user.role,
         isActive: user.isActive !== false,
+        isConfirmationCallDone: user.isConfirmationCallDone ?? false,
         createdAt: user.createdAt ? new Date(user.createdAt).toISOString() : undefined,
         belmondoPlan: user.belmondoPlan ?? "basic",
         belmondoProExpiresAt: user.belmondoProExpiresAt ? new Date(user.belmondoProExpiresAt).toISOString() : undefined,
@@ -889,24 +893,26 @@ usersRouter.patch("/admin/:id", authRequired, requireRole(["admin", "cs", "legal
       .object({
         role: z.enum(["customer", "admin", "cs", "finance", "clinicStaff", "legal", "cs_director"]).optional(),
         isActive: z.boolean().optional(),
-        clinicId: z.string().optional()
+        clinicId: z.string().optional(),
+        isConfirmationCallDone: z.boolean().optional()
       })
       .safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
 
     const before = await UserModel.findById(req.params.id)
-      .select("_id username email phone role clinicId isActive").lean<UserLean>();
+      .select("_id username email phone role clinicId isActive isConfirmationCallDone").lean<UserLean>();
     if (!before) return res.status(404).json({ error: "NOT_FOUND" });
 
     const patch: UserPatch = {};
     if (parsed.data.role) patch.role = parsed.data.role;
     if (parsed.data.isActive != null) patch.isActive = parsed.data.isActive;
+    if (parsed.data.isConfirmationCallDone != null) patch.isConfirmationCallDone = parsed.data.isConfirmationCallDone;
     if (parsed.data.clinicId != null) {
       patch.clinicId = parsed.data.clinicId ? new mongoose.Types.ObjectId(parsed.data.clinicId) : undefined;
     }
 
     const doc = await UserModel.findByIdAndUpdate(req.params.id, patch, { new: true })
-      .select("_id username email phone role clinicId isActive")
+      .select("_id username email phone role clinicId isActive isConfirmationCallDone")
       .lean<UserLean>();
     if (!doc) return res.status(404).json({ error: "NOT_FOUND" });
 
@@ -923,8 +929,8 @@ usersRouter.patch("/admin/:id", authRequired, requireRole(["admin", "cs", "legal
       actionType,
       targetEntityType: "User",
       targetEntityId: req.params.id,
-      beforeState: { role: before.role, isActive: before.isActive !== false },
-      afterState:  { role: doc.role,    isActive: doc.isActive !== false },
+      beforeState: { role: before.role, isActive: before.isActive !== false, isConfirmationCallDone: before.isConfirmationCallDone },
+      afterState:  { role: doc.role,    isActive: doc.isActive !== false, isConfirmationCallDone: doc.isConfirmationCallDone },
       metadata: { username: doc.username ?? "" },
     });
 
@@ -936,7 +942,8 @@ usersRouter.patch("/admin/:id", authRequired, requireRole(["admin", "cs", "legal
         phone: doc.phone,
         role: doc.role,
         clinicId: doc.clinicId ? String(doc.clinicId) : undefined,
-        isActive: doc.isActive !== false
+        isActive: doc.isActive !== false,
+        isConfirmationCallDone: doc.isConfirmationCallDone ?? false
       }
     });
   } catch (e) {

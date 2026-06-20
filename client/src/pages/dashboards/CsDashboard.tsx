@@ -1584,6 +1584,19 @@ function CustomersManager() {
     finally { setFreezing(false); }
   };
 
+  const toggleConfirmationCall = async (id: string, currentVal: boolean) => {
+    try {
+      await apiFetch(`/users/admin/${id}`, {
+        method: "PATCH",
+        headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+        body: JSON.stringify({ isConfirmationCallDone: !currentVal }),
+      });
+      setUsers(users.map(u => u.id === id ? { ...u, isConfirmationCallDone: !currentVal } : u));
+    } catch (e: any) {
+      alert(ar() ? "فشل التحديث: " + e.message : "Update failed: " + e.message);
+    }
+  };
+
   const getDisplayName = (u: any) => u.fullName || u.username || "—";
   const getStatus = (u: any, p?: any) => {
     if (!u.isActive) return "Frozen";
@@ -1677,6 +1690,10 @@ function CustomersManager() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="badge-sage !text-[10px] !px-2 !py-0.5">Customer</span>
                     <span className={`${getStatusBadge(status)} !text-[10px] !px-2 !py-0.5`}>{status}</span>
+                    <div className="flex items-center gap-1 bg-surface-50 border border-surface-200 px-1.5 py-0.5 rounded text-[10px] font-bold text-surface-600 cursor-pointer" onClick={() => toggleConfirmationCall(u.id, u.isConfirmationCallDone)}>
+                      <input type="checkbox" checked={u.isConfirmationCallDone ?? false} readOnly className="w-3 h-3 text-brand-pink-600 focus:ring-brand-pink-500 border-surface-300 rounded cursor-pointer" />
+                      <span>{ar() ? "تأكيد اتصال" : "Confirmed"}</span>
+                    </div>
                   </div>
                 </div>
               );
@@ -1695,6 +1712,7 @@ function CustomersManager() {
                   <th>{ar() ? "الرقم" : "Phone/Contact"}</th>
                   <th>{ar() ? "الصلاحية" : "Role"}</th>
                   <th>{ar() ? "الحالة" : "Status"}</th>
+                  <th>{ar() ? "تأكيد الاتصال" : "Confirmation"}</th>
                   <th></th>
                 </tr>
               </thead>
@@ -1727,6 +1745,12 @@ function CustomersManager() {
                       <td>{u.phone || "—"}</td>
                       <td><span className="badge-sage">Customer</span></td>
                       <td><span className={getStatusBadge(status)}>{status}</span></td>
+                      <td>
+                        <label className="flex items-center gap-1.5 bg-surface-50 border border-surface-200 px-2 py-1 w-max rounded text-xs font-bold text-surface-600 cursor-pointer hover:bg-surface-100 transition-colors" title={ar() ? "تم الاتصال لتأكيد العميل" : "Customer confirmation call done"}>
+                          <input type="checkbox" checked={u.isConfirmationCallDone ?? false} onChange={() => toggleConfirmationCall(u.id, u.isConfirmationCallDone)} className="w-4 h-4 text-brand-pink-600 focus:ring-brand-pink-500 border-surface-300 rounded cursor-pointer" />
+                          <span>{ar() ? "تم الاتصال" : "Done"}</span>
+                        </label>
+                      </td>
                       <td className="text-right">
                         <button className="btn-secondary btn-sm bg-white hover:bg-surface-50 text-surface-700 shadow-sm border border-surface-200 px-4"
                           onClick={() => handleManage(u)}>
