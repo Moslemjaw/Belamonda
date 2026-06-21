@@ -7,6 +7,7 @@ interface PublicCard {
   memberSince: string | null;
   kycVerified: boolean;
   activeOfferCount: number;
+  activeOfferNames?: string[];
   activeSessionCount: number;
 }
 
@@ -94,6 +95,19 @@ export default function VerifyPage() {
                   <div className="text-xs font-medium text-surface-500 mt-1">Upcoming Sessions</div>
                 </div>
               </div>
+
+              {card.activeOfferNames && card.activeOfferNames.length > 0 && (
+                <div className="bg-surface-50 rounded-2xl p-4">
+                  <div className="text-xs font-bold text-surface-400 uppercase tracking-wider mb-2 text-center">Membership Packages</div>
+                  <div className="flex flex-col gap-2">
+                    {card.activeOfferNames.map((name, i) => (
+                      <div key={i} className="bg-white border border-surface-100 rounded-xl px-3 py-2 text-sm font-bold text-surface-800 text-center">
+                        {name}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="pt-4 border-t border-surface-100 flex items-center justify-between">
                 <div className="text-xs text-surface-400">Verified by Belamonda · Kuwait</div>

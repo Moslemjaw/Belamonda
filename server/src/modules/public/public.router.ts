@@ -130,19 +130,24 @@ publicRouter.get("/customer/:token", async (req, res, next) => {
     if (!user || user.role !== "customer") return res.status(404).json({ error: "NOT_FOUND" });
 
     const userId = String(user._id);
-    const [activeOfferCount, activeSessionCount] = await Promise.all([
-      UserOfferModel.countDocuments({ userId, status: "active" }),
+    const [activeOffers, activeSessionCount] = await Promise.all([
+      UserOfferModel.find({ userId, status: "active" }).populate<{ offerId: { name: string } }>("offerId", "name").lean(),
       BookingSessionModel.countDocuments({ userId, status: "scheduled" })
     ]);
 
     const kycUser = await kycStore.getUser(userId);
     const displayName = (user.fullName || user.username || "Member").split(" ")[0];
 
+    const activeOfferNames = activeOffers
+      .map((o: any) => o.offerId?.name)
+      .filter(Boolean);
+
     return res.json({
       displayName,
       memberSince: user.createdAt ? new Date(user.createdAt).toISOString().slice(0, 10) : null,
       kycVerified: kycUser?.verificationStatus === "approved",
-      activeOfferCount,
+      activeOfferCount: activeOffers.length,
+      activeOfferNames,
       activeSessionCount
     });
   } catch (e) {
