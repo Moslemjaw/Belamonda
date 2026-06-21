@@ -1751,7 +1751,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
 
   const usersQ: any = {};
   const paymentsQ: any = { status: "completed" };
-  const membershipsQ: any = {};
+  const membershipsQ: any = { status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] } };
   const sessionsQ: any = {};
 
   if (dateFilter) {
