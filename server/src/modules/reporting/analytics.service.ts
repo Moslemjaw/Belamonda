@@ -772,10 +772,11 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
     BookingSessionModel.countDocuments({ status: "completed", scheduledAt: { $gte: monthStart } }),
   ]);
 
+  const uoQ: any = { status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] } };
+  if (dateFilter) uoQ.createdAt = dateFilter;
+
   // Fetch all user offers (excluding pending/rejected) to calculate Expected amounts exactly like the comprehensive report
-  const allUserOffers = await UserOfferModel.find({
-    status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] }
-  }).select("offerId installmentSchedule purchaseMode paymentAmountKwd depositAmountKwd status").lean();
+  const allUserOffers = await UserOfferModel.find(uoQ).select("offerId installmentSchedule purchaseMode paymentAmountKwd depositAmountKwd status").lean();
 
   const allOfferIds = [...new Set(allUserOffers.map((uo: any) => uo.offerId?.toString()).filter(Boolean))];
   const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
@@ -785,8 +786,8 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
   let paidTowardMembershipsMils = 0;
 
   for (const uo of allUserOffers as any[]) {
-    // Calculate total price expected
-    const totalPriceKwd = uo.paymentAmountKwd || offerPriceMap.get(uo.offerId?.toString()) || "0.000";
+    // Calculate total price expected (Report logic: offerPrice first, then paymentAmount)
+    const totalPriceKwd = offerPriceMap.get(uo.offerId?.toString()) || uo.paymentAmountKwd || "0.000";
     const uoTotal = parseKwd(totalPriceKwd);
     
     // Calculate paid amount exactly like the report
