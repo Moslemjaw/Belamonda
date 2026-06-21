@@ -1786,14 +1786,8 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
     offerPriceMap[String(o._id)] = o.subscriptionPriceKwd || "0.000";
   });
 
-  const clinicIds = [...new Set([
-    ...memberships.map((m: any) => m.clinicId ? String(m.clinicId) : null),
-    ...payments.map((p: any) => p.clinicId ? String(p.clinicId) : null),
-    ...sessions.map((s: any) => s.clinicId ? String(s.clinicId) : null),
-  ].filter(Boolean))];
-  const clinics = clinicIds.length
-    ? await ClinicModel.find({ _id: { $in: clinicIds } }).select("nameEn").lean()
-    : [];
+  // Fetch ALL clinics so that every clinic is always represented as a column in the report
+  const clinics = await ClinicModel.find({}).select("nameEn").lean();
   const clinicMap: Record<string, string> = {};
   clinics.forEach((c: any) => { clinicMap[String(c._id)] = c.nameEn; });
 
@@ -1943,7 +1937,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   );
 
   // 3. Sessions (Pivot by Clinic)
-  const activeClinics = [...new Set(sessions.map((s: any) => String(s.clinicId)).filter(Boolean))];
+  const activeClinics = clinics.map((c: any) => String(c._id));
   const clinicHeaders = activeClinics.map(id => clinicMap[id] || id);
   
   const packageMemberships = memberships.filter((m: any) => !m.isStandalone);
