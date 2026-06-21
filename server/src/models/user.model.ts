@@ -19,6 +19,7 @@ export interface UserDoc extends Document {
   publicToken?: string;
   verificationStatus: VerificationStatus;
   civilIdNumberMasked?: string;
+  civilIdExpiryDate?: Date;
   createdAt: Date;
   updatedAt: Date;
   shortId?: string;
@@ -58,6 +59,7 @@ const UserSchema = new Schema(
     publicToken: { type: String },
     verificationStatus: { type: String, enum: ["unverified", "pending", "approved", "rejected"], default: "unverified" },
     civilIdNumberMasked: { type: String },
+    civilIdExpiryDate: { type: Date },
     shortId: { type: String, trim: true, unique: true, sparse: true },
     isConfirmationCallDone: { type: Boolean, default: false },
     belmondoPlan: { type: String, enum: ["basic", "pro"], default: "basic" },

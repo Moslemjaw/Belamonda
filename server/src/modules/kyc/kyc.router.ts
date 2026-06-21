@@ -83,7 +83,8 @@ kycRouter.get("/cs/queue", authRequired, requireRole(["legal", "admin", "cs_dire
 // CS approve (SRS FR-03) + wallet init (FR-10)
 kycRouter.post("/cs/:submissionId/approve", authRequired, requireRole(["legal", "admin", "cs_director"]), async (req, res, next) => {
   try {
-    const updated = await kycStore.approveSubmission(req.params.submissionId, req.auth!.userId);
+    const expiryDate = req.body.expiryDate;
+    const updated = await kycStore.approveSubmission(req.params.submissionId, req.auth!.userId, expiryDate);
     if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
     notifyKycApproved(updated.userId);
     const { logAuditAction } = await import("../../services/audit.service.js");

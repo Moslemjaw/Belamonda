@@ -24,12 +24,17 @@ export function KycQueue() {
   const { data, loading, refetch } = useKycQueue();
   const [processing, setProcessing] = useState<string | null>(null);
   const [viewingKyc, setViewingKyc] = useState<any>(null);
+  const [kycExpiryDate, setKycExpiryDate] = useState("");
 
   const reviewKyc = async (submissionId: string, decision: "approve" | "reject") => {
     setProcessing(submissionId);
     try {
       if (decision === "approve") {
-        await apiFetch(`/kyc/cs/${submissionId}/approve`, { method: "POST", headers: getAuthHeader() });
+        await apiFetch(`/kyc/cs/${submissionId}/approve`, { 
+          method: "POST", 
+          headers: { ...getAuthHeader(), "Content-Type": "application/json" },
+          body: JSON.stringify(kycExpiryDate ? { expiryDate: kycExpiryDate } : {})
+        });
       } else {
         await apiFetch(`/kyc/cs/${submissionId}/reject`, { method: "POST", headers: getAuthHeader(), body: JSON.stringify({ reason: "Documents unclear" }) });
       }
@@ -158,12 +163,25 @@ export function KycQueue() {
                 </div>
               </div>
             </div>
+            
+            <div className="px-6 py-4 bg-surface-50 border-t border-surface-100 flex items-center justify-between">
+              <div>
+                <label className="block text-sm font-bold text-surface-700 mb-1">{ar() ? "تاريخ انتهاء البطاقة (اختياري)" : "Expiry Date (Optional)"}</label>
+                <input 
+                  type="date" 
+                  className="input-field max-w-[200px]" 
+                  value={kycExpiryDate}
+                  onChange={e => setKycExpiryDate(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="px-6 pb-6 pt-4 border-t border-surface-100 shrink-0 flex gap-3">
-              <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm" onClick={() => setViewingKyc(null)}>{ar() ? "إغلاق" : "Close"}</button>
+              <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm" onClick={() => { setViewingKyc(null); setKycExpiryDate(""); }}>{ar() ? "إغلاق" : "Close"}</button>
               <button
                 className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm text-sm"
                 disabled={processing === viewingKyc.id}
-                onClick={() => { reviewKyc(viewingKyc.id, "approve"); setViewingKyc(null); }}
+                onClick={() => { reviewKyc(viewingKyc.id, "approve"); setViewingKyc(null); setKycExpiryDate(""); }}
               >
                 {processing === viewingKyc.id ? "..." : ar() ? "قبول وتوثيق" : "Approve & Verify"}
               </button>

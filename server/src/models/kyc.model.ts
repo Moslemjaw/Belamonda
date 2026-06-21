@@ -19,6 +19,7 @@ export interface KycSubmissionDoc extends Document {
   civilIdNumberMasked: string;
   civilIdFrontRef: string;
   civilIdBackRef: string;
+  expiryDate?: Date;
   checkboxes: KycCheckboxesDoc;
   createdAt: Date;
   updatedAt: Date;
@@ -45,6 +46,7 @@ const KycSubmissionSchema = new Schema(
     civilIdNumberMasked: { type: String, required: true },
     civilIdFrontRef: { type: String, required: true },
     civilIdBackRef: { type: String, required: true },
+    expiryDate: { type: Date },
     checkboxes: { type: KycCheckboxesSchema, required: true }
   },
   { timestamps: true }

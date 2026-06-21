@@ -103,12 +103,13 @@ export const kycStore = {
     });
   },
 
-  async approveSubmission(id: string, reviewedBy: string) {
+  async approveSubmission(id: string, reviewedBy: string, expiryDate?: string) {
     if (!mongoose.isValidObjectId(id)) return null;
     const sub = await KycSubmissionModel.findByIdAndUpdate(id, {
       status: "approved",
       reviewedAt: new Date(),
       reviewedBy,
+      ...(expiryDate ? { expiryDate: new Date(expiryDate) } : {}),
       $unset: { rejectionReason: "" }
     }, { new: true }).lean<KycSubmissionDoc | null>();
     
@@ -116,7 +117,8 @@ export const kycStore = {
 
     await UserModel.findByIdAndUpdate(sub.userId, {
       verificationStatus: "approved",
-      civilIdNumberMasked: sub.civilIdNumberMasked
+      civilIdNumberMasked: sub.civilIdNumberMasked,
+      ...(expiryDate ? { civilIdExpiryDate: new Date(expiryDate) } : {})
     });
 
     const w = await WalletModel.findOne({ userId: sub.userId });
