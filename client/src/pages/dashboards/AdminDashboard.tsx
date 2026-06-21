@@ -2344,12 +2344,22 @@ export function UserProfilePanel({
   };
 
   const handleAdjustSessions = async (membershipId: string, delta: number) => {
+    let date = null;
+    if (delta > 0) {
+      const dateStr = window.prompt(
+        ar() ? "الرجاء إدخال تاريخ الجلسة (YYYY-MM-DD):" : "Please enter the session date (YYYY-MM-DD):",
+        new Date().toISOString().split("T")[0]
+      );
+      if (!dateStr) return;
+      date = dateStr;
+    }
+
     setSessionAdjustingId(membershipId + (delta > 0 ? "_inc" : "_dec"));
     try {
       await apiFetch(`/scheduling/admin/user-offers/${membershipId}/adjust-sessions`, {
         method: "POST",
         headers: getAuthHeader(),
-        body: JSON.stringify({ delta }),
+        body: JSON.stringify({ delta, date }),
       });
       const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
       setProfile(d);

@@ -1921,6 +1921,8 @@ schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin"]), as
 schedulingRouter.post("/admin/user-offers/:uoId/adjust-sessions", authRequired, requireRole(["cs", "legal", "admin", "cs_director"]), async (req, res, next) => {
   try {
     const delta = typeof req.body?.delta === "number" ? Math.round(req.body.delta) : 0;
+    const dateStr = typeof req.body?.date === "string" ? req.body.date : null;
+    
     if (delta === 0 || Math.abs(delta) > 1) return res.status(400).json({ error: "INVALID_DELTA" });
     if (!mongoose.isValidObjectId(req.params.uoId)) return res.status(400).json({ error: "INVALID_ID" });
 
@@ -1928,11 +1930,26 @@ schedulingRouter.post("/admin/user-offers/:uoId/adjust-sessions", authRequired, 
     if (!uo) return res.status(404).json({ error: "NOT_FOUND" });
 
     const current = (uo as any).sessionsUsed ?? 0;
-    const next = Math.max(0, current + delta);
-    if (next === current) return res.json({ ok: true, sessionsUsed: current });
+    const nextVal = Math.max(0, current + delta);
+    if (nextVal === current) return res.json({ ok: true, sessionsUsed: current });
 
-    await UserOfferModel.findByIdAndUpdate(req.params.uoId, { $set: { sessionsUsed: next } });
-    return res.json({ ok: true, sessionsUsed: next });
+    await UserOfferModel.findByIdAndUpdate(req.params.uoId, { $set: { sessionsUsed: nextVal } });
+
+    if (delta > 0 && dateStr) {
+      await BookingSessionModel.create({
+        userId: (uo as any).userId,
+        offerId: (uo as any).offerId,
+        userOfferId: (uo as any)._id,
+        clinicId: (uo as any).clinicId,
+        status: "completed",
+        scheduledAt: new Date(dateStr),
+        completedAt: new Date(dateStr),
+        scheduledBy: req.auth!.userId,
+        notes: "Historical/Manual session increment"
+      });
+    }
+
+    return res.json({ ok: true, sessionsUsed: nextVal });
   } catch (e) {
     next(e);
   }
