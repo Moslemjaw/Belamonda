@@ -2164,6 +2164,8 @@ export function UserProfilePanel({
   const [cashSaving, setCashSaving] = useState(false);
   const [cashError, setCashError] = useState<string | null>(null);
   const [sessionAdjustingId, setSessionAdjustingId] = useState<string | null>(null);
+  const [sessionDateModal, setSessionDateModal] = useState<{ membershipId: string } | null>(null);
+  const [sessionDateValue, setSessionDateValue] = useState(new Date().toISOString().split("T")[0]);
   const [installmentAdjustingId, setInstallmentAdjustingId] = useState<string | null>(null);
 
   const [newNote, setNewNote] = useState("");
@@ -2344,22 +2346,38 @@ export function UserProfilePanel({
   };
 
   const handleAdjustSessions = async (membershipId: string, delta: number) => {
-    let date = null;
     if (delta > 0) {
-      const dateStr = window.prompt(
-        ar() ? "الرجاء إدخال تاريخ الجلسة (YYYY-MM-DD):" : "Please enter the session date (YYYY-MM-DD):",
-        new Date().toISOString().split("T")[0]
-      );
-      if (!dateStr) return;
-      date = dateStr;
+      setSessionDateModal({ membershipId });
+      setSessionDateValue(new Date().toISOString().split("T")[0]);
+      return;
     }
 
-    setSessionAdjustingId(membershipId + (delta > 0 ? "_inc" : "_dec"));
+    setSessionAdjustingId(membershipId + "_dec");
     try {
       await apiFetch(`/scheduling/admin/user-offers/${membershipId}/adjust-sessions`, {
         method: "POST",
         headers: getAuthHeader(),
-        body: JSON.stringify({ delta, date }),
+        body: JSON.stringify({ delta, date: null }),
+      });
+      const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
+      setProfile(d);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setSessionAdjustingId(null);
+    }
+  };
+
+  const submitSessionDate = async () => {
+    if (!sessionDateModal) return;
+    const membershipId = sessionDateModal.membershipId;
+    setSessionDateModal(null);
+    setSessionAdjustingId(membershipId + "_inc");
+    try {
+      await apiFetch(`/scheduling/admin/user-offers/${membershipId}/adjust-sessions`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ delta: 1, date: sessionDateValue }),
       });
       const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
       setProfile(d);
@@ -3179,6 +3197,36 @@ export function UserProfilePanel({
                 }}
               >
                 {ar() ? "تأكيد الدفع" : "Confirm Payment"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {sessionDateModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-slide-up relative">
+            <h3 className="text-lg font-bold text-surface-900 mb-2">{ar() ? "تاريخ الجلسة" : "Session Date"}</h3>
+            <p className="text-sm text-surface-500 mb-4">{ar() ? "الرجاء إدخال تاريخ الجلسة" : "Please enter the session date"}</p>
+            <input
+              type="date"
+              className="input-field w-full mb-4"
+              value={sessionDateValue}
+              onChange={(e) => setSessionDateValue(e.target.value)}
+            />
+            <div className="flex gap-3 justify-end">
+              <button
+                className="px-4 py-2 rounded-xl text-sm font-bold text-surface-500 hover:bg-surface-100 transition-colors"
+                onClick={() => setSessionDateModal(null)}
+              >
+                {ar() ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                className="btn-primary px-5 py-2 text-sm rounded-xl font-bold transition-all"
+                onClick={submitSessionDate}
+                disabled={!sessionDateValue}
+              >
+                {ar() ? "تأكيد" : "Confirm"}
               </button>
             </div>
           </div>
