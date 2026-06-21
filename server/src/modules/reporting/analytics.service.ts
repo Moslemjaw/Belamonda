@@ -772,46 +772,41 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
     BookingSessionModel.countDocuments({ status: "completed", scheduledAt: { $gte: monthStart } }),
   ]);
 
-  // Fetch all active/reserved/pending user offers to calculate Expected amounts
+  // Fetch all user offers (excluding pending/rejected) to calculate Expected amounts exactly like the comprehensive report
   const allUserOffers = await UserOfferModel.find({
-    status: { $in: ["active", "pending_payment", "reserved"] },
-  }).select("offerId installmentSchedule purchaseMode paymentAmountKwd status").lean();
+    status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] }
+  }).select("offerId installmentSchedule purchaseMode paymentAmountKwd depositAmountKwd status").lean();
 
   const allOfferIds = [...new Set(allUserOffers.map((uo: any) => uo.offerId?.toString()).filter(Boolean))];
   const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
   const offerPriceMap = new Map(allOfferDocs.map((o: any) => [o._id.toString(), o.subscriptionPriceKwd]));
 
-  // Fetch actual completed payments for these specific user offers
-  const allUoIds = allUserOffers.map((uo: any) => uo._id).filter(Boolean);
-  const uoPayments = await PaymentModel.find({
-    userOfferId: { $in: allUoIds },
-    status: "completed",
-  }).select("userOfferId amountKwd").lean();
-
-  // Build a map: userOfferId → total paid (millifils)
-  const paidPerUoMap = new Map<string, number>();
-  for (const p of uoPayments as any[]) {
-    const id = p.userOfferId?.toString();
-    if (id) {
-      paidPerUoMap.set(id, (paidPerUoMap.get(id) || 0) + parseKwd(p.amountKwd));
-    }
-  }
-
   let expectedTotalMils = 0;
   let paidTowardMembershipsMils = 0;
 
   for (const uo of allUserOffers as any[]) {
-    let uoTotal = 0;
+    // Calculate total price expected
+    const totalPriceKwd = uo.paymentAmountKwd || offerPriceMap.get(uo.offerId?.toString()) || "0.000";
+    const uoTotal = parseKwd(totalPriceKwd);
+    
+    // Calculate paid amount exactly like the report
+    let paidMils = 0;
     if (uo.purchaseMode === "installments") {
-      for (const inst of (uo.installmentSchedule || [])) {
-        uoTotal += parseKwd(inst.amountKwd || "0");
-      }
+      const sched = uo.installmentSchedule || [];
+      paidMils += parseKwd(uo.depositAmountKwd || "0");
+      sched.forEach((s: any) => {
+        if (s.paid) paidMils += parseKwd(s.amountKwd || "0");
+      });
+    } else if (uo.purchaseMode === "deposit") {
+      paidMils = parseKwd(uo.paymentAmountKwd || uo.depositAmountKwd || "0");
     } else {
-      uoTotal = parseKwd(uo.paymentAmountKwd || offerPriceMap.get(uo.offerId?.toString()) || "0");
+      if (uo.status === "active" || uo.status === "expired" || uo.status === "reserved" || uo.status === "cancelled") {
+         paidMils = uoTotal;
+      }
     }
     
     expectedTotalMils += uoTotal;
-    paidTowardMembershipsMils += paidPerUoMap.get(uo._id.toString()) || 0;
+    paidTowardMembershipsMils += paidMils;
   }
 
   // Unpaid = Expected - Paid
@@ -1850,7 +1845,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
         }
       }
 
-      totalRow.eachCell((cell) => {
+      totalRow.eachCell((cell, colNumber) => {
         cell.font = { bold: true, size: 12, color: { argb: "FF1A1A1A" } };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
         cell.border = {
@@ -1859,7 +1854,12 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
         };
         cell.alignment = { vertical: "middle" };
         if (cell.value && typeof cell.value === 'object' && 'formula' in cell.value) {
-            cell.numFmt = '0.000';
+            const headerText = headers[colNumber - 1]?.toLowerCase() || "";
+            if (headerText.includes("kwd") || headerText.includes("price") || headerText.includes("amount") || headerText.includes("revenue")) {
+              cell.numFmt = '0.000';
+            } else {
+              cell.numFmt = '0'; // Integer format for counts like Sessions Used
+            }
         }
       });
       totalRow.height = 25;
