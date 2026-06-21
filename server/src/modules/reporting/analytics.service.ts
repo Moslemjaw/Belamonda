@@ -1807,37 +1807,49 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
 
   const addSheet = (name: string, headers: string[], rows: any[][], totalColIndices?: number[]) => {
     const ws = wb.addWorksheet(name, { views: [{ rightToLeft: rtl }] });
-    const headerRow = ws.getRow(1);
+    
+    let headerRowIdx = 1;
+    let dataStartRow = 2;
+
+    if (totalColIndices && totalColIndices.length > 0) {
+      headerRowIdx = 2;
+      dataStartRow = 3;
+    }
+
+    const headerRow = ws.getRow(headerRowIdx);
     headerRow.values = headers;
     styleHeaderRow(headerRow);
 
     rows.forEach((r, idx) => {
-      const row = ws.getRow(idx + 2);
+      // Ensure numeric values for totals
+      if (totalColIndices) {
+        for (const colIdx of totalColIndices) {
+          if (typeof r[colIdx] === "string" && r[colIdx] !== "") {
+            const parsed = parseFloat(r[colIdx]);
+            if (!isNaN(parsed)) r[colIdx] = parsed;
+          }
+        }
+      }
+      const row = ws.getRow(idx + dataStartRow);
       row.values = r;
       styleDataRow(row, idx % 2 === 1);
     });
 
-    // Add totals row if totalColIndices specified
-    if (totalColIndices && totalColIndices.length > 0 && rows.length > 0) {
-      const totalRowIdx = rows.length + 2;
-      const totalRow = ws.getRow(totalRowIdx);
-      const totalValues: any[] = new Array(headers.length).fill("");
-      totalValues[0] = "Total";
+    if (totalColIndices && totalColIndices.length > 0) {
+      const totalRow = ws.getRow(1);
+      totalRow.getCell(1).value = "Total";
       
       for (const colIdx of totalColIndices) {
-        let sum = 0;
-        for (const r of rows) {
-          const val = r[colIdx];
-          if (typeof val === "number") {
-            sum += val;
-          } else if (typeof val === "string" && val !== "") {
-            const parsed = parseFloat(val);
-            if (!isNaN(parsed)) sum += parsed;
-          }
+        const colLetter = ws.getColumn(colIdx + 1).letter;
+        const lastRow = dataStartRow + rows.length - 1;
+        
+        if (rows.length > 0) {
+          totalRow.getCell(colIdx + 1).value = { formula: `SUBTOTAL(109,${colLetter}${dataStartRow}:${colLetter}${lastRow})` };
+        } else {
+          totalRow.getCell(colIdx + 1).value = 0;
         }
-        totalValues[colIdx] = sum % 1 === 0 ? sum : parseFloat(sum.toFixed(3));
       }
-      totalRow.values = totalValues;
+
       totalRow.eachCell((cell) => {
         cell.font = { bold: true, size: 12, color: { argb: "FF1A1A1A" } };
         cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
@@ -1846,16 +1858,22 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
           bottom: { style: "thin", color: { argb: "FFD97706" } },
         };
         cell.alignment = { vertical: "middle" };
+        if (cell.value && typeof cell.value === 'object' && 'formula' in cell.value) {
+            cell.numFmt = '0.000';
+        }
       });
+      totalRow.height = 25;
+      
+      ws.views = [{ rightToLeft: rtl, state: 'frozen', xSplit: 0, ySplit: 2 }];
+    } else {
+      ws.views = [{ rightToLeft: rtl, state: 'frozen', xSplit: 0, ySplit: 1 }];
     }
 
-    // Auto-filter on header row
     ws.autoFilter = {
-      from: { row: 1, column: 1 },
-      to: { row: 1, column: headers.length },
+      from: { row: headerRowIdx, column: 1 },
+      to: { row: headerRowIdx, column: headers.length },
     };
 
-    // Auto-fit column widths
     headers.forEach((h, i) => {
       let max = h.length;
       rows.forEach(r => {
