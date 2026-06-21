@@ -2167,6 +2167,8 @@ export function UserProfilePanel({
   const [sessionDateModal, setSessionDateModal] = useState<{ membershipId: string } | null>(null);
   const [sessionDateValue, setSessionDateValue] = useState(new Date().toISOString().split("T")[0]);
   const [installmentAdjustingId, setInstallmentAdjustingId] = useState<string | null>(null);
+  const [editingDateId, setEditingDateId] = useState<string | null>(null);
+  const [editingDateValue, setEditingDateValue] = useState("");
 
   const [newNote, setNewNote] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
@@ -2342,6 +2344,22 @@ export function UserProfilePanel({
       setCashError(e.message);
     } finally {
       setCashSaving(false);
+    }
+  };
+
+  const handleUpdateDate = async (membershipId: string, field: "activatedAt" | "expiresAt") => {
+    try {
+      await apiFetch(`/commerce/admin/user-offers/${membershipId}`, {
+        method: "PATCH",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ [field]: editingDateValue ? new Date(editingDateValue).toISOString() : null }),
+      });
+      const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
+      setProfile(d);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setEditingDateId(null);
     }
   };
 
@@ -2867,8 +2885,40 @@ export function UserProfilePanel({
                           </div>
                         </div>
                         <div><span className="text-surface-400">{ar() ? "المبلغ (د.ك)" : "Amount (KWD)"}</span><div className="font-bold mt-0.5">{m.paymentAmountKwd ?? "—"}</div></div>
-                        <div><span className="text-surface-400">{ar() ? "التفعيل" : "Activated"}</span><div className="font-bold mt-0.5">{fmt(m.activatedAt)}</div></div>
-                        <div><span className="text-surface-400">{ar() ? "الانتهاء" : "Expires"}</span><div className="font-bold mt-0.5">{fmt(m.expiresAt)}</div></div>
+                        <div>
+                          <span className="text-surface-400">{ar() ? "التفعيل" : "Activated"}</span>
+                          {editingDateId === `${m.id}_activatedAt` ? (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <input type="date" className="input-field py-0.5 px-1.5 text-xs h-7 w-28" value={editingDateValue} onChange={e => setEditingDateValue(e.target.value)} />
+                              <button className="btn-primary btn-sm px-2 text-xs py-1 h-7" onClick={() => handleUpdateDate(m.id, "activatedAt")}>OK</button>
+                              <button className="btn-secondary btn-sm px-2 text-xs py-1 h-7" onClick={() => setEditingDateId(null)}>X</button>
+                            </div>
+                          ) : (
+                            <div className="font-bold mt-0.5 group flex items-center gap-2">
+                              {fmt(m.activatedAt)}
+                              <button className="opacity-0 group-hover:opacity-100 transition-opacity text-surface-400 hover:text-brand-pink-600" onClick={() => { setEditingDateId(`${m.id}_activatedAt`); setEditingDateValue(m.activatedAt ? new Date(m.activatedAt).toISOString().split('T')[0] : ""); }}>
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <span className="text-surface-400">{ar() ? "الانتهاء" : "Expires"}</span>
+                          {editingDateId === `${m.id}_expiresAt` ? (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <input type="date" className="input-field py-0.5 px-1.5 text-xs h-7 w-28" value={editingDateValue} onChange={e => setEditingDateValue(e.target.value)} />
+                              <button className="btn-primary btn-sm px-2 text-xs py-1 h-7" onClick={() => handleUpdateDate(m.id, "expiresAt")}>OK</button>
+                              <button className="btn-secondary btn-sm px-2 text-xs py-1 h-7" onClick={() => setEditingDateId(null)}>X</button>
+                            </div>
+                          ) : (
+                            <div className="font-bold mt-0.5 group flex items-center gap-2">
+                              {fmt(m.expiresAt)}
+                              <button className="opacity-0 group-hover:opacity-100 transition-opacity text-surface-400 hover:text-brand-pink-600" onClick={() => { setEditingDateId(`${m.id}_expiresAt`); setEditingDateValue(m.expiresAt ? new Date(m.expiresAt).toISOString().split('T')[0] : ""); }}>
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                         <div><span className="text-surface-400">{ar() ? "تاريخ الإنشاء" : "Created"}</span><div className="font-bold mt-0.5">{fmt(m.createdAt)}</div></div>
                         {m.purchaseMode === "installments" && m.installmentSchedule && m.installmentSchedule.some((i: any) => !i.paid) && (
                           <div className="sm:col-span-4 mt-2 p-3 bg-amber-50 rounded-xl border border-amber-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
