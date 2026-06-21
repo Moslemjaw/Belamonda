@@ -254,3 +254,45 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin", "le
     next(e);
   }
 });
+
+/** CS/Admin: reject a pending payment request — sets userOffer status to "rejected". */
+paymentsRouter.post("/cs/reject", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (req, res, next) => {
+  try {
+    const schema = z.object({
+      userOfferId: z.string().min(1),
+      reason: z.string().optional(),
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+
+    const uo = await userOfferService.getUserOffer(parsed.data.userOfferId);
+    if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
+    if (uo.status !== "pending_payment") return res.status(409).json({ error: "NOT_PENDING_PAYMENT" });
+
+    const { UserOfferModel } = await import("../../models/userOffer.model.js");
+    await UserOfferModel.findByIdAndUpdate(parsed.data.userOfferId, {
+      $set: {
+        status: "rejected",
+        rejectedBy: req.auth!.userId,
+        rejectedAt: new Date(),
+        rejectionReason: parsed.data.reason || undefined,
+      },
+      $unset: { pendingExpiresAt: "" },
+    });
+
+    const { logAuditAction } = await import("../../services/audit.service.js");
+    await logAuditAction({
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role as any,
+      actionType: "reject_payment",
+      targetEntityType: "UserOffer",
+      targetEntityId: parsed.data.userOfferId,
+      afterState: { status: "rejected", reason: parsed.data.reason },
+      metadata: { userId: uo.userId, offerId: uo.offerId },
+    });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});

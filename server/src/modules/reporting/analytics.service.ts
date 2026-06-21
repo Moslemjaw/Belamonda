@@ -1805,7 +1805,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   wb.creator = "Belamonda";
   wb.created = new Date();
 
-  const addSheet = (name: string, headers: string[], rows: any[][]) => {
+  const addSheet = (name: string, headers: string[], rows: any[][], totalColIndices?: number[]) => {
     const ws = wb.addWorksheet(name, { views: [{ rightToLeft: rtl }] });
     const headerRow = ws.getRow(1);
     headerRow.values = headers;
@@ -1816,6 +1816,38 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
       row.values = r;
       styleDataRow(row, idx % 2 === 1);
     });
+
+    // Add totals row if totalColIndices specified
+    if (totalColIndices && totalColIndices.length > 0 && rows.length > 0) {
+      const totalRowIdx = rows.length + 2;
+      const totalRow = ws.getRow(totalRowIdx);
+      const totalValues: any[] = new Array(headers.length).fill("");
+      totalValues[0] = "Total";
+      
+      for (const colIdx of totalColIndices) {
+        let sum = 0;
+        for (const r of rows) {
+          const val = r[colIdx];
+          if (typeof val === "number") {
+            sum += val;
+          } else if (typeof val === "string" && val !== "") {
+            const parsed = parseFloat(val);
+            if (!isNaN(parsed)) sum += parsed;
+          }
+        }
+        totalValues[colIdx] = sum % 1 === 0 ? sum : parseFloat(sum.toFixed(3));
+      }
+      totalRow.values = totalValues;
+      totalRow.eachCell((cell) => {
+        cell.font = { bold: true, size: 12, color: { argb: "FF1A1A1A" } };
+        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFEF3C7" } };
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFD97706" } },
+          bottom: { style: "thin", color: { argb: "FFD97706" } },
+        };
+        cell.alignment = { vertical: "middle" };
+      });
+    }
 
     // Auto-filter on header row
     ws.autoFilter = {
@@ -1846,6 +1878,9 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   );
 
   // 2. Memberships
+  // Headers: 0=Membership ID, 1=User ID, 2=Customer Name, 3=Phone, 4=Offer, 5=Status, 6=Purchase Mode,
+  //          7=Sessions Used, 8=Total Installments, 9=Installments Paid, 10=Total Price, 11=Amount Left,
+  //          12-15=Installment Due Dates, 16=Activated, 17=Created
   addSheet(
     "Memberships",
     ["Membership ID", "User ID", "Customer Name", "Phone", "Offer", "Status", "Purchase Mode", "Sessions Used", "Total Installments", "Installments Paid", "Total Price", "Amount Left (KWD)", "Installment 1 Due", "Installment 2 Due", "Installment 3 Due", "Installment 4 Due", "Activated", "Created"],
@@ -1884,7 +1919,8 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
         m.activatedAt ? new Date(m.activatedAt).toISOString().slice(0, 10) : "",
         m.createdAt ? new Date(m.createdAt).toISOString().slice(0, 10) : ""
       ];
-    })
+    }),
+    [7, 9, 10, 11] // Totals for: Sessions Used, Installments Paid, Total Price, Amount Left
   );
 
   // 3. Sessions (Pivot by Clinic)
@@ -1948,7 +1984,8 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
       "Customer ID", "Customer Name", "Phone", "Package Type", "Payment Type", "Total Price", "Paid Amount (KWD)", "Amount Left (KWD)", "Total Sessions Executed",
       ...clinicHeaders
     ],
-    sessionPivotRows
+    sessionPivotRows,
+    [5, 6, 7, 8] // Totals for: Total Price, Paid Amount, Amount Left, Total Sessions Executed
   );
 
   // 4. Payments
@@ -1965,7 +2002,8 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
         p.amountKwd, p.grossAmountKwd ?? p.amountKwd, p.cashbackAppliedKwd ?? "0",
         p.method, p.purpose, p.status
       ];
-    })
+    }),
+    [6, 7, 8] // Totals for: Amount (KWD), Gross (KWD), Cashback Applied
   );
 
 

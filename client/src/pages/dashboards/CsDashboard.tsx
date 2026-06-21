@@ -182,6 +182,8 @@ export function PaymentQueue() {
   const { data, loading, refetch } = usePendingPayments();
   const [processing, setProcessing] = useState<string | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
+  const [rejectingPayment, setRejectingPayment] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const confirmPayment = async (uo: any) => {
     setProcessing(uo.id);
@@ -420,22 +422,78 @@ export function PaymentQueue() {
             </div>
 
             {/* Footer actions */}
-            <div className="px-6 pb-6 pt-4 border-t border-surface-100 shrink-0 flex gap-3">
+            <div className="px-6 pb-6 pt-4 border-t border-surface-100 shrink-0 flex flex-col gap-3">
+              <div className="flex gap-3">
+                <button
+                  className="flex items-center gap-2 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 px-4 rounded-xl transition-colors text-sm"
+                  onClick={() => printReceipt(selectedPayment)}
+                  title={ar() ? "تحميل الإيصال PDF" : "Download PDF Receipt"}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  {ar() ? "PDF" : "PDF"}
+                </button>
+                <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm" onClick={() => setSelectedPayment(null)}>{ar() ? "إغلاق" : "Close"}</button>
+                <button
+                  className="flex-1 bg-brand-pink-400 hover:bg-brand-pink-500 text-white font-bold py-3 rounded-xl transition-colors shadow-sm text-sm"
+                  disabled={processing === selectedPayment.id}
+                  onClick={() => { confirmPayment(selectedPayment); setSelectedPayment(null); }}
+                >
+                  {processing === selectedPayment.id ? "..." : ar() ? "تأكيد الدفع" : "Confirm Payment"}
+                </button>
+              </div>
               <button
-                className="flex items-center gap-2 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 px-4 rounded-xl transition-colors text-sm"
-                onClick={() => printReceipt(selectedPayment)}
-                title={ar() ? "تحميل الإيصال PDF" : "Download PDF Receipt"}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                {ar() ? "PDF" : "PDF"}
-              </button>
-              <button className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm" onClick={() => setSelectedPayment(null)}>{ar() ? "إغلاق" : "Close"}</button>
-              <button
-                className="flex-1 bg-brand-pink-400 hover:bg-brand-pink-500 text-white font-bold py-3 rounded-xl transition-colors shadow-sm text-sm"
+                className="w-full flex items-center justify-center gap-2 bg-red-50 hover:bg-red-100 text-red-600 font-bold py-3 rounded-xl transition-colors text-sm border border-red-200"
                 disabled={processing === selectedPayment.id}
-                onClick={() => { confirmPayment(selectedPayment); setSelectedPayment(null); }}
+                onClick={() => { setRejectingPayment(selectedPayment); setSelectedPayment(null); setRejectReason(""); }}
               >
-                {processing === selectedPayment.id ? "..." : ar() ? "تأكيد الدفع" : "Confirm Payment"}
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                {ar() ? "رفض الطلب" : "Reject Request"}
+              </button>
+            </div>
+          </div>
+        </div>, document.body
+      )}
+
+      {/* Reject Confirmation Modal */}
+      {rejectingPayment && createPortal(
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-sm shadow-2xl animate-slide-up relative flex flex-col">
+            <div className="px-6 pt-6 pb-4 border-b border-surface-100">
+              <h3 className="text-lg font-bold text-surface-900 flex items-center gap-2">
+                <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                {ar() ? "رفض طلب الدفع" : "Reject Payment Request"}
+              </h3>
+              <p className="text-sm text-surface-500 mt-1">
+                {ar()
+                  ? `هل أنت متأكد من رفض طلب ${rejectingPayment.userName || rejectingPayment.userId}؟`
+                  : `Are you sure you want to reject the request from ${rejectingPayment.userName || rejectingPayment.userId}?`}
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-surface-600 mb-1.5">{ar() ? "سبب الرفض (اختياري)" : "Rejection Reason (optional)"}</label>
+                <textarea
+                  className="input-field w-full resize-none text-sm"
+                  rows={3}
+                  placeholder={ar() ? "أدخل سبب الرفض..." : "Enter rejection reason..."}
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="px-6 pb-6 pt-2 flex gap-3">
+              <button
+                className="flex-1 bg-surface-100 hover:bg-surface-200 text-surface-700 font-bold py-3 rounded-xl transition-colors text-sm"
+                onClick={() => setRejectingPayment(null)}
+              >
+                {ar() ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-colors shadow-sm text-sm"
+                disabled={processing === rejectingPayment.id}
+                onClick={() => { rejectPayment(rejectingPayment, rejectReason); setRejectingPayment(null); }}
+              >
+                {processing === rejectingPayment.id ? "..." : ar() ? "تأكيد الرفض" : "Confirm Reject"}
               </button>
             </div>
           </div>
