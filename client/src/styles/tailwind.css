@@ -231,20 +231,6 @@
   .kpi-tile-trend-up   { @apply text-emerald-600; }
   .kpi-tile-trend-down { @apply text-rose-600; }
 
-  /* Sidebar nav */
-  .sidebar-link {
-    @apply relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-semibold text-surface-600;
-    @apply hover:bg-brand-pink-50/40 hover:text-brand-pink-700;
-    transition: all var(--transition);
-  }
-  .sidebar-link.active {
-    @apply bg-brand-pink-50/60 text-brand-pink-700 font-black shadow-sm;
-  }
-  .sidebar-link.active::before {
-    content: '';
-    @apply absolute start-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-full bg-brand-pink-500;
-  }
-
   /* Table */
   .data-table {
     @apply w-full text-sm border-collapse;
