@@ -608,7 +608,7 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
 // Main Customer App Component
 // ==========================================
 
-type EFormPending = { formId: string; title: string };
+type EFormPending = { id?: string; formId?: string; title: string };
 
 function MyFormsSection() {
   const { getAuthHeader } = useAuth();
@@ -4338,7 +4338,7 @@ export default function CustomerDashboard() {
                    const first = data.forms[0];
                    const resolvedUserOfferId = offer.userOfferId || offer.id;
                    setShowBookingModal(null);
-                   navigate(`/forms/fill/${first.formId}?userOfferId=${resolvedUserOfferId}&return=/dashboard`);
+                   navigate(`/forms/fill/${first.id || first.formId}?userOfferId=${resolvedUserOfferId}&return=/dashboard`);
                  } else {
                    setSysAlert(friendly[msg] ?? msg);
                  }
