@@ -589,6 +589,17 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     const elErr = await eligibilityError(uo, offer);
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
+    // Gate: session interval cooling period
+    if (offer.sessionIntervalDays > 0) {
+      const lastCompletedAt = await sessionsStore.lastCompletedAt(uo.id);
+      if (lastCompletedAt) {
+        const nextEligible = new Date(new Date(lastCompletedAt).getTime() + offer.sessionIntervalDays * 24 * 60 * 60 * 1000);
+        if (new Date() < nextEligible) {
+          return res.status(409).json({ error: "INTERVAL_NOT_MET", nextEligibleAt: nextEligible.toISOString() });
+        }
+      }
+    }
+
     // Gate: required-before-booking e-forms
     if (pendingForms.length) {
       return res.status(409).json({ error: "EFORMS_REQUIRED", forms: pendingForms });
