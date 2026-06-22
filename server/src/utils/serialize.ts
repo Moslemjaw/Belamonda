@@ -193,6 +193,7 @@ export function serializeUserOffer(doc: UserOfferDoc) {
     groupInviteCode: (doc as any).groupInviteCode ?? undefined,
     sharedWith: (doc as any).sharedWith ?? [],
     maxSessions: (doc as any).maxSessions ?? undefined,
+    lastManualSessionAt: (doc as any).lastManualSessionAt ? new Date((doc as any).lastManualSessionAt).toISOString() : undefined,
     shortId: (doc as any).shortId ?? undefined
   };
 }
