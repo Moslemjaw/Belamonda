@@ -1936,17 +1936,26 @@ schedulingRouter.post("/admin/user-offers/:uoId/adjust-sessions", authRequired, 
     await UserOfferModel.findByIdAndUpdate(req.params.uoId, { $set: { sessionsUsed: nextVal } });
 
     if (delta > 0 && dateStr) {
-      await BookingSessionModel.create({
-        userId: (uo as any).userId,
-        offerId: (uo as any).offerId,
-        userOfferId: (uo as any)._id,
-        clinicId: (uo as any).clinicId,
-        status: "completed",
-        scheduledAt: new Date(dateStr),
-        completedAt: new Date(dateStr),
-        scheduledBy: req.auth!.userId,
-        notes: "Historical/Manual session increment"
-      });
+      let clinicId = (uo as any).clinicId;
+      if (!clinicId) {
+        const { ClinicModel } = await import("../../models/clinic.model.js");
+        const defaultClinic = await ClinicModel.findOne().lean();
+        clinicId = (defaultClinic as any)?._id;
+      }
+      
+      if (clinicId) {
+        await BookingSessionModel.create({
+          userId: (uo as any).userId,
+          offerId: (uo as any).offerId,
+          userOfferId: req.params.uoId,
+          clinicId: clinicId,
+          status: "completed",
+          scheduledAt: new Date(dateStr),
+          completedAt: new Date(dateStr),
+          scheduledBy: req.auth!.userId,
+          notes: "Historical/Manual session increment"
+        });
+      }
     }
 
     return res.json({ ok: true, sessionsUsed: nextVal });
