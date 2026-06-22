@@ -1680,7 +1680,14 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
       const uoDoc    = mongoose.isValidObjectId(s.userOfferId) ? uoMap.get(s.userOfferId) : null;
       const offerDoc = uoDoc ? offerMap.get(uoDoc.offerId?.toString()) : null;
       const breq     = breqBySession.get(s.id);
-      const lastCompleted = uoDoc ? lastCompletedMap.get(uoDoc._id.toString()) ?? null : null;
+      let lastCompleted: Date | null = null;
+      if (uoDoc) {
+        const d1 = lastCompletedMap.get(uoDoc._id.toString());
+        const d2 = (uoDoc as any).lastManualSessionAt ? new Date((uoDoc as any).lastManualSessionAt) : null;
+        if (d1 && d2) lastCompleted = new Date(Math.max(d1.getTime(), d2.getTime()));
+        else if (d1) lastCompleted = d1;
+        else if (d2) lastCompleted = d2;
+      }
 
       const intervalDays = (offerDoc?.sessionIntervalDays ?? 0) as number;
       const intervalMet =
@@ -1944,7 +1951,11 @@ schedulingRouter.post("/admin/user-offers/:uoId/adjust-sessions", authRequired, 
     const nextVal = Math.max(0, current + delta);
     if (nextVal === current) return res.json({ ok: true, sessionsUsed: current });
 
-    await UserOfferModel.findByIdAndUpdate(req.params.uoId, { $set: { sessionsUsed: nextVal } });
+    const updateFields: any = { sessionsUsed: nextVal };
+    if (delta > 0 && dateStr) {
+      updateFields.lastManualSessionAt = new Date(dateStr);
+    }
+    await UserOfferModel.findByIdAndUpdate(req.params.uoId, { $set: updateFields });
 
     if (delta > 0 && dateStr) {
       let clinicId = (uo as any).clinicId;

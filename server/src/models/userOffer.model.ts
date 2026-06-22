@@ -101,6 +101,7 @@ const UserOfferSchema = new Schema(
     lastInstallmentReminderAt: { type: Date },
     lastDepositReminderAt: { type: Date },
     lastMembershipExpiryReminderAt: { type: Date },
+    lastManualSessionAt: { type: Date },
     shortId: { type: String, trim: true, unique: true, sparse: true }
   },
   { timestamps: true }

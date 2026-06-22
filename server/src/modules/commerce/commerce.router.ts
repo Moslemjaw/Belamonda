@@ -323,7 +323,11 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
         branchSessionPrices: offer.branchSessionPrices || [],
         sessionIntervalDays: offer.sessionIntervalDays || 0,
         hasActiveBooking: activeBookingsSet.has(uoId),
-        lastCompletedSessionAt: lastCompletedMap[uoId] ? new Date(lastCompletedMap[uoId]).toISOString() : undefined,
+        lastCompletedSessionAt: lastCompletedMap[uoId] 
+          ? new Date(lastCompletedMap[uoId]).toISOString() 
+          : (item as any).lastManualSessionAt 
+            ? new Date((item as any).lastManualSessionAt).toISOString() 
+            : undefined,
         groupSizeRequired: offer.groupSizeRequired || undefined,
         groupRewardType: offer.groupRewardType || undefined,
         groupRewardValue: offer.groupRewardValue || undefined,

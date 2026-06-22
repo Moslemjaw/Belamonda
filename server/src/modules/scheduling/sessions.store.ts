@@ -80,7 +80,15 @@ export const sessionsStore = {
       status: "completed",
       completedAt: { $exists: true }
     }).sort({ completedAt: -1 });
-    return doc && doc.completedAt ? doc.completedAt.toISOString() : null;
+
+    const { UserOfferModel } = await import("../../models/userOffer.model.js");
+    const uo = await UserOfferModel.findById(userOfferId).select("lastManualSessionAt").lean();
+
+    const d1 = doc?.completedAt ? new Date(doc.completedAt).getTime() : 0;
+    const d2 = uo && (uo as any).lastManualSessionAt ? new Date((uo as any).lastManualSessionAt).getTime() : 0;
+
+    if (d1 === 0 && d2 === 0) return null;
+    return new Date(Math.max(d1, d2)).toISOString();
   },
 
   async countCommitted(userOfferId: string): Promise<number> {
