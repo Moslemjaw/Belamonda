@@ -739,7 +739,8 @@ function PaymentsManager() {
             </table>
           </div>
         </div>
-      )}
+      ))}
+      </div>
       </div>
     </div>
   );
@@ -799,8 +800,8 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
   };
 
   return (
-    <div className="card-elevated p-5 relative">
-      <div className="editorial-header justify-between mb-4">
+    <div className="card-elevated p-5 relative flex flex-col max-h-[600px]">
+      <div className="editorial-header justify-between mb-4 shrink-0">
         <div className="flex items-center gap-3">
           <span className="accent" />
           <div>
@@ -812,6 +813,7 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
           {(data?.items || []).length > 0 && <span className="status-pill-pending"><span className="dot" aria-hidden="true" />{(data?.items || []).length} {ar() ? "معلق" : "pending"}</span>}
         </div>
       </div>
+      <div className="overflow-y-auto flex-1 pr-2">
       {(data?.items || []).length === 0 ? (
         <div className="text-center py-12">
           <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 text-emerald-500 flex items-center justify-center mb-3">
@@ -1204,7 +1206,7 @@ function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, clinicI
                         {getMembershipTypeBadge(o.membershipType)}
                         {o.purchaseMode && <span className="text-[9px] font-medium px-1.5 py-0.5 rounded bg-surface-50 text-surface-500 border border-surface-200">{o.purchaseMode}</span>}
                       </div>
-                      <div className="text-sm font-bold text-surface-900">{o.offerName || (ar() ? "عرض" : "Offer")}</div>
+                      <div className="text-sm font-bold text-surface-900">{o.offerName ? Array.from(new Set(o.offerName.split(" - "))).join(" - ") : (ar() ? "عرض" : "Offer")}</div>
                       <div className="text-xs text-surface-400 mt-0.5 font-mono">{o.userName || o.userId}</div>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -1235,6 +1237,14 @@ function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, clinicI
                   {/* Quick Stats Row */}
                   <div className="flex flex-wrap gap-3 mt-3">
                     <div className="text-xs"><span className="text-surface-400">{ar() ? "الدفع:" : "Payment:"}</span> <span className="font-bold text-surface-700">{o.paymentAmountKwd || '0.000'} KWD</span></div>
+                    {o.installmentSchedule?.length > 0 && (
+                      <div className="text-xs">
+                        <span className="text-surface-400">{ar() ? "المتبقي:" : "Unpaid:"}</span>{' '}
+                        <span className="font-bold text-red-600">
+                          {Math.max(0, (parseFloat(o.paymentAmountKwd || '0') - o.installmentSchedule.filter((i: any) => i.paid).reduce((sum: number, i: any) => sum + parseFloat(i.amountKwd || '0'), 0))).toFixed(3)} KWD
+                        </span>
+                      </div>
+                    )}
                     <div className="flex items-center gap-1.5 text-xs">
                       <span className="text-surface-400">{ar() ? "الجلسات:" : "Sessions:"}</span>
                       <span className="font-bold text-surface-700">{o.sessionsUsed || 0}{o.maxSessions ? ` / ${o.maxSessions}` : ' / ∞'}</span>
