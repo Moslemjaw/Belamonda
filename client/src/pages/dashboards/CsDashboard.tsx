@@ -897,10 +897,12 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
                         <span className="text-surface-500">{ar() ? "الباقة" : "Offer"}</span>
                         <span className="font-bold text-surface-900">{selectedBooking.offerName || (selectedBooking.isStandalone ? "none" : selectedBooking.userOfferId)}</span>
                      </div>
-                     <div className="flex justify-between items-center text-sm">
-                        <span className="text-surface-500">{ar() ? "نوع الجلسة" : "Session Type"}</span>
-                        <span className="font-bold text-surface-900">{selectedBooking.notes || selectedBooking.standaloneName || (ar() ? "غير محدد" : "—")}</span>
-                     </div>
+                     {!selectedBooking.isStandalone && (
+                       <div className="flex justify-between items-center text-sm">
+                          <span className="text-surface-500">{ar() ? "نوع الجلسة" : "Session Type"}</span>
+                          <span className="font-bold text-surface-900">{selectedBooking.notes || (ar() ? "غير محدد" : "—")}</span>
+                       </div>
+                     )}
                      <div className="flex justify-between items-center text-sm">
                         <span className="text-surface-500">{ar() ? "العيادة المطلوبة" : "Requested Clinic"}</span>
                         <span className="font-bold text-brand-pink-600">{ar() ? (selectedBooking.clinicNameAr || selectedBooking.clinicId) : (selectedBooking.clinicNameEn || selectedBooking.clinicId)}</span>
@@ -917,6 +919,34 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
                      </div>
                   </div>
                </div>
+
+               {/* Membership Details */}
+               {!selectedBooking.isStandalone && selectedBooking.userOffer && (
+                 <div className="bg-purple-50/50 rounded-2xl p-4 border border-purple-100">
+                    <h4 className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-3">{ar() ? "تفاصيل العضوية" : "Membership Details"}</h4>
+                    <div className="space-y-2">
+                       <div className="flex justify-between items-center text-sm">
+                          <span className="text-purple-700">{ar() ? "الاستخدام" : "Usage"}</span>
+                          <span className="font-bold text-purple-900">
+                             {selectedBooking.userOffer.sessionsUsed || 0} 
+                             {selectedBooking.userOffer.maxSessions ? ` / ${selectedBooking.userOffer.maxSessions}` : " / ∞"}
+                             {ar() ? " جلسات" : " sessions"}
+                          </span>
+                       </div>
+                       {selectedBooking.userOffer.purchaseMode === 'installments' && (() => {
+                         const uo = selectedBooking.userOffer;
+                         const unpaidInstallments = (uo.installmentSchedule || []).filter((s: any) => !s.paid);
+                         const unpaidAmount = unpaidInstallments.reduce((sum: number, s: any) => sum + Number(s.amountKwd || 0), 0);
+                         return (
+                           <div className="flex justify-between items-center text-sm border-t border-purple-200 pt-2 mt-1">
+                              <span className="text-purple-700">{ar() ? "الأقساط غير المدفوعة" : "Unpaid Installments"}</span>
+                              <span className="font-bold text-red-600">{unpaidInstallments.length} ({unpaidAmount.toFixed(3)} KWD)</span>
+                           </div>
+                         );
+                       })()}
+                    </div>
+                 </div>
+               )}
 
                {/* Financial Breakdown */}
                <div className="bg-emerald-50/50 rounded-2xl p-4 border border-emerald-100">

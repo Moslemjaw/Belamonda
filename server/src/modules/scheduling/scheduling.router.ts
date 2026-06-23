@@ -1012,6 +1012,12 @@ schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "
     : [];
   const offerMap = new Map(offerDocs.map((o) => [String(o._id), mapOfferDocToSched(o)]));
 
+  const uniqueUserOfferIds = [...new Set(items.map((it) => it.userOfferId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
+  const userOfferDocs = uniqueUserOfferIds.length > 0
+    ? await UserOfferModel.find({ _id: { $in: uniqueUserOfferIds } }).lean()
+    : [];
+  const userOfferMap = new Map(userOfferDocs.map((uo) => [String(uo._id), uo]));
+
   const enriched = await Promise.all(
     items.map(async (it) => {
       const c = await getClinicNames(it.clinicId);
@@ -1026,6 +1032,7 @@ schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "
         clinicNameEn: c.nameEn,
         clinicNameAr: c.nameAr,
         offerName: it.standaloneName ?? offer?.name ?? null,
+        userOffer: it.userOfferId && mongoose.isValidObjectId(it.userOfferId) ? userOfferMap.get(it.userOfferId) ?? null : null,
         ...financials,
       };
     })
