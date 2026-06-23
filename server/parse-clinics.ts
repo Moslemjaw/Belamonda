@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import { ClinicModel } from "./src/models/clinic.model.js";
 
 async function run() {
-  await mongoose.connect("mongodb+srv://moslemjawich:MMjj2005@forall.9ryif9r.mongodb.net/?appName=ForAll");
+  await mongoose.connect(process.env.MONGODB_URI!);
   
   const clinics = await ClinicModel.find({}).lean();
   console.log("DB Clinics:");

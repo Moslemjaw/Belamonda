@@ -18,7 +18,7 @@ const clinicMap: Record<string, string> = {
 };
 
 async function run() {
-  await mongoose.connect("mongodb+srv://moslemjawich:MMjj2005@forall.9ryif9r.mongodb.net/?appName=ForAll");
+  await mongoose.connect(process.env.MONGODB_URI!);
   
   // 1. Delete all existing sessions
   const deleteRes = await BookingSessionModel.deleteMany({});
