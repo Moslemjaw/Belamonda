@@ -866,7 +866,7 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
       {/* Booking Details Modal */}
       {selectedBooking && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-           <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-slide-up relative">
+           <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-slide-up relative max-h-[90vh] overflow-y-auto">
              <button className="absolute top-5 right-5 text-surface-400 hover:text-surface-900 transition-colors" onClick={() => setSelectedBooking(null)}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
              </button>
