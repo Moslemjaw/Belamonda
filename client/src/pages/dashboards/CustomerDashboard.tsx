@@ -2196,21 +2196,18 @@ export default function CustomerDashboard() {
                                );
                             })()}
 
-                            {/* Cashback features block */}
+                            {/* Installment / Deposit Button */}
                             {(() => {
-                              const parts = computeOfferCashbackParts(o);
                               const isDeposit = o.purchaseMode === 'deposit' || o.method === 'Deposit';
                               const verbEn = isDeposit ? 'Pay remaining balance' : 'Pay installment';
                               const verbAr = isDeposit ? 'ادفع المبلغ المتبقي' : 'ادفع القسط';
-                              
                               const hasRemainingPayments = o.purchaseMode === 'deposit' || 
                                 (o.purchaseMode === 'installments' && (o.installmentsPaid || 0) < (o.installmentCount || 1));
-                              
-                              if (parts.locked === 0 && parseFloat(o.cashbackPerSessionKwd || "0") === 0) return null;
+
+                              if (!hasRemainingPayments) return null;
 
                               return (
-                              <div className="pt-2 flex flex-col gap-2 mb-3">
-                                {parts.locked > 0 && hasRemainingPayments && (
+                                <div className="pt-2 flex flex-col gap-2 mb-3">
                                   <button
                                     className="w-full mt-1 bg-brand-pink-600 hover:bg-brand-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5"
                                     onClick={(e) => { 
@@ -2223,9 +2220,26 @@ export default function CustomerDashboard() {
                                       }, 100);
                                     }}
                                   >
-                                    🔓 {ar() ? `${verbAr} لفتح ${parts.locked.toFixed(3)} د.ك` : `${verbEn} to unlock ${parts.locked.toFixed(3)} KWD`}
+                                    🔓 {(() => {
+                                      const parts = computeOfferCashbackParts(o);
+                                      if (isCashback && parts.locked > 0) {
+                                        return ar() ? `${verbAr} لفتح ${parts.locked.toFixed(3)} د.ك` : `${verbEn} to unlock ${parts.locked.toFixed(3)} KWD`;
+                                      }
+                                      return ar() ? `${verbAr} لفتح الجلسة القادمة` : `${verbEn} to unlock next session`;
+                                    })()}
                                   </button>
-                                )}
+                                </div>
+                              );
+                            })()}
+
+                            {/* Cashback features block */}
+                            {(() => {
+                              const parts = computeOfferCashbackParts(o);
+                              
+                              if (parseFloat(o.cashbackPerSessionKwd || "0") === 0) return null;
+
+                              return (
+                              <div className="pt-2 flex flex-col gap-2 mb-3">
                                 {parseFloat(o.cashbackPerSessionKwd || "0") > 0 && (
                                   <div className="mt-1 text-emerald-600 bg-emerald-50 text-[11px] font-bold py-1.5 px-3 rounded-lg flex items-center gap-1.5">
                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
