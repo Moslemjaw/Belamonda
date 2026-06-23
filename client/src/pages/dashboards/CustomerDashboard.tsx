@@ -476,21 +476,37 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
       setKycError(ar() ? "يرجى الموافقة على جميع الشروط" : "Please agree to all terms");
       return;
     }
+    const cleanCivilId = (form.civilId || "").replace(/\D/g, "");
+    if (cleanCivilId.length !== 12) {
+      setKycError(ar() ? "الرقم المدني يجب أن يكون 12 رقم" : "Civil ID must be exactly 12 digits");
+      setStep(1);
+      return;
+    }
+    if (!form.civilIdFront || !form.civilIdBack) {
+      setKycError(ar() ? "يرجى رفع صورة البطاقة المدنية من الجهتين" : "Please upload both sides of your Civil ID");
+      setStep(2);
+      return;
+    }
     setSubmitting(true);
     try {
       await apiFetch("/kyc/submit", {
         method: "POST",
         headers: getAuthHeader(),
         body: JSON.stringify({
-          civilIdNumber: form.civilId || "290100000012",
-          civilIdFrontRef: form.civilIdFront || "front.png",
-          civilIdBackRef: form.civilIdBack || "back.png",
+          civilIdNumber: cleanCivilId,
+          civilIdFrontRef: form.civilIdFront,
+          civilIdBackRef: form.civilIdBack,
           checkboxes: { termsAndConditions: true, dataPrivacyConsent: true, serviceLiabilityWaiver: true, age18Plus: true, paymentTermsAcknowledgment: true },
         }),
       });
       onComplete();
     } catch (e: any) {
-      setKycError(e.message || (ar() ? "فشل الإرسال" : "Submission failed"));
+      const msg = e.message || "";
+      if (msg === "VALIDATION_ERROR") {
+        setKycError(ar() ? "يرجى التأكد من صحة البيانات المدخلة والمحاولة مرة أخرى" : "Please verify your information and try again");
+      } else {
+        setKycError(msg || (ar() ? "فشل الإرسال" : "Submission failed"));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -532,7 +548,7 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
               <label className="block text-sm font-medium text-surface-700 mb-2">{ar() ? "الرقم المدني" : "Civil ID Number"}</label>
               <input type="text" className="input-field text-center text-lg tracking-widest" placeholder="290XXXXXXXXX" value={form.civilId} onChange={e => setForm({...form, civilId: e.target.value})} maxLength={12} />
             </div>
-            <button className="btn-primary w-full btn-lg" onClick={() => setStep(2)} disabled={form.civilId.length < 12}>{ar() ? "متابعة" : "Continue"}</button>
+            <button className="btn-primary w-full btn-lg" onClick={() => setStep(2)} disabled={form.civilId.replace(/\D/g, "").length !== 12}>{ar() ? "متابعة" : "Continue"}</button>
           </div>
         )}
 

@@ -28,7 +28,7 @@ const CheckboxesSchema = z.object({
 });
 
 const SubmitKycSchema = z.object({
-  civilIdNumber: z.string().regex(/^\d{12}$/),
+  civilIdNumber: z.string().transform(v => v.replace(/\D/g, "")).pipe(z.string().regex(/^\d{12}$/)),
   civilIdFrontRef: z.string().min(1),
   civilIdBackRef: z.string().min(1),
   checkboxes: CheckboxesSchema
