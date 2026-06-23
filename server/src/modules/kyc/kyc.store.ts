@@ -33,19 +33,7 @@ function maskCivilId(civilId: string) {
 export const kycStore = {
   async ensureUser(userId: string, role: string) {
     // User already created in auth router. Just ensure wallet if needed, but wallet is created on approval.
-    // However, for testing:
-    if (userId === "cust1" && env.NODE_ENV !== "production") {
-      await UserModel.findByIdAndUpdate(userId, { verificationStatus: "approved" });
-      const w = await WalletModel.findOne({ userId });
-      if (!w) {
-        await WalletModel.create({
-          userId,
-          ceilingKwd: "500.000",
-          lockedKwd: "500.000",
-          unlockedKwd: "25.000"
-        });
-      }
-    }
+    // User already created in auth router. Just ensure wallet if needed, but wallet is created on approval.
   },
 
   async getUser(userId: string) {
