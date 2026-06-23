@@ -1720,7 +1720,7 @@ export default function CustomerDashboard() {
             </div>
 
             {/* status message row inside the gradient zone */}
-            {kycStatus === "unverified" && (
+            {(kycStatus === "unverified" || kycStatus === "rejected") && (
               <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-4 mb-0 border border-white/20">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
@@ -3411,12 +3411,16 @@ export default function CustomerDashboard() {
                           {ar() ? `الرقم المدني: ${cardData.card.civilIdNumberMasked}` : `Civil ID: ${cardData.card.civilIdNumberMasked}`}
                         </div>
                       )}
-                      {kycStatus === 'unverified' && (
-                        <p className="text-xs text-amber-700/80 mt-1.5 max-w-xs leading-relaxed">{ar() ? "أكملي التوثيق لتفعيل الدفع، شراء الباقات، وإدارة الكاش باك." : "Complete verification to enable payments, packages, and cashback."}</p>
+                      {(kycStatus === 'unverified' || kycStatus === 'rejected') && (
+                        <p className="text-xs text-amber-700/80 mt-1.5 max-w-xs leading-relaxed">
+                          {kycStatus === 'rejected' 
+                            ? (ar() ? "تم رفض التوثيق السابق أو تم إلغاء توثيق حسابك من قبل الإدارة. يرجى التحديث وتقديم الطلب مجدداً." : "Your previous verification was rejected or your account was unverified by admin. Please resubmit.") 
+                            : (ar() ? "أكملي التوثيق لتفعيل الدفع، شراء الباقات، وإدارة الكاش باك." : "Complete verification to enable payments, packages, and cashback.")}
+                        </p>
                       )}
                     </div>
                   </div>
-                  {kycStatus === 'unverified' && (
+                  {(kycStatus === 'unverified' || kycStatus === 'rejected') && (
                     <button onClick={() => setShowKyc(true)} className="btn-primary shrink-0 shadow-md px-6">
                       {ar() ? "ابدأ التوثيق الآن" : "Start Verification"}
                     </button>
