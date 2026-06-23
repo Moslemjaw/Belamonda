@@ -990,6 +990,7 @@ schedulingRouter.post("/me/requests/:id/cancel", authRequired, async (req, res) 
 
 // ── Clinic / CS lists pending booking requests ─────────────────────────────
 schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "admin", "clinicStaff", "finance", "cs_director"]), async (req, res) => {
+  try {
   const status = (typeof req.query.status === "string" ? req.query.status : "open") as BookingRequestStatus | "all" | "open";
   const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status };
   if (req.auth!.role === "clinicStaff") {
@@ -1012,11 +1013,14 @@ schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "
     : [];
   const offerMap = new Map(offerDocs.map((o) => [String(o._id), mapOfferDocToSched(o)]));
 
-  const uniqueUserOfferIds = [...new Set(items.map((it) => it.userOfferId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
-  const userOfferDocs = uniqueUserOfferIds.length > 0
-    ? await UserOfferModel.find({ _id: { $in: uniqueUserOfferIds } }).lean()
-    : [];
-  const userOfferMap = new Map(userOfferDocs.map((uo) => [String(uo._id), uo]));
+  let userOfferMap = new Map<string, any>();
+  try {
+    const uniqueUserOfferIds = [...new Set(items.map((it) => it.userOfferId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
+    if (uniqueUserOfferIds.length > 0) {
+      const userOfferDocs = await UserOfferModel.find({ _id: { $in: uniqueUserOfferIds } }).lean();
+      userOfferMap = new Map(userOfferDocs.map((uo) => [String(uo._id), uo]));
+    }
+  } catch (_e) { /* non-fatal */ }
 
   const enriched = await Promise.all(
     items.map(async (it) => {
@@ -1038,6 +1042,10 @@ schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "
     })
   );
   return res.json({ items: enriched });
+  } catch (err: any) {
+    console.error("[/cs/requests] Error:", err);
+    return res.status(500).json({ error: "INTERNAL_ERROR" });
+  }
 });
 
 schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res) => {
