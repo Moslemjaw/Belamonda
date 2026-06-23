@@ -76,6 +76,7 @@ async function buildFullCardData(user: UserCardFields) {
     civilIdNumberMasked: user.civilIdNumberMasked ?? kycUser?.civilIdNumberMasked ?? null,
     memberSince: user.createdAt ? new Date(user.createdAt).toISOString().slice(0, 10) : null,
     kycVerified: kycUser?.verificationStatus === "approved",
+    kycStatus: kycUser?.verificationStatus ?? "unverified",
     activeOffers: activeOffers.map((o) => ({
       offerId: offerIdStr(o),
       offerName: offerName(o),

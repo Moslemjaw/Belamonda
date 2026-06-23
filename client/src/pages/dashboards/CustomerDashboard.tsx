@@ -1261,9 +1261,8 @@ export default function CustomerDashboard() {
   useEffect(() => {
     const check = async () => {
       try {
-        const data = await apiFetch("/kyc/me/wallet", { headers: getAuthHeader() }) as any;
-        setKycStatus(data.wallet ? "approved" : "unverified");
-        // Update local wallet data if not using the hook directly, though useWallet handles its own state
+        const data = await apiFetch("/public/me/card", { headers: getAuthHeader() }) as any;
+        setKycStatus(data.card?.kycStatus || "unverified");
       } catch { setKycStatus("unverified"); }
     };
     if (!showKyc) check();
