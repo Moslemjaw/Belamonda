@@ -74,8 +74,9 @@ export const kycStore = {
     const filter = status ? { status } : {};
     const docs = await KycSubmissionModel.find(filter).sort({ createdAt: -1 }).lean<KycSubmissionDoc[]>();
     
-    const userIds = [...new Set(docs.map(d => d.userId))];
-    const users = await UserModel.find({ _id: { $in: userIds } }).select("fullName username email phone").lean();
+    const validUserIds = [...new Set(docs.map(d => d.userId))].filter(id => mongoose.isValidObjectId(id));
+    const objectIds = validUserIds.map(id => new mongoose.Types.ObjectId(id));
+    const users = await UserModel.find({ _id: { $in: objectIds } }).select("fullName username email phone").lean();
     const userMap = Object.fromEntries(users.map((u: any) => [u._id.toString(), u]));
 
     return docs.map(d => {
