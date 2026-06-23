@@ -2152,7 +2152,7 @@ export default function CustomerDashboard() {
                               </div>
                             )}
 
-                            {o.clinicId && !isCashback && !isPending && (() => {
+                            {o.clinicId && !isPending && (() => {
                                const clinic = (clinicsPublic?.items || []).find(c => c.id === o.clinicId);
                                const clinicName = ar() ? (o.clinicNameAr || o.clinicNameEn || (clinic as any)?.nameAr || clinic?.nameEn || o.clinicId) : (o.clinicNameEn || o.clinicNameAr || clinic?.nameEn || (clinic as any)?.nameAr || o.clinicId);
                                const sessionPrice = (o.branchSessionPrices || []).find((b: any) => b.clinicId === o.clinicId)?.sessionPriceKwd;
@@ -4169,7 +4169,7 @@ export default function CustomerDashboard() {
                         });
                      };
                      
-                     const isPreAssigned = overrides.length === 0 && !!showBookingModal.userOfferId && !!showBookingModal.clinicId;
+                     const isPreAssigned = showBookingModal.clinicLocked === true && !!showBookingModal.userOfferId && !!showBookingModal.clinicId;
                      const isLaser = showBookingModal.category === "laser" && !!showBookingModal.clinicId;
                      const shouldDisable = isPreAssigned || isLaser;
 
