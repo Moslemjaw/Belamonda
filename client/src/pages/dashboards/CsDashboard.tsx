@@ -3053,35 +3053,43 @@ export default function CsDashboard() {
       <div className="space-y-6 animate-fade-in">
         {activeNav === "home" && (
           <>
+            {/* ── Welcome Header ── */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-black text-surface-900">{ar() ? "مرحباً بك" : "Welcome back"}</h2>
+                <p className="text-sm text-surface-400 mt-0.5">{new Date().toLocaleDateString(ar() ? "ar-KW" : "en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+              </div>
+            </div>
+
             {/* ── KPI Summary Row ── */}
             <div className={`grid gap-3 grid-cols-2 sm:gap-4 ${isLegalOrAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
               {isLegalOrAdmin && (
-              <div className="kpi-tile group" onClick={() => setActiveNav("kyc")}>
+              <div className="kpi-tile group cursor-pointer border-b-[3px] border-b-amber-400" onClick={() => setActiveNav("kyc")}>
                 <div className="kpi-tile-icon amber">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
                 </div>
                 <div className="kpi-tile-label">{ar() ? "تحققات معلقة" : "Pending KYC"}</div>
                 <div className="kpi-tile-value">{(kycData?.items || []).length}</div>
-                <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />{ar() ? "تتطلب مراجعة" : "needs review"}</div>
+                <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />{ar() ? "تتطلب مراجعة" : "needs review"}</div>
               </div>
               )}
-              <div className="kpi-tile group" onClick={() => setActiveNav("payments")}>
+              <div className="kpi-tile group cursor-pointer border-b-[3px] border-b-brand-pink-400" onClick={() => setActiveNav("payments")}>
                 <div className="kpi-tile-icon pink">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
                 </div>
                 <div className="kpi-tile-label">{ar() ? "مدفوعات معلقة" : "Pending Payments"}</div>
                 <div className="kpi-tile-value">{(paymentsData?.items || []).length}</div>
-                <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-brand-pink-500" />{ar() ? "بانتظار المراجعة" : "awaiting confirm"}</div>
+                <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-brand-pink-500 animate-pulse" />{ar() ? "بانتظار المراجعة" : "awaiting confirm"}</div>
               </div>
-              <div className="kpi-tile group" onClick={() => setActiveNav("scheduling")}>
+              <div className="kpi-tile group cursor-pointer border-b-[3px] border-b-blue-400" onClick={() => setActiveNav("scheduling")}>
                 <div className="kpi-tile-icon blue">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                 </div>
                 <div className="kpi-tile-label">{ar() ? "طلبات حجز" : "Booking Requests"}</div>
                 <div className="kpi-tile-value">{(bookingRequestsData?.items || []).length}</div>
-                <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" />{ar() ? "تنتظر الجدولة" : "to schedule"}</div>
+                <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />{ar() ? "تنتظر الجدولة" : "to schedule"}</div>
               </div>
-              <div className="kpi-tile group" onClick={() => setActiveNav("complaints")}>
+              <div className="kpi-tile group cursor-pointer border-b-[3px] border-b-rose-400" onClick={() => setActiveNav("complaints")}>
                 <div className="kpi-tile-icon rose">
                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18 13a3 3 0 11-6 0 3 3 0 016 0zM2 18.5a8.5 8.5 0 0117 0M12 6a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 </div>
@@ -3092,16 +3100,24 @@ export default function CsDashboard() {
             </div>
 
             {/* ── Action Queues ── */}
-            <div className={`grid gap-6 ${isLegalOrAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
-              {isLegalOrAdmin && <KycQueue />}
-              <PaymentQueue />
-              <BookingRequestsQueue onTransfer={(id, clinicId) => {
-                setClinicChangeModal({ type: 'request', id, currentClinicId: clinicId, defaultFee: '5.000' });
-                setNewClinicId(clinicId);
-                setIsPaidTransfer(false);
-                setTransferFee("5.000");
-                setTransferError(null);
-              }} />
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.832c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                </div>
+                <h3 className="text-base font-bold text-surface-900">{ar() ? "قوائم العمل" : "Action Queues"}</h3>
+              </div>
+              <div className={`grid gap-6 ${isLegalOrAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+                {isLegalOrAdmin && <KycQueue />}
+                <PaymentQueue />
+                <BookingRequestsQueue onTransfer={(id, clinicId) => {
+                  setClinicChangeModal({ type: 'request', id, currentClinicId: clinicId, defaultFee: '5.000' });
+                  setNewClinicId(clinicId);
+                  setIsPaidTransfer(false);
+                  setTransferFee("5.000");
+                  setTransferError(null);
+                }} />
+              </div>
             </div>
 
             {/* ── Referral Activity ── */}
