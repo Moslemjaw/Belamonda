@@ -7,7 +7,7 @@ import { z } from "zod";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { UserOfferModel } from "../../models/userOffer.model.js";
-import { UserModel } from "../../models/user.model.js";
+import { UserModel, type UserDoc } from "../../models/user.model.js";
 import {
   EFORM_FIELD_TYPES,
   EFormModel,
@@ -16,6 +16,7 @@ import {
   type EFormSubmissionDoc
 } from "../../models/eform.model.js";
 import { notifyFormSignatureRequired } from "../notifications/notifications.service.js";
+import { EFormAssignmentModel } from "../../models/eformAssignment.model.js";
 
 export const EFORMS_UPLOAD_DIR = path.resolve(process.cwd(), "uploads", "eforms");
 if (!fs.existsSync(EFORMS_UPLOAD_DIR)) fs.mkdirSync(EFORMS_UPLOAD_DIR, { recursive: true });
@@ -329,6 +330,40 @@ eformsRouter.delete("/admin/forms/:id/hard-delete", authRequired, requireRole(["
   }
 });
 
+// ── Admin: send ad-hoc form to customer ──
+eformsRouter.post("/admin/assignments", authRequired, requireRole(["admin", "legal", "cs_director", "cs"]), async (req, res, next) => {
+  try {
+    const parsed = z.object({ formId: z.string().min(1), userId: z.string().min(1) }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
+
+    if (!mongoose.isValidObjectId(parsed.data.formId)) return res.status(404).json({ error: "FORM_NOT_FOUND" });
+    const form = await EFormModel.findById(parsed.data.formId).lean<EFormDoc | null>();
+    if (!form || form.archived) return res.status(404).json({ error: "FORM_NOT_FOUND" });
+
+    const user = await UserModel.findOne({ $or: [{ shortId: parsed.data.userId }, { _id: mongoose.isValidObjectId(parsed.data.userId) ? parsed.data.userId : undefined }] }).lean<UserDoc | null>();
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+    const userId = String(user._id);
+
+    try {
+      await EFormAssignmentModel.create({
+        formId: form._id,
+        userId: userId,
+        assignedBy: req.auth!.userId
+      });
+    } catch (e: any) {
+      if (e.code === 11000) {
+        return res.status(400).json({ error: "ALREADY_ASSIGNED" });
+      }
+      throw e;
+    }
+
+    notifyFormSignatureRequired(userId, String(form._id), form.title);
+    return res.status(201).json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ── Admin: list submissions ──
 eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "legal", "cs_director", "finance"]), async (req, res, next) => {
   try {
@@ -408,7 +443,6 @@ eformsRouter.get("/required-for-offer/:offerId", authRequired, async (req, res, 
 eformsRouter.get("/me/available", authRequired, async (req, res, next) => {
   try {
     const userOffers = await UserOfferModel.find({ userId: req.auth!.userId }).lean();
-    if (userOffers.length === 0) return res.json({ items: [] });
 
     const contexts = userOffers.map((u: any) => {
       const ctx = [{ kind: "offer", refId: String(u.offerId) }];
@@ -420,7 +454,19 @@ eformsRouter.get("/me/available", authRequired, async (req, res, next) => {
     });
 
     const allForms = await EFormModel.find({ archived: { $ne: true } }).lean<EFormDoc[]>();
-    const forms = allForms.filter(f => contexts.some(ctx => doesFormMatchContext(f.targets || [], ctx)));
+    const contextForms = allForms.filter(f => contexts.some(ctx => doesFormMatchContext(f.targets || [], ctx)));
+
+    const assignments = await EFormAssignmentModel.find({ userId: req.auth!.userId }).lean();
+    const assignedFormIds = new Set(assignments.map(a => String(a.formId)));
+    const assignedForms = allForms.filter(f => assignedFormIds.has(String(f._id)));
+
+    const formMap = new Map();
+    for (const f of [...contextForms, ...assignedForms]) {
+      formMap.set(String(f._id), f);
+    }
+    const forms = Array.from(formMap.values());
+
+    if (forms.length === 0) return res.json({ items: [] });
 
     const submitted = await EFormSubmissionModel.find({
       userId: req.auth!.userId,

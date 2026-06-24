@@ -260,6 +260,12 @@ export function EFormsAdminPanel() {
   const [previewForm, setPreviewForm] = useState<FormItem | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null);
 
+  // Send form state
+  const [sendFormModal, setSendFormModal] = useState<FormItem | null>(null);
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const { data: usersData } = useApi<{ items: Array<{ id: string; shortId: string; username: string; fullName?: string; phone?: string }> }>("/users/admin?role=customer", { lazy: !sendFormModal });
+  const customers = usersData?.items ?? [];
+
   const offersById = useMemo(() => new Map(offers.map((o) => [o.id, o.name])), [offers]);
   const filteredSubs = filterFormId ? submissions.filter((s) => s.formId === filterFormId) : submissions;
 
@@ -352,6 +358,22 @@ export function EFormsAdminPanel() {
       await refetch();
     } catch (e: any) {
       alert(e.message);
+    }
+  };
+
+  const handleSendForm = async () => {
+    if (!sendFormModal || !selectedCustomerId) return;
+    try {
+      await apiFetch("/eforms/admin/assignments", {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ formId: sendFormModal.id, userId: selectedCustomerId })
+      });
+      alert(ar() ? "تم إرسال النموذج بنجاح" : "Form sent successfully!");
+      setSendFormModal(null);
+      setSelectedCustomerId("");
+    } catch (e: any) {
+      alert(e.message || "Failed to send form");
     }
   };
 
@@ -638,6 +660,9 @@ export function EFormsAdminPanel() {
                   <button type="button" className="btn-primary btn-sm text-xs" onClick={() => startEdit(f)}>{ar() ? "تعديل" : "Edit"}</button>
                   <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => setPreviewForm(f)}>
                     {ar() ? "معاينة" : "Preview"}
+                  </button>
+                  <button type="button" className="btn-secondary btn-sm text-xs border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50" onClick={() => setSendFormModal(f)}>
+                    {ar() ? "إرسال لعميل" : "Send to Customer"}
                   </button>
                   {f.archived ? (
                     <button type="button" className="btn-secondary btn-sm text-xs text-sky-600 border-sky-200 hover:bg-sky-50" onClick={() => unarchive(f)}>{ar() ? "استعادة" : "Unarchive"}</button>
