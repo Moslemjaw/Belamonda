@@ -12,25 +12,10 @@ import ChatWidget from "../../components/ChatWidget";
 import ShareLinkPage from "../../components/ShareLinkPage";
 import { ReferralActivityWidget } from "../../components/ReferralActivityWidget";
 import NoticeBanner from "../../components/NoticeBanner";
+import { KpiCard } from "../../components/KpiCard";
 
 const ar = () => i18n.language === "ar";
 
-function KpiCard({ label, value, icon, isHighlighted, iconBg = "bg-brand-pink-50", iconText = "text-brand-pink-600", iconBorder = "border-brand-pink-100" }: { label: string; value: string | number; icon: React.ReactNode; isHighlighted?: boolean; iconBg?: string; iconText?: string; iconBorder?: string; }) {
-  return (
-    <div className={`card-elevated p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden group rounded-[28px] ${isHighlighted ? 'bg-gradient-to-br from-brand-pink-500 to-brand-pink-700 text-white border-none shadow-brand-pink-500/30 shadow-lg' : 'bg-white/80 backdrop-blur-xl border border-surface-200'}`}>
-      <div className={`absolute top-0 right-0 w-32 h-32 rounded-bl-[100px] -z-10 transition-transform duration-500 group-hover:scale-110 ${isHighlighted ? 'bg-white/10' : iconBg.replace('bg-', 'bg-').concat('/30')}`} />
-      <div className="flex justify-between items-start mb-4 sm:mb-6">
-        <div className={`flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-2xl shadow-sm backdrop-blur-md ${isHighlighted ? 'bg-white/20 text-white' : `${iconBg} ${iconText} border ${iconBorder}`}`}>
-          {icon}
-        </div>
-      </div>
-      <div>
-        <div className={`text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-1 ${isHighlighted ? 'text-brand-pink-100' : 'text-surface-500'}`}>{label}</div>
-        <div className={`text-3xl sm:text-4xl font-black ${isHighlighted ? 'text-white' : 'text-surface-900'}`}>{value}</div>
-      </div>
-    </div>
-  );
-}
 
 function SessionCard({ session, onMark, onMarkPaid }: { session: any; onMark: (id: string, status: string) => void; onMarkPaid: (id: string) => void }) {
   const { getAuthHeader } = useAuth();
@@ -218,15 +203,12 @@ function ClinicPerformanceTab({ sessions, completed, noShows, scheduled }: {
       <h3 className="text-xl font-bold text-surface-900">{ar() ? "أداء العيادة" : "Clinic Performance"}</h3>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
-        <KpiCard icon={Icons.calendar} label={ar() ? "جلسات مكتملة" : "Completed"} value={completed.length}
-          iconBg="bg-emerald-50" iconText="text-emerald-600" iconBorder="border-emerald-100" />
+        <KpiCard icon={Icons.calendar} label={ar() ? "جلسات مكتملة" : "Completed"} value={completed.length} accent="emerald" />
         <KpiCard icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
-          label={ar() ? "معدل الإكمال" : "Completion Rate"} value={`${completionRate}%`}
-          iconBg="bg-blue-50" iconText="text-blue-600" iconBorder="border-blue-100" />
+          label={ar() ? "معدل الإكمال" : "Completion Rate"} value={`${completionRate}%`} accent="blue" />
         <KpiCard icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>}
-          label={ar() ? "نسبة عدم الحضور" : "No-Show Rate"} value={`${noShowRate}%`}
-          iconBg="bg-red-50" iconText="text-red-500" iconBorder="border-red-100" />
-        <KpiCard icon={Icons.calendar} label={ar() ? "جلسات قادمة" : "Upcoming"} value={scheduled.length} />
+          label={ar() ? "نسبة عدم الحضور" : "No-Show Rate"} value={`${noShowRate}%`} accent="red" />
+        <KpiCard icon={Icons.calendar} label={ar() ? "جلسات قادمة" : "Upcoming"} value={scheduled.length} accent="pink" />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-5">
@@ -1556,10 +1538,10 @@ export default function ClinicDashboard() {
           <>
             {/* Stats */}
             <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4 mb-8">
-              <KpiCard icon={Icons.calendar} label={ar() ? "إجمالي المواعيد" : "Total Sessions"} value={sessions.length} isHighlighted />
-              <KpiCard icon={Icons.calendar} label={ar() ? "مجدولة" : "Scheduled"} value={scheduled.length} iconBg="bg-blue-50" iconText="text-blue-600" iconBorder="border-blue-100" />
-              <KpiCard icon={Icons.calendar} label={ar() ? "مكتملة" : "Completed"} value={completed.length} iconBg="bg-emerald-50" iconText="text-emerald-600" iconBorder="border-emerald-100" />
-              <KpiCard icon={Icons.calendar} label={ar() ? "لم يحضر" : "No Show"} value={noShows.length} iconBg="bg-red-50" iconText="text-red-500" iconBorder="border-red-100" />
+              <KpiCard icon={Icons.calendar} label={ar() ? "إجمالي المواعيد" : "Total Sessions"} value={sessions.length} isHighlighted accent="pink" />
+              <KpiCard icon={Icons.calendar} label={ar() ? "مجدولة" : "Scheduled"} value={scheduled.length} accent="blue" />
+              <KpiCard icon={Icons.calendar} label={ar() ? "مكتملة" : "Completed"} value={completed.length} accent="emerald" />
+              <KpiCard icon={Icons.calendar} label={ar() ? "لم يحضر" : "No Show"} value={noShows.length} accent="red" />
             </div>
             {/* Sessions Grid */}
             <div>

@@ -11,6 +11,8 @@ import { addFinancialEntry, upsertSubscription, getSubscriptions, getFinancialLe
 import { sharedClinics } from "../../lib/clinics";
 import { clinics as treatmentClinics, allTreatments, treatmentCategories } from "../../lib/treatments";
 import { getCategoryIcon } from "../../components/CategoryIcons";
+import { KycQueue, PaymentQueue, BookingRequestsQueue } from "./CsDashboardQueues";
+import { KpiCard } from "../../components/KpiCard";
 import ChatWidget from "../../components/ChatWidget";
 import ShareLinkPage from "../../components/ShareLinkPage";
 import { ReferralActivityWidget, ReferralLeaderboardWidget } from "../../components/ReferralActivityWidget";
@@ -838,44 +840,51 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
           <div className="text-xs text-surface-500 mt-1">{ar() ? "كل المواعيد تم تأكيدها" : "All appointments have been confirmed"}</div>
         </div>
       ) : (data?.items || []).map((b: any) => (
-        <div key={b.id} className="flex items-center gap-4 py-3 border-b border-surface-100 last:border-0">
-          <div className="avatar avatar-sm bg-blue-100 text-blue-700">{(b.customerName || b.userId)?.charAt(0)?.toUpperCase()}</div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium text-surface-800">{b.customerName || b.userId}</div>
-            <div className="text-xs text-surface-400">{b.offerName || (b.isStandalone ? b.standaloneName : null) || b.userOfferId?.slice(0, 25)}</div>
-            <div className="mt-1 flex gap-1.5 flex-wrap">
-              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-600">
-                {ar() ? (b.clinicNameAr || b.clinicId) : (b.clinicNameEn || b.clinicId)}
-              </span>
-              {b.membershipType && b.membershipType !== "none" && (
-                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
-                  {b.membershipType === "cashback" ? "💰 Cashback" : b.membershipType === "free_sessions" ? "🎫 Free" : b.membershipType}
+        <div key={b.id} className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 py-4 border-b border-surface-100 last:border-0">
+          <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
+            <div className="avatar avatar-sm bg-blue-100 text-blue-700 shrink-0">{(b.customerName || b.userId)?.charAt(0)?.toUpperCase()}</div>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-start sm:items-center gap-2">
+                <div className="text-sm font-medium text-surface-800 truncate">{b.customerName || b.userId}</div>
+                <div className="text-[11px] text-surface-400 sm:hidden whitespace-nowrap">{new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
+              <div className="text-xs text-surface-400 truncate">{b.offerName || (b.isStandalone ? b.standaloneName : null) || b.userOfferId?.slice(0, 25)}</div>
+              <div className="mt-1.5 flex gap-1.5 flex-wrap">
+                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-600">
+                  {ar() ? (b.clinicNameAr || b.clinicId) : (b.clinicNameEn || b.clinicId)}
                 </span>
-              )}
-              {parseFloat(b.cashbackDeductedKwd || "0") > 0 && (
-                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
-                  CB: {b.cashbackDeductedKwd} KWD
-                </span>
-              )}
-              {parseFloat(b.clinicTakeKwd || "0") === 0 ? (
-                <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-500">
-                  {ar() ? "لا يوجد دفع" : "No Payment Required"}
-                </span>
-              ) : (
-                <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${b.clinicPaymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                  {b.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع بالعيادة" : "Clinic Paid") : (ar() ? "دفع العيادة معلّق" : "Clinic Payment Pending")}
-                </span>
-              )}
+                {b.membershipType && b.membershipType !== "none" && (
+                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
+                    {b.membershipType === "cashback" ? "💰 Cashback" : b.membershipType === "free_sessions" ? "🎫 Free" : b.membershipType}
+                  </span>
+                )}
+                {parseFloat(b.cashbackDeductedKwd || "0") > 0 && (
+                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-50 text-amber-600">
+                    CB: {b.cashbackDeductedKwd} KWD
+                  </span>
+                )}
+                {parseFloat(b.clinicTakeKwd || "0") === 0 ? (
+                  <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-surface-100 text-surface-500">
+                    {ar() ? "لا يوجد دفع" : "No Payment Required"}
+                  </span>
+                ) : (
+                  <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${b.clinicPaymentStatus === "paid" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                    {b.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع بالعيادة" : "Clinic Paid") : (ar() ? "دفع العيادة معلّق" : "Clinic Payment Pending")}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <div className="text-xs text-surface-400 mr-2">{new Date(b.createdAt).toLocaleTimeString()}</div>
-          <div className="flex items-center gap-2">
-            <button className="text-[11px] font-bold text-brand-pink-600 bg-brand-pink-50 border border-brand-pink-200 hover:bg-brand-pink-100 px-3 py-1.5 rounded-xl transition-colors" onClick={() => onTransfer && onTransfer(b.id, b.clinicId || "")}>
-              {ar() ? "تغيير العيادة" : "Change Clinic"}
-            </button>
-            <button className="bg-surface-100 hover:bg-surface-200 text-surface-700 font-medium px-3 py-1.5 rounded-xl text-xs transition-colors" onClick={() => setSelectedBooking(b)}>
-              {ar() ? "عرض التفاصيل" : "View Details"}
-            </button>
+          <div className="flex items-center justify-between sm:justify-end gap-3 mt-1 sm:mt-0 w-full sm:w-auto">
+            <div className="text-[11px] text-surface-400 hidden sm:block mr-2 whitespace-nowrap">{new Date(b.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+            <div className="flex items-center gap-2 flex-1 sm:flex-none justify-end">
+              <button className="flex-1 sm:flex-none text-[11px] font-bold text-brand-pink-600 bg-brand-pink-50 border border-brand-pink-200 hover:bg-brand-pink-100 px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap" onClick={() => onTransfer && onTransfer(b.id, b.clinicId || "")}>
+                {ar() ? "تغيير العيادة" : "Change Clinic"}
+              </button>
+              <button className="flex-1 sm:flex-none bg-surface-100 hover:bg-surface-200 text-surface-700 font-medium px-3 py-1.5 rounded-xl text-xs transition-colors whitespace-nowrap" onClick={() => setSelectedBooking(b)}>
+                {ar() ? "عرض التفاصيل" : "View Details"}
+              </button>
+            </div>
           </div>
         </div>
       ))}
@@ -3064,39 +3073,39 @@ export default function CsDashboard() {
             {/* ── KPI Summary Row ── */}
             <div className={`grid gap-3 grid-cols-2 sm:gap-4 ${isLegalOrAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
               {isLegalOrAdmin && (
-              <div className="kpi-tile group cursor-pointer border-b-[3px] border-b-amber-400" onClick={() => setActiveNav("kyc")}>
-                <div className="kpi-tile-icon amber">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
-                </div>
-                <div className="kpi-tile-label">{ar() ? "تحققات معلقة" : "Pending KYC"}</div>
-                <div className="kpi-tile-value">{(kycData?.items || []).length}</div>
-                <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />{ar() ? "تتطلب مراجعة" : "needs review"}</div>
-              </div>
+                <KpiCard
+                  accent="amber"
+                  onClick={() => setActiveNav("kyc")}
+                  icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>}
+                  label={ar() ? "تحققات معلقة" : "Pending KYC"}
+                  value={(kycData?.items || []).length}
+                  sub={ar() ? "تتطلب مراجعة" : "needs review"}
+                />
               )}
-              <div className="kpi-tile group cursor-pointer border-b-[3px] border-b-brand-pink-400" onClick={() => setActiveNav("payments")}>
-                <div className="kpi-tile-icon pink">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                </div>
-                <div className="kpi-tile-label">{ar() ? "مدفوعات معلقة" : "Pending Payments"}</div>
-                <div className="kpi-tile-value">{(paymentsData?.items || []).length}</div>
-                <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-brand-pink-500 animate-pulse" />{ar() ? "بانتظار المراجعة" : "awaiting confirm"}</div>
-              </div>
-              <div className="kpi-tile group cursor-pointer border-b-[3px] border-b-blue-400" onClick={() => setActiveNav("scheduling")}>
-                <div className="kpi-tile-icon blue">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                </div>
-                <div className="kpi-tile-label">{ar() ? "طلبات حجز" : "Booking Requests"}</div>
-                <div className="kpi-tile-value">{(bookingRequestsData?.items || []).length}</div>
-                <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />{ar() ? "تنتظر الجدولة" : "to schedule"}</div>
-              </div>
-              <div className="kpi-tile group cursor-pointer border-b-[3px] border-b-rose-400" onClick={() => setActiveNav("complaints")}>
-                <div className="kpi-tile-icon rose">
-                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18 13a3 3 0 11-6 0 3 3 0 016 0zM2 18.5a8.5 8.5 0 0117 0M12 6a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                </div>
-                <div className="kpi-tile-label">{ar() ? "إجمالي الشكاوى" : "Total Complaints"}</div>
-                <div className="kpi-tile-value">{complaintsData?.total || 0}</div>
-                <div className="kpi-tile-sub"><span className="w-1.5 h-1.5 rounded-full bg-rose-500" />{ar() ? "خلال الفترة" : "in period"}</div>
-              </div>
+              <KpiCard
+                accent="pink"
+                onClick={() => setActiveNav("payments")}
+                icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>}
+                label={ar() ? "مدفوعات معلقة" : "Pending Payments"}
+                value={(paymentsData?.items || []).length}
+                sub={ar() ? "بانتظار المراجعة" : "awaiting confirm"}
+              />
+              <KpiCard
+                accent="blue"
+                onClick={() => setActiveNav("scheduling")}
+                icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>}
+                label={ar() ? "طلبات حجز" : "Booking Requests"}
+                value={(bookingRequestsData?.items || []).length}
+                sub={ar() ? "تنتظر الجدولة" : "to schedule"}
+              />
+              <KpiCard
+                accent="rose"
+                onClick={() => setActiveNav("complaints")}
+                icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M18 13a3 3 0 11-6 0 3 3 0 016 0zM2 18.5a8.5 8.5 0 0117 0M12 6a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+                label={ar() ? "إجمالي الشكاوى" : "Total Complaints"}
+                value={complaintsData?.total || 0}
+                sub={ar() ? "خلال الفترة" : "in period"}
+              />
             </div>
 
             {/* ── Action Queues ── */}

@@ -36,6 +36,7 @@ import {
 import { apiFetch, API_BASE_URL } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { UserProfilePanel, UsersManager } from "./AdminDashboard";
+import { KpiCard } from "../../components/KpiCard";
 import { fmtDate } from "../../lib/dateFormat";
 
 const ar = () => i18n.language === "ar";
@@ -181,46 +182,7 @@ function FilterBar({
 // KPI Card
 // ===========================================================================
 
-function KpiCard({ label, value, sub, color, icon }: { label: string; value: string; sub?: string; color: string; icon?: string }) {
-  // Map text-* color to brand accent dot and tinted background
-  const dotCls =
-    color.includes("emerald") || color.includes("teal") ? "bg-emerald-500" :
-    color.includes("pink")    ? "bg-brand-pink-500" :
-    color.includes("amber")   ? "bg-amber-500" :
-    color.includes("indigo")  ? "bg-indigo-500" :
-    color.includes("blue")    ? "bg-blue-500" :
-    color.includes("red")     ? "bg-red-500" :
-    color.includes("rose")    ? "bg-rose-500" :
-    color.includes("violet")  ? "bg-violet-500" :
-                                "bg-brand-pink-500";
-                                
-  const bgTintCls = 
-    color.includes("emerald") || color.includes("teal") ? "bg-emerald-50/50 hover:bg-emerald-50" :
-    color.includes("pink")    ? "bg-brand-pink-50/50 hover:bg-brand-pink-50" :
-    color.includes("amber")   ? "bg-amber-50/50 hover:bg-amber-50" :
-    color.includes("indigo")  ? "bg-indigo-50/50 hover:bg-indigo-50" :
-    color.includes("blue")    ? "bg-blue-50/50 hover:bg-blue-50" :
-    color.includes("red")     ? "bg-red-50/50 hover:bg-red-50" :
-    color.includes("rose")    ? "bg-rose-50/50 hover:bg-rose-50" :
-    color.includes("violet")  ? "bg-violet-50/50 hover:bg-violet-50" :
-                                "bg-surface-50/50 hover:bg-surface-50";
 
-  return (
-    <div className={`relative ${bgTintCls} border border-surface-200/60 rounded-2xl p-5 sm:p-6 transition-all duration-300 hover:shadow-md hover:-translate-y-1 overflow-hidden group`}>
-      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 duration-500">
-        <div className="text-6xl">{icon}</div>
-      </div>
-      <div className="flex items-start justify-between gap-2 relative z-10">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className={`w-1.5 h-6 rounded-full shrink-0 ${dotCls} shadow-sm`} />
-          <span className="text-xs tracking-wider text-surface-600 font-bold uppercase truncate">{label}</span>
-        </div>
-      </div>
-      <div className={`mt-4 text-2xl sm:text-3xl font-black leading-tight break-words ${color} relative z-10`}>{value}</div>
-      {sub && <div className="mt-1.5 text-xs text-surface-500 font-medium relative z-10">{sub}</div>}
-    </div>
-  );
-}
 
 // ===========================================================================
 // HOME / OVERVIEW TAB — KPIs, revenue trend, breakdowns
@@ -266,19 +228,19 @@ function OverviewTab({ period, from, to }: { period: Period; from: string; to: s
       {/* KPIs Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {/* Row 1: Core Financials */}
-        <KpiCard label={ar() ? "الإيرادات المتوقعة (الكل مدفوع)" : "Expected Total Revenue"} value={`${snapshot?.expectedTotalRevenueKwd ?? "0.000"} KWD`} sub={ar() ? "إذا تم دفع جميع الأقساط" : "if all installments are fully paid"} color="text-teal-600" icon="📊" />
-        <KpiCard label={ar() ? "إجمالي الإيرادات (المحصل)" : "Total Revenue (Collected)"} value={`${snapshot?.paidTowardMembershipsKwd ?? "0.000"} KWD`} sub={`${totals?.transactions ?? 0} ${ar() ? "معاملة" : "transactions"}`} color="text-emerald-600" icon="💰" />
-        <KpiCard label={ar() ? "أقساط غير مدفوعة" : "Unpaid Installments"} value={`${snapshot?.unpaidInstallmentsKwd ?? "0.000"} KWD`} sub={ar() ? "مبالغ أقساط لم تُسدد بعد" : "outstanding installment amounts"} color="text-red-600" icon="⏳" />
+        <KpiCard label={ar() ? "الإيرادات المتوقعة (الكل مدفوع)" : "Expected Total Revenue"} value={`${snapshot?.expectedTotalRevenueKwd ?? "0.000"} KWD`} sub={ar() ? "إذا تم دفع جميع الأقساط" : "if all installments are fully paid"} accent="teal" icon="📊" isHighlighted />
+        <KpiCard label={ar() ? "إجمالي الإيرادات (المحصل)" : "Total Revenue (Collected)"} value={`${snapshot?.paidTowardMembershipsKwd ?? "0.000"} KWD`} sub={`${totals?.transactions ?? 0} ${ar() ? "معاملة" : "transactions"}`} accent="emerald" icon="💰" />
+        <KpiCard label={ar() ? "أقساط غير مدفوعة" : "Unpaid Installments"} value={`${snapshot?.unpaidInstallmentsKwd ?? "0.000"} KWD`} sub={ar() ? "مبالغ أقساط لم تُسدد بعد" : "outstanding installment amounts"} accent="red" icon="⏳" />
 
         {/* Row 2: Breakdowns & Pending */}
-        <KpiCard label={ar() ? "إيرادات العضويات" : "Membership Revenue"} value={`${breakdown?.summary?.membershipRevenueKwd ?? "0.000"} KWD`} color="text-brand-pink-600" icon="💳" />
-        <KpiCard label={ar() ? "إيرادات الجلسات" : "Session Revenue"} value={`${breakdown?.summary?.sessionRevenueKwd ?? "0.000"} KWD`} color="text-blue-600" icon="💆‍♀️" />
-        <KpiCard label={ar() ? "مدفوعات معلقة" : "Pending Payments"} value={`${snapshot?.pendingPaymentsKwd ?? "0.000"} KWD`} sub={`${snapshot?.pendingPaymentsCount ?? 0} ${ar() ? "طلب" : "requests"}`} color="text-amber-600" icon="⚠️" />
+        <KpiCard label={ar() ? "إيرادات العضويات" : "Membership Revenue"} value={`${breakdown?.summary?.membershipRevenueKwd ?? "0.000"} KWD`} accent="pink" icon="💳" />
+        <KpiCard label={ar() ? "إيرادات الجلسات" : "Session Revenue"} value={`${breakdown?.summary?.sessionRevenueKwd ?? "0.000"} KWD`} accent="blue" icon="💆‍♀️" />
+        <KpiCard label={ar() ? "مدفوعات معلقة" : "Pending Payments"} value={`${snapshot?.pendingPaymentsKwd ?? "0.000"} KWD`} sub={`${snapshot?.pendingPaymentsCount ?? 0} ${ar() ? "طلب" : "requests"}`} accent="amber" icon="⚠️" />
 
         {/* Row 3: Cashback & Operations */}
-        <KpiCard label={ar() ? "الكاش باك المطبق" : "Cashback Applied"} value={`${cashbackApplied} KWD`} sub={ar() ? "من الإيرادات" : "off revenue"} color="text-amber-500" icon="🎁" />
-        <KpiCard label={ar() ? "التزام الكاش باك" : "Cashback Liability"} value={`${cashbackLiability} KWD`} sub={ar() ? "صافي مستحق" : "net outstanding"} color="text-indigo-600" icon="⚖️" />
-        <KpiCard label={ar() ? "جلسات اليوم / الشهر" : "Sessions Today / Month"} value={`${snapshot?.sessionsToday ?? 0} / ${snapshot?.sessionsThisMonth ?? 0}`} color="text-violet-600" icon="📅" />
+        <KpiCard label={ar() ? "الكاش باك المطبق" : "Cashback Applied"} value={`${cashbackApplied} KWD`} sub={ar() ? "من الإيرادات" : "off revenue"} accent="amber" icon="🎁" />
+        <KpiCard label={ar() ? "التزام الكاش باك" : "Cashback Liability"} value={`${cashbackLiability} KWD`} sub={ar() ? "صافي مستحق" : "net outstanding"} accent="indigo" icon="⚖️" />
+        <KpiCard label={ar() ? "جلسات اليوم / الشهر" : "Sessions Today / Month"} value={`${snapshot?.sessionsToday ?? 0} / ${snapshot?.sessionsThisMonth ?? 0}`} accent="violet" icon="📅" />
       </div>
 
       {/* Revenue Trend Chart */}
@@ -412,10 +374,10 @@ function PaymentsTab({ from, to }: { from: string; to: string }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label={ar() ? "المحصّل" : "Collected"} value={`${summary?.totalCollectedKwd ?? "0.000"} KWD`} color="text-emerald-600" />
-        <KpiCard label={ar() ? "العضويات" : "Memberships"} value={`${summary?.membershipRevenueKwd ?? "0.000"} KWD`} color="text-brand-pink-600" />
-        <KpiCard label={ar() ? "الجلسات" : "Sessions"} value={`${summary?.sessionRevenueKwd ?? "0.000"} KWD`} color="text-indigo-600" />
-        <KpiCard label={ar() ? "كاش باك" : "Cashback"} value={`${summary?.cashbackAppliedKwd ?? "0.000"} KWD`} color="text-amber-600" />
+        <KpiCard label={ar() ? "المحصّل" : "Collected"} value={`${summary?.totalCollectedKwd ?? "0.000"} KWD`} accent="emerald" icon="💰" />
+        <KpiCard label={ar() ? "العضويات" : "Memberships"} value={`${summary?.membershipRevenueKwd ?? "0.000"} KWD`} accent="pink" icon="💳" />
+        <KpiCard label={ar() ? "الجلسات" : "Sessions"} value={`${summary?.sessionRevenueKwd ?? "0.000"} KWD`} accent="indigo" icon="💆‍♀️" />
+        <KpiCard label={ar() ? "كاش باك" : "Cashback"} value={`${summary?.cashbackAppliedKwd ?? "0.000"} KWD`} accent="amber" icon="🎁" />
       </div>
 
       <div className="card-elevated p-5 border border-surface-200 shadow-sm">
@@ -534,10 +496,10 @@ function InstallmentsTab({ from, to }: { from: string; to: string }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label={ar() ? "أقساط مدفوعة" : "Paid Installments"} value={`${summary?.paidKwd ?? "0.000"} KWD`} color="text-emerald-600" />
-        <KpiCard label={ar() ? "أقساط قادمة" : "Upcoming"} value={`${summary?.upcomingKwd ?? "0.000"} KWD`} sub={`${summary?.upcomingCount ?? 0} ${ar() ? "قسط" : "items"}`} color="text-amber-600" />
-        <KpiCard label={ar() ? "أقساط متأخرة" : "Late"} value={`${summary?.lateKwd ?? "0.000"} KWD`} sub={`${summary?.lateCount ?? 0} ${ar() ? "قسط" : "items"}`} color="text-red-600" />
-        <KpiCard label={ar() ? "الإيرادات المتوقعة" : "Forecast Revenue"} value={`${summary?.forecastKwd ?? "0.000"} KWD`} color="text-brand-pink-600" />
+        <KpiCard label={ar() ? "أقساط مدفوعة" : "Paid Installments"} value={`${summary?.paidKwd ?? "0.000"} KWD`} accent="emerald" icon="✅" />
+        <KpiCard label={ar() ? "أقساط قادمة" : "Upcoming"} value={`${summary?.upcomingKwd ?? "0.000"} KWD`} sub={`${summary?.upcomingCount ?? 0} ${ar() ? "قسط" : "items"}`} accent="amber" icon="⏳" />
+        <KpiCard label={ar() ? "أقساط متأخرة" : "Late"} value={`${summary?.lateKwd ?? "0.000"} KWD`} sub={`${summary?.lateCount ?? 0} ${ar() ? "قسط" : "items"}`} accent="red" icon="⚠️" />
+        <KpiCard label={ar() ? "الإيرادات المتوقعة" : "Forecast Revenue"} value={`${summary?.forecastKwd ?? "0.000"} KWD`} accent="pink" icon="📊" />
       </div>
 
       <div className="card-elevated p-5 border border-surface-200 shadow-sm">
@@ -684,10 +646,10 @@ function AnalyticsTab({ from, to }: { from: string; to: string }) {
 
       {/* Top-line analytics KPIs */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label={ar() ? "إجمالي إيرادات العروض" : "Total Offer Revenue"} value={`${fmt(totalOfferRevenue)} KWD`} color="text-emerald-600" icon="📦" />
-        <KpiCard label={ar() ? "إجمالي المبيعات" : "Total Sales"} value={String(totalOfferSales)} color="text-indigo-600" icon="🛒" />
-        <KpiCard label={ar() ? "عدد العروض" : "Active Offers"} value={String((offers?.items ?? []).length)} color="text-blue-600" icon="📋" />
-        <KpiCard label={ar() ? "أفضل عرض" : "Top Offer"} value={topOffer ? `${fmt(parseKwd(topOffer.revenueKwd))} KWD` : "—"} sub={topOffer?.offerName ?? ""} color="text-brand-pink-600" icon="🏆" />
+        <KpiCard label={ar() ? "إجمالي إيرادات العروض" : "Total Offer Revenue"} value={`${fmt(totalOfferRevenue)} KWD`} accent="emerald" icon="📦" />
+        <KpiCard label={ar() ? "إجمالي المبيعات" : "Total Sales"} value={String(totalOfferSales)} accent="indigo" icon="🛒" />
+        <KpiCard label={ar() ? "عدد العروض" : "Active Offers"} value={String((offers?.items ?? []).length)} accent="blue" icon="📋" />
+        <KpiCard label={ar() ? "أفضل عرض" : "Top Offer"} value={topOffer ? `${fmt(parseKwd(topOffer.revenueKwd))} KWD` : "—"} sub={topOffer?.offerName ?? ""} accent="pink" icon="🏆" isHighlighted />
       </div>
 
       {/* Daily Performance Chart — Revenue vs Cashback */}
