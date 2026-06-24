@@ -278,10 +278,10 @@ offersRouter.get("/:offerId", async (req, res, next) => {
     const offer = await getOffer(req.params.offerId);
     if (!offer) return res.status(404).json({ error: "NOT_FOUND" });
 
-    // Only active + public offers are accessible anonymously
+    // Only active, expired, + public offers are accessible anonymously
     const s = (offer as any).status;
     const v = (offer as any).visibility;
-    if (s && s !== "active") return res.status(404).json({ error: "NOT_FOUND" });
+    if (s && s !== "active" && s !== "expired") return res.status(404).json({ error: "NOT_FOUND" });
     if (!s && !(offer as any).active) return res.status(404).json({ error: "NOT_FOUND" });
     if (v && v !== "public" && v !== "hidden_link") return res.status(404).json({ error: "NOT_FOUND" });
 

@@ -33,6 +33,7 @@ type Offer = {
   originalClinicPriceKwd?: string;
   imageUrl?: string;
   featured?: boolean;
+  status?: string;
 };
 type Clinic = { id: string; nameEn: string; nameAr: string; address: string; phone?: string };
 
@@ -214,7 +215,11 @@ export default function OfferDetailPage() {
               )}
             </div>
 
-            {auth ? (
+            {offer.status === "expired" ? (
+              <button disabled className="btn-secondary w-full mt-5 justify-center opacity-70 cursor-not-allowed">
+                {t("Offer Expired", "العرض منتهي")}
+              </button>
+            ) : auth ? (
               auth.role === "customer" ? (
                 <Link
                   to={`/dashboard?offerId=${offer.id}`}
@@ -259,7 +264,11 @@ export default function OfferDetailPage() {
           <div className="text-lg font-black text-brand-pink-600">{offer.subscriptionPriceKwd} <span className="text-xs font-semibold text-surface-400">KWD</span></div>
           <div className="text-[10px] text-surface-500">{offer.type === "A" ? t("Total package", "سعر الباقة") : t("Per visit", "للزيارة")}</div>
         </div>
-        {auth && auth.role === "customer" ? (
+        {offer.status === "expired" ? (
+          <button disabled className="btn-secondary flex-1 max-w-[200px] justify-center opacity-70 cursor-not-allowed">
+            {t("Expired", "منتهي")}
+          </button>
+        ) : auth && auth.role === "customer" ? (
           <Link to={`/dashboard?offerId=${offer.id}`} className="btn-primary flex-1 max-w-[200px] justify-center">
             {t("Get this offer", "احصلي على العرض")}
           </Link>

@@ -19,6 +19,7 @@ export type PublicOffer = {
   tagsAr?: string[];
   perVisitPriceKwd?: string;
   originalClinicPriceKwd?: string;
+  status?: string;
 };
 
 export default function OfferCard({ offer }: { offer: PublicOffer }) {
@@ -46,8 +47,12 @@ export default function OfferCard({ offer }: { offer: PublicOffer }) {
             {getCategoryIcon(offer.category)}
           </div>
         )}
-        {offer.featured && (
-          <span className="absolute top-2 start-2 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-pink-600 shadow-sm">
+        {offer.status === "expired" ? (
+          <span className="absolute top-2 start-2 rounded-full bg-red-500 text-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide shadow-sm z-10">
+            {isAr ? "منتهي" : "Expired"}
+          </span>
+        ) : offer.featured && (
+          <span className="absolute top-2 start-2 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-pink-600 shadow-sm z-10">
             {isAr ? "مميّز" : "Featured"}
           </span>
         )}

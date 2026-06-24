@@ -868,6 +868,15 @@ export function OffersAdminPanel() {
                 >
                   {st === "active" ? (ar() ? "تعطيل" : "Deactivate") : ar() ? "تفعيل" : "Activate"}
                 </button>
+                {st !== "expired" && (
+                  <button
+                    type="button"
+                    className="btn-secondary btn-sm text-xs text-red-600 hover:text-red-700"
+                    onClick={() => patchOffer(o.id, { status: "expired" })}
+                  >
+                    {ar() ? "إنهاء العرض" : "Expired"}
+                  </button>
+                )}
                 <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => patchOffer(o.id, { featured: !o.featured })}>
                   {o.featured ? "Unfeature" : "Feature"}
                 </button>

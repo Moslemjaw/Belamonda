@@ -35,6 +35,7 @@ type Offer = {
   clinicLocked?: boolean;
   requireBranchSelection?: boolean;
   allowENet?: boolean;
+  status?: string;
 };
 
 export default function MembershipPage() {
@@ -266,8 +267,12 @@ export default function MembershipPage() {
                   key={o.id}
                   className={`relative card-elevated overflow-hidden transition-transform hover:-translate-y-1 duration-300 ${isPopular ? "ring-2 ring-brand-pink-500" : ""}`}
                 >
-                  {isPopular && (
-                    <div className="absolute top-0 inset-x-0 bg-brand-pink-500 text-white text-center text-[10px] font-bold uppercase tracking-wider py-1">
+                  {o.status === "expired" ? (
+                    <div className="absolute top-0 inset-x-0 bg-red-500 text-white text-center text-[10px] font-bold uppercase tracking-wider py-1 z-10">
+                      {t("Expired", "منتهي")}
+                    </div>
+                  ) : isPopular && (
+                    <div className="absolute top-0 inset-x-0 bg-brand-pink-500 text-white text-center text-[10px] font-bold uppercase tracking-wider py-1 z-10">
                       ★ {t("Most popular", "الأكثر طلباً")}
                     </div>
                   )}
@@ -360,12 +365,21 @@ export default function MembershipPage() {
                       )}
                     </div>
 
-                    <Link
-                      to={`/memberships/${o.id}`}
-                      className={`btn ${isPopular ? "btn-primary" : "btn-secondary"} w-full mt-6 justify-center`}
-                    >
-                      {t("Choose plan", "اختاري الباقة")}
-                    </Link>
+                    {o.status === "expired" ? (
+                      <Link
+                        to={`/memberships/${o.id}`}
+                        className="btn-secondary w-full mt-6 justify-center opacity-70"
+                      >
+                        {t("View Details (Expired)", "عرض التفاصيل (منتهي)")}
+                      </Link>
+                    ) : (
+                      <Link
+                        to={`/memberships/${o.id}`}
+                        className={`btn ${isPopular ? "btn-primary" : "btn-secondary"} w-full mt-6 justify-center`}
+                      >
+                        {t("Choose plan", "اختاري الباقة")}
+                      </Link>
+                    )}
                   </div>
                 </div>
               );

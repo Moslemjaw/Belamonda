@@ -126,7 +126,7 @@ export async function listOffersPublic(filters: {
 
   // Prefer status-based filter; fall back to active boolean for docs without status.
   const q: mongoose.FilterQuery<typeof OfferModel> = {
-    $or: [{ status: "active" }, { status: { $exists: false }, active: true }],
+    $or: [{ status: { $in: ["active", "expired"] } }, { status: { $exists: false }, active: true }],
     visibility: { $in: ["public", null, undefined] as any },
     ...windowMatch(now)
   };
@@ -219,7 +219,7 @@ export async function listOffersPublic(filters: {
 export async function listFeaturedOffers(limit = 8) {
   const now = new Date();
   const rows = await OfferModel.find({
-    $or: [{ status: "active" }, { status: { $exists: false }, active: true }],
+    $or: [{ status: { $in: ["active", "expired"] } }, { status: { $exists: false }, active: true }],
     featured: true,
     ...windowMatch(now)
   })
@@ -240,7 +240,7 @@ export async function listMembershipOffers(limit = 6) {
     {
       $match: {
         $and: [
-          { $or: [{ status: "active" }, { status: { $exists: false }, active: true }] },
+          { $or: [{ status: { $in: ["active", "expired"] } }, { status: { $exists: false }, active: true }] },
           { visibility: { $in: ["public", null] } },
           ...windowMatch(now).$and,
           {
@@ -268,7 +268,7 @@ export async function listCashbackOffers(limit = 6) {
   const rows = await OfferModel.aggregate([
     {
       $match: {
-        $or: [{ status: "active" }, { status: { $exists: false }, active: true }],
+        $or: [{ status: { $in: ["active", "expired"] } }, { status: { $exists: false }, active: true }],
         visibility: { $in: ["public", null] },
         ...windowMatch(now),
       }
