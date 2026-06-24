@@ -1686,24 +1686,16 @@ export default function CustomerDashboard() {
               { tab: "store", sub: "", label: ar() ? "تصفح العضويات" : "Memberships & Store", icon: CustomerIcons.offers, color: "text-indigo-600", bg: "bg-indigo-50" },
               { tab: "my-purchases", sub: "", label: ar() ? "حجوزاتي" : "Bookings", icon: CustomerIcons.wallet, color: "text-cyan-600", bg: "bg-cyan-50" },
               { tab: "wallet", sub: "", label: ar() ? "المحفظة" : "Wallet", icon: CustomerIcons.card, color: "text-purple-600", bg: "bg-purple-50" },
-              { tab: "subscription", sub: "", label: ar() ? "الاشتراك" : "Subscription", icon: <span className="text-xl leading-none">👑</span>, color: "text-amber-600", bg: "bg-amber-100" },
-              { tab: "profile", sub: "settings", label: ar() ? "إعدادات الحساب" : "Profile Settings", icon: CustomerIcons.profile, color: "text-surface-600", bg: "bg-surface-100" },
-              { tab: "profile", sub: "forms", label: ar() ? "نماذجي الطبية" : "Medical E-Forms", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>, color: "text-emerald-600", bg: "bg-emerald-50" },
-              { tab: "profile", sub: "notifications", label: ar() ? "الإشعارات" : "Notifications", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>, color: "text-amber-600", bg: "bg-amber-50" },
-              { tab: "profile", sub: "share", label: ar() ? "شارك واربح" : "Share & Earn", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>, color: "text-blue-600", bg: "bg-blue-50" },
-              { tab: "profile", sub: "complaints", label: ar() ? "المساعدة والشكاوى" : "Help & Support", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>, color: "text-surface-600", bg: "bg-surface-100" },
+              { tab: "subscription", sub: "", label: ar() ? "الاشتراك" : "Subscription", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.8-6.3 4.8 2.3-7.4-6-4.6h7.6z"/></svg>, color: "text-amber-600", bg: "bg-gradient-to-br from-amber-100 to-amber-50" },
             ].map((item, idx) => {
-              const isActive = activeTab === item.tab && (!item.sub || profileSubTab === item.sub);
+              const isActive = activeTab === item.tab;
               return (
                 <button
                   key={idx}
-                  onClick={() => {
-                    setActiveTab(item.tab);
-                    if (item.sub && item.tab === "profile") setProfileSubTab(item.sub as any);
-                  }}
+                  onClick={() => setActiveTab(item.tab)}
                   className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-2xl transition-all text-left ${isActive ? "bg-surface-50 shadow-sm ring-1 ring-surface-200" : "hover:bg-surface-50"}`}
                 >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.bg} ${item.color} ${!isActive && 'opacity-70 group-hover:opacity-100'}`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.bg} ${item.color}`}>
                     {item.icon}
                   </div>
                   <div className={`flex-1 font-bold ${isActive ? "text-surface-900" : "text-surface-600"}`}>
@@ -1713,6 +1705,41 @@ export default function CustomerDashboard() {
               );
             })}
           </nav>
+
+          {/* Menu Section */}
+          <div className="mt-6">
+            <div className="px-3 mb-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-surface-400">{ar() ? "القائمة" : "Menu"}</span>
+            </div>
+            <nav className="space-y-1">
+              {[
+                { tab: "profile", sub: "settings", label: ar() ? "إعدادات الحساب" : "Profile Settings", icon: CustomerIcons.profile, color: "text-surface-600", bg: "bg-surface-100" },
+                { tab: "profile", sub: "forms", label: ar() ? "نماذجي الطبية" : "Medical E-Forms", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>, color: "text-emerald-600", bg: "bg-emerald-50" },
+                { tab: "profile", sub: "notifications", label: ar() ? "الإشعارات" : "Notifications", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>, color: "text-amber-600", bg: "bg-amber-50" },
+                { tab: "profile", sub: "share", label: ar() ? "شارك واربح" : "Share & Earn", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>, color: "text-blue-600", bg: "bg-blue-50" },
+                { tab: "profile", sub: "complaints", label: ar() ? "المساعدة والشكاوى" : "Help & Support", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>, color: "text-surface-600", bg: "bg-surface-100" },
+              ].map((item, idx) => {
+                const isActive = activeTab === item.tab && profileSubTab === item.sub;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      setActiveTab(item.tab);
+                      if (item.sub && item.tab === "profile") setProfileSubTab(item.sub as any);
+                    }}
+                    className={`w-full flex items-center gap-4 px-3 py-2.5 rounded-2xl transition-all text-left ${isActive ? "bg-surface-50 shadow-sm ring-1 ring-surface-200" : "hover:bg-surface-50"}`}
+                  >
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${item.bg} ${item.color}`}>
+                      {item.icon}
+                    </div>
+                    <div className={`flex-1 font-bold ${isActive ? "text-surface-900" : "text-surface-600"}`}>
+                      {item.label}
+                    </div>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
         </div>
         <div className="mt-auto p-6 border-t border-surface-100">
           <button onClick={logout} className="flex items-center gap-3 text-red-500 font-medium px-4 py-2 hover:bg-red-50 rounded-xl w-full transition-colors">
