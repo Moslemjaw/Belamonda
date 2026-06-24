@@ -2152,13 +2152,33 @@ export default function CustomerDashboard() {
                               </div>
                             )}
 
-                            {o.clinicId && !isPending && (() => {
+                            {/* Clinic section: Select or Change */}
+                            {!o.clinicId && !isPending ? (
+                              <div className="mb-4 space-y-2">
+                                <div className="rounded-xl bg-gradient-to-br from-surface-50 to-white border border-surface-200 p-3">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-2.5 min-w-0">
+                                      <div className="w-8 h-8 rounded-lg bg-brand-pink-50 text-brand-pink-600 flex items-center justify-center shrink-0">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400">{ar() ? "العيادة" : "Clinic"}</div>
+                                        <div className="text-xs font-bold text-red-500 mt-0.5">{ar() ? "لم يتم تحديد عيادة" : "No clinic selected"}</div>
+                                      </div>
+                                    </div>
+                                    <button onClick={() => { setShowChangeClinicModal({ ...o, currentFee: 0 }); setNewClinicSelection(""); }} className="text-[10px] font-bold text-brand-pink-600 bg-brand-pink-50 hover:bg-brand-pink-100 px-2.5 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition-colors">
+                                      {ar() ? "تحديد العيادة" : "Select Clinic"}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : o.clinicId && !isPending && (() => {
                                const clinic = (clinicsPublic?.items || []).find(c => c.id === o.clinicId);
                                const clinicName = ar() ? (o.clinicNameAr || o.clinicNameEn || (clinic as any)?.nameAr || clinic?.nameEn || o.clinicId) : (o.clinicNameEn || o.clinicNameAr || clinic?.nameEn || (clinic as any)?.nameAr || o.clinicId);
                                const sessionPrice = (o.branchSessionPrices || []).find((b: any) => b.clinicId === o.clinicId)?.sessionPriceKwd;
                                const approvedChanges = myClinicChanges.filter(r => r.userOfferId === o.id && r.status === "approved").length;
                                const pendingRequest = myClinicChanges.find(r => r.userOfferId === o.id && r.status === "pending");
-                               const nextFee = approvedChanges === 0 ? 10 : approvedChanges === 1 ? 20 : 30;
+                               const nextFee = o.clinicLocked ? (approvedChanges === 0 ? 10 : approvedChanges === 1 ? 20 : 30) : parseFloat(o.clinicTransferFeeKwd || "0");
                                return (
                                  <div className="mb-4 space-y-2">
                                    <div className="rounded-xl bg-gradient-to-br from-surface-50 to-white border border-surface-200 p-3">
@@ -2174,7 +2194,7 @@ export default function CustomerDashboard() {
                                          </div>
                                        </div>
                                        {!pendingRequest ? (
-                                         <button onClick={() => setShowChangeClinicModal({ ...o, currentFee: nextFee })} className="text-[10px] font-bold text-brand-pink-600 bg-brand-pink-50 hover:bg-brand-pink-100 px-2.5 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition-colors">
+                                         <button onClick={() => { setShowChangeClinicModal({ ...o, currentFee: nextFee }); setNewClinicSelection(o.clinicId || ""); }} className="text-[10px] font-bold text-brand-pink-600 bg-brand-pink-50 hover:bg-brand-pink-100 px-2.5 py-1.5 rounded-lg whitespace-nowrap shrink-0 transition-colors">
                                            {ar() ? `تغيير · ${nextFee} د.ك` : `Change · ${nextFee} KD`}
                                          </button>
                                        ) : (
@@ -4389,11 +4409,23 @@ export default function CustomerDashboard() {
          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
            <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-slide-up relative">
              <button className="absolute top-4 right-4 text-surface-400 hover:text-surface-900" onClick={() => setShowChangeClinicModal(null)}>✕</button>
-             <h3 className="text-xl font-bold text-surface-900 mb-2">{ar() ? "تغيير العيادة" : "Change Clinic"}</h3>
-             <p className="text-sm text-surface-500 mb-6">{ar() ? `تغيير العيادة لهذا العرض يتطلب دفع رسوم إدارية ${showChangeClinicModal.currentFee} د.ك.` : `Changing the clinic for this offer requires a ${showChangeClinicModal.currentFee} KD administrative fee.`}</p>
+             <h3 className="text-xl font-bold text-surface-900 mb-2">{
+                !showChangeClinicModal.clinicId 
+                   ? (ar() ? "تحديد العيادة" : "Select Clinic")
+                   : (ar() ? "تغيير العيادة" : "Change Clinic")
+             }</h3>
+             <p className="text-sm text-surface-500 mb-6">{
+                !showChangeClinicModal.clinicId
+                   ? (ar() ? "يرجى تحديد العيادة التي ترغب في تلقي الجلسات فيها. هذه الخدمة مجانية لأول مرة." : "Please select the clinic where you want to receive your sessions. This is free for the first time.")
+                   : (ar() ? `تغيير العيادة لهذا العرض يتطلب دفع رسوم إدارية ${showChangeClinicModal.currentFee} د.ك.` : `Changing the clinic for this offer requires a ${showChangeClinicModal.currentFee} KD administrative fee.`)
+             }</p>
              
              <div className="mb-6">
-                <label className="text-sm font-bold text-surface-900 block mb-2">{ar() ? "اختر العيادة الجديدة" : "Select New Clinic"}</label>
+                <label className="text-sm font-bold text-surface-900 block mb-2">{
+                   !showChangeClinicModal.clinicId
+                      ? (ar() ? "اختر العيادة" : "Select Clinic")
+                      : (ar() ? "اختر العيادة الجديدة" : "Select New Clinic")
+                }</label>
                 <select className="select-field w-full bg-surface-50" value={newClinicSelection} onChange={e => setNewClinicSelection(e.target.value)}>
                    {(() => {
                       const baseOffer = homeCatalogData?.items?.find((o: any) => o.id === showChangeClinicModal.offerId) || showChangeClinicModal;
@@ -4417,27 +4449,49 @@ export default function CustomerDashboard() {
                      return;
                    }
                    try {
-                     await apiFetch(`/commerce/me/user-offers/${showChangeClinicModal.id}/clinic-change-request`, {
-                       method: "POST",
-                       headers: getAuthHeader(),
-                       body: JSON.stringify({ toClinicId: newClinicSelection }),
-                     });
-                     invalidateCache("/commerce/me/clinic-change-requests");
-                     refetchClinicChanges();
-                     setShowChangeClinicModal(null);
-                     setSysAlert(ar() ? `تم إرسال طلب تغيير العيادة بنجاح. الرسوم: ${showChangeClinicModal.currentFee} د.ك — سيتم مراجعة طلبك من فريق خدمة العملاء.` : `Clinic change request submitted. Fee: ${showChangeClinicModal.currentFee} KD — your request will be reviewed by our CS team.`);
-                     setTimeout(() => setSysAlert(null), 7000);
+                     if (!showChangeClinicModal.clinicId || !showChangeClinicModal.clinicLocked) {
+                       // Initial assignment OR non-locked standard clinic change
+                       await apiFetch(`/commerce/me/user-offers/${showChangeClinicModal.id}/change-clinic`, {
+                         method: "POST",
+                         headers: getAuthHeader(),
+                         body: JSON.stringify({ newClinicId: newClinicSelection, confirmPayTransferFee: true }),
+                       });
+                       refetchMyOffers();
+                       setShowChangeClinicModal(null);
+                       if (!showChangeClinicModal.clinicId) {
+                         setSysAlert(ar() ? `تم تحديد العيادة بنجاح.` : `Clinic assigned successfully.`);
+                       } else {
+                         setSysAlert(ar() ? `تم تغيير العيادة بنجاح. الرسوم المخصومة: ${showChangeClinicModal.currentFee} د.ك` : `Clinic changed successfully. Fee charged: ${showChangeClinicModal.currentFee} KD`);
+                       }
+                       setTimeout(() => setSysAlert(null), 5000);
+                     } else {
+                       // Clinic is locked, must submit a request for CS review
+                       await apiFetch(`/commerce/me/user-offers/${showChangeClinicModal.id}/clinic-change-request`, {
+                         method: "POST",
+                         headers: getAuthHeader(),
+                         body: JSON.stringify({ toClinicId: newClinicSelection }),
+                       });
+                       invalidateCache("/commerce/me/clinic-change-requests");
+                       refetchClinicChanges();
+                       setShowChangeClinicModal(null);
+                       setSysAlert(ar() ? `تم إرسال طلب تغيير العيادة بنجاح. الرسوم: ${showChangeClinicModal.currentFee} د.ك — سيتم مراجعة طلبك من فريق خدمة العملاء.` : `Clinic change request submitted. Fee: ${showChangeClinicModal.currentFee} KD — your request will be reviewed by our CS team.`);
+                       setTimeout(() => setSysAlert(null), 7000);
+                     }
                    } catch (e: any) {
                      const msg = e?.message || "Error";
                      if (msg.includes("ALREADY_PENDING")) {
                        setSysAlert(ar() ? "لديك طلب تغيير عيادة قيد المراجعة بالفعل." : "You already have a pending clinic change request.");
+                     } else if (msg.includes("PAYMENT_FAILED") || msg.includes("INSUFFICIENT_FUNDS")) {
+                       setSysAlert(ar() ? "فشلت عملية الدفع. يرجى التحقق من بطاقتك أو رصيدك." : "Payment failed. Please check your card or balance.");
                      } else {
                        setSysAlert(ar() ? `حدث خطأ: ${msg}` : `Error: ${msg}`);
                      }
                      setTimeout(() => setSysAlert(null), 5000);
                    }
                 }}>
-                   {ar() ? `طلب التغيير (${showChangeClinicModal.currentFee} د.ك)` : `Request Change (${showChangeClinicModal.currentFee} KD)`}
+                   {!showChangeClinicModal.clinicId 
+                      ? (ar() ? "تأكيد" : "Confirm") 
+                      : (ar() ? `طلب التغيير (${showChangeClinicModal.currentFee} د.ك)` : `Request Change (${showChangeClinicModal.currentFee} KD)`)}
                 </button>
              </div>
            </div>

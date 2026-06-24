@@ -232,8 +232,15 @@ commerceRouter.post("/select-offer", authRequired, async (req, res, next) => {
       if (reserved >= offer.enrollmentCap) return res.status(409).json({ error: "ENROLLMENT_CAP_REACHED" });
     }
 
-    const targets = [{ kind: "offer", refId: offer.id }];
-    const pendingForms = await listRequiredFormsForUser(req.auth!.userId, targets, "first_payment");
+    const targets = [{ kind: "offer", refId: String(offer.id) }];
+    const excludeIds = [offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId];
+    const excludeSet = new Set(excludeIds.filter(Boolean).map(String));
+    
+    let pendingForms = await listRequiredFormsForUser(req.auth!.userId, targets, "first_payment");
+    if (excludeSet.size > 0) {
+      pendingForms = pendingForms.filter(f => !excludeSet.has(String(f.id)));
+    }
+    
     if (pendingForms.length) {
       return res.status(409).json({ error: "EFORMS_REQUIRED", forms: pendingForms });
     }
@@ -263,7 +270,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
     );
     const [offers, clinicsForNames] = await Promise.all([
       OfferModel.find({ _id: { $in: offerIds } })
-        .select("name nameAr clinicLocked branchSessionPrices sessionIntervalDays isGroupOffer groupSizeRequired groupRewardType groupRewardValue maxSessions allowExtraPaidSessions extraSessionPriceKwd")
+        .select("name nameAr clinicLocked clinicTransferFeeKwd branchSessionPrices sessionIntervalDays isGroupOffer groupSizeRequired groupRewardType groupRewardValue maxSessions allowExtraPaidSessions extraSessionPriceKwd")
         .lean(),
       ClinicModel.find({ _id: { $in: clinicIdsForLookup } }).select("nameEn nameAr").lean(),
     ]);
@@ -335,6 +342,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
         maxSessions: offer.maxSessions,
         allowExtraPaidSessions: offer.allowExtraPaidSessions || false,
         extraSessionPriceKwd: offer.extraSessionPriceKwd || undefined,
+        clinicTransferFeeKwd: offer.clinicTransferFeeKwd || "0.000",
       };
     });
 
@@ -364,17 +372,18 @@ commerceRouter.post("/me/user-offers/:uoId/change-clinic", authRequired, require
     const offer = await OfferModel.findById(uo.offerId).lean<OfferDoc | null>();
     if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
 
-    // clinicLocked offers require a CS-approved change request, not a direct switch
-    if ((offer as any).clinicLocked === true) {
+    // clinicLocked offers require a CS-approved change request, not a direct switch (unless clinicId is not set yet)
+    if ((offer as any).clinicLocked === true && uo.clinicId) {
       return res.status(403).json({ error: "CLINIC_LOCKED_USE_CHANGE_REQUEST" });
     }
 
     const newOid = resolvePurchaseClinicObjectId(offer, parsed.data.newClinicId);
-    if (String(uo.clinicId) === String(newOid)) {
+    if (uo.clinicId && String(uo.clinicId) === String(newOid)) {
       return res.status(400).json({ error: "SAME_CLINIC" });
     }
 
-    const fee = (offer as { clinicTransferFeeKwd?: string }).clinicTransferFeeKwd ?? "0.000";
+    // If initial clinic selection (clinicId is undefined/null), the fee is free (0.000)
+    const fee = uo.clinicId ? ((offer as { clinicTransferFeeKwd?: string }).clinicTransferFeeKwd ?? "0.000") : "0.000";
     if (transferFeeMils(fee) > 0 && !parsed.data.confirmPayTransferFee) {
       return res.status(402).json({ error: "CLINIC_TRANSFER_FEE_REQUIRED", amountKwd: fee });
     }

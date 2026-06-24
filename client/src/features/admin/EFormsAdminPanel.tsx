@@ -363,6 +363,22 @@ export function EFormsAdminPanel() {
     } catch (e: any) { alert(e.message); }
   };
 
+  const unarchive = async (f: FormItem) => {
+    if (!confirm(ar() ? "استعادة النموذج؟" : "Unarchive this form?")) return;
+    try {
+      await apiFetch(`/eforms/admin/forms/${f.id}/unarchive`, { method: "POST", headers: getAuthHeader() });
+      await refetch();
+    } catch (e: any) { alert(e.message); }
+  };
+
+  const deleteForm = async (f: FormItem) => {
+    if (!confirm(ar() ? "هل أنت متأكد من حذف النموذج وجميع تعبئاته نهائياً؟" : "Are you sure you want to permanently delete this form and all its submissions?")) return;
+    try {
+      await apiFetch(`/eforms/admin/forms/${f.id}/hard-delete`, { method: "DELETE", headers: getAuthHeader() });
+      await refetch();
+    } catch (e: any) { alert(e.message); }
+  };
+
   const downloadPdf = async (s: SubmissionItem) => {
     try {
       const token = (getAuthHeader() as any)?.Authorization?.replace("Bearer ", "");
@@ -618,14 +634,17 @@ export function EFormsAdminPanel() {
                   {f.requireBeforeFirstPayment && <span className="px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-bold">REQ-PAYMENT</span>}
                   {f.archived && <span className="px-2 py-0.5 rounded bg-surface-200 text-surface-600 font-bold">ARCHIVED</span>}
                 </div>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap mt-2">
                   <button type="button" className="btn-primary btn-sm text-xs" onClick={() => startEdit(f)}>{ar() ? "تعديل" : "Edit"}</button>
                   <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => setPreviewForm(f)}>
                     {ar() ? "معاينة" : "Preview"}
                   </button>
-                  {!f.archived && (
+                  {f.archived ? (
+                    <button type="button" className="btn-secondary btn-sm text-xs text-sky-600 border-sky-200 hover:bg-sky-50" onClick={() => unarchive(f)}>{ar() ? "استعادة" : "Unarchive"}</button>
+                  ) : (
                     <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => archive(f)}>{ar() ? "أرشفة" : "Archive"}</button>
                   )}
+                  <button type="button" className="btn-secondary btn-sm text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => deleteForm(f)}>{ar() ? "حذف نهائي" : "Delete"}</button>
                 </div>
               </div>
             ))}

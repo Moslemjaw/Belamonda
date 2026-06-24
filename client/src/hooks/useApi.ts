@@ -169,6 +169,7 @@ export type MyOfferItem = {
   clinicNameEn?: string;
   allowExtraPaidSessions?: boolean;
   extraSessionPriceKwd?: string;
+  clinicTransferFeeKwd?: string;
   priceKwd?: string;
   subscriptionPriceKwd?: string;
   price?: string;

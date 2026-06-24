@@ -572,6 +572,11 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     
     if (overrideClinicId) {
        uo.clinicId = overrideClinicId; // Use selected clinic
+       const dbUo = await UserOfferModel.findById(uo.id);
+       if (dbUo && !dbUo.clinicId) {
+         dbUo.clinicId = new mongoose.Types.ObjectId(overrideClinicId);
+         await dbUo.save();
+       }
     }
 
     // KYC + offer load + e-forms check — all independent, run in parallel

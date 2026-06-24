@@ -109,7 +109,10 @@ export async function listUserOffersByUser(userId: string) {
 
 export async function listPendingPaymentsQueue() {
   await expireStalePendingPayments();
-  const rows = await UserOfferModel.find({ status: "pending_payment" }).sort({ createdAt: 1 }).lean();
+  const rows = await UserOfferModel.find({ 
+    status: "pending_payment",
+    paymentMethod: { $exists: true, $ne: null }
+  }).sort({ createdAt: 1 }).lean();
   return rows.map((r) => serializeUserOffer(r as any));
 }
 

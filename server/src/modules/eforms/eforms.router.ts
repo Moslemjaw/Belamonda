@@ -308,6 +308,27 @@ eformsRouter.delete("/admin/forms/:id", authRequired, requireRole(["admin", "leg
   }
 });
 
+eformsRouter.post("/admin/forms/:id/unarchive", authRequired, requireRole(["admin", "legal", "cs_director"]), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: "NOT_FOUND" });
+    await EFormModel.findByIdAndUpdate(req.params.id, { $set: { archived: false } }).lean();
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+eformsRouter.delete("/admin/forms/:id/hard-delete", authRequired, requireRole(["admin", "legal", "cs_director"]), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: "NOT_FOUND" });
+    await EFormModel.findByIdAndDelete(req.params.id).lean();
+    await EFormSubmissionModel.deleteMany({ formId: new mongoose.Types.ObjectId(req.params.id) }).lean();
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ── Admin: list submissions ──
 eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "legal", "cs_director", "finance"]), async (req, res, next) => {
   try {
