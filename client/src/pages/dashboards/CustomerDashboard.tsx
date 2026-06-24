@@ -1591,25 +1591,19 @@ export default function CustomerDashboard() {
   }
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-surface-50 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] flex flex-col overflow-x-hidden">
+    <div className="min-h-screen min-h-[100dvh] bg-surface-50 pb-[calc(4.25rem+env(safe-area-inset-bottom,0px))] lg:pb-0 flex flex-col lg:flex-row overflow-x-hidden">
       
-      {/* Universal Header */}
-      <header className="bg-white/90 backdrop-blur-md px-4 lg:px-8 pb-3.5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] flex items-center justify-between sticky top-0 z-[50] border-b border-surface-100/80 supports-[backdrop-filter]:bg-white/75 relative">
+      {/* Mobile Header */}
+      <header className="lg:hidden bg-white/90 backdrop-blur-md px-4 pb-3.5 pt-[calc(env(safe-area-inset-top,0px)+1rem)] flex items-center justify-between sticky top-0 z-30 border-b border-surface-100/80 supports-[backdrop-filter]:bg-white/75">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-8 h-8 rounded-full bg-brand-pink-100 flex items-center justify-center text-brand-pink-600 font-bold text-sm shrink-0">
             {displayName.charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0 hidden sm:block">
+          <div className="min-w-0">
             <div className="text-[10px] text-surface-500 leading-tight">{ar() ? "مرحباً،" : "Hello,"}</div>
             <div className="text-sm font-bold text-surface-900 leading-snug truncate">{displayName}</div>
           </div>
         </div>
-        
-        {/* Centered Logo */}
-        <div className="absolute left-1/2 -translate-x-1/2">
-          <BelamondaLogo size={32} />
-        </div>
-
         <div className="flex items-center gap-1 shrink-0">
           <button type="button" onClick={() => i18n.changeLanguage(ar() ? "en" : "ar")} className="w-10 h-10 flex items-center justify-center text-sm font-bold text-brand-pink-600 rounded-lg hover:bg-brand-pink-50">
             {ar() ? "EN" : "ع"}
@@ -1642,8 +1636,8 @@ export default function CustomerDashboard() {
         </div>
       </header>
 
-      {/* Universal KYC Banners */}
-      <div className="px-4 lg:px-8 pt-4 -mb-2 max-w-4xl mx-auto w-full">
+      {/* Mobile KYC Banners (visible only on lg:hidden) */}
+      <div className="lg:hidden px-4 pt-4 -mb-2">
         {kycStatus === "unverified" && (
           <div className="bg-brand-pink-50 border border-brand-pink-200 rounded-xl px-4 py-3 shadow-sm flex flex-col gap-3">
             <div className="flex items-center gap-3">
@@ -1671,8 +1665,131 @@ export default function CustomerDashboard() {
         )}
       </div>
 
+      {/* Desktop Sidebar (Optional, but kept minimal to feel like an app menu) */}
+      <aside className="hidden lg:flex w-64 shrink-0 bg-white border-r border-surface-200 flex-col sticky top-0 h-screen z-30 overflow-y-auto">
+        <div className="p-6 pb-2 border-b border-surface-100 flex items-center">
+          <BelamondaLogo size={40} />
+        </div>
+        <div className="p-6">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-12 h-12 rounded-full bg-brand-pink-100 flex items-center justify-center text-brand-pink-600 font-bold text-lg">
+              {displayName.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div className="text-sm font-bold text-surface-900">{displayName}</div>
+              <div className="text-xs text-surface-500">{ar() ? "عضو" : "Member"}</div>
+            </div>
+          </div>
+          <nav className="space-y-2">
+            {[
+              { key: "overview", label: ar() ? "الرئيسية" : "Home", icon: CustomerIcons.home },
+              { key: "store", label: ar() ? "تصفح العضويات" : "Memberships", icon: CustomerIcons.offers },
+              { key: "my-purchases", label: ar() ? "حجوزاتي" : "Bookings", icon: CustomerIcons.wallet },
+              { key: "wallet", label: ar() ? "المحفظة" : "Wallet", icon: CustomerIcons.card },
+              { key: "subscription", label: ar() ? "الاشتراك" : "Subscription", icon: <span className="text-xl leading-none">👑</span> },
+              { key: "profile", label: ar() ? "حسابي" : "Profile", icon: CustomerIcons.profile },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-colors ${activeTab === tab.key ? "bg-brand-pink-50 text-brand-pink-600" : "text-surface-600 hover:bg-surface-50"}`}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+        <div className="mt-auto p-6 border-t border-surface-100">
+          <button onClick={logout} className="flex items-center gap-3 text-red-500 font-medium px-4 py-2 hover:bg-red-50 rounded-xl w-full transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+            {t("logout")}
+          </button>
+        </div>
+      </aside>
+
       {/* Main App Content — min-w-0 prevents flex overflow; inner max-width keeps lines readable on ultrawide */}
-      <main className="flex-1 min-w-0 w-full max-w-2xl mx-auto sm:max-w-3xl lg:max-w-4xl animate-fade-in relative pt-4">
+      <main className="flex-1 min-w-0 w-full max-w-2xl mx-auto sm:max-w-3xl lg:max-w-none animate-fade-in relative">
+
+        {/* ── Desktop unified hero header ── */}
+        {(() => {
+          const isLight = kycStatus !== "unverified" && kycStatus !== "pending";
+          const titleCls = isLight ? "text-surface-900" : "text-white";
+          const dateCls  = isLight ? "text-surface-500" : "text-white/60";
+          const iconCls  = isLight ? "text-surface-500 group-hover:text-brand-pink-600" : "text-white/70 group-hover:text-white";
+          const langCls  = isLight ? "text-surface-600 hover:text-brand-pink-600 hover:bg-white" : "text-white/70 hover:text-white hover:bg-white/10";
+          const hoverBgCls = isLight ? "hover:bg-white" : "hover:bg-white/10";
+          const avatarCls = isLight ? "bg-brand-pink-100 text-brand-pink-600 hover:bg-brand-pink-200" : "bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30";
+        return (
+        <div className="hidden lg:block relative overflow-hidden">
+          {/* gradient background that spans greeting + any status banner */}
+          <div className={`relative ${kycStatus === "unverified" ? "bg-brand-gradient" : kycStatus === "pending" ? "bg-gradient-to-r from-blue-500 to-blue-400" : "bg-gradient-to-br from-brand-pink-50 via-white to-brand-sage-50"} px-4 sm:px-8 lg:px-10 pt-6 pb-0 border-b border-surface-100`}>
+            {/* subtle bokeh blobs */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className={`absolute -top-12 -right-12 w-64 h-64 rounded-full blur-3xl ${isLight ? "bg-brand-pink-200/40" : "bg-white/10"}`} />
+              <div className={`absolute top-4 right-40 w-32 h-32 rounded-full blur-2xl ${isLight ? "bg-brand-sage-200/40" : "bg-white/5"}`} />
+            </div>
+
+            {/* top strip: greeting + action icons */}
+            <div className="relative z-10 flex items-center justify-between mb-5">
+              <div>
+                <div className={`${dateCls} text-xs font-bold uppercase tracking-widest mb-0.5`}>
+                  {new Date().toLocaleDateString(ar() ? "ar-KW" : "en-KW", { weekday: "long", month: "long", day: "numeric" })}
+                </div>
+                <div className={`text-2xl font-black ${titleCls} leading-tight`}>
+                  {ar() ? "مرحباً" : "Welcome back"}{cardData?.card?.displayName ? `, ${cardData.card.displayName}` : ''} 👋
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => i18n.changeLanguage(ar() ? "en" : "ar")} className={`px-3 py-1.5 rounded-xl text-sm font-bold transition-colors ${langCls}`}>
+                  {ar() ? "EN" : "ع"}
+                </button>
+                <button onClick={() => { setChatConvId(undefined); setActiveTab("chat"); }} className={`relative p-2 rounded-xl transition-colors group ${hoverBgCls}`} title={ar() ? "محادثة مباشرة" : "Live Chat"}>
+                  <svg className={`w-5 h-5 transition-colors ${iconCls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                  {unreadChats > 0 && <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-brand-pink-500 rounded-full flex items-center justify-center text-[9px] text-white font-bold">{unreadChats > 9 ? '9+' : unreadChats}</span>}
+                </button>
+                <button onClick={() => { setActiveTab("profile"); setTimeout(() => { const el = document.getElementById("sec-notifications"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 100); }} className={`relative p-2 rounded-xl transition-colors group ${hoverBgCls}`} title={ar() ? "الإشعارات" : "Notifications"}>
+                  <svg className={`w-5 h-5 transition-colors ${iconCls}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                  {unreadNotifs > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />}
+                </button>
+                <button onClick={() => setActiveTab("profile")} className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all ms-1 ${avatarCls}`}>
+                  {(cardData?.card?.displayName || auth?.userId || '?').charAt(0).toUpperCase()}
+                </button>
+              </div>
+            </div>
+
+            {/* status message row inside the gradient zone */}
+            {(kycStatus === "unverified" || kycStatus === "rejected") && (
+              <div className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-4 mb-0 border border-white/20">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0">
+                    <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                  </div>
+                  <div>
+                    <div className="text-white font-bold text-sm">{ar() ? "استكمال التوثيق مطلوب" : "Action Required: Complete Verification"}</div>
+                    <div className="text-white/75 text-xs mt-0.5">{ar() ? "أكملي التوثيق لتفعيل الدفع وشراء الباقات والكاش باك." : "Complete verification to enable payments, packages, and cashback."}</div>
+                  </div>
+                </div>
+                <button className="shrink-0 w-full sm:w-auto bg-white text-brand-pink-600 font-bold px-5 py-2.5 rounded-xl text-sm shadow-sm hover:scale-[1.02] transition-transform whitespace-nowrap text-center" onClick={() => setActiveTab("profile")}>
+                  {ar() ? "تحديث الآن" : "Update Profile"}
+                </button>
+              </div>
+            )}
+            {kycStatus === "pending" && (
+              <div className="relative z-10 flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-2xl px-5 py-4 mb-0 border border-white/20">
+                <svg className="w-5 h-5 text-white animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                <div>
+                  <div className="text-white font-bold text-sm">{ar() ? "التحقق قيد المراجعة" : "Verification Under Review"}</div>
+                  <div className="text-white/75 text-xs mt-0.5">{ar() ? "يرجى الانتظار لحين اعتماد بياناتك." : "Please wait while management approves your submission."}</div>
+                </div>
+              </div>
+            )}
+
+            {/* curved bottom edge that blends into the page bg */}
+            <div className="h-8 bg-surface-50 rounded-t-[2rem] mt-6 -mb-px" />
+          </div>
+        </div>
+        ); })()}
 
         {/* Content based on tab */}
         <div className="px-3 py-3 sm:p-4 lg:px-8 lg:pb-8 bg-surface-50 min-h-[calc(100dvh-12rem)] lg:min-h-[calc(100vh-200px)]">
@@ -1702,11 +1819,11 @@ export default function CustomerDashboard() {
                 <h2 className="text-3xl lg:text-4xl font-black text-surface-900 mb-2 tracking-tight">{ar() ? "اختاري الخطة المثالية لكِ" : "Find Your Perfect Plan"}</h2>
                 <p className="text-surface-500 text-sm lg:text-base">{ar() ? "باقات شاملة بأسعار حصرية وكاش باك تلقائي على كل جلسة." : "Comprehensive packages with exclusive pricing and automatic cashback on every session."}</p>
               </div>
-              {/* Horizontally scrollable filters on mobile and desktop */}
-              <div className="relative -mx-3 px-3 sm:mx-0 sm:px-0 mt-4">
+              {/* Horizontally scrollable filters on mobile, wrapping on desktop */}
+              <div className="relative -mx-3 px-3 sm:mx-0 sm:px-0">
                 <div
-                  className="flex gap-3 overflow-x-auto overflow-y-hidden no-scrollbar pb-4 snap-x snap-mandatory touch-pan-x overscroll-x-contain"
-                  style={{ WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" }}
+                  className="flex gap-2 overflow-x-auto overflow-y-hidden no-scrollbar pb-2 sm:pb-0 sm:flex-wrap sm:justify-center sm:overflow-visible touch-pan-x overscroll-x-contain"
+                  style={{ WebkitOverflowScrolling: "touch" }}
                 >
                   {activeFilters.map(cf => {
                     const count = cf.slug === "all" ? allOffers.length : allOffers.filter((o: any) => o.category === cf.slug).length;
@@ -1714,15 +1831,10 @@ export default function CustomerDashboard() {
                       <button
                         key={cf.slug}
                         onClick={() => setOfferFilter(cf.slug)}
-                        className={`snap-start shrink-0 w-[7.5rem] rounded-2xl bg-white border ${offerFilter === cf.slug ? "border-brand-pink-500 ring-1 ring-brand-pink-500 shadow-md" : "border-surface-100 shadow-sm"} p-4 flex flex-col items-center text-center gap-2.5 active:scale-95 transition-all`}
+                        className={`snap-start shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${offerFilter === cf.slug ? "bg-brand-pink-500 text-white shadow-md" : "bg-white text-surface-600 border border-surface-200 hover:border-brand-pink-300 hover:text-brand-pink-600"}`}
                       >
-                        <div className={`w-12 h-12 rounded-2xl ${offerFilter === cf.slug ? "bg-brand-pink-500 text-white" : "bg-brand-pink-50 text-brand-pink-600"} grid place-items-center [&_svg]:!w-6 [&_svg]:!h-6 transition-colors`}>
-                          {cf.slug === "all" ? <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg> : getCategoryIcon(cf.slug)}
-                        </div>
-                        <div className={`text-[13px] font-bold ${offerFilter === cf.slug ? "text-brand-pink-600" : "text-surface-800"} leading-tight`}>
-                          {ar() ? cf.nameAr : cf.nameEn}
-                        </div>
-                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${offerFilter === cf.slug ? "bg-brand-pink-100 text-brand-pink-700" : "bg-surface-100 text-surface-500"}`}>{count}</span>
+                        {ar() ? cf.nameAr : cf.nameEn}
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${offerFilter === cf.slug ? "bg-white/25 text-white" : "bg-surface-100 text-surface-500"}`}>{count}</span>
                       </button>
                     );
                   })}
@@ -3849,8 +3961,8 @@ export default function CustomerDashboard() {
         </div>
       </main>
 
-      {/* Universal Bottom Tab Bar */}
-      <nav className="fixed bottom-5 inset-x-4 lg:inset-x-auto lg:left-1/2 lg:-translate-x-1/2 lg:w-full lg:max-w-md bg-white/95 backdrop-blur-xl border border-surface-200/60 rounded-3xl p-1.5 flex justify-between items-center z-[50] shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
+      {/* Mobile Bottom Tab Bar */}
+      <nav className="lg:hidden fixed bottom-5 inset-x-4 bg-white/95 backdrop-blur-xl border border-surface-200/60 rounded-3xl p-1.5 flex justify-between items-center z-40 shadow-[0_12px_40px_rgba(0,0,0,0.08)]">
         {/* Left Side */}
         <div className="flex items-center flex-1 justify-around">
           <button onClick={() => setActiveTab("overview")} className={`flex flex-col items-center gap-1 flex-1 py-1 transition-all duration-200 active:scale-95 ${activeTab === "overview" ? "text-brand-pink-500 font-bold" : "text-surface-400 hover:text-surface-600"}`}>
