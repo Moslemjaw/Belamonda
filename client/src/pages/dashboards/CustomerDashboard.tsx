@@ -1683,7 +1683,7 @@ export default function CustomerDashboard() {
           <nav className="space-y-1">
             {[
               { tab: "overview", sub: "", label: ar() ? "الرئيسية" : "Home", icon: CustomerIcons.home, color: "text-brand-pink-600", bg: "bg-brand-pink-50" },
-              { tab: "store", sub: "", label: ar() ? "تصفح العضويات" : "Memberships & Store", icon: CustomerIcons.offers, color: "text-indigo-600", bg: "bg-indigo-50" },
+              { tab: "store", sub: "", label: ar() ? "تصفح العضويات" : "Memberships", icon: CustomerIcons.offers, color: "text-indigo-600", bg: "bg-indigo-50" },
               { tab: "my-purchases", sub: "", label: ar() ? "حجوزاتي" : "Bookings", icon: CustomerIcons.wallet, color: "text-cyan-600", bg: "bg-cyan-50" },
               { tab: "wallet", sub: "", label: ar() ? "المحفظة" : "Wallet", icon: CustomerIcons.card, color: "text-purple-600", bg: "bg-purple-50" },
               { tab: "subscription", sub: "", label: ar() ? "الاشتراك" : "Subscription", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 2l2.4 7.4h7.6l-6 4.6 2.3 7.4-6.3-4.8-6.3 4.8 2.3-7.4-6-4.6h7.6z"/></svg>, color: "text-amber-600", bg: "bg-gradient-to-br from-amber-100 to-amber-50" },
