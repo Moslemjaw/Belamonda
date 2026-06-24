@@ -1118,6 +1118,45 @@ export default function CustomerDashboard() {
   }> }>(activeTab === "store" || activeTab === "overview" ? "/session-types/offerings" : null, { deps: [activeTab] });
   const standaloneSessions = standaloneOfferingsData?.items || [];
 
+  useEffect(() => {
+    if (urlOfferId) {
+      const offer = homeCatalogData?.items?.find((o: any) => o.id === urlOfferId);
+      if (offer) {
+        // If they already have a pending_payment UserOffer for this, inject it!
+        const existingUo = myOffers?.find(u => u.offerId === offer.id && u.status === 'pending_payment');
+        if (existingUo) {
+          if (offer.isGroupOffer) {
+            // Open group modal instead!
+            setGroupModal({
+              pkg: offer,
+              step: "share",
+              userOfferId: existingUo.id,
+              groupInviteCode: existingUo.groupInviteCode,
+              membersJoined: (existingUo.sharedWith || []).length,
+              membersNeeded: (offer.groupSizeRequired || 2) - 1,
+            });
+          } else {
+             setCheckoutPkg({ ...offer, userOfferId: existingUo.id });
+          }
+        } else {
+          // Normal flow
+          if (offer.isGroupOffer) {
+             setGroupModal({
+               pkg: offer,
+               step: "confirm",
+               membersJoined: 0,
+               membersNeeded: (offer.groupSizeRequired || 2) - 1,
+             });
+          } else {
+             setCheckoutPkg(offer);
+          }
+        }
+        // Clear it from URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [urlOfferId, homeCatalogData, myOffers]);
+
   const dynamicTreatments = standaloneSessions.reduce((acc: any[], s: any) => {
     const priceKwd = parseFloat(s.priceKwd) || 0;
     const cashbackKwd = parseFloat(s.cashbackDeductionKwd) || 0;
@@ -2381,10 +2420,12 @@ export default function CustomerDashboard() {
                                           className="w-full mt-3 bg-brand-pink-600 hover:bg-brand-pink-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md hover:shadow-lg"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            const offerData = (homeCatalogData?.items || []).find((x: any) => x.id === o.offerId);
-                                            const base = { ...(offerData || o), userOfferId: o.id, groupInviteCode: (o as any).groupInviteCode };
+                                            const catalogOffer = (homeCatalogData?.items || []).find((x: any) => x.id === o.offerId);
+                                            // Merge: catalog offer (full data) + myOffer item (has pricing from /me/offers enrichment)
+                                            // IMPORTANT: id must be the OFFER id (for checkout API), userOfferId is the UserOffer id
+                                            const base = { ...(catalogOffer || {}), ...o, id: o.offerId, userOfferId: o.id, groupInviteCode: (o as any).groupInviteCode };
                                             // Split the price by group size
-                                            const groupSize = (o as any).groupSizeRequired || 2;
+                                            const groupSize = (base as any).groupSizeRequired || 2;
                                             const fullPrice = parseFloat((base as any).subscriptionPriceKwd || (base as any).price || "0");
                                             const splitPrice = (fullPrice / groupSize).toFixed(3);
                                             (base as any).subscriptionPriceKwd = splitPrice;
