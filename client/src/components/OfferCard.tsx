@@ -34,7 +34,7 @@ export default function OfferCard({ offer }: { offer: PublicOffer }) {
       to={`/memberships/${offer.id}`}
       className="group card-elevated p-0 overflow-hidden flex flex-col hover:shadow-xl transition-all"
     >
-      <div className="relative h-32 bg-gradient-to-br from-brand-pink-100 via-brand-pink-50 to-brand-sage-100 flex items-center justify-center">
+      <div className="relative h-48 bg-gradient-to-br from-brand-pink-100 via-brand-pink-50 to-brand-sage-100 flex items-center justify-center">
         {offer.imageUrl ? (
           <img
             src={offer.imageUrl}

@@ -839,7 +839,7 @@ function OffersManager() {
 
                 return (
                   <div key={o.id || o._id} className={`card-elevated p-0 overflow-hidden ${!o.active ? 'opacity-60 grayscale' : ''}`}>
-                    {o.imageUrl && <div className="h-32 w-full relative"><img src={o.imageUrl} className="w-full h-full object-cover" alt="" /><div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" /></div>}
+                    {o.imageUrl && <div className="h-48 w-full relative"><img src={o.imageUrl} className="w-full h-full object-cover" alt="" /><div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" /></div>}
                     <div className="p-5">
                       {/* Sort order controls */}
                       <div className="flex items-center justify-between mb-2">
