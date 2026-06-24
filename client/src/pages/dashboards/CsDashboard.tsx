@@ -221,6 +221,22 @@ export function PaymentQueue() {
     finally { setProcessing(null); }
   };
 
+  const rejectPayment = async (uo: any, reason: string) => {
+    setProcessing(uo.id);
+    try {
+      await apiFetch("/payments/cs/reject", {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({
+          userOfferId: uo.id,
+          reason
+        })
+      });
+      refetch();
+    } catch (e: any) { alert(e.message); }
+    finally { setProcessing(null); }
+  };
+
   const printReceipt = (p: any) => {
     const isAr = ar();
     const logoSvg = `<svg width="52" height="52" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M40 10C40 10 25 25 25 40C25 48 32 55 40 55C48 55 55 48 55 40C55 25 40 10 40 10Z" fill="#F59AB9" opacity="0.9"/><path d="M20 25C20 25 15 38 20 48C24 56 32 55 40 55C32 55 18 50 20 25Z" fill="#F59AB9" opacity="0.6"/><path d="M60 25C60 25 65 38 60 48C56 56 48 55 40 55C48 55 62 50 60 25Z" fill="#F59AB9" opacity="0.6"/><path d="M12 35C12 35 12 45 20 52C26 57 34 55 40 55C30 55 15 52 12 35Z" fill="#F59AB9" opacity="0.35"/><path d="M68 35C68 35 68 45 60 52C54 57 46 55 40 55C50 55 65 52 68 35Z" fill="#F59AB9" opacity="0.35"/><path d="M10 58C10 58 18 52 28 56C28 56 18 60 10 58Z" fill="#C7CAAB" opacity="0.7"/><path d="M70 58C70 58 62 52 52 56C52 56 62 60 70 58Z" fill="#C7CAAB" opacity="0.7"/><circle cx="40" cy="35" r="8" fill="white" opacity="0.25"/></svg>`;
@@ -741,7 +757,6 @@ function PaymentsManager() {
         </div>
       )}
       </div>
-      </div>
     </div>
   );
 }
@@ -864,6 +879,7 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
           </div>
         </div>
       ))}
+      </div>
 
       {/* Booking Details Modal */}
       {selectedBooking && createPortal(
