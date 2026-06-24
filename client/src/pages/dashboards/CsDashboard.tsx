@@ -52,8 +52,8 @@ export function KycQueue() {
     return ar() ? `${Math.floor(hrs / 24)} ي` : `${Math.floor(hrs / 24)}d`;
   };
   return (
-    <div className="card-elevated p-5">
-      <div className="editorial-header justify-between">
+    <div className="card-elevated p-5 flex flex-col h-[400px]">
+      <div className="editorial-header justify-between shrink-0 mb-4">
         <div className="flex items-center gap-3">
           <span className="accent" />
           <div>
@@ -77,7 +77,7 @@ export function KycQueue() {
           <div className="text-xs text-surface-500 mt-1">{ar() ? "لا توجد تحققات معلقة حالياً" : "No pending verifications"}</div>
         </div>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-4 overflow-y-auto flex-1 pr-2">
           {items.map((k: any) => {
             const ageMins = (Date.now() - new Date(k.createdAt).getTime()) / 60000;
             const priority = ageMins > 240 ? "red" : ageMins > 60 ? "yellow" : "green";
@@ -275,8 +275,8 @@ export function PaymentQueue() {
 
   const totalPending = items.reduce((sum: number, p: any) => sum + parseFloat(p.amount || p.paymentAmountKwd || "0"), 0);
   return (
-    <div className="card-elevated p-5">
-      <div className="editorial-header justify-between">
+    <div className="card-elevated p-5 flex flex-col h-[400px]">
+      <div className="editorial-header justify-between shrink-0 mb-4">
         <div className="flex items-center gap-3">
           <span className="accent" />
           <div>
@@ -297,7 +297,7 @@ export function PaymentQueue() {
           <div className="text-xs text-surface-500 mt-1">{ar() ? "كل المدفوعات تم تأكيدها" : "All payments have been confirmed"}</div>
         </div>
       ) : (
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 overflow-y-auto flex-1 pr-2">
           {items.map((p: any) => {
             const modeColors = p.purchaseMode === "installments"
               ? "bg-blue-50 text-blue-700 border-blue-200"
@@ -815,8 +815,8 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
   };
 
   return (
-    <div className="card-elevated p-5 relative flex flex-col max-h-[600px]">
-      <div className="editorial-header justify-between mb-4 shrink-0">
+    <div className="card-elevated p-5 relative flex flex-col h-[400px]">
+      <div className="editorial-header justify-between shrink-0 mb-4">
         <div className="flex items-center gap-3">
           <span className="accent" />
           <div>
