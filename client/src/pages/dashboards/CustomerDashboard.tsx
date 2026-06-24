@@ -1118,6 +1118,7 @@ export default function CustomerDashboard() {
   }> }>(activeTab === "store" || activeTab === "overview" ? "/session-types/offerings" : null, { deps: [activeTab] });
   const standaloneSessions = standaloneOfferingsData?.items || [];
 
+  const urlOfferId = new URLSearchParams(window.location.search).get('offerId');
   useEffect(() => {
     if (urlOfferId) {
       const offer = homeCatalogData?.items?.find((o: any) => o.id === urlOfferId);
