@@ -154,7 +154,9 @@ async function assertNotAlreadyEnrolled(userId: string, offerId: string, exclude
     query._id = { $ne: new mongoose.Types.ObjectId(excludeUserOfferId) };
   }
   const existing = await UserOfferModel.countDocuments(query);
-  if (existing > 0) throw httpErr(409, "ALREADY_ENROLLED");
+  if (existing > 0) {
+    throw httpErr(409, `ALREADY_ENROLLED|uid:${userId}|oid:${offerId}|excl:${excludeUserOfferId || 'none'}`);
+  }
 }
 
 /** Enforce per-offer global enrollmentCap when configured. */
