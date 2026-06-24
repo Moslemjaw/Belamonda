@@ -127,38 +127,39 @@ function AdminCustomerCard({ userId }: { userId: string }) {
 }
 
 function KpiCard({ label, value, sub, icon, isHighlighted, trend, accent = "pink" }: { label: string; value: string | number; sub?: string; icon: React.ReactNode; isHighlighted?: boolean; trend?: string; accent?: "pink" | "teal" | "amber" | "blue" | "violet" | "emerald" | "rose" | "red" | "indigo" }) {
-  const accentMap: Record<string, { iconBg: string; iconText: string; blob: string }> = {
-    pink:    { iconBg: "bg-brand-pink-100",  iconText: "text-brand-pink-600",  blob: "bg-brand-pink-50/60" },
-    teal:    { iconBg: "bg-brand-sage-100",  iconText: "text-brand-sage-700",  blob: "bg-brand-sage-50/60" },
-    amber:   { iconBg: "bg-amber-100",       iconText: "text-amber-600",       blob: "bg-amber-50/60" },
-    blue:    { iconBg: "bg-blue-100",        iconText: "text-blue-600",        blob: "bg-blue-50/60" },
-    violet:  { iconBg: "bg-violet-100",      iconText: "text-violet-600",      blob: "bg-violet-50/60" },
-    emerald: { iconBg: "bg-emerald-100",     iconText: "text-emerald-600",     blob: "bg-emerald-50/60" },
-    rose:    { iconBg: "bg-rose-100",        iconText: "text-rose-600",        blob: "bg-rose-50/60" },
-    red:     { iconBg: "bg-red-100",         iconText: "text-red-600",         blob: "bg-red-50/60" },
-    indigo:  { iconBg: "bg-indigo-100",      iconText: "text-indigo-600",      blob: "bg-indigo-50/60" },
+  const accentMap: Record<string, { iconBg: string; iconText: string; border: string }> = {
+    pink:    { iconBg: "bg-brand-pink-50",  iconText: "text-brand-pink-600",  border: "border-b-brand-pink-400" },
+    teal:    { iconBg: "bg-brand-sage-50",  iconText: "text-brand-sage-700",  border: "border-b-brand-sage-400" },
+    amber:   { iconBg: "bg-amber-50",       iconText: "text-amber-600",       border: "border-b-amber-400" },
+    blue:    { iconBg: "bg-blue-50",        iconText: "text-blue-600",        border: "border-b-blue-400" },
+    violet:  { iconBg: "bg-violet-50",      iconText: "text-violet-600",      border: "border-b-violet-400" },
+    emerald: { iconBg: "bg-emerald-50",     iconText: "text-emerald-600",     border: "border-b-emerald-400" },
+    rose:    { iconBg: "bg-rose-50",        iconText: "text-rose-600",        border: "border-b-rose-400" },
+    red:     { iconBg: "bg-red-50",         iconText: "text-red-600",         border: "border-b-red-400" },
+    indigo:  { iconBg: "bg-indigo-50",      iconText: "text-indigo-600",      border: "border-b-indigo-400" },
   };
 
   const a = accentMap[accent] || accentMap.pink;
 
   return (
-    <div className={`relative p-5 rounded-2xl border ${isHighlighted ? 'bg-gradient-to-br from-brand-pink-500 to-brand-pink-600 border-brand-pink-500 text-white shadow-xl shadow-brand-pink-500/20' : 'bg-white border-surface-200'} group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5`}>
-      <div className={`absolute top-0 right-0 w-32 h-32 rounded-bl-[100px] -z-10 transition-transform duration-500 group-hover:scale-110 ${isHighlighted ? 'bg-white/10' : a.blob}`} />
-      <div className="flex justify-between items-start mb-6">
-        <div className={`flex h-14 w-14 items-center justify-center rounded-2xl shadow-sm ${isHighlighted ? 'bg-white/20 text-white backdrop-blur-md' : `${a.iconBg} ${a.iconText}`}`}>
+    <div className={`relative p-4 rounded-2xl border-b-[3px] border border-surface-200 ${isHighlighted ? 'bg-gradient-to-br from-brand-pink-500 to-brand-pink-600 border-brand-pink-500 border-b-brand-pink-300 text-white shadow-xl shadow-brand-pink-500/20' : `bg-white ${a.border}`} group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5`}>
+      <div className="flex items-center gap-3.5">
+        <div className={`flex h-11 w-11 items-center justify-center rounded-xl shrink-0 ${isHighlighted ? 'bg-white/20 text-white backdrop-blur-md' : `${a.iconBg} ${a.iconText}`}`}>
           {icon}
         </div>
-        {trend && (
-          <div className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1.5 rounded-lg ${isHighlighted ? 'bg-white/20 text-white' : 'text-emerald-600 bg-emerald-50'}`}>
-             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-             {trend}
+        <div className="flex-1 min-w-0">
+          <div className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isHighlighted ? 'text-brand-pink-100' : 'text-surface-400'}`}>{label}</div>
+          <div className="flex items-baseline gap-2">
+            <div className={`text-2xl font-black leading-none ${isHighlighted ? 'text-white' : 'text-surface-900'}`}>{value}</div>
+            {trend && (
+              <div className={`flex items-center gap-0.5 text-[10px] font-bold ${isHighlighted ? 'text-brand-pink-200' : 'text-emerald-600'}`}>
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                {trend}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <div>
-        <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${isHighlighted ? 'text-brand-pink-100' : 'text-surface-500'}`}>{label}</div>
-        <div className={`text-4xl font-black ${isHighlighted ? 'text-white' : 'text-surface-900'}`}>{value}</div>
-        {sub && <div className={`text-sm font-medium mt-1 ${isHighlighted ? 'text-brand-pink-200' : 'text-surface-400'}`}>{sub}</div>}
+          {sub && <div className={`text-[11px] font-medium mt-0.5 ${isHighlighted ? 'text-brand-pink-200' : 'text-surface-400'}`}>{sub}</div>}
+        </div>
       </div>
     </div>
   );
@@ -4734,29 +4735,38 @@ export default function AdminDashboard() {
             </div>
 
             {/* ── Financial Snapshot ── */}
-            <div>
-              <h3 className="text-base font-bold text-surface-900 mb-4 mt-6">{ar() ? "النظرة المالية" : "Financial Snapshot"}</h3>
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3 xl:grid-cols-6">
+            <div className="card-elevated bg-white rounded-2xl border border-surface-200 overflow-hidden">
+              <div className="px-5 py-3.5 bg-gradient-to-r from-surface-50 to-white border-b border-surface-100 flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-surface-100 flex items-center justify-center text-surface-500">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                </div>
+                <h3 className="text-sm font-bold text-surface-900">{ar() ? "النظرة المالية" : "Financial Snapshot"}</h3>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 divide-x divide-surface-100">
                 {[
-                  { label: ar() ? "الإيرادات" : "Revenue", value: fs?.totalRevenue || "0.000", color: "text-surface-900", border: "border-l-surface-400" },
-                  { label: ar() ? "معلقة" : "Pending", value: fs?.pendingPaymentsKwd || "0.000", color: "text-blue-600", border: "border-l-blue-400" },
-                  { label: ar() ? "كاش باك مقفل" : "CB Locked", value: fs?.totalCashbackLocked || "0.000", color: "text-amber-600", border: "border-l-amber-400" },
-                  { label: ar() ? "كاش باك متاح" : "CB Unlocked", value: fs?.totalCashbackUnlocked || "0.000", color: "text-brand-pink-600", border: "border-l-brand-pink-400" },
-                  { label: ar() ? "كاش باك مُستخدم" : "CB Utilized", value: fs?.totalCashbackUtilized || "0.000", color: "text-emerald-600", border: "border-l-emerald-400" },
-                  { label: ar() ? "جلسات اليوم" : "Sessions Today", value: fs?.sessionsToday ?? 0, color: "text-violet-600", border: "border-l-violet-400" },
-                ].map(({ label, value, color, border }) => (
-                  <div key={label} className={`card-elevated bg-white p-4 border-l-4 ${border} flex flex-col gap-1`}>
-                    <div className="text-xs font-bold text-surface-500 uppercase tracking-wide">{label}</div>
-                    <div className={`text-2xl font-black ${color}`}>{value}</div>
+                  { label: ar() ? "الإيرادات" : "Revenue", value: fs?.totalRevenue || "0.000", color: "text-surface-900" },
+                  { label: ar() ? "معلقة" : "Pending", value: fs?.pendingPaymentsKwd || "0.000", color: "text-blue-600" },
+                  { label: ar() ? "كاش باك مقفل" : "CB Locked", value: fs?.totalCashbackLocked || "0.000", color: "text-amber-600" },
+                  { label: ar() ? "كاش باك متاح" : "CB Unlocked", value: fs?.totalCashbackUnlocked || "0.000", color: "text-brand-pink-600" },
+                  { label: ar() ? "كاش باك مُستخدم" : "CB Utilized", value: fs?.totalCashbackUtilized || "0.000", color: "text-emerald-600" },
+                  { label: ar() ? "جلسات اليوم" : "Sessions Today", value: fs?.sessionsToday ?? 0, color: "text-violet-600" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} className="px-4 py-4 flex flex-col items-center text-center">
+                    <div className="text-[10px] font-bold text-surface-400 uppercase tracking-wider mb-1">{label}</div>
+                    <div className={`text-xl font-black ${color}`}>{value}</div>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* ── Needs Attention ── */}
-            {/* ── Needs Attention ── */}
             <div>
-              <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "يحتاج إلى اهتمام" : "Needs Attention"}</h3>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center text-rose-500">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.832c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" /></svg>
+                </div>
+                <h3 className="text-base font-bold text-surface-900">{ar() ? "يحتاج إلى اهتمام" : "Needs Attention"}</h3>
+              </div>
               <div className="grid gap-6 lg:grid-cols-3 items-start">
                 <KycQueue />
                 <PaymentQueue />
@@ -4766,25 +4776,30 @@ export default function AdminDashboard() {
 
             {/* ── Quick Navigation ── */}
             <div>
-              <h3 className="text-base font-bold text-surface-900 mb-4">{ar() ? "اختصارات التنقل" : "Quick Navigation"}</h3>
-              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-500">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
+                </div>
+                <h3 className="text-base font-bold text-surface-900">{ar() ? "اختصارات التنقل" : "Quick Navigation"}</h3>
+              </div>
+              <div className="grid gap-2.5 grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-9">
                 {([
-                  { key: "offers",     icon: Icons.offers,    label: ar() ? "العضويات"  : "Memberships",  color: "text-brand-pink-600 bg-brand-pink-50 hover:bg-brand-pink-100" },
-                  { key: "promotions", icon: Icons.offers,    label: ar() ? "عروض الشركات" : "Promotions",   color: "text-rose-600 bg-rose-50 hover:bg-rose-100" },
-                  { key: "users",      icon: Icons.users,     label: ar() ? "المستخدمون" : "Users",         color: "text-blue-600 bg-blue-50 hover:bg-blue-100" },
-                  { key: "clinics",    icon: Icons.clinic,    label: ar() ? "العيادات"   : "Clinics",       color: "text-emerald-600 bg-emerald-50 hover:bg-emerald-100" },
-                  { key: "complaints", icon: Icons.complaint, label: ar() ? "الشكاوى"    : "Complaints",    color: "text-rose-600 bg-rose-50 hover:bg-rose-100" },
-                  { key: "bookings",   icon: Icons.calendar,  label: ar() ? "الحجوزات"   : "Bookings",      color: "text-violet-600 bg-violet-50 hover:bg-violet-100" },
-                  { key: "eforms",     icon: Icons.report,    label: ar() ? "النماذج"    : "E-Forms",       color: "text-amber-600 bg-amber-50 hover:bg-amber-100" },
-                  { key: "notices",    icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>, label: ar() ? "إشعارات" : "Notices", color: "text-teal-600 bg-teal-50 hover:bg-teal-100" },
-                  { key: "audit",      icon: Icons.clipboard, label: ar() ? "التدقيق"   : "Audit Logs",    color: "text-surface-600 bg-surface-100 hover:bg-surface-200" },
+                  { key: "offers",     icon: Icons.offers,    label: ar() ? "العضويات"  : "Memberships",  color: "text-brand-pink-600 bg-brand-pink-50 hover:bg-brand-pink-100 border-brand-pink-100" },
+                  { key: "promotions", icon: Icons.offers,    label: ar() ? "عروض الشركات" : "Promotions",   color: "text-rose-600 bg-rose-50 hover:bg-rose-100 border-rose-100" },
+                  { key: "users",      icon: Icons.users,     label: ar() ? "المستخدمون" : "Users",         color: "text-blue-600 bg-blue-50 hover:bg-blue-100 border-blue-100" },
+                  { key: "clinics",    icon: Icons.clinic,    label: ar() ? "العيادات"   : "Clinics",       color: "text-emerald-600 bg-emerald-50 hover:bg-emerald-100 border-emerald-100" },
+                  { key: "complaints", icon: Icons.complaint, label: ar() ? "الشكاوى"    : "Complaints",    color: "text-rose-600 bg-rose-50 hover:bg-rose-100 border-rose-100" },
+                  { key: "bookings",   icon: Icons.calendar,  label: ar() ? "الحجوزات"   : "Bookings",      color: "text-violet-600 bg-violet-50 hover:bg-violet-100 border-violet-100" },
+                  { key: "eforms",     icon: Icons.report,    label: ar() ? "النماذج"    : "E-Forms",       color: "text-amber-600 bg-amber-50 hover:bg-amber-100 border-amber-100" },
+                  { key: "notices",    icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>, label: ar() ? "إشعارات" : "Notices", color: "text-teal-600 bg-teal-50 hover:bg-teal-100 border-teal-100" },
+                  { key: "audit",      icon: Icons.clipboard, label: ar() ? "التدقيق"   : "Audit Logs",    color: "text-surface-600 bg-surface-50 hover:bg-surface-100 border-surface-200" },
                 ] as Array<{ key: string; icon: React.ReactNode; label: string; color: string }>).map(({ key, icon, label, color }) => (
                   <button
                     key={key}
                     onClick={() => setActiveNav(key)}
-                    className={`flex flex-col items-center gap-2 p-4 rounded-xl border border-transparent transition-all duration-150 font-semibold text-xs ${color}`}
+                    className={`flex flex-col items-center gap-2 p-3.5 rounded-xl border transition-all duration-200 font-semibold text-xs hover:shadow-md hover:-translate-y-0.5 ${color}`}
                   >
-                    <span className="h-6 w-6">{icon}</span>
+                    <span className="h-5 w-5">{icon}</span>
                     {label}
                   </button>
                 ))}
@@ -4792,26 +4807,37 @@ export default function AdminDashboard() {
             </div>
 
             {/* ── Recent Activity (Audit Log) ── */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-surface-900">{ar() ? "النشاط الأخير" : "Recent Activity"}</h3>
-                <button onClick={() => setActiveNav("audit")} className="text-xs font-bold text-brand-pink-600 hover:text-brand-pink-800">
-                  {ar() ? "عرض الكل ←" : "View all →"}
+            <div className="card-elevated bg-white rounded-2xl border border-surface-200 overflow-hidden">
+              <div className="px-5 py-3.5 bg-gradient-to-r from-surface-50 to-white border-b border-surface-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-surface-100 flex items-center justify-center text-surface-500">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  </div>
+                  <h3 className="text-sm font-bold text-surface-900">{ar() ? "النشاط الأخير" : "Recent Activity"}</h3>
+                </div>
+                <button onClick={() => setActiveNav("audit")} className="text-xs font-bold text-brand-pink-600 hover:text-brand-pink-800 flex items-center gap-1 transition-colors">
+                  {ar() ? "عرض الكل" : "View all"}
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
               </div>
-              <div className="card-elevated bg-white rounded-xl overflow-hidden divide-y divide-surface-100">
+              <div className="divide-y divide-surface-100">
                 {(recentAuditData?.items || []).length === 0 && (
-                  <div className="py-8 text-center text-sm text-surface-400">{ar() ? "لا توجد أنشطة مسجلة بعد." : "No activity recorded yet."}</div>
+                  <div className="py-10 text-center">
+                    <div className="w-10 h-10 mx-auto rounded-xl bg-surface-100 flex items-center justify-center text-surface-400 mb-2">
+                      <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    </div>
+                    <div className="text-sm text-surface-400">{ar() ? "لا توجد أنشطة مسجلة بعد." : "No activity recorded yet."}</div>
+                  </div>
                 )}
                 {(recentAuditData?.items || []).map((log: any) => (
-                  <div key={log.id} className="px-5 py-3.5 flex items-center gap-4">
+                  <div key={log.id} className="px-5 py-3 flex items-center gap-3.5 hover:bg-surface-50/50 transition-colors">
                     <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-[10px] font-black uppercase ${AUDIT_ROLE_COLORS[log.actorRole] ?? "bg-surface-100 text-surface-500"}`}>
                       {log.actorRole?.slice(0, 2)}
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-surface-900">{ACTION_LABELS[log.actionType] ?? log.actionType.replace(/_/g, " ")}</span>
-                        <span className="text-[10px] text-surface-400">{log.targetEntityType}</span>
+                        <span className="text-[10px] text-surface-400 bg-surface-50 px-1.5 py-0.5 rounded font-medium">{log.targetEntityType}</span>
                       </div>
                       {log.metadata?.username && <div className="text-[10px] text-surface-500 mt-0.5">@{log.metadata.username}</div>}
                     </div>
