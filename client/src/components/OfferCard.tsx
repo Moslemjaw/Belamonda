@@ -34,7 +34,7 @@ export default function OfferCard({ offer }: { offer: PublicOffer }) {
       to={`/memberships/${offer.id}`}
       className="group card-elevated p-0 overflow-hidden flex flex-col hover:shadow-xl transition-all"
     >
-      <div className="relative h-48 bg-gradient-to-br from-brand-pink-100 via-brand-pink-50 to-brand-sage-100 flex items-center justify-center">
+      <div className="relative h-64 bg-gradient-to-br from-brand-pink-100 via-brand-pink-50 to-brand-sage-100 flex items-center justify-center">
         {offer.imageUrl ? (
           <img
             src={offer.imageUrl}
@@ -60,7 +60,7 @@ export default function OfferCard({ offer }: { offer: PublicOffer }) {
           {offer.type === "A" ? (isAr ? "اشتراك" : "Subscription") : (isAr ? "بزيارة" : "Per visit")}
         </span>
       </div>
-      <div className="p-4 flex flex-col gap-2 flex-1">
+      <div className="p-3 flex flex-col gap-1.5 flex-1">
         <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-brand-pink-500">
           <span className="[&_svg]:!w-3.5 [&_svg]:!h-3.5">{getCategoryIcon(offer.category)}</span>
           <span>{offer.category}</span>
