@@ -5,9 +5,7 @@ import { apiFetch } from "../lib/api";
 import PublicLayout from "../components/PublicLayout";
 import { getCategoryIcon } from "../components/CategoryIcons";
 import { useAuth } from "../app/AuthContext";
-import CheckoutModal from "../components/CheckoutModal";
 
-type Offer = {
   id: string;
   name: string;
   nameAr?: string;
@@ -48,7 +46,6 @@ export default function OfferDetailPage() {
   const [clinic, setClinic] = useState<Clinic | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [checkoutOpen, setCheckoutOpen] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -218,12 +215,12 @@ export default function OfferDetailPage() {
 
             {auth ? (
               auth.role === "customer" ? (
-                <button
-                  onClick={() => setCheckoutOpen(true)}
+                <Link
+                  to={`/dashboard?offerId=${offer.id}`}
                   className="btn-primary w-full mt-5 justify-center"
                 >
                   {t("Get this offer", "احصلي على العرض")}
-                </button>
+                </Link>
               ) : (
                 <Link to="/dashboard" className="btn-primary w-full mt-5 justify-center">
                   {t("Open dashboard", "افتح لوحة التحكم")}
@@ -262,9 +259,9 @@ export default function OfferDetailPage() {
           <div className="text-[10px] text-surface-500">{offer.type === "A" ? t("Total package", "سعر الباقة") : t("Per visit", "للزيارة")}</div>
         </div>
         {auth && auth.role === "customer" ? (
-          <button onClick={() => setCheckoutOpen(true)} className="btn-primary flex-1 max-w-[200px] justify-center">
+          <Link to={`/dashboard?offerId=${offer.id}`} className="btn-primary flex-1 max-w-[200px] justify-center">
             {t("Get this offer", "احصلي على العرض")}
-          </button>
+          </Link>
         ) : (
           <Link
             to={auth ? "/dashboard" : `/login?next=/memberships/${offer.id}`}
@@ -276,17 +273,6 @@ export default function OfferDetailPage() {
       </div>
       {/* spacer so content isn't hidden behind mobile CTA */}
       <div className="lg:hidden h-16" />
-      {checkoutOpen && (
-        <CheckoutModal
-          offer={offer}
-          ar={isAr}
-          onClose={() => setCheckoutOpen(false)}
-          onComplete={() => {
-            setCheckoutOpen(false);
-            navigate("/dashboard");
-          }}
-        />
-      )}
     </PublicLayout>
   );
 }
