@@ -10,13 +10,34 @@ import MembershipPage from "../pages/MembershipPage";
 import ClinicsPage from "../pages/ClinicsPage";
 import PromoPage from "../pages/PromoPage";
 
-const EFormFillPage = lazy(() => import("../pages/EFormFillPage"));
-const CustomerDashboard = lazy(() => import("../pages/dashboards/CustomerDashboard"));
-const AdminDashboard = lazy(() => import("../pages/dashboards/AdminDashboard"));
-const CsDashboard = lazy(() => import("../pages/dashboards/CsDashboard"));
-const FinanceDashboard = lazy(() => import("../pages/dashboards/FinanceDashboard"));
-const ClinicDashboard = lazy(() => import("../pages/dashboards/ClinicDashboard"));
-const VerifyPage = lazy(() => import("../pages/VerifyPage"));
+// Helper to auto-reload if a chunk fails to load (e.g. after a new deployment)
+const lazyWithRetry = (componentImport: () => Promise<any>) =>
+  lazy(async () => {
+    const pageHasAlreadyBeenForceRefreshed = JSON.parse(
+      window.sessionStorage.getItem('page-has-been-force-refreshed') || 'false'
+    );
+    try {
+      const component = await componentImport();
+      window.sessionStorage.setItem('page-has-been-force-refreshed', 'false');
+      return component;
+    } catch (error) {
+      if (!pageHasAlreadyBeenForceRefreshed) {
+        window.sessionStorage.setItem('page-has-been-force-refreshed', 'true');
+        window.location.reload();
+        // Return a dummy promise that never resolves while the page reloads
+        return new Promise(() => {});
+      }
+      throw error;
+    }
+  });
+
+const EFormFillPage = lazyWithRetry(() => import("../pages/EFormFillPage"));
+const CustomerDashboard = lazyWithRetry(() => import("../pages/dashboards/CustomerDashboard"));
+const AdminDashboard = lazyWithRetry(() => import("../pages/dashboards/AdminDashboard"));
+const CsDashboard = lazyWithRetry(() => import("../pages/dashboards/CsDashboard"));
+const FinanceDashboard = lazyWithRetry(() => import("../pages/dashboards/FinanceDashboard"));
+const ClinicDashboard = lazyWithRetry(() => import("../pages/dashboards/ClinicDashboard"));
+const VerifyPage = lazyWithRetry(() => import("../pages/VerifyPage"));
 
 /** Redirects /offers/:id to /memberships/:id */
 function OfferRedirect() {
