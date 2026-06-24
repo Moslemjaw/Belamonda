@@ -6,6 +6,7 @@ import PublicLayout from "../components/PublicLayout";
 import { getCategoryIcon } from "../components/CategoryIcons";
 import { useAuth } from "../app/AuthContext";
 
+type Offer = {
   id: string;
   name: string;
   nameAr?: string;
