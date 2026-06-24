@@ -745,7 +745,7 @@ function OffersManager() {
                 {form.allowFullPayment && (
                   <select className="select-field w-full text-xs" value={form.fullPaymentEFormId} onChange={e => setForm({...form, fullPaymentEFormId: e.target.value})}>
                     <option value="">{ar() ? "بدون نموذج" : "No E-Form Required"}</option>
-                    {eforms.map(ef => <option key={ef.id || ef._id} value={ef.id || ef._id}>{ef.title}</option>)}
+                    {eforms.map(ef => <option key={ef.id || ef._id} value={ef.id || ef._id}>{ef.title}{ef.archived ? (ar() ? " (مؤرشف)" : " (Archived)") : ""}</option>)}
                   </select>
                 )}
               </div>
@@ -756,7 +756,7 @@ function OffersManager() {
                     <input className="input-field text-xs mb-2" type="number" placeholder="Max installments" value={form.maxInstallments} onChange={e => setForm({...form, maxInstallments: e.target.value})} />
                     <select className="select-field w-full text-xs" value={form.installmentsEFormId} onChange={e => setForm({...form, installmentsEFormId: e.target.value})}>
                       <option value="">{ar() ? "بدون نموذج" : "No E-Form Required"}</option>
-                      {eforms.map(ef => <option key={ef.id || ef._id} value={ef.id || ef._id}>{ef.title}</option>)}
+                      {eforms.map(ef => <option key={ef.id || ef._id} value={ef.id || ef._id}>{ef.title}{ef.archived ? (ar() ? " (مؤرشف)" : " (Archived)") : ""}</option>)}
                     </select>
                   </>
                 )}
@@ -766,7 +766,7 @@ function OffersManager() {
                 {form.allowENet && (
                   <select className="select-field w-full text-xs" value={form.enetEFormId} onChange={e => setForm({...form, enetEFormId: e.target.value})}>
                     <option value="">{ar() ? "بدون نموذج" : "No E-Form Required"}</option>
-                    {eforms.map(ef => <option key={ef.id || ef._id} value={ef.id || ef._id}>{ef.title}</option>)}
+                    {eforms.map(ef => <option key={ef.id || ef._id} value={ef.id || ef._id}>{ef.title}{ef.archived ? (ar() ? " (مؤرشف)" : " (Archived)") : ""}</option>)}
                   </select>
                 )}
               </div>
@@ -777,7 +777,7 @@ function OffersManager() {
                     <input className="input-field text-xs mb-2" type="number" placeholder="Deposit KWD" value={form.depositAmount} onChange={e => setForm({...form, depositAmount: e.target.value})} />
                     <select className="select-field w-full text-xs" value={form.depositEFormId} onChange={e => setForm({...form, depositEFormId: e.target.value})}>
                       <option value="">{ar() ? "بدون نموذج" : "No E-Form Required"}</option>
-                      {eforms.map(ef => <option key={ef.id || ef._id} value={ef.id || ef._id}>{ef.title}</option>)}
+                      {eforms.map(ef => <option key={ef.id || ef._id} value={ef.id || ef._id}>{ef.title}{ef.archived ? (ar() ? " (مؤرشف)" : " (Archived)") : ""}</option>)}
                     </select>
                   </>
                 )}
