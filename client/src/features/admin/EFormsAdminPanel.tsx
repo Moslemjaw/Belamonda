@@ -403,6 +403,14 @@ export function EFormsAdminPanel() {
     }
   };
 
+  const deleteSubmission = async (s: SubmissionItem) => {
+    if (!confirm(ar() ? "هل أنت متأكد من حذف هذه التعبئة؟" : "Are you sure you want to delete this submission?")) return;
+    try {
+      await apiFetch(`/eforms/admin/submissions/${s.id}`, { method: "DELETE", headers: getAuthHeader() });
+      await refetchSubs();
+    } catch (e: any) { alert(e.message); }
+  };
+
   return (
     <div className="space-y-4">
       {selectedSubmission && (
@@ -660,6 +668,7 @@ export function EFormsAdminPanel() {
                       <div className="flex gap-1.5 flex-wrap">
                         <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => setSelectedSubmission(s)}>{ar() ? "عرض" : "View"}</button>
                         <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => downloadPdf(s)}>{ar() ? "تنزيل PDF" : "Download PDF"}</button>
+                        <button type="button" className="btn-secondary btn-sm text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => deleteSubmission(s)}>{ar() ? "حذف" : "Delete"}</button>
                       </div>
                     </td>
                   </tr>

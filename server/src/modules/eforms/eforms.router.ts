@@ -348,6 +348,17 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
   }
 });
 
+eformsRouter.delete("/admin/submissions/:id", authRequired, requireRole(["admin", "legal", "cs_director"]), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: "NOT_FOUND" });
+    await EFormSubmissionModel.findByIdAndDelete(req.params.id);
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+
 // ── Public read (auth required): fetch a form to fill ──
 eformsRouter.get("/forms/:id", authRequired, async (req, res, next) => {
   try {
