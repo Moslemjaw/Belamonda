@@ -452,7 +452,7 @@
 
   /* Queue row — CS dashboards */
   .queue-row {
-    @apply flex items-center gap-4 rounded-2xl border border-transparent px-4 py-3.5 transition-all;
+    @apply flex items-center gap-2.5 sm:gap-4 rounded-2xl border border-transparent px-2 sm:px-4 py-3.5 transition-all;
   }
   .queue-row:hover {
     @apply bg-brand-pink-50/40 border-brand-pink-100/70;

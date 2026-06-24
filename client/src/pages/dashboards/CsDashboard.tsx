@@ -54,7 +54,7 @@ export function KycQueue() {
     return ar() ? `${Math.floor(hrs / 24)} ي` : `${Math.floor(hrs / 24)}d`;
   };
   return (
-    <div className="card-elevated p-5 flex flex-col h-[400px]">
+    <div className="card-elevated p-3 sm:p-5 flex flex-col h-[400px] overflow-hidden">
       <div className="editorial-header justify-between shrink-0 mb-4">
         <div className="flex items-center gap-3">
           <span className="accent" />
@@ -79,32 +79,32 @@ export function KycQueue() {
           <div className="text-xs text-surface-500 mt-1">{ar() ? "لا توجد تحققات معلقة حالياً" : "No pending verifications"}</div>
         </div>
       ) : (
-        <div className="space-y-4 overflow-y-auto flex-1 pr-2">
+        <div className="space-y-4 overflow-y-auto overflow-x-hidden flex-1 pr-2">
           {items.map((k: any) => {
             const ageMins = (Date.now() - new Date(k.createdAt).getTime()) / 60000;
             const priority = ageMins > 240 ? "red" : ageMins > 60 ? "yellow" : "green";
             return (
-              <div key={k.id} className="queue-row group">
-                <div className={`priority-${priority} shrink-0`} aria-hidden="true" />
+              <div key={k.id} className="queue-row group flex-wrap">
+                <div className={`priority-${priority} shrink-0 hidden sm:block`} aria-hidden="true" />
                 <span className="sr-only">{priority === "red" ? (ar() ? "أولوية عالية" : "High priority") : priority === "yellow" ? (ar() ? "أولوية متوسطة" : "Medium priority") : (ar() ? "أولوية منخفضة" : "Low priority")}</span>
-                <div className="avatar avatar-md" aria-hidden="true">{(k.userName || k.userId)?.charAt(0)?.toUpperCase()}</div>
+                <div className="avatar avatar-sm sm:avatar-md" aria-hidden="true">{(k.userName || k.userId)?.charAt(0)?.toUpperCase()}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <div className="text-sm font-bold text-surface-900 truncate">{k.userName || k.userId}</div>
-                    <span className="text-[10px] font-bold text-surface-400 bg-surface-100 px-1.5 py-0.5 rounded" title={new Date(k.createdAt).toLocaleString()}>{fmtAge(k.createdAt)}</span>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <div className="text-xs sm:text-sm font-bold text-surface-900 truncate">{k.userName || k.userId}</div>
+                    <span className="text-[9px] sm:text-[10px] font-bold text-surface-400 bg-surface-100 px-1 sm:px-1.5 py-0.5 rounded shrink-0" title={new Date(k.createdAt).toLocaleString()}>{fmtAge(k.createdAt)}</span>
                   </div>
-                  <div className="text-xs text-surface-500 mt-0.5 flex items-center gap-2">
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" /></svg>
-                    <span className="font-mono">{k.civilIdNumberMasked || k.civilIdNumber || "—"}</span>
+                  <div className="text-[10px] sm:text-xs text-surface-500 mt-0.5 flex items-center gap-1 sm:gap-2 truncate">
+                    <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" /></svg>
+                    <span className="font-mono truncate">{k.civilIdNumberMasked || k.civilIdNumber || "—"}</span>
                     {k.userPhone && (
                       <>
                         <span>·</span>
-                        <span className="font-mono">{k.userPhone}</span>
+                        <span className="font-mono truncate">{k.userPhone}</span>
                       </>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                   <button
                     className="icon-btn"
                     onClick={() => setViewingKyc(k)}
@@ -277,7 +277,7 @@ export function PaymentQueue() {
 
   const totalPending = items.reduce((sum: number, p: any) => sum + parseFloat(p.amount || p.paymentAmountKwd || "0"), 0);
   return (
-    <div className="card-elevated p-5 flex flex-col h-[400px]">
+    <div className="card-elevated p-3 sm:p-5 flex flex-col h-[400px] overflow-hidden">
       <div className="editorial-header justify-between shrink-0 mb-4">
         <div className="flex items-center gap-3">
           <span className="accent" />
@@ -299,7 +299,7 @@ export function PaymentQueue() {
           <div className="text-xs text-surface-500 mt-1">{ar() ? "كل المدفوعات تم تأكيدها" : "All payments have been confirmed"}</div>
         </div>
       ) : (
-        <div className="space-y-1.5 overflow-y-auto flex-1 pr-2">
+        <div className="space-y-1.5 overflow-y-auto overflow-x-hidden flex-1 pr-2">
           {items.map((p: any) => {
             const modeColors = p.purchaseMode === "installments"
               ? "bg-blue-50 text-blue-700 border-blue-200"
@@ -307,30 +307,30 @@ export function PaymentQueue() {
                 ? "bg-purple-50 text-purple-700 border-purple-200"
                 : "bg-emerald-50 text-emerald-700 border-emerald-200";
             return (
-              <div key={p.id} className="queue-row group">
-                <div className="avatar avatar-md bg-amber-100 text-amber-700">{(p.userName || p.userId)?.charAt(0)?.toUpperCase()}</div>
+              <div key={p.id} className="queue-row group flex-wrap">
+                <div className="avatar avatar-sm sm:avatar-md bg-amber-100 text-amber-700">{(p.userName || p.userId)?.charAt(0)?.toUpperCase()}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <div className="text-sm font-bold text-surface-900 truncate">{p.userName || p.userId}</div>
-                    <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${modeColors}`}>{modeLabel(p)}</span>
+                  <div className="flex items-center gap-1 sm:gap-2 mb-0.5">
+                    <div className="text-xs sm:text-sm font-bold text-surface-900 truncate">{p.userName || p.userId}</div>
+                    <span className={`text-[8px] sm:text-[9px] font-bold uppercase tracking-wider px-1 sm:px-1.5 py-0.5 rounded border shrink-0 ${modeColors}`}>{modeLabel(p)}</span>
                   </div>
-                  <div className="text-xs text-surface-500 truncate">{ar() && p.offerNameAr ? p.offerNameAr : (p.offerName || p.offerId?.slice(0, 30))}</div>
+                  <div className="text-[10px] sm:text-xs text-surface-500 truncate">{ar() && p.offerNameAr ? p.offerNameAr : (p.offerName || p.offerId?.slice(0, 30))}</div>
                 </div>
                 <div className="text-right shrink-0">
-                  <div className="text-base font-black text-brand-pink-600 leading-none whitespace-nowrap">{p.amount || p.paymentAmountKwd}</div>
-                  <div className="text-[10px] text-surface-400 font-bold uppercase tracking-wider mt-1">KWD</div>
+                  <div className="text-sm sm:text-base font-black text-brand-pink-600 leading-none whitespace-nowrap">{p.amount || p.paymentAmountKwd}</div>
+                  <div className="text-[9px] sm:text-[10px] text-surface-400 font-bold uppercase tracking-wider mt-0.5 sm:mt-1">KWD</div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
                   <button className="icon-btn" onClick={() => setSelectedPayment(p)} aria-label={ar() ? `عرض تفاصيل دفع ${p.userName || p.userId}` : `View payment details for ${p.userName || p.userId}`} title={ar() ? "التفاصيل" : "Details"}>
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                   </button>
-                  <button className="btn-primary btn-sm px-3.5" disabled={processing === p.id} onClick={() => confirmPayment(p)} aria-label={ar() ? `تأكيد دفع ${p.amount || p.paymentAmountKwd} د.ك من ${p.userName || p.userId}` : `Confirm payment of ${p.amount || p.paymentAmountKwd} KWD from ${p.userName || p.userId}`}>
+                  <button className="btn-primary btn-sm px-2 sm:px-3.5" disabled={processing === p.id} onClick={() => confirmPayment(p)} aria-label={ar() ? `تأكيد دفع ${p.amount || p.paymentAmountKwd} د.ك من ${p.userName || p.userId}` : `Confirm payment of ${p.amount || p.paymentAmountKwd} KWD from ${p.userName || p.userId}`}>
                     {processing === p.id ? (
                       <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
                     ) : (
                       <>
                         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        {ar() ? "تأكيد" : "Confirm"}
+                        <span className="hidden sm:inline">{ar() ? "تأكيد" : "Confirm"}</span>
                       </>
                     )}
                   </button>
@@ -817,7 +817,7 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
   };
 
   return (
-    <div className="card-elevated p-5 relative flex flex-col h-[400px]">
+    <div className="card-elevated p-3 sm:p-5 relative flex flex-col h-[400px] overflow-hidden">
       <div className="editorial-header justify-between shrink-0 mb-4">
         <div className="flex items-center gap-3">
           <span className="accent" />
