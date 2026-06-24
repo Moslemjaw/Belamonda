@@ -1124,7 +1124,7 @@ export default function CustomerDashboard() {
       const offer = homeCatalogData?.items?.find((o: any) => o.id === urlOfferId);
       if (offer) {
         // If they already have a pending_payment UserOffer for this, inject it!
-        const existingUo = myOffers?.find(u => u.offerId === offer.id && u.status === 'pending_payment');
+        const existingUo = offersData?.items?.find((u: any) => u.offerId === offer.id && u.status === 'pending_payment');
         if (existingUo) {
           if (offer.isGroupOffer) {
             // Open group modal instead!
@@ -1156,7 +1156,7 @@ export default function CustomerDashboard() {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
-  }, [urlOfferId, homeCatalogData, myOffers]);
+  }, [urlOfferId, homeCatalogData, offersData?.items]);
 
   const dynamicTreatments = standaloneSessions.reduce((acc: any[], s: any) => {
     const priceKwd = parseFloat(s.priceKwd) || 0;
