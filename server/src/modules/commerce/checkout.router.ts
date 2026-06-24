@@ -106,6 +106,7 @@ checkoutRouter.post("/installments", ...customerOnly, (req, res, next) => {
   checkoutInstallments({
     userId: uid,
     offerId: parsed.data.offerId,
+    userOfferId: parsed.data.userOfferId,
     count: parsed.data.count,
     applyCashbackKwd: parsed.data.applyCashbackKwd,
     groupInviteCode: parsed.data.groupInviteCode,
