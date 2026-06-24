@@ -4684,6 +4684,7 @@ export default function AdminDashboard() {
   const { data: reservationsData } = useAdminReservations({ lazy: activeNav !== "home" });
   const { data: bookingRequests } = useBookingRequests("pending");
   const { data: recentAuditData } = useApi<{ items: any[] }>("/audit?limit=6&page=1", { lazy: activeNav !== "home" });
+  const { data: usersData } = useApi<{ items: any[] }>("/users/admin", { lazy: activeNav !== "home" });
   const fs = financeData?.snapshot;
 
   const navItems = [
@@ -4725,7 +4726,8 @@ export default function AdminDashboard() {
             </div>
 
             {/* ── KPI Cards: Row 2 ── */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3 xl:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 xl:grid-cols-4">
+              <KpiCard accent="indigo" icon={Icons.users} label={ar() ? "العملاء" : "Total Customers"} value={(usersData?.items || []).filter((u: any) => u.role === "customer").length} sub={ar() ? "مسجل" : "registered"} />
               <KpiCard accent="rose" icon={Icons.complaint} label={ar() ? "شكاوى مفتوحة" : "Open Complaints"} value={(complaintsData?.items || []).filter((c: any) => c.status === "open").length} sub={ar() ? "تتطلب متابعة" : "require follow-up"} />
               <KpiCard accent="teal" icon={Icons.clinic} label={ar() ? "العروض النشطة" : "Active Offers"} value={(offersData?.items || []).filter((o: any) => o.isActive !== false).length} sub={ar() ? "في الكتالوج" : "in catalog"} />
               <KpiCard accent="violet" icon={Icons.calendar} label={ar() ? "حجوزات العربون" : "Reservations"} value={(reservationsData?.items || []).length} sub={ar() ? "نشطة" : "active"} />
