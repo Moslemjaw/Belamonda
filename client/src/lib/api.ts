@@ -28,8 +28,18 @@ function handleSessionExpired() {
   window.location.href = `/login?expired=1&next=${returnTo}`;
 }
 
+const _inflightFetches = new Map<string, Promise<any>>();
+
 export async function apiFetch<T = unknown>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const isGet = !init?.method || init.method.toUpperCase() === "GET";
+  
+  if (isGet) {
+    const inflight = _inflightFetches.get(path);
+    if (inflight) return inflight;
+  }
+
+  const promise = (async () => {
+    const res = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -77,4 +87,12 @@ export async function apiFetch<T = unknown>(path: string, init?: RequestInit): P
   }
 
   return data as T;
+  })();
+
+  if (isGet) {
+    _inflightFetches.set(path, promise);
+    promise.finally(() => _inflightFetches.delete(path));
+  }
+
+  return promise;
 }
