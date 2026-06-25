@@ -1499,10 +1499,7 @@ function SchedulingTool() {
 function CustomersManager() {
   const { getAuthHeader, impersonateUser } = useAuth();
   const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [users, setUsers] = useState<any[]>([]);
-  const [totalCount, setTotalCount] = useState(0);
-  const [page, setPage] = useState(1);
   const [usersLoading, setUsersLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -1774,26 +1771,15 @@ function CustomersManager() {
     }
   };
 
-  const loadUsers = useCallback(() => {
+  const loadUsers = () => {
     setUsersLoading(true);
-    apiFetch(`/users/admin?role=customer&page=${page}&limit=25&q=${encodeURIComponent(debouncedSearch)}`, { headers: getAuthHeader() })
-      .then((res: any) => {
-        setUsers(res.items ?? []);
-        setTotalCount(res.totalCount ?? 0);
-      })
+    apiFetch("/users/admin?role=customer", { headers: getAuthHeader() })
+      .then((res: any) => setUsers(res.items ?? []))
       .catch(() => {})
       .finally(() => setUsersLoading(false));
-  }, [page, debouncedSearch, getAuthHeader]);
+  };
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search);
-      setPage(1); // Reset page on new search
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [search]);
+  useEffect(() => { loadUsers(); }, []);
 
   const handleManage = async (u: any) => {
     setSelectedUser(u);
@@ -1903,7 +1889,7 @@ function CustomersManager() {
           <div className="md:hidden divide-y divide-surface-100">
             {usersLoading ? (
               <div className="p-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>
-            ) : users.map((u: any) => {
+            ) : filtered.map((u: any) => {
               const name = getDisplayName(u);
               const status = getStatus(u);
               return (
@@ -1936,7 +1922,7 @@ function CustomersManager() {
                 </div>
               );
             })}
-            {!usersLoading && users.length === 0 && (
+            {!usersLoading && filtered.length === 0 && (
               <div className="p-8 text-center text-surface-500 text-sm">{ar() ? "لا يوجد عملاء" : "No customers found"}</div>
             )}
           </div>
@@ -1957,7 +1943,7 @@ function CustomersManager() {
               <tbody>
                 {usersLoading ? (
                   <tr><td colSpan={5} className="py-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</td></tr>
-                ) : users.map((u: any) => {
+                ) : filtered.map((u: any) => {
                   const name = getDisplayName(u);
                   const status = getStatus(u);
                   return (
@@ -1998,7 +1984,7 @@ function CustomersManager() {
                     </tr>
                   );
                 })}
-                {!usersLoading && users.length === 0 && (
+                {!usersLoading && filtered.length === 0 && (
                   <tr><td colSpan={5}><div className="empty-state">
                     <div className="empty-state-icon"><svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></div>
                     <div className="empty-state-title">{ar() ? "لا يوجد عملاء" : "No customers found"}</div>
@@ -2008,31 +1994,6 @@ function CustomersManager() {
               </tbody>
             </table>
           </div>
-          
-          {/* Pagination Controls */}
-          {!usersLoading && totalCount > 25 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t border-surface-200 bg-surface-50">
-              <div className="text-sm text-surface-600">
-                {ar() ? "إجمالي العملاء:" : "Total Customers:"} <span className="font-bold">{totalCount}</span>
-              </div>
-              <div className="flex gap-2">
-                <button 
-                  className="btn-secondary px-4 py-2 text-sm disabled:opacity-50"
-                  disabled={page <= 1}
-                  onClick={() => setPage(p => Math.max(1, p - 1))}
-                >
-                  {ar() ? "السابق" : "Previous"}
-                </button>
-                <button 
-                  className="btn-secondary px-4 py-2 text-sm disabled:opacity-50"
-                  disabled={page * 25 >= totalCount}
-                  onClick={() => setPage(p => p + 1)}
-                >
-                  {ar() ? "التالي" : "Next"}
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
       {showAddModal && (
