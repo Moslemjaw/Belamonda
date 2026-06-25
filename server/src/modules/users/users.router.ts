@@ -54,6 +54,8 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
     const q = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
     const role = typeof req.query.role === "string" ? req.query.role : "";
     const status = typeof req.query.status === "string" ? req.query.status : "";
+    const page = req.query.page ? Math.max(1, Number(req.query.page)) : 1;
+    const limit = req.query.limit ? Math.max(1, Math.min(100, Number(req.query.limit))) : 50;
 
     const filter: mongoose.FilterQuery<UserLean> = {};
     if (role && role !== "all") filter.role = role;
@@ -77,7 +79,12 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
       ];
     }
 
-    const rows = await UserModel.find(filter).sort({ createdAt: -1 }).limit(500).lean<UserLean[]>();
+    const totalCount = await UserModel.countDocuments(filter);
+    const rows = await UserModel.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean<UserLean[]>();
 
     const referrerIds = [...new Set(
       rows.filter((u) => u.referredBy).map((u) => String(u.referredBy))
@@ -106,7 +113,7 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
       updatedAt: u.updatedAt ? new Date(u.updatedAt).toISOString() : undefined,
       referredByUsername: u.referredBy ? (referrerMap[String(u.referredBy)] ?? null) : null
     }));
-    return res.json({ items });
+    return res.json({ items, totalCount, page, limit });
   } catch (e) {
     next(e);
   }
