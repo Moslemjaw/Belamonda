@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import { UserModel } from "../models/user.model.js";
 import { OtpModel } from "../models/otp.model.js";
 import { sendSMS, sendWhatsAppOTP } from "./twilio.service.js";
+import { incrementMetric } from "./metric.service.js";
 
 interface ReferrerLean {
   _id: mongoose.Types.ObjectId;
@@ -67,6 +68,10 @@ export async function registerCustomer(input: {
       referredBy,
       publicToken: randomBytes(20).toString("hex")
     });
+    
+    // Only increment totalUsers for actual customers
+    await incrementMetric({ totalUsers: 1 });
+    
     return { ok: true as const, userId: doc._id.toString(), role: doc.role };
   } catch (e: unknown) {
     if ((e as { code?: number }).code === 11000) return { error: "DUPLICATE_IDENTIFIER" as const };

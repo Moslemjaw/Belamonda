@@ -19,6 +19,7 @@ import {
   exportClinicReportXlsx,
   exportComprehensiveReportXlsx,
 } from "./analytics.service.js";
+import { reconcileMetrics } from "../../services/reconciliation.service.js";
 
 const CreateReportSchema = z.object({
   type: z.enum(["daily_summary", "weekly_pl", "monthly_cashback_liability", "yearly_revenue", "custom"]),
@@ -336,5 +337,22 @@ reportingRouter.get("/clinic/export", authRequired, requireRole(CLINIC_ROLES), a
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
     res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.xlsx"`);
     return res.send(xlsx);
+  } catch (e) { next(e); }
+});
+
+// ── Admin: Trigger manual reconciliation ─────────────────────────────────────
+reportingRouter.post("/admin/reconcile-metrics", authRequired, requireRole(["admin", "finance"]), async (req, res, next) => {
+  try {
+    await reconcileMetrics();
+    res.json({ ok: true, message: "Metrics reconciliation completed successfully" });
+  } catch (e) { next(e); }
+});
+
+// ── Admin: Get current global metric values ───────────────────────────────────
+reportingRouter.get("/admin/metrics/global", authRequired, requireRole(["admin", "finance"]), async (req, res, next) => {
+  try {
+    const { SystemMetricModel } = await import("../../models/metric.model.js");
+    const global = await SystemMetricModel.findById("global").lean();
+    res.json({ ok: true, data: global });
   } catch (e) { next(e); }
 });

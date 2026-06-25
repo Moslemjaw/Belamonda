@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { PaymentModel } from "../models/payment.model.js";
 import { serializePayment } from "../utils/serialize.js";
+import { incrementMetric } from "./metric.service.js";
 
 
 export async function createCompletedEnrollmentPayment(input: {
@@ -24,6 +25,16 @@ export async function createCompletedEnrollmentPayment(input: {
     confirmedBy: input.confirmedBy,
     confirmedAt: new Date()
   });
+  
+  const kwdVal = parseFloat(input.amountKwd) || 0;
+  const mils = Math.round(kwdVal * 1000);
+  // Enrollment is a membership sold
+  await incrementMetric({
+    totalRevenueMils: mils,
+    totalMembershipsSold: 1,
+    totalMembershipRevenueMils: mils,
+  });
+  
   return serializePayment(doc.toObject() as any);
 }
 
@@ -60,6 +71,16 @@ export async function confirmSessionPayment(paymentId: string) {
     { new: true }
   ).lean();
   if (!doc) throw new Error("Session payment not found or already processed");
+  
+  const kwdVal = parseFloat((doc as any).amountKwd) || 0;
+  const mils = Math.round(kwdVal * 1000);
+  
+  await incrementMetric({
+    totalRevenueMils: mils,
+    totalStandaloneSessionsSold: 1,
+    totalStandaloneSessionRevenueMils: mils,
+  });
+  
   return serializePayment(doc as any);
 }
 

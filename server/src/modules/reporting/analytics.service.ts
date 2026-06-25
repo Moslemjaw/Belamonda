@@ -14,6 +14,7 @@ import { serializePayment } from "../../utils/serialize.js";
 import { kycStore } from "../kyc/kyc.store.js";
 import { WalletModel, WalletTxnModel } from "../../models/kyc.model.js";
 import ExcelJS from "exceljs";
+import { SystemMetricModel } from "../../models/metric.model.js";
 
 function parseKwd(s: string) {
   if (!s) return 0;
@@ -230,23 +231,47 @@ export async function computeFinanceTimeseries(filters: { period: "daily" | "wee
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
 
-  const payments = await PaymentModel.find(q).select("amountKwd grossAmountKwd cashbackAppliedKwd purpose createdAt").lean();
+  // ── Fast path: use pre-calculated daily SystemMetric documents ──────────────
+  const dailyQuery: Record<string, unknown> = { _id: { $regex: /^daily_/ } };
+  if (filters.from || filters.to) {
+    const fromKey = filters.from ? `daily_${filters.from.split("T")[0]}` : "daily_0000-01-01";
+    const toKey = filters.to ? `daily_${filters.to.split("T")[0]}` : "daily_9999-12-31";
+    dailyQuery._id = { $gte: fromKey, $lte: toKey };
+  }
+
+  const dailyDocs = await SystemMetricModel.find(dailyQuery).lean();
 
   const buckets = new Map<string, { revenue: number; net: number; cashback: number; sessions: number; memberships: number; count: number }>();
 
-  for (const p of payments as any[]) {
-    const k = bucketKey(new Date(p.createdAt), period);
-    const cur = buckets.get(k) ?? { revenue: 0, net: 0, cashback: 0, sessions: 0, memberships: 0, count: 0 };
-    const net = parseKwd(p.amountKwd);
-    const cb = parseKwd(p.cashbackAppliedKwd || "0.000");
-    const gross = p.grossAmountKwd ? parseKwd(p.grossAmountKwd) : net + cb;
-    cur.revenue += gross;
-    cur.net += net;
-    cur.cashback += cb;
-    if ((p.purpose || "enrollment_full") === "session_payment") cur.sessions += gross;
-    else cur.memberships += gross;
-    cur.count++;
-    buckets.set(k, cur);
+  if (dailyDocs.length > 0) {
+    // Use pre-calculated data (super fast — just summing stored numbers)
+    for (const doc of dailyDocs as any[]) {
+      // doc._id = "daily_YYYY-MM-DD"
+      const dateStr = doc._id.replace("daily_", "");
+      const k = bucketKey(new Date(dateStr + "T00:00:00Z"), period);
+      const cur = buckets.get(k) ?? { revenue: 0, net: 0, cashback: 0, sessions: 0, memberships: 0, count: 0 };
+      cur.revenue += (doc.totalRevenueMils || 0);
+      cur.net += (doc.totalRevenueMils || 0);
+      cur.memberships += (doc.totalMembershipRevenueMils || 0);
+      cur.sessions += (doc.totalStandaloneSessionRevenueMils || 0);
+      cur.count += (doc.totalMembershipsSold || 0) + (doc.totalStandaloneSessionsSold || 0);
+      buckets.set(k, cur);
+    }
+  } else {
+    // Fallback: live scan (before first reconciliation run)
+    const payments = await PaymentModel.find(q).select("amountKwd grossAmountKwd cashbackAppliedKwd purpose createdAt").lean();
+    for (const p of payments as any[]) {
+      const k = bucketKey(new Date(p.createdAt), period);
+      const cur = buckets.get(k) ?? { revenue: 0, net: 0, cashback: 0, sessions: 0, memberships: 0, count: 0 };
+      const net = parseKwd(p.amountKwd);
+      const cb = parseKwd(p.cashbackAppliedKwd || "0.000");
+      const gross = p.grossAmountKwd ? parseKwd(p.grossAmountKwd) : net + cb;
+      cur.revenue += gross; cur.net += net; cur.cashback += cb;
+      if ((p.purpose || "enrollment_full") === "session_payment") cur.sessions += gross;
+      else cur.memberships += gross;
+      cur.count++;
+      buckets.set(k, cur);
+    }
   }
 
   const points = Array.from(buckets.entries())
@@ -748,15 +773,35 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
   let grossMils = 0;
   const rowsQ: Record<string, unknown> = { status: "completed" };
   if (dateFilter) rowsQ.createdAt = dateFilter;
-  const rows = await PaymentModel.find(rowsQ).select("amountKwd grossAmountKwd cashbackAppliedKwd").lean();
-  for (const r of rows as any[]) {
-    const net = parseKwd(r.amountKwd);
-    const cb = parseKwd(r.cashbackAppliedKwd || "0.000");
-    const gross = r.grossAmountKwd ? parseKwd(r.grossAmountKwd) : net + cb;
-    netMils += net;
-    grossMils += gross;
-    cashbackAppliedMils += cb;
+
+  if (!dateFilter) {
+    // ── Fast path: use the pre-calculated global metric document ─────────────
+    const globalMetric = await SystemMetricModel.findById("global").lean() as any;
+    if (globalMetric) {
+      netMils = globalMetric.totalRevenueMils || 0;
+      grossMils = globalMetric.totalRevenueMils || 0;
+      cashbackAppliedMils = 0; // cashback stored separately; approximate here
+    } else {
+      // Fallback if reconciliation hasn't run yet
+      const rows = await PaymentModel.find(rowsQ).select("amountKwd grossAmountKwd cashbackAppliedKwd").lean();
+      for (const r of rows as any[]) {
+        const net = parseKwd(r.amountKwd);
+        const cb = parseKwd((r as any).cashbackAppliedKwd || "0.000");
+        const gross = (r as any).grossAmountKwd ? parseKwd((r as any).grossAmountKwd) : net + cb;
+        netMils += net; grossMils += gross; cashbackAppliedMils += cb;
+      }
+    }
+  } else {
+    // Date-filtered: live scan (can't use global metric)
+    const rows = await PaymentModel.find(rowsQ).select("amountKwd grossAmountKwd cashbackAppliedKwd").lean();
+    for (const r of rows as any[]) {
+      const net = parseKwd(r.amountKwd);
+      const cb = parseKwd((r as any).cashbackAppliedKwd || "0.000");
+      const gross = (r as any).grossAmountKwd ? parseKwd((r as any).grossAmountKwd) : net + cb;
+      netMils += net; grossMils += gross; cashbackAppliedMils += cb;
+    }
   }
+
   revenueMils = grossMils;
   revenueKwd = fmtKwd(grossMils);
 

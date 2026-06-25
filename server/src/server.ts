@@ -8,6 +8,7 @@ import { startPurchaseReminders } from "./services/purchaseReminders.service.js"
 import { startFormSignatureReminders } from "./services/formSignatureReminders.service.js";
 import { initChatSocket } from "./modules/chat/chat.socket.js";
 import { UserModel } from "./models/user.model.js";
+import { startReconciliationCron } from "./services/reconciliation.service.js";
 
 async function backfillPublicTokens() {
   const missing = await UserModel.find({ publicToken: { $exists: false } }).select("_id").lean();
@@ -53,6 +54,7 @@ async function main() {
   const app = createApp();
   startPurchaseReminders();
   startFormSignatureReminders();
+  startReconciliationCron();
   const httpServer = createServer(app);
   initChatSocket(httpServer);
 
