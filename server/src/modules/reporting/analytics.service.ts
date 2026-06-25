@@ -768,6 +768,11 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
   let revenueKwd: string;
   let revenueMils: number;
   let cashbackAppliedMils = 0;
+  
+  let globalMetric: any = null;
+  if (!dateFilter) {
+    globalMetric = await SystemMetricModel.findById("global").lean();
+  }
 
   // Revenue = gross (sticker), profit = net (amountKwd — already excludes cashback)
   let netMils = 0;
@@ -777,7 +782,6 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
 
   if (!dateFilter) {
     // ── Fast path: use the pre-calculated global metric document ─────────────
-    const globalMetric = await SystemMetricModel.findById("global").lean() as any;
     if (globalMetric) {
       netMils = globalMetric.totalRevenueMils || 0;
       grossMils = globalMetric.totalGrossRevenueMils || 0;
@@ -808,6 +812,10 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
 
   const pending = await userOfferService.listPendingPaymentsQueue();
   let pendingMils = 0;
+  if (!dateFilter && globalMetric) {
+    // pending doesn't have a precalculated field yet, but we can do a quick aggregate if we want.
+    // listPendingPaymentsQueue is fast anyway (find on small dataset).
+  }
   const pendingOfferIds = [...new Set(pending.map(uo => uo.offerId).filter(Boolean))];
   const pendingOffers = await OfferModel.find({ _id: { $in: pendingOfferIds } }).lean<{ _id: mongoose.Types.ObjectId; subscriptionPriceKwd: string }[]>();
   const offerMap = Object.fromEntries(pendingOffers.map(o => [String(o._id), o]));
@@ -816,25 +824,46 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
     if (offer) pendingMils += parseKwd(offer.subscriptionPriceKwd || "0.000");
   }
 
-  const paymentUserIds = await PaymentModel.distinct<string>("userId");
-  const walletUserIds = new Set<string>([...paymentUserIds, ...pending.map((p) => p.userId), "cust1"]);
-
   let locked = 0;
   let unlocked = 0;
   let utilized = 0;
   let credited = 0;
   
-  const userIdsArr = Array.from(walletUserIds);
-  const wallets = await WalletModel.find({ userId: { $in: userIdsArr } }).lean();
-  for (const w of wallets as any[]) {
-    locked += parseKwd(w.lockedKwd || "0.000");
-    unlocked += parseKwd(w.unlockedKwd || "0.000");
-  }
-  
-  const txns = await WalletTxnModel.find({ userId: { $in: userIdsArr } }).select("type amountKwd").lean();
-  for (const t of txns as any[]) {
-    if (t.type === "deduction") utilized += parseKwd(t.amountKwd || "0.000");
-    if (t.type === "signup_bonus" || t.type === "unlock" || t.type === "adjustment" || t.type === "reversal") credited += parseKwd(t.amountKwd || "0.000");
+  if (!dateFilter) {
+    // ── Fast path: use MongoDB Aggregation for system-wide wallets ──────────────
+    const [walletAgg, txnAgg] = await Promise.all([
+      WalletModel.aggregate([
+        { $group: { _id: null, locked: { $sum: { $toDouble: "$lockedKwd" } }, unlocked: { $sum: { $toDouble: "$unlockedKwd" } } } }
+      ]),
+      WalletTxnModel.aggregate([
+        { $group: { _id: "$type", total: { $sum: { $toDouble: "$amountKwd" } } } }
+      ])
+    ]);
+    
+    if (walletAgg.length > 0) {
+      locked = Math.round(walletAgg[0].locked * 1000);
+      unlocked = Math.round(walletAgg[0].unlocked * 1000);
+    }
+    for (const t of txnAgg) {
+      const mils = Math.round(t.total * 1000);
+      if (t._id === "deduction") utilized += mils;
+      if (["signup_bonus", "unlock", "adjustment", "reversal"].includes(t._id)) credited += mils;
+    }
+  } else {
+    // Date-filtered fallback (less common)
+    const paymentUserIds = await PaymentModel.distinct<string>("userId");
+    const walletUserIds = new Set<string>([...paymentUserIds, ...pending.map((p) => p.userId), "cust1"]);
+    const userIdsArr = Array.from(walletUserIds);
+    const wallets = await WalletModel.find({ userId: { $in: userIdsArr } }).lean();
+    for (const w of wallets as any[]) {
+      locked += parseKwd(w.lockedKwd || "0.000");
+      unlocked += parseKwd(w.unlockedKwd || "0.000");
+    }
+    const txns = await WalletTxnModel.find({ userId: { $in: userIdsArr } }).select("type amountKwd").lean();
+    for (const t of txns as any[]) {
+      if (t.type === "deduction") utilized += parseKwd(t.amountKwd || "0.000");
+      if (t.type === "signup_bonus" || t.type === "unlock" || t.type === "adjustment" || t.type === "reversal") credited += parseKwd(t.amountKwd || "0.000");
+    }
   }
 
   const liability = locked + unlocked - utilized;
@@ -850,42 +879,47 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
     BookingSessionModel.countDocuments({ status: "completed", scheduledAt: { $gte: monthStart } }),
   ]);
 
-  const uoQ: any = { status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] } };
-  if (dateFilter) uoQ.createdAt = dateFilter;
-
-  // Fetch all user offers (excluding pending/rejected) to calculate Expected amounts exactly like the comprehensive report
-  const allUserOffers = await UserOfferModel.find(uoQ).select("offerId installmentSchedule purchaseMode paymentAmountKwd depositAmountKwd status").lean();
-
-  const allOfferIds = [...new Set(allUserOffers.map((uo: any) => uo.offerId?.toString()).filter(Boolean))];
-  const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
-  const offerPriceMap = new Map(allOfferDocs.map((o: any) => [o._id.toString(), o.subscriptionPriceKwd]));
-
   let expectedTotalMils = 0;
   let paidTowardMembershipsMils = 0;
 
-  for (const uo of allUserOffers as any[]) {
-    // Calculate total price expected (Report logic: offerPrice first, then paymentAmount)
-    const totalPriceKwd = offerPriceMap.get(uo.offerId?.toString()) || uo.paymentAmountKwd || "0.000";
-    const uoTotal = parseKwd(totalPriceKwd);
-    
-    // Calculate paid amount exactly like the report
-    let paidMils = 0;
-    if (uo.purchaseMode === "installments") {
-      const sched = uo.installmentSchedule || [];
-      paidMils += parseKwd(uo.depositAmountKwd || "0");
-      sched.forEach((s: any) => {
-        if (s.paid) paidMils += parseKwd(s.amountKwd || "0");
-      });
-    } else if (uo.purchaseMode === "deposit") {
-      paidMils = parseKwd(uo.paymentAmountKwd || uo.depositAmountKwd || "0");
-    } else {
-      if (uo.status === "active" || uo.status === "expired" || uo.status === "reserved" || uo.status === "cancelled") {
-         paidMils = uoTotal;
+  if (!dateFilter && globalMetric) {
+    expectedTotalMils = globalMetric.totalExpectedMembershipRevenueMils || 0;
+    paidTowardMembershipsMils = globalMetric.totalPaidTowardMembershipsMils || 0;
+  } else {
+    const uoQ: any = { status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] } };
+    if (dateFilter) uoQ.createdAt = dateFilter;
+
+    // Fetch all user offers (excluding pending/rejected) to calculate Expected amounts exactly like the comprehensive report
+    const allUserOffers = await UserOfferModel.find(uoQ).select("offerId installmentSchedule purchaseMode paymentAmountKwd depositAmountKwd status").lean();
+
+    const allOfferIds = [...new Set(allUserOffers.map((uo: any) => uo.offerId?.toString()).filter(Boolean))];
+    const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
+    const offerPriceMap = new Map(allOfferDocs.map((o: any) => [o._id.toString(), o.subscriptionPriceKwd]));
+
+    for (const uo of allUserOffers as any[]) {
+      // Calculate total price expected (Report logic: offerPrice first, then paymentAmount)
+      const totalPriceKwd = offerPriceMap.get(uo.offerId?.toString()) || uo.paymentAmountKwd || "0.000";
+      const uoTotal = parseKwd(totalPriceKwd);
+      
+      // Calculate paid amount exactly like the report
+      let paidMils = 0;
+      if (uo.purchaseMode === "installments") {
+        const sched = uo.installmentSchedule || [];
+        paidMils += parseKwd(uo.depositAmountKwd || "0");
+        sched.forEach((s: any) => {
+          if (s.paid) paidMils += parseKwd(s.amountKwd || "0");
+        });
+      } else if (uo.purchaseMode === "deposit") {
+        paidMils = parseKwd(uo.paymentAmountKwd || uo.depositAmountKwd || "0");
+      } else {
+        if (uo.status === "active" || uo.status === "expired" || uo.status === "reserved" || uo.status === "cancelled") {
+           paidMils = uoTotal;
+        }
       }
+      
+      expectedTotalMils += uoTotal;
+      paidTowardMembershipsMils += paidMils;
     }
-    
-    expectedTotalMils += uoTotal;
-    paidTowardMembershipsMils += paidMils;
   }
 
   // Unpaid = Expected - Paid

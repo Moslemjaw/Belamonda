@@ -14,9 +14,12 @@ const SystemMetricSchema = new Schema(
     totalMembershipRevenueMils: { type: Number, default: 0 },
     totalStandaloneSessionsSold: { type: Number, default: 0 },
     totalStandaloneSessionRevenueMils: { type: Number, default: 0 },
-    // Detailed breakdowns (gross)
     totalGrossMembershipRevenueMils: { type: Number, default: 0 },
     totalGrossStandaloneSessionRevenueMils: { type: Number, default: 0 },
+    
+    // Future receivables (all-time)
+    totalExpectedMembershipRevenueMils: { type: Number, default: 0 },
+    totalPaidTowardMembershipsMils: { type: Number, default: 0 },
     
     // Caching/Reconciliation metadata
     lastReconciledAt: { type: Date }

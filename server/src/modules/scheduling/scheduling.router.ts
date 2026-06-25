@@ -1329,7 +1329,7 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
       method: "cash" // or pos, we default to cash for clinic side payments
     }).lean();
     
-    if (oldPay && oldPay.status !== "completed") {
+    if (oldPay && (oldPay as any).status !== "completed") {
       const netKwd = parseFloat((oldPay as any).amountKwd) || 0;
       const cbKwd = parseFloat((oldPay as any).cashbackAppliedKwd) || 0;
       const grossKwdStr = (oldPay as any).grossAmountKwd;

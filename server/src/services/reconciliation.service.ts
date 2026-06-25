@@ -2,6 +2,8 @@ import { PaymentModel } from "../models/payment.model.js";
 import { UserModel } from "../models/user.model.js";
 import { BookingSessionModel } from "../models/bookingSession.model.js";
 import { SystemMetricModel } from "../models/metric.model.js";
+import { UserOfferModel } from "../models/userOffer.model.js";
+import { OfferModel } from "../models/offer.model.js";
 
 function parseKwd(k: string | undefined | null) {
   if (!k) return 0;
@@ -91,6 +93,41 @@ export async function reconcileMetrics() {
     }
   }
 
+  // 4. Reconcile Expected vs Paid (User Offers)
+  const allUserOffers = await UserOfferModel.find({
+    status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] }
+  }).select("offerId installmentSchedule purchaseMode paymentAmountKwd depositAmountKwd status").lean();
+  
+  const allOfferIds = [...new Set(allUserOffers.map((uo: any) => uo.offerId?.toString()).filter(Boolean))];
+  const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
+  const offerPriceMap = new Map(allOfferDocs.map((o: any) => [o._id.toString(), o.subscriptionPriceKwd]));
+
+  let totalExpectedMembershipRevenueMils = 0;
+  let totalPaidTowardMembershipsMils = 0;
+
+  for (const uo of allUserOffers as any[]) {
+    const totalPriceKwd = offerPriceMap.get(uo.offerId?.toString()) || uo.paymentAmountKwd || "0.000";
+    const uoTotal = parseKwd(totalPriceKwd);
+    
+    let paidMils = 0;
+    if (uo.purchaseMode === "installments") {
+      const sched = uo.installmentSchedule || [];
+      paidMils += parseKwd(uo.depositAmountKwd || "0");
+      sched.forEach((s: any) => {
+        if (s.paid) paidMils += parseKwd(s.amountKwd || "0");
+      });
+    } else if (uo.purchaseMode === "deposit") {
+      paidMils = parseKwd(uo.paymentAmountKwd || uo.depositAmountKwd || "0");
+    } else {
+      if (uo.status === "active" || uo.status === "expired" || uo.status === "reserved" || uo.status === "cancelled") {
+         paidMils = uoTotal;
+      }
+    }
+    
+    totalExpectedMembershipRevenueMils += uoTotal;
+    totalPaidTowardMembershipsMils += paidMils;
+  }
+
   const now = new Date();
 
   // Save global
@@ -108,6 +145,8 @@ export async function reconcileMetrics() {
       totalStandaloneSessionsSold,
       totalStandaloneSessionRevenueMils,
       totalGrossStandaloneSessionRevenueMils,
+      totalExpectedMembershipRevenueMils,
+      totalPaidTowardMembershipsMils,
       lastReconciledAt: now
     },
     { upsert: true }
