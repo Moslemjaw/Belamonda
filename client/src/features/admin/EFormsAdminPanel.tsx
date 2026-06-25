@@ -263,6 +263,8 @@ export function EFormsAdminPanel() {
   // Send form state
   const [sendFormModal, setSendFormModal] = useState<FormItem | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [sendingForm, setSendingForm] = useState(false);
   const { data: usersData } = useApi<{ items: Array<{ id: string; shortId: string; username: string; fullName?: string; phone?: string }> }>("/users/admin?role=customer", { lazy: !sendFormModal });
   const customers = usersData?.items ?? [];
 
@@ -363,6 +365,7 @@ export function EFormsAdminPanel() {
 
   const handleSendForm = async () => {
     if (!sendFormModal || !selectedCustomerId) return;
+    setSendingForm(true);
     try {
       await apiFetch("/eforms/admin/assignments", {
         method: "POST",
@@ -372,8 +375,11 @@ export function EFormsAdminPanel() {
       alert(ar() ? "تم إرسال النموذج بنجاح" : "Form sent successfully!");
       setSendFormModal(null);
       setSelectedCustomerId("");
+      setCustomerSearch("");
     } catch (e: any) {
       alert(e.message || "Failed to send form");
+    } finally {
+      setSendingForm(false);
     }
   };
 
@@ -722,6 +728,113 @@ export function EFormsAdminPanel() {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Send to Customer Modal ── */}
+      {sendFormModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => { setSendFormModal(null); setSelectedCustomerId(""); setCustomerSearch(""); }}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md mx-4 overflow-hidden animate-slide-up" onClick={(e) => e.stopPropagation()}>
+            {/* Header */}
+            <div className="bg-gradient-to-r from-fuchsia-50 via-white to-brand-pink-50 px-6 py-5 border-b border-surface-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-fuchsia-100 flex items-center justify-center text-fuchsia-600">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-surface-900">{ar() ? "إرسال نموذج لعميل" : "Send Form to Customer"}</h4>
+                    <p className="text-xs text-surface-500 mt-0.5">{sendFormModal.title}</p>
+                  </div>
+                </div>
+                <button type="button" onClick={() => { setSendFormModal(null); setSelectedCustomerId(""); setCustomerSearch(""); }} className="icon-btn">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "بحث عن عميل" : "Search Customer"}</label>
+                <input
+                  className="input-field"
+                  placeholder={ar() ? "اسم أو رقم هاتف أو معرّف…" : "Name, phone, or ID…"}
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="max-h-64 overflow-y-auto rounded-xl border border-surface-200">
+                {customers.length === 0 && (
+                  <div className="p-6 text-center text-xs text-surface-400">
+                    <div className="w-6 h-6 border-3 border-surface-200 border-t-fuchsia-500 rounded-full animate-spin mx-auto mb-2" />
+                    {ar() ? "جاري تحميل العملاء…" : "Loading customers…"}
+                  </div>
+                )}
+                {customers
+                  .filter((c) => {
+                    if (!customerSearch.trim()) return true;
+                    const q = customerSearch.toLowerCase();
+                    return (
+                      (c.fullName || "").toLowerCase().includes(q) ||
+                      (c.username || "").toLowerCase().includes(q) ||
+                      (c.phone || "").includes(q) ||
+                      (c.shortId || "").toLowerCase().includes(q)
+                    );
+                  })
+                  .slice(0, 50)
+                  .map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSelectedCustomerId(c.id)}
+                      className={`w-full text-left px-4 py-3 flex items-center gap-3 border-b border-surface-100 last:border-0 transition-colors ${
+                        selectedCustomerId === c.id
+                          ? "bg-fuchsia-50 border-l-2 border-l-fuchsia-500"
+                          : "hover:bg-surface-50"
+                      }`}
+                    >
+                      <div className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                        selectedCustomerId === c.id
+                          ? "bg-fuchsia-500 text-white"
+                          : "bg-surface-100 text-surface-600"
+                      }`}>
+                        {(c.fullName || c.username || "?").charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-semibold text-surface-900 truncate">{c.fullName || c.username}</div>
+                        <div className="text-[10px] text-surface-400">{c.phone || c.shortId}</div>
+                      </div>
+                      {selectedCustomerId === c.id && (
+                        <svg className="w-5 h-5 text-fuchsia-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      )}
+                    </button>
+                  ))}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-surface-100 bg-surface-50 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                onClick={() => { setSendFormModal(null); setSelectedCustomerId(""); setCustomerSearch(""); }}
+              >
+                {ar() ? "إلغاء" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                disabled={!selectedCustomerId || sendingForm}
+                onClick={handleSendForm}
+              >
+                {sendingForm
+                  ? (ar() ? "جاري الإرسال…" : "Sending…")
+                  : (ar() ? "إرسال النموذج" : "Send Form")}
+              </button>
+            </div>
           </div>
         </div>
       )}
