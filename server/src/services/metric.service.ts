@@ -8,11 +8,15 @@ export async function incrementMetric(
   metrics: {
     totalUsers?: number;
     totalRevenueMils?: number;
+    totalGrossRevenueMils?: number;
+    totalCashbackAppliedMils?: number;
     totalSessionsCompleted?: number;
     totalMembershipsSold?: number;
     totalMembershipRevenueMils?: number;
+    totalGrossMembershipRevenueMils?: number;
     totalStandaloneSessionsSold?: number;
     totalStandaloneSessionRevenueMils?: number;
+    totalGrossStandaloneSessionRevenueMils?: number;
   }
 ) {
   try {

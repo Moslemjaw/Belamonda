@@ -18,6 +18,7 @@ import { OfferModel, type OfferDoc } from "../../models/offer.model.js";
 import { BookingSessionModel } from "../../models/bookingSession.model.js";
 import { BookingRequestModel } from "../../models/bookingRequest.model.js";
 import { PaymentModel } from "../../models/payment.model.js";
+import { incrementMetric } from "../../services/metric.service.js";
 import { notifyBookingConfirmed, notifyBookingUnderReview, notifyBookingRejected, notifyBookingCancelled, notifySessionCompletedCashback } from "../notifications/notifications.service.js";
 import { notifyChatRelatedUsers } from "../notifications/notifications.service.chat.js";
 import { listRequiredFormsForUser } from "../eforms/eforms.router.js";
@@ -1321,12 +1322,32 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
   if (breq.clinicPaymentStatus === "paid") return res.status(409).json({ error: "ALREADY_MARKED_PAID" });
 
   if (breq.sessionPaymentId) {
-    await PaymentModel.findByIdAndUpdate(breq.sessionPaymentId, {
+    const oldPay = await PaymentModel.findByIdAndUpdate(breq.sessionPaymentId, {
       status: "completed",
       confirmedAt: new Date(),
       confirmedBy: req.auth!.userId,
       method: "cash" // or pos, we default to cash for clinic side payments
-    });
+    }).lean();
+    
+    if (oldPay && oldPay.status !== "completed") {
+      const netKwd = parseFloat((oldPay as any).amountKwd) || 0;
+      const cbKwd = parseFloat((oldPay as any).cashbackAppliedKwd) || 0;
+      const grossKwdStr = (oldPay as any).grossAmountKwd;
+      const grossKwd = grossKwdStr ? parseFloat(grossKwdStr) : netKwd + cbKwd;
+      
+      const netMils = Math.round(netKwd * 1000);
+      const cbMils = Math.round(cbKwd * 1000);
+      const grossMils = Math.round(grossKwd * 1000);
+      
+      await incrementMetric({
+        totalRevenueMils: netMils,
+        totalGrossRevenueMils: grossMils,
+        totalCashbackAppliedMils: cbMils,
+        totalStandaloneSessionsSold: 1,
+        totalStandaloneSessionRevenueMils: netMils,
+        totalGrossStandaloneSessionRevenueMils: grossMils,
+      });
+    }
   } else if (breq.sessionPriceKwd && parseFloat(breq.sessionPriceKwd) > 0) {
     // Fallback if no pending payment existed
     const cb = parseFloat(breq.cashbackDeductedKwd || "0");
@@ -1347,6 +1368,19 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
       confirmedAt: new Date(),
       confirmedBy: req.auth!.userId
     });
+    
+    const netMils = Math.round(parseFloat(breq.sessionPriceKwd) * 1000);
+    const cbMils = Math.round(cb * 1000);
+    const grossMils = Math.round(gross * 1000);
+    await incrementMetric({
+      totalRevenueMils: netMils,
+      totalGrossRevenueMils: grossMils,
+      totalCashbackAppliedMils: cbMils,
+      totalStandaloneSessionsSold: 1,
+      totalStandaloneSessionRevenueMils: netMils,
+      totalGrossStandaloneSessionRevenueMils: grossMils,
+    });
+    
     await bookingRequestsStore.update(breq.id, { sessionPaymentId: payDoc.id });
   }
 

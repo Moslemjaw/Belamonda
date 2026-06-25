@@ -2,16 +2,21 @@ import mongoose, { Schema } from "mongoose";
 
 const SystemMetricSchema = new Schema(
   {
-    _id: { type: String, required: true }, // e.g., "global", "daily_2026-06-25", "clinic_123_global", etc.
+    _id: { type: String, required: true }, // e.g., "global", "daily_2026-06-25"
     totalUsers: { type: Number, default: 0 },
-    totalRevenueMils: { type: Number, default: 0 },
+    totalRevenueMils: { type: Number, default: 0 },         // net (amountKwd — after cashback)
+    totalGrossRevenueMils: { type: Number, default: 0 },    // gross (sticker price)
+    totalCashbackAppliedMils: { type: Number, default: 0 }, // cashback applied
     totalSessionsCompleted: { type: Number, default: 0 },
     
-    // Detailed breakdowns
+    // Detailed breakdowns (net)
     totalMembershipsSold: { type: Number, default: 0 },
     totalMembershipRevenueMils: { type: Number, default: 0 },
     totalStandaloneSessionsSold: { type: Number, default: 0 },
     totalStandaloneSessionRevenueMils: { type: Number, default: 0 },
+    // Detailed breakdowns (gross)
+    totalGrossMembershipRevenueMils: { type: Number, default: 0 },
+    totalGrossStandaloneSessionRevenueMils: { type: Number, default: 0 },
     
     // Caching/Reconciliation metadata
     lastReconciledAt: { type: Date }

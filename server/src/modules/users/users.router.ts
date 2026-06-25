@@ -5,10 +5,13 @@ import * as XLSX from "xlsx";
 import bcrypt from "bcryptjs";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
+import { ClinicModel } from "../../models/clinic.model.js";
 import { UserModel } from "../../models/user.model.js";
 import { UserOfferModel } from "../../models/userOffer.model.js";
-import { OfferModel } from "../../models/offer.model.js";
+import { OfferModel, type OfferDoc } from "../../models/offer.model.js";
+import { incrementMetric } from "../../services/metric.service.js";
 import { PaymentModel } from "../../models/payment.model.js";
+import { EFormModel } from "../../models/eform.model.js";
 import { BookingRequestModel } from "../../models/bookingRequest.model.js";
 import { KycSubmissionModel, WalletModel, WalletTxnModel } from "../../models/kyc.model.js";
 import { BookingSessionModel } from "../../models/bookingSession.model.js";
@@ -735,6 +738,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
         role: "customer",
         isActive: true,
       });
+      await incrementMetric({ totalUsers: 1 });
       user = created.toObject() as UserLean;
     }
 

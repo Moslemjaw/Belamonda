@@ -3,6 +3,7 @@ import * as crypto from "node:crypto";
 import { OfferModel, type OfferDoc } from "../models/offer.model.js";
 import { UserOfferModel, type UserOfferDoc } from "../models/userOffer.model.js";
 import { PaymentModel } from "../models/payment.model.js";
+import { incrementMetric } from "./metric.service.js";
 import { EFormModel, EFormSubmissionModel } from "../models/eform.model.js";
 import { ClinicModel, type ClinicDoc } from "../models/clinic.model.js";
 
@@ -274,6 +275,29 @@ async function createPayment(input: {
     confirmedAt: input.status === "completed" ? new Date() : undefined,
     confirmedBy: input.status === "completed" ? "system_checkout" : undefined
   });
+  
+  if (input.status === "completed") {
+    const netKwd = parseFloat(input.amountKwd) || 0;
+    const cbKwd = parseFloat(input.cashbackAppliedKwd) || 0;
+    const grossKwdStr = input.grossAmountKwd;
+    const grossKwd = grossKwdStr ? parseFloat(grossKwdStr) : netKwd + cbKwd;
+    
+    const netMils = Math.round(netKwd * 1000);
+    const cbMils = Math.round(cbKwd * 1000);
+    const grossMils = Math.round(grossKwd * 1000);
+    
+    await incrementMetric({
+      totalRevenueMils: netMils,
+      totalGrossRevenueMils: grossMils,
+      totalCashbackAppliedMils: cbMils,
+      // We assume checkout.service.ts primarily handles memberships/enrollments/installments.
+      // Sessions are handled by payment.service.ts -> createSessionPayment / confirmSessionPayment
+      totalMembershipsSold: input.purpose.startsWith("enrollment") ? 1 : 0,
+      totalMembershipRevenueMils: netMils,
+      totalGrossMembershipRevenueMils: grossMils,
+    });
+  }
+  
   return doc;
 }
 

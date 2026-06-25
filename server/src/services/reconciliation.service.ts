@@ -21,29 +21,42 @@ export async function reconcileMetrics() {
   
   // 3. Reconcile Payments (Global)
   const payments = await PaymentModel.find({ status: "completed" })
-    .select("amountKwd purpose createdAt")
+    .select("amountKwd grossAmountKwd cashbackAppliedKwd purpose createdAt")
     .lean();
     
   let totalRevenueMils = 0;
+  let totalGrossRevenueMils = 0;
+  let totalCashbackAppliedMils = 0;
+  
   let totalMembershipsSold = 0;
   let totalMembershipRevenueMils = 0;
+  let totalGrossMembershipRevenueMils = 0;
+  
   let totalStandaloneSessionsSold = 0;
   let totalStandaloneSessionRevenueMils = 0;
+  let totalGrossStandaloneSessionRevenueMils = 0;
   
   // Also calculate daily buckets
   const dailyBuckets = new Map<string, any>();
   
   for (const p of payments as any[]) {
-    const mils = parseKwd(p.amountKwd);
-    totalRevenueMils += mils;
+    const net = parseKwd(p.amountKwd);
+    const cb = parseKwd(p.cashbackAppliedKwd || "0.000");
+    const gross = p.grossAmountKwd ? parseKwd(p.grossAmountKwd) : net + cb;
+    
+    totalRevenueMils += net;
+    totalGrossRevenueMils += gross;
+    totalCashbackAppliedMils += cb;
     
     const isSession = (p.purpose || "enrollment_full") === "session_payment";
     if (isSession) {
       totalStandaloneSessionsSold++;
-      totalStandaloneSessionRevenueMils += mils;
+      totalStandaloneSessionRevenueMils += net;
+      totalGrossStandaloneSessionRevenueMils += gross;
     } else {
       totalMembershipsSold++;
-      totalMembershipRevenueMils += mils;
+      totalMembershipRevenueMils += net;
+      totalGrossMembershipRevenueMils += gross;
     }
     
     // Daily
@@ -52,20 +65,29 @@ export async function reconcileMetrics() {
     if (!dailyBuckets.has(key)) {
       dailyBuckets.set(key, {
         totalRevenueMils: 0,
+        totalGrossRevenueMils: 0,
+        totalCashbackAppliedMils: 0,
         totalMembershipsSold: 0,
         totalMembershipRevenueMils: 0,
+        totalGrossMembershipRevenueMils: 0,
         totalStandaloneSessionsSold: 0,
-        totalStandaloneSessionRevenueMils: 0
+        totalStandaloneSessionRevenueMils: 0,
+        totalGrossStandaloneSessionRevenueMils: 0
       });
     }
     const b = dailyBuckets.get(key)!;
-    b.totalRevenueMils += mils;
+    b.totalRevenueMils += net;
+    b.totalGrossRevenueMils += gross;
+    b.totalCashbackAppliedMils += cb;
+    
     if (isSession) {
       b.totalStandaloneSessionsSold++;
-      b.totalStandaloneSessionRevenueMils += mils;
+      b.totalStandaloneSessionRevenueMils += net;
+      b.totalGrossStandaloneSessionRevenueMils += gross;
     } else {
       b.totalMembershipsSold++;
-      b.totalMembershipRevenueMils += mils;
+      b.totalMembershipRevenueMils += net;
+      b.totalGrossMembershipRevenueMils += gross;
     }
   }
 
@@ -78,10 +100,14 @@ export async function reconcileMetrics() {
       totalUsers,
       totalSessionsCompleted,
       totalRevenueMils,
+      totalGrossRevenueMils,
+      totalCashbackAppliedMils,
       totalMembershipsSold,
       totalMembershipRevenueMils,
+      totalGrossMembershipRevenueMils,
       totalStandaloneSessionsSold,
       totalStandaloneSessionRevenueMils,
+      totalGrossStandaloneSessionRevenueMils,
       lastReconciledAt: now
     },
     { upsert: true }

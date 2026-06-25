@@ -250,10 +250,11 @@ export async function computeFinanceTimeseries(filters: { period: "daily" | "wee
       const dateStr = doc._id.replace("daily_", "");
       const k = bucketKey(new Date(dateStr + "T00:00:00Z"), period);
       const cur = buckets.get(k) ?? { revenue: 0, net: 0, cashback: 0, sessions: 0, memberships: 0, count: 0 };
-      cur.revenue += (doc.totalRevenueMils || 0);
+      cur.revenue += (doc.totalGrossRevenueMils || 0);
       cur.net += (doc.totalRevenueMils || 0);
-      cur.memberships += (doc.totalMembershipRevenueMils || 0);
-      cur.sessions += (doc.totalStandaloneSessionRevenueMils || 0);
+      cur.cashback += (doc.totalCashbackAppliedMils || 0);
+      cur.memberships += (doc.totalGrossMembershipRevenueMils || 0);
+      cur.sessions += (doc.totalGrossStandaloneSessionRevenueMils || 0);
       cur.count += (doc.totalMembershipsSold || 0) + (doc.totalStandaloneSessionsSold || 0);
       buckets.set(k, cur);
     }
@@ -779,8 +780,8 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
     const globalMetric = await SystemMetricModel.findById("global").lean() as any;
     if (globalMetric) {
       netMils = globalMetric.totalRevenueMils || 0;
-      grossMils = globalMetric.totalRevenueMils || 0;
-      cashbackAppliedMils = 0; // cashback stored separately; approximate here
+      grossMils = globalMetric.totalGrossRevenueMils || 0;
+      cashbackAppliedMils = globalMetric.totalCashbackAppliedMils || 0;
     } else {
       // Fallback if reconciliation hasn't run yet
       const rows = await PaymentModel.find(rowsQ).select("amountKwd grossAmountKwd cashbackAppliedKwd").lean();

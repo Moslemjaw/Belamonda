@@ -28,11 +28,15 @@ export async function createCompletedEnrollmentPayment(input: {
   
   const kwdVal = parseFloat(input.amountKwd) || 0;
   const mils = Math.round(kwdVal * 1000);
-  // Enrollment is a membership sold
+  
+  // Enrollment is a membership sold. Since manual enrollments don't currently have cashback tracked in this function, gross = net
   await incrementMetric({
     totalRevenueMils: mils,
+    totalGrossRevenueMils: mils,
+    totalCashbackAppliedMils: 0,
     totalMembershipsSold: 1,
     totalMembershipRevenueMils: mils,
+    totalGrossMembershipRevenueMils: mils,
   });
   
   return serializePayment(doc.toObject() as any);
@@ -72,13 +76,22 @@ export async function confirmSessionPayment(paymentId: string) {
   ).lean();
   if (!doc) throw new Error("Session payment not found or already processed");
   
-  const kwdVal = parseFloat((doc as any).amountKwd) || 0;
-  const mils = Math.round(kwdVal * 1000);
+  const netKwd = parseFloat((doc as any).amountKwd) || 0;
+  const cbKwd = parseFloat((doc as any).cashbackAppliedKwd) || 0;
+  const grossKwdStr = (doc as any).grossAmountKwd;
+  const grossKwd = grossKwdStr ? parseFloat(grossKwdStr) : netKwd + cbKwd;
+  
+  const netMils = Math.round(netKwd * 1000);
+  const cbMils = Math.round(cbKwd * 1000);
+  const grossMils = Math.round(grossKwd * 1000);
   
   await incrementMetric({
-    totalRevenueMils: mils,
+    totalRevenueMils: netMils,
+    totalGrossRevenueMils: grossMils,
+    totalCashbackAppliedMils: cbMils,
     totalStandaloneSessionsSold: 1,
-    totalStandaloneSessionRevenueMils: mils,
+    totalStandaloneSessionRevenueMils: netMils,
+    totalGrossStandaloneSessionRevenueMils: grossMils,
   });
   
   return serializePayment(doc as any);
