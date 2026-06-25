@@ -66,6 +66,9 @@ kycRouter.post("/submit", authRequired, async (req, res, next) => {
     if (e.message === "ALREADY_PENDING") {
       return res.status(409).json({ error: "ALREADY_PENDING" });
     }
+    if (e.message === "ALREADY_VERIFIED") {
+      return res.status(409).json({ error: "ALREADY_VERIFIED" });
+    }
     next(e);
   }
 });

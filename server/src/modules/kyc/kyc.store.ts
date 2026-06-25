@@ -56,10 +56,14 @@ export const kycStore = {
     civilIdBackRef: string;
     checkboxes: KycCheckboxes;
   }) {
-    // Prevent duplicate submissions — only allow one pending KYC at a time
-    const existingPending = await KycSubmissionModel.findOne({ userId: input.userId, status: "pending" }).lean();
-    if (existingPending) {
-      throw new Error("ALREADY_PENDING");
+    // Only allow a new KYC if user has no pending/approved submission.
+    // User can only resubmit after a rejection.
+    const existingActive = await KycSubmissionModel.findOne({
+      userId: input.userId,
+      status: { $in: ["pending", "approved"] }
+    }).lean();
+    if (existingActive) {
+      throw new Error((existingActive as any).status === "pending" ? "ALREADY_PENDING" : "ALREADY_VERIFIED");
     }
 
     const doc = await KycSubmissionModel.create({

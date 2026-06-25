@@ -504,6 +504,8 @@ function KycVerificationPage({ onComplete, onCancel }: { onComplete: () => void;
       const msg = e.message || "";
       if (msg === "ALREADY_PENDING") {
         setKycError(ar() ? "لديك طلب توثيق قيد المراجعة بالفعل. يرجى الانتظار حتى تتم مراجعته." : "You already have a pending verification request. Please wait for it to be reviewed.");
+      } else if (msg === "ALREADY_VERIFIED") {
+        setKycError(ar() ? "حسابك موثق بالفعل." : "Your account is already verified.");
       } else if (msg === "VALIDATION_ERROR") {
         setKycError(ar() ? "يرجى التأكد من صحة البيانات المدخلة والمحاولة مرة أخرى" : "Please verify your information and try again");
       } else {
