@@ -713,7 +713,7 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
 // ── Finance snapshot cache (60s TTL) ──
 let _snapshotCache: { data: any; ts: number; key: string } | null = null;
 const SNAPSHOT_TTL = 60_000;
-let _snapshotPromises: Record<string, Promise<any>> = {};
+const _snapshotPromises: Map<string, Promise<any>> = new Map();
 
 export async function computeFinanceSnapshot(filters: { from?: string; to?: string } = {}) {
   const cacheKey = `${filters.from || ""}_${filters.to || ""}`;
@@ -721,18 +721,19 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
     return _snapshotCache.data;
   }
   
-  if (_snapshotPromises[cacheKey]) return _snapshotPromises[cacheKey];
+  const inflight = _snapshotPromises.get(cacheKey);
+  if (inflight) return inflight;
 
   const promise = _computeFinanceSnapshotImpl(filters).then(result => {
     _snapshotCache = { data: result, ts: Date.now(), key: cacheKey };
-    delete _snapshotPromises[cacheKey];
+    _snapshotPromises.delete(cacheKey);
     return result;
   }).catch(err => {
-    delete _snapshotPromises[cacheKey];
+    _snapshotPromises.delete(cacheKey);
     throw err;
   });
 
-  _snapshotPromises[cacheKey] = promise;
+  _snapshotPromises.set(cacheKey, promise);
   return promise;
 }
 
