@@ -7,6 +7,7 @@ import { listPendingPaymentsQueue } from "../../services/userOffer.service.js";
 import { listClinics } from "../../services/clinic.service.js";
 import { listByClinic } from "../../services/bookingSession.service.js";
 import * as offerService from "../../services/offer.service.js";
+import { OfferModel } from "../../models/offer.model.js";
 import { kycStore } from "../kyc/kyc.store.js";
 
 export const dashboardsRouter = Router();
@@ -36,15 +37,19 @@ dashboardsRouter.get("/finance/summary", authRequired, requireRole(["finance", "
       const [a, b = "000"] = s.split(".");
       return Number(a) * 1000 + Number(b.padEnd(3, "0").slice(0, 3));
     }
+
+    // Batch fetch all offers for pending queue
+    const pendingOfferIds = [...new Set(pendingQueue.map((uo: any) => uo.offerId).filter(Boolean))].filter((id) => mongoose.isValidObjectId(id));
+    const pendingOffers = await OfferModel.find({ _id: { $in: pendingOfferIds } }).select("subscriptionPriceKwd").lean();
+    const offerPriceMap = Object.fromEntries(pendingOffers.map((o: any) => [o._id.toString(), o.subscriptionPriceKwd]));
+
     let pendingMils = 0;
     for (const uo of pendingQueue) {
-      const o = await offerService.getOffer(uo.offerId);
-      if (o) pendingMils += parseKwdOuter(o.subscriptionPriceKwd);
+      const price = offerPriceMap[String(uo.offerId)];
+      if (price) pendingMils += parseKwdOuter(price);
     }
 
-    let lockedMils = 0;
-    let unlockedMils = 0;
-    let utilizedMils = 0;
+    // Batch fetch all wallets for users
     const users = new Set<string>();
     for (const p of pendingQueue) users.add(p.userId);
     const recentSample = await listPaymentsAdmin({ limit: 100, page: 1 });
@@ -52,20 +57,28 @@ dashboardsRouter.get("/finance/summary", authRequired, requireRole(["finance", "
       if (p.userId) users.add(p.userId);
     }
 
+    const userIdsArr = Array.from(users);
+    const { WalletModel, WalletTxnModel } = await import("../../models/kyc.model.js");
+    const [wallets, txns] = await Promise.all([
+      WalletModel.find({ userId: { $in: userIdsArr } }).lean(),
+      WalletTxnModel.find({ userId: { $in: userIdsArr }, type: "deduction" }).select("amountKwd").lean()
+    ]);
+
+    let lockedMils = 0;
+    let unlockedMils = 0;
+    let utilizedMils = 0;
+    for (const w of wallets as any[]) {
+      lockedMils += parseKwdOuter(w.lockedKwd || "0.000");
+      unlockedMils += parseKwdOuter(w.unlockedKwd || "0.000");
+    }
+    for (const t of txns as any[]) {
+      utilizedMils += parseKwdOuter(t.amountKwd || "0.000");
+    }
+
     function fmt(mils: number) {
       const a = Math.floor(Math.abs(mils) / 1000);
       const b = String(Math.abs(mils) % 1000).padStart(3, "0");
       return `${mils < 0 ? "-" : ""}${a}.${b}`;
-    }
-
-    for (const uid of users) {
-      const w = await kycStore.getWallet(uid);
-      if (!w) continue;
-      lockedMils += parseKwdOuter(w.lockedKwd);
-      unlockedMils += parseKwdOuter(w.unlockedKwd);
-      for (const t of await kycStore.listWalletTxns(uid)) {
-        if (t.type === "deduction") utilizedMils += parseKwdOuter(t.amountKwd);
-      }
     }
 
     const liabilityMils = lockedMils + unlockedMils - utilizedMils;

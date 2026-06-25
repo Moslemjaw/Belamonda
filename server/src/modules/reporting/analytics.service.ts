@@ -710,7 +710,21 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
   };
 }
 
+// ── Finance snapshot cache (60s TTL) ──
+let _snapshotCache: { data: any; ts: number; key: string } | null = null;
+const SNAPSHOT_TTL = 60_000;
+
 export async function computeFinanceSnapshot(filters: { from?: string; to?: string } = {}) {
+  const cacheKey = `${filters.from || ""}_${filters.to || ""}`;
+  if (_snapshotCache && _snapshotCache.key === cacheKey && Date.now() - _snapshotCache.ts < SNAPSHOT_TTL) {
+    return _snapshotCache.data;
+  }
+  const result = await _computeFinanceSnapshotImpl(filters);
+  _snapshotCache = { data: result, ts: Date.now(), key: cacheKey };
+  return result;
+}
+
+async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string } = {}) {
   const dateFilter = buildDateFilter(filters.from, filters.to);
   let revenueKwd: string;
   let revenueMils: number;
