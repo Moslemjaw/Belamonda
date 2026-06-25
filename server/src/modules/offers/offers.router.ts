@@ -6,7 +6,21 @@ import { createOffer, getOffer, listOffersAdmin, listOffersPublic, updateOffer, 
 import { kycStore } from "../kyc/kyc.store.js";
 import { notifyNewOfferAlert } from "../notifications/notifications.service.js";
 import { logAuditAction } from "../../services/audit.service.js";
+import { v2 as cloudinary } from "cloudinary";
 
+cloudinary.config({
+  cloud_name: "dyxzbgiic",
+  api_key: "525168948871956",
+  api_secret: "q4Qf-Y32H9yVJYm-G-m1ufJ15Ns"
+});
+
+async function uploadToCloudinary(base64Image: string): Promise<string> {
+  if (!base64Image || !base64Image.startsWith("data:image")) return base64Image;
+  const result = await cloudinary.uploader.upload(base64Image, {
+    folder: "offer_images"
+  });
+  return result.secure_url;
+}
 const KwdString = z.string().regex(/^\d+(\.\d{3})$/);
 
 const OfferBaseSchema = z.object({
@@ -173,6 +187,14 @@ offersRouter.post("/admin", authRequired, requireRole(["admin"]), async (req, re
   try {
     const parsed = OfferCreateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    
+    if (parsed.data.imageUrl) {
+      parsed.data.imageUrl = await uploadToCloudinary(parsed.data.imageUrl);
+    }
+    if (parsed.data.bannerUrl) {
+      parsed.data.bannerUrl = await uploadToCloudinary(parsed.data.bannerUrl);
+    }
+
     const offer = await createOffer(parsed.data as any);
     await logAuditAction({
       actorId: (req as any).user?._id || "system",
@@ -221,6 +243,14 @@ offersRouter.patch("/admin/:offerId", authRequired, requireRole(["admin"]), asyn
   try {
     const parsed = OfferUpdateSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    
+    if (parsed.data.imageUrl) {
+      parsed.data.imageUrl = await uploadToCloudinary(parsed.data.imageUrl);
+    }
+    if (parsed.data.bannerUrl) {
+      parsed.data.bannerUrl = await uploadToCloudinary(parsed.data.bannerUrl);
+    }
+
     const offer = await updateOffer(req.params.offerId, parsed.data as any);
     if (!offer) return res.status(404).json({ error: "NOT_FOUND" });
     await logAuditAction({
