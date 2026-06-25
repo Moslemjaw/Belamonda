@@ -735,9 +735,12 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
 
   const pending = await userOfferService.listPendingPaymentsQueue();
   let pendingMils = 0;
+  const pendingOfferIds = [...new Set(pending.map(uo => uo.offerId).filter(Boolean))];
+  const pendingOffers = await OfferModel.find({ _id: { $in: pendingOfferIds } }).lean<{ _id: mongoose.Types.ObjectId; subscriptionPriceKwd: string }[]>();
+  const offerMap = Object.fromEntries(pendingOffers.map(o => [String(o._id), o]));
   for (const uo of pending) {
-    const offer = await offerService.getOffer(uo.offerId);
-    if (offer) pendingMils += parseKwd(offer.subscriptionPriceKwd);
+    const offer = offerMap[String(uo.offerId)];
+    if (offer) pendingMils += parseKwd(offer.subscriptionPriceKwd || "0.000");
   }
 
   const paymentUserIds = await PaymentModel.distinct<string>("userId");
@@ -747,16 +750,18 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
   let unlocked = 0;
   let utilized = 0;
   let credited = 0;
-  for (const uid of walletUserIds) {
-    const w = await kycStore.getWallet(uid);
-    if (!w) continue;
-    locked += parseKwd(w.lockedKwd);
-    unlocked += parseKwd(w.unlockedKwd);
-    const txns = await kycStore.listWalletTxns(uid);
-    for (const t of txns) {
-      if (t.type === "deduction") utilized += parseKwd(t.amountKwd);
-      if (t.type === "signup_bonus" || t.type === "unlock" || t.type === "adjustment" || t.type === "reversal") credited += parseKwd(t.amountKwd);
-    }
+  
+  const userIdsArr = Array.from(walletUserIds);
+  const wallets = await WalletModel.find({ userId: { $in: userIdsArr } }).lean();
+  for (const w of wallets as any[]) {
+    locked += parseKwd(w.lockedKwd || "0.000");
+    unlocked += parseKwd(w.unlockedKwd || "0.000");
+  }
+  
+  const txns = await WalletTxnModel.find({ userId: { $in: userIdsArr } }).select("type amountKwd").lean();
+  for (const t of txns as any[]) {
+    if (t.type === "deduction") utilized += parseKwd(t.amountKwd || "0.000");
+    if (t.type === "signup_bonus" || t.type === "unlock" || t.type === "adjustment" || t.type === "reversal") credited += parseKwd(t.amountKwd || "0.000");
   }
 
   const liability = locked + unlocked - utilized;
