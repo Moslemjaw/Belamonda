@@ -113,11 +113,33 @@ function fmtKwdFromMils(mils: number): string {
 }
 
 /** Sum all completed payment amounts (KWD string). */
-export async function sumCompletedPaymentsKwd(): Promise<string> {
-  const rows = await PaymentModel.find({ status: "completed" }).select("amountKwd").lean();
-  let mils = 0;
-  for (const r of rows) mils += parseKwdMils(r.amountKwd);
-  return fmtKwdFromMils(mils);
+let _sumCompletedPromise: Promise<string> | null = null;
+let _sumCompletedCache: { data: string; ts: number } | null = null;
+const SUM_CACHE_TTL = 60_000;
+
+export async function sumCompletedPaymentsKwd() {
+  if (_sumCompletedCache && Date.now() - _sumCompletedCache.ts < SUM_CACHE_TTL) {
+    return _sumCompletedCache.data;
+  }
+  if (_sumCompletedPromise) return _sumCompletedPromise;
+
+  const promise = (async () => {
+    const all = await PaymentModel.find({ status: "completed" }).select("amountKwd cashbackAppliedKwd grossAmountKwd").lean();
+    let totalMils = 0;
+    for (const p of all) {
+      const net = parseKwdMils(p.amountKwd);
+      const cb = parseKwdMils(p.cashbackAppliedKwd || "0.000");
+      const gross = p.grossAmountKwd ? parseKwdMils(p.grossAmountKwd) : net + cb;
+      totalMils += gross;
+    }
+    const result = fmtKwdFromMils(totalMils);
+    _sumCompletedCache = { data: result, ts: Date.now() };
+    _sumCompletedPromise = null;
+    return result;
+  })();
+
+  _sumCompletedPromise = promise;
+  return promise;
 }
 
 export async function findPaymentByUserOffer(userOfferId: string) {
