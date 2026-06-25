@@ -662,7 +662,7 @@ export function EFormsAdminPanel() {
                   {f.requireBeforeFirstPayment && <span className="px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-bold">REQ-PAYMENT</span>}
                   {f.archived && <span className="px-2 py-0.5 rounded bg-surface-200 text-surface-600 font-bold">ARCHIVED</span>}
                 </div>
-                <div className="flex gap-2 flex-wrap mt-2">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 mt-2">
                   <button type="button" className="btn-primary btn-sm text-xs" onClick={() => startEdit(f)}>{ar() ? "تعديل" : "Edit"}</button>
                   <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => setPreviewForm(f)}>
                     {ar() ? "معاينة" : "Preview"}
