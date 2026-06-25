@@ -87,10 +87,10 @@ export function KycQueue() {
               <div key={k.id} className="queue-row group flex-wrap">
                 <div className={`priority-${priority} shrink-0 hidden sm:block`} aria-hidden="true" />
                 <span className="sr-only">{priority === "red" ? (ar() ? "أولوية عالية" : "High priority") : priority === "yellow" ? (ar() ? "أولوية متوسطة" : "Medium priority") : (ar() ? "أولوية منخفضة" : "Low priority")}</span>
-                <div className="avatar avatar-sm sm:avatar-md" aria-hidden="true">{(k.userName || k.userId)?.charAt(0)?.toUpperCase()}</div>
+                <div className="avatar avatar-sm sm:avatar-md" aria-hidden="true">{(k.userName || "?")?.charAt(0)?.toUpperCase()}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 sm:gap-2">
-                    <div className="text-xs sm:text-sm font-bold text-surface-900 truncate">{k.userName || k.userId}</div>
+                    <div className="text-xs sm:text-sm font-bold text-surface-900 truncate">{k.userName || "Unknown User"}</div>
                     <span className="text-[9px] sm:text-[10px] font-bold text-surface-400 bg-surface-100 px-1 sm:px-1.5 py-0.5 rounded shrink-0" title={new Date(k.createdAt).toLocaleString()}>{fmtAge(k.createdAt)}</span>
                   </div>
                   <div className="text-[10px] sm:text-xs text-surface-500 mt-0.5 flex items-center gap-1 sm:gap-2 truncate">
@@ -108,7 +108,7 @@ export function KycQueue() {
                   <button
                     className="icon-btn"
                     onClick={() => setViewingKyc(k)}
-                    aria-label={ar() ? `عرض وثائق ${k.userId}` : `View documents for ${k.userId}`}
+                    aria-label={ar() ? `عرض وثائق ${k.userName || "Unknown"}` : `View documents for ${k.userName || "Unknown"}`}
                     title={ar() ? "عرض الوثائق" : "View Documents"}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
@@ -117,7 +117,7 @@ export function KycQueue() {
                     className="icon-btn-success"
                     disabled={processing === k.id}
                     onClick={() => reviewKyc(k.id, "approve")}
-                    aria-label={ar() ? `قبول التحقق لـ ${k.userId}` : `Approve verification for ${k.userId}`}
+                    aria-label={ar() ? `قبول التحقق لـ ${k.userName || "Unknown"}` : `Approve verification for ${k.userName || "Unknown"}`}
                     title={ar() ? "قبول" : "Approve"}
                   >
                     {processing === k.id ? (
@@ -130,7 +130,7 @@ export function KycQueue() {
                     className="icon-btn-danger"
                     disabled={processing === k.id}
                     onClick={() => reviewKyc(k.id, "reject")}
-                    aria-label={ar() ? `رفض التحقق لـ ${k.userId}` : `Reject verification for ${k.userId}`}
+                    aria-label={ar() ? `رفض التحقق لـ ${k.userName || "Unknown"}` : `Reject verification for ${k.userName || "Unknown"}`}
                     title={ar() ? "رفض" : "Reject"}
                   >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -147,7 +147,7 @@ export function KycQueue() {
           <div className="bg-white rounded-3xl w-full max-w-2xl shadow-2xl animate-slide-up relative flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-surface-100 shrink-0">
               <h3 className="text-xl font-bold text-surface-900 flex items-center gap-2">
-                {ar() ? "وثائق الهوية" : "Identity Documents"} - {viewingKyc.userName || viewingKyc.userId}
+                {ar() ? "وثائق الهوية" : "Identity Documents"} - {viewingKyc.userName || "Unknown User"}
               </h3>
               <button className="text-surface-400 hover:text-surface-900 transition-colors" onClick={() => setViewingKyc(null)}>
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>

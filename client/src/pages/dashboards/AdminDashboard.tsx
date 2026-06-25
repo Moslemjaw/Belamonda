@@ -4585,7 +4585,7 @@ function KycReviewCard({ items }: { items: any[] }) {
           <div key={k.id}>
             <button onClick={() => setExpandedId(expandedId === k.id ? null : k.id)} className="w-full px-5 py-3 flex items-center justify-between hover:bg-surface-50 transition-colors">
               <div className="text-left">
-                <div className="text-xs font-bold text-surface-900">{k.userName || k.userId?.slice(0, 12)}</div>
+                <div className="text-xs font-bold text-surface-900">{k.userName || "Unknown User"}</div>
                 <div className="text-[10px] text-surface-500 mt-0.5 font-mono">
                   {k.civilIdNumberMasked || k.civilIdNumber || "—"} {k.userPhone ? `· ${k.userPhone}` : ""}
                 </div>
