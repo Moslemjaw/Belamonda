@@ -214,11 +214,28 @@ export async function incrementSessionsUsed(userOfferId: string) {
   return doc ? serializeUserOffer(doc as any) : null;
 }
 
+let _userOffersPromise: Promise<any[]> | null = null;
+let _userOffersCache: { data: any[]; ts: number } | null = null;
+const USER_OFFERS_TTL = 30_000;
+
 export async function listAllUserOffers() {
-  await expireStalePendingPayments();
-  const rows = await UserOfferModel.find({}).sort({ createdAt: -1 }).lean();
-  const serialized = rows.map((r) => serializeUserOffer(r as any));
-  return attachOfferNames(serialized);
+  if (_userOffersCache && Date.now() - _userOffersCache.ts < USER_OFFERS_TTL) {
+    return _userOffersCache.data;
+  }
+  if (_userOffersPromise) return _userOffersPromise;
+
+  const promise = (async () => {
+    await expireStalePendingPayments();
+    const rows = await UserOfferModel.find({}).sort({ createdAt: -1 }).lean();
+    const serialized = rows.map((r) => serializeUserOffer(r as any));
+    const result = await attachOfferNames(serialized);
+    _userOffersCache = { data: result, ts: Date.now() };
+    _userOffersPromise = null;
+    return result;
+  })();
+
+  _userOffersPromise = promise;
+  return promise;
 }
 
 export async function deleteUserOffer(id: string): Promise<"ok" | "not_found" | "already_cancelled"> {

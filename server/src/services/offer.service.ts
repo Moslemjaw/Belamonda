@@ -112,9 +112,26 @@ export async function getOffer(id: string) {
   return serializeOffer(doc as any, slug);
 }
 
+let _adminOffersPromise: Promise<any[]> | null = null;
+let _adminOffersCache: { data: any[]; ts: number } | null = null;
+const ADMIN_OFFERS_TTL = 30_000;
+
 export async function listOffersAdmin() {
-  const rows = await OfferModel.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
-  return attachSlugsToOffers(rows);
+  if (_adminOffersCache && Date.now() - _adminOffersCache.ts < ADMIN_OFFERS_TTL) {
+    return _adminOffersCache.data;
+  }
+  if (_adminOffersPromise) return _adminOffersPromise;
+
+  const promise = (async () => {
+    const rows = await OfferModel.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
+    const result = await attachSlugsToOffers(rows);
+    _adminOffersCache = { data: result, ts: Date.now() };
+    _adminOffersPromise = null;
+    return result;
+  })();
+
+  _adminOffersPromise = promise;
+  return promise;
 }
 
 export async function listOffersPublic(filters: {
