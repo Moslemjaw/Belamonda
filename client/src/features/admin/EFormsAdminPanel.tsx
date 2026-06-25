@@ -265,7 +265,7 @@ export function EFormsAdminPanel() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>("");
   const [customerSearch, setCustomerSearch] = useState("");
   const [sendingForm, setSendingForm] = useState(false);
-  const { data: usersData } = useApi<{ items: Array<{ id: string; shortId: string; username: string; fullName?: string; phone?: string }> }>("/users/admin?role=customer", { lazy: !sendFormModal });
+  const { data: usersData } = useApi<{ items: Array<{ id: string; shortId: string; username: string; fullName?: string; phone?: string }> }>(sendFormModal ? "/users/admin?role=customer" : null);
   const customers = usersData?.items ?? [];
 
   const offersById = useMemo(() => new Map(offers.map((o) => [o.id, o.name])), [offers]);
