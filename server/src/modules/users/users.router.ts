@@ -133,9 +133,9 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
 
     // Enrich memberships & scheduled sessions with offer names
     const offerIds = [...new Set([
-      ...memberships.map((m: any) => String(m.offerId)),
-      ...bookingSessions.map((s: any) => String(s.offerId)),
-      ...sessions.map((s: any) => String(s.offerId))
+      ...memberships.map((m: any) => m.offerId ? String(m.offerId) : undefined),
+      ...bookingSessions.map((s: any) => s.offerId ? String(s.offerId) : undefined),
+      ...sessions.map((s: any) => s.offerId ? String(s.offerId) : undefined)
     ].filter(Boolean))];
     const offers = offerIds.length
       ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr maxSessions").lean<{ _id: mongoose.Types.ObjectId; name: string; nameAr?: string; maxSessions?: number }[]>()
@@ -168,7 +168,7 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]
     }));
 
     // Enrich payments with offer names
-    const paymentOfferIds = [...new Set(payments.map((p: any) => String(p.offerId)).filter(Boolean))];
+    const paymentOfferIds = [...new Set(payments.map((p: any) => p.offerId ? String(p.offerId) : undefined).filter(Boolean))];
     const paymentOffers = paymentOfferIds.length
       ? await OfferModel.find({ _id: { $in: paymentOfferIds } }).select("name").lean<{ _id: mongoose.Types.ObjectId; name: string }[]>()
       : [];
@@ -318,9 +318,9 @@ usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "financ
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
 
     const offerIds = [...new Set([
-      ...memberships.map((m: any) => String(m.offerId)),
-      ...payments.map((p: any) => String(p.offerId)),
-      ...bookingSessions.map((s: any) => String(s.offerId))
+      ...memberships.map((m: any) => m.offerId ? String(m.offerId) : undefined),
+      ...payments.map((p: any) => p.offerId ? String(p.offerId) : undefined),
+      ...bookingSessions.map((s: any) => s.offerId ? String(s.offerId) : undefined)
     ].filter(Boolean))];
     const offers = offerIds.length
       ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr").lean<{ _id: mongoose.Types.ObjectId; name: string; nameAr?: string }[]>()
