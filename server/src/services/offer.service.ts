@@ -75,6 +75,22 @@ async function resolveCategoryIdList(ids: string[]): Promise<mongoose.Types.Obje
   return out;
 }
 
+async function attachSlugsToOffers(rows: any[]) {
+  const catIds = [...new Set(rows.map(r => r.categoryIds?.[0]).filter(Boolean))];
+  let catMap: Record<string, string> = {};
+  if (catIds.length) {
+    const cats = await CategoryModel.find({ _id: { $in: catIds } }).select("slug").lean();
+    catMap = Object.fromEntries(cats.map((c: any) => [c._id.toString(), c.slug]));
+  }
+  
+  return rows.map(doc => {
+    let slug: string | null = null;
+    if (doc.categoryIds?.length) slug = catMap[doc.categoryIds[0].toString()] || null;
+    else slug = doc.category || null;
+    return serializeOffer(doc as any, slug);
+  });
+}
+
 async function primaryCategorySlugForOffer(doc: {
   categoryIds?: mongoose.Types.ObjectId[];
   category?: OfferCategory;
@@ -98,12 +114,7 @@ export async function getOffer(id: string) {
 
 export async function listOffersAdmin() {
   const rows = await OfferModel.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
-  const out = [];
-  for (const doc of rows) {
-    const slug = await primaryCategorySlugForOffer(doc as any);
-    out.push(serializeOffer(doc as any, slug));
-  }
-  return out;
+  return attachSlugsToOffers(rows);
 }
 
 export async function listOffersPublic(filters: {
@@ -208,11 +219,7 @@ export async function listOffersPublic(filters: {
     rows = await OfferModel.find(q).sort(sortSpec).skip(skip).limit(limit).lean();
   }
 
-  const out = [];
-  for (const doc of rows) {
-    const slug = await primaryCategorySlugForOffer(doc as any);
-    out.push(serializeOffer(doc as any, slug));
-  }
+  const out = await attachSlugsToOffers(rows);
   return { items: out, page, limit };
 }
 
@@ -226,12 +233,8 @@ export async function listFeaturedOffers(limit = 8) {
     .sort({ createdAt: -1 })
     .limit(limit)
     .lean();
-  const out = [];
-  for (const doc of rows) {
-    const slug = await primaryCategorySlugForOffer(doc as any);
-    out.push(serializeOffer(doc as any, slug));
-  }
-  return out;
+    
+  return attachSlugsToOffers(rows);
 }
 
 export async function listMembershipOffers(limit = 6) {
@@ -255,12 +258,7 @@ export async function listMembershipOffers(limit = 6) {
     { $sort: { sortOrder: 1, featured: -1, createdAt: -1 } },
     { $limit: limit },
   ]);
-  const out = [];
-  for (const doc of rows) {
-    const slug = await primaryCategorySlugForOffer(doc as any);
-    out.push(serializeOffer(doc as any, slug));
-  }
-  return out;
+  return attachSlugsToOffers(rows);
 }
 
 export async function listCashbackOffers(limit = 6) {
@@ -286,12 +284,7 @@ export async function listCashbackOffers(limit = 6) {
     { $sort: { sortOrder: 1, featured: -1, createdAt: -1 } },
     { $limit: limit },
   ]);
-  const out = [];
-  for (const doc of rows) {
-    const slug = await primaryCategorySlugForOffer(doc as any);
-    out.push(serializeOffer(doc as any, slug));
-  }
-  return out;
+  return attachSlugsToOffers(rows);
 }
 
 // ─── Mutations ────────────────────────────────────────────────────────────────
