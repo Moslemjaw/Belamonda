@@ -85,7 +85,7 @@ export const kycStore = {
         ...d,
         id: d._id.toString(),
         createdAt: (d.createdAt as Date).toISOString(),
-        userName: user.fullName || user.username || d.userId,
+        userName: user.fullName || user.username || user.phone || (userMap[d.userId] ? "Unknown Name" : "Deleted User"),
         userPhone: user.phone || undefined,
         userEmail: user.email || undefined
       };
