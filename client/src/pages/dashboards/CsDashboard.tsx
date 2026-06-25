@@ -1530,7 +1530,7 @@ function CustomersManager() {
 
   // Dynamic public data
   const { data: clinicsData } = useApi<{ items: any[] }>("/clinics");
-  const { data: offersData } = useApi<{ items: any[] }>("/offers/admin");
+  const { data: offersData, loading: offersLoading } = useApi<{ items: any[] }>("/offers/admin");
   const { data: plansData } = useApi<any[]>("/subscriptions/plans");
 
   const generateInstallments = (count: number, offerId: string): CustomInstallment[] => {
@@ -2048,9 +2048,9 @@ function CustomersManager() {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "اختيار باقة/جلسة" : "Select Offer/Session"}</label>
-                              <select className="select-field w-full bg-surface-50" value={en.offerId} onChange={e => updateEnrollment(idx, { offerId: e.target.value })}>
-                                <option value="">{ar() ? "-- بدون اشتراك --" : "-- No Membership --"}</option>
-                                {(offersData?.items || []).map((o: any) => <option key={o.id || o._id} value={o.id || o._id}>{ar() ? o.nameAr || o.name : o.name}</option>)}
+                              <select className="select-field w-full bg-surface-50" disabled={offersLoading} value={en.offerId} onChange={e => updateEnrollment(idx, { offerId: e.target.value })}>
+                                <option value="">{offersLoading ? (ar() ? "جاري التحميل..." : "Loading...") : (ar() ? "-- بدون اشتراك --" : "-- No Membership --")}</option>
+                                {!offersLoading && (offersData?.items || []).map((o: any) => <option key={o.id || o._id} value={o.id || o._id}>{ar() ? o.nameAr || o.name : o.name}</option>)}
                               </select>
                             </div>
                             {en.offerId && (
