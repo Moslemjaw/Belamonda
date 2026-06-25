@@ -883,36 +883,57 @@ commerceRouter.post("/admin/user-offers/:uoId/change-clinic", authRequired, requ
   }
 });
 
+let _adminUserOffersPromise: Promise<any[]> | null = null;
+let _adminUserOffersCache: { data: any[]; ts: number } | null = null;
+const ADMIN_USER_OFFERS_TTL = 30_000;
+
 commerceRouter.get("/admin/user-offers", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
-    const items = await userOfferService.listAllUserOffers();
+    if (_adminUserOffersCache && Date.now() - _adminUserOffersCache.ts < ADMIN_USER_OFFERS_TTL) {
+      return res.json({ items: _adminUserOffersCache.data });
+    }
 
-    const userIds = [...new Set(items.map((i) => String(i.userId || "")).filter(Boolean))];
-    const clinicIds = [...new Set(items.map((i) => String(i.clinicId || "")).filter(Boolean))];
+    if (_adminUserOffersPromise) {
+      const data = await _adminUserOffersPromise;
+      return res.json({ items: data });
+    }
 
-    const [users, clinics] = await Promise.all([
-      UserModel.find({ _id: { $in: userIds } }).select("fullName username email phone").lean(),
-      ClinicModel.find({ _id: { $in: clinicIds } }).select("nameEn nameAr").lean(),
-    ]);
+    const promise = (async () => {
+      const items = await userOfferService.listAllUserOffers();
 
-    const userMap = Object.fromEntries(users.map((u: any) => [u._id.toString(), u]));
-    const clinicMap = Object.fromEntries(clinics.map((c: any) => [c._id.toString(), c]));
+      const userIds = [...new Set(items.map((i) => String(i.userId || "")).filter(Boolean))];
+      const clinicIds = [...new Set(items.map((i) => String(i.clinicId || "")).filter(Boolean))];
 
-    const enriched = items.map((item) => {
-      const user: any = userMap[item.userId] || {};
-      const clinic: any = clinicMap[item.clinicId] || {};
+      const [users, clinics] = await Promise.all([
+        UserModel.find({ _id: { $in: userIds } }).select("fullName username email phone").lean(),
+        ClinicModel.find({ _id: { $in: clinicIds } }).select("nameEn nameAr").lean(),
+      ]);
 
-      return {
-        ...item,
-        userName: user.fullName || user.username || item.userId,
-        userPhone: user.phone || undefined,
-        userEmail: user.email || undefined,
-        clinicNameEn: clinic.nameEn || undefined,
-        clinicNameAr: clinic.nameAr || undefined,
-      };
-    });
+      const userMap = Object.fromEntries(users.map((u: any) => [u._id.toString(), u]));
+      const clinicMap = Object.fromEntries(clinics.map((c: any) => [c._id.toString(), c]));
 
-    return res.json({ items: enriched });
+      const enriched = items.map((item) => {
+        const user: any = userMap[item.userId] || {};
+        const clinic: any = clinicMap[item.clinicId] || {};
+
+        return {
+          ...item,
+          userName: user.fullName || user.username || item.userId,
+          userPhone: user.phone || undefined,
+          userEmail: user.email || undefined,
+          clinicNameEn: clinic.nameEn || undefined,
+          clinicNameAr: clinic.nameAr || undefined,
+        };
+      });
+
+      _adminUserOffersCache = { data: enriched, ts: Date.now() };
+      _adminUserOffersPromise = null;
+      return enriched;
+    })();
+
+    _adminUserOffersPromise = promise;
+    const data = await promise;
+    return res.json({ items: data });
   } catch (e) {
     next(e);
   }
