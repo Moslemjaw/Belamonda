@@ -12,7 +12,7 @@ import { UserOfferModel } from "../../models/userOffer.model.js";
 import { UserModel } from "../../models/user.model.js";
 import { serializePayment } from "../../utils/serialize.js";
 import { kycStore } from "../kyc/kyc.store.js";
-import { WalletTxnModel } from "../../models/kyc.model.js";
+import { WalletModel, WalletTxnModel } from "../../models/kyc.model.js";
 import ExcelJS from "exceljs";
 
 function parseKwd(s: string) {
