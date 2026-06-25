@@ -2,9 +2,41 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../app/AuthContext";
 
-// ── Simple in-memory GET cache (stale-while-revalidate, 30 s TTL) ──────────
+// ── Simple in-memory GET cache (stale-while-revalidate) with LocalStorage persistence ──────────
 const _cache = new Map<string, { data: unknown; ts: number }>();
 const CACHE_TTL = 120_000;
+
+try {
+  const persisted = localStorage.getItem("belamonda_api_cache");
+  if (persisted) {
+    const parsed = JSON.parse(persisted);
+    for (const [key, val] of Object.entries(parsed)) {
+      _cache.set(key, val as any);
+    }
+  }
+} catch (e) {
+  // Ignore corrupt cache
+}
+
+let _persistTimer: any = null;
+function persistCache() {
+  if (_persistTimer) clearTimeout(_persistTimer);
+  _persistTimer = setTimeout(() => {
+    try {
+      const now = Date.now();
+      const toSave: Record<string, any> = {};
+      // Only keep cache entries younger than 7 days to prevent bloat
+      for (const [key, val] of _cache.entries()) {
+        if (now - val.ts < 7 * 24 * 60 * 60 * 1000) {
+          toSave[key] = val;
+        }
+      }
+      localStorage.setItem("belamonda_api_cache", JSON.stringify(toSave));
+    } catch (e) {
+      // Ignore quota exceeded
+    }
+  }, 1000);
+}
 
 function getCached<T>(key: string): T | undefined {
   const entry = _cache.get(key);
@@ -13,12 +45,14 @@ function getCached<T>(key: string): T | undefined {
 }
 function setCached(key: string, data: unknown) {
   _cache.set(key, { data, ts: Date.now() });
+  persistCache();
 }
 /** Call after a successful mutation to invalidate related GET caches */
 export function invalidateCache(pathPrefix: string) {
   for (const key of _cache.keys()) {
     if (key.startsWith(pathPrefix)) _cache.delete(key);
   }
+  persistCache();
 }
 
 /** Generic fetch hook — calls an API endpoint and manages loading/error/data state */
@@ -31,12 +65,18 @@ export function useApi<T>(
   const isGet = method === "GET";
 
   // Seed initial state from cache so pages feel instant on revisit
-  const [data, setData] = useState<T | null>(() =>
-    path && isGet ? (getCached<T>(path) ?? null) : null
-  );
-  const [loading, setLoading] = useState(() =>
-    path && isGet ? !getCached(path) : (options?.lazy ? false : !!path)
-  );
+  const [data, setData] = useState<T | null>(() => {
+    if (!path || !isGet) return null;
+    const entry = _cache.get(path);
+    return entry ? (entry.data as T) : null;
+  });
+  
+  const [loading, setLoading] = useState(() => {
+    if (!path || !isGet) return options?.lazy ? false : !!path;
+    // If we have any stale data, we don't show the initial loading spinner
+    return !_cache.has(path);
+  });
+  
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
@@ -56,7 +96,7 @@ export function useApi<T>(
       if (stale && mountedRef.current) setData(stale.data as T);
     }
 
-    setLoading(true);
+    if (mountedRef.current && (!isGet || !_cache.has(path))) setLoading(true);
     setError(null);
     try {
       const result = (await apiFetch(path, {
