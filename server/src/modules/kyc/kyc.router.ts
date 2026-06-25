@@ -62,7 +62,10 @@ kycRouter.post("/submit", authRequired, async (req, res, next) => {
     });
     notifyKycSubmitted(req.auth!.userId);
     return res.status(201).json({ submission });
-  } catch (e) {
+  } catch (e: any) {
+    if (e.message === "ALREADY_PENDING") {
+      return res.status(409).json({ error: "ALREADY_PENDING" });
+    }
     next(e);
   }
 });

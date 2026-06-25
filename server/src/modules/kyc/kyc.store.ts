@@ -56,6 +56,12 @@ export const kycStore = {
     civilIdBackRef: string;
     checkboxes: KycCheckboxes;
   }) {
+    // Prevent duplicate submissions — only allow one pending KYC at a time
+    const existingPending = await KycSubmissionModel.findOne({ userId: input.userId, status: "pending" }).lean();
+    if (existingPending) {
+      throw new Error("ALREADY_PENDING");
+    }
+
     const doc = await KycSubmissionModel.create({
       userId: input.userId,
       status: "pending",
@@ -104,6 +110,14 @@ export const kycStore = {
     
     if (!sub) return null;
 
+    // Mark ALL other pending submissions for this user as approved too,
+    // so the user doesn't get stuck in "pending" state
+    await KycSubmissionModel.updateMany(
+      { userId: sub.userId, status: "pending", _id: { $ne: sub._id } },
+      { status: "approved", reviewedAt: new Date(), reviewedBy }
+    );
+
+    // Always set user to verified
     await UserModel.findByIdAndUpdate(sub.userId, {
       verificationStatus: "approved",
       civilIdNumberMasked: sub.civilIdNumberMasked,
