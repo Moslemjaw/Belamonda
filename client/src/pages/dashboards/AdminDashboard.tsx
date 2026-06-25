@@ -3306,9 +3306,9 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
     enrollments: [{ ...emptyRow }] as EnrollmentRow[],
   });
   
-  const { data: offersData } = useApi<{ items: any[] }>("/offers/admin");
+  const { data: offersData, loading: offersLoading } = useApi<{ items: any[] }>("/offers/admin");
   const offers = offersData?.items || [];
-  const { data: clinicsData } = useApi<{ items: any[] }>("/clinics");
+  const { data: clinicsData, loading: clinicsLoading } = useApi<{ items: any[] }>("/clinics");
   const clinics = clinicsData?.items || [];
   const [addingUser, setAddingUser] = useState(false);
 
@@ -3709,17 +3709,17 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                               <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "اختيار باقة/جلسة" : "Select Offer/Session"}</label>
-                              <select className="select-field w-full bg-surface-50" value={en.offerId} onChange={e => updateEnrollment(idx, { offerId: e.target.value })}>
-                                <option value="">{ar() ? "-- بدون اشتراك --" : "-- No Membership --"}</option>
-                                {offers.map((o: any) => <option key={o.id || o._id} value={o.id || o._id}>{ar() ? o.nameAr || o.name : o.name}</option>)}
+                              <select className="select-field w-full bg-surface-50" disabled={offersLoading} value={en.offerId} onChange={e => updateEnrollment(idx, { offerId: e.target.value })}>
+                                <option value="">{offersLoading ? (ar() ? "جاري التحميل..." : "Loading...") : (ar() ? "-- بدون اشتراك --" : "-- No Membership --")}</option>
+                                {!offersLoading && offers.map((o: any) => <option key={o.id || o._id} value={o.id || o._id}>{ar() ? o.nameAr || o.name : o.name}</option>)}
                               </select>
                             </div>
                             {en.offerId && (
                               <div>
                                 <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "العيادة (إن وجدت)" : "Clinic (if applicable)"}</label>
-                                <select className="select-field w-full bg-surface-50" value={en.clinicId} onChange={e => updateEnrollment(idx, { clinicId: e.target.value })}>
-                                  <option value="">{ar() ? "غير محدد" : "None"}</option>
-                                  {clinics.map((c: any) => <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr || c.nameEn : c.nameEn}</option>)}
+                                <select className="select-field w-full bg-surface-50" disabled={clinicsLoading} value={en.clinicId} onChange={e => updateEnrollment(idx, { clinicId: e.target.value })}>
+                                  <option value="">{clinicsLoading ? (ar() ? "جاري التحميل..." : "Loading...") : (ar() ? "غير محدد" : "None")}</option>
+                                  {!clinicsLoading && clinics.map((c: any) => <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr || c.nameEn : c.nameEn}</option>)}
                                 </select>
                               </div>
                             )}
