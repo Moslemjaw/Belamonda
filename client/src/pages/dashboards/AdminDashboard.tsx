@@ -2123,10 +2123,10 @@ export function UserProfilePanel({
   const isCS = myRole === "cs" || myRole === "cs_director" || myRole === "legal";
   const isFinance = myRole === "finance";
   
-  const userIsActive = user.isActive ?? user.kyc;
-
-  const [tab, setTab] = useState<ProfileTab>("overview");
   const [profile, setProfile] = useState<any>(null);
+  const [tab, setTab] = useState<ProfileTab>("overview");
+  const displayUser = profile?.user || user;
+  const userIsActive = displayUser.isActive ?? displayUser.kyc ?? true;
   const [profileLoading, setProfileLoading] = useState(false);
   const [profileError, setProfileError] = useState<string | null>(null);
 
@@ -2458,27 +2458,27 @@ export function UserProfilePanel({
       {/* Header */}
       <div className="p-5 bg-white border-b border-surface-100 flex items-start gap-4">
         <div className="w-14 h-14 rounded-2xl bg-brand-pink-100 flex items-center justify-center text-brand-pink-600 font-bold text-xl shrink-0">
-          {(user.name ?? "?").charAt(0).toUpperCase()}
+          {(displayUser.fullName || displayUser.name || displayUser.username || "?").charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-lg font-bold text-surface-900">{user.fullName || user.username || user.phone || "—"}</h2>
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[user.role] ?? "bg-surface-100 text-surface-600"}`}>{user.role}</span>
+            <h2 className="text-lg font-bold text-surface-900">{displayUser.fullName || displayUser.name || displayUser.username || displayUser.phone || "—"}</h2>
+            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[displayUser.role] ?? "bg-surface-100 text-surface-600"}`}>{displayUser.role}</span>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${userIsActive ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
               {userIsActive ? (ar() ? "نشط" : "Active") : (ar() ? "معطّل" : "Disabled")}
             </span>
           </div>
           <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-            {user.fullName && user.username && (
-              <span className="text-xs text-surface-400">@{user.username}</span>
+            {displayUser.username && (
+              <span className="text-xs text-surface-400">@{displayUser.username}</span>
             )}
-            {user.phone && user.phone !== "—" && (
-              <span className="text-xs text-surface-400">{user.phone}</span>
+            {displayUser.phone && displayUser.phone !== "—" && (
+              <span className="text-xs text-surface-400">{displayUser.phone}</span>
             )}
-            <span className="text-xs text-surface-300 font-mono">{user.id}</span>
+            <span className="text-xs text-surface-300 font-mono">{displayUser.id}</span>
           </div>
-          {user.referredByUsername && (
-            <div className="text-xs text-brand-pink-500 mt-1">↩ {ar() ? "أُحيل بواسطة" : "Referred by"} @{user.referredByUsername}</div>
+          {displayUser.referredByUsername && (
+            <div className="text-xs text-brand-pink-500 mt-1">↩ {ar() ? "أُحيل بواسطة" : "Referred by"} @{displayUser.referredByUsername}</div>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -2819,19 +2819,23 @@ export function UserProfilePanel({
                         <div>
                           <span className="text-surface-400">{ar() ? "جلسات مستخدمة" : "Sessions Used"}</span>
                           <div className="flex items-center gap-1 mt-0.5">
-                            <button
-                              className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-red-100 hover:text-red-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
-                              disabled={sessionAdjustingId !== null || m.sessionsUsed <= 0}
-                              onClick={() => handleAdjustSessions(m.id, -1)}
-                              title={ar() ? "تقليل" : "Decrement"}
-                            >−</button>
+                            {(isAdmin || isCS || isFinance) && (
+                              <button
+                                className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-red-100 hover:text-red-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
+                                disabled={sessionAdjustingId !== null || m.sessionsUsed <= 0}
+                                onClick={() => handleAdjustSessions(m.id, -1)}
+                                title={ar() ? "تقليل" : "Decrement"}
+                              >−</button>
+                            )}
                             <span className="font-bold">{m.sessionsUsed}</span>
-                            <button
-                              className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-emerald-100 hover:text-emerald-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
-                              disabled={sessionAdjustingId !== null}
-                              onClick={() => handleAdjustSessions(m.id, +1)}
-                              title={ar() ? "زيادة" : "Increment"}
-                            >+</button>
+                            {(isAdmin || isCS || isFinance) && (
+                              <button
+                                className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-emerald-100 hover:text-emerald-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
+                                disabled={sessionAdjustingId !== null}
+                                onClick={() => handleAdjustSessions(m.id, +1)}
+                                title={ar() ? "زيادة" : "Increment"}
+                              >+</button>
+                            )}
                           </div>
                         </div>
                         {m.maxSessions != null && (
@@ -2845,19 +2849,23 @@ export function UserProfilePanel({
                         <div>
                           <span className="text-surface-400">{ar() ? "الأقساط المدفوعة" : "Installments Paid"}</span>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <button
-                              className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-red-100 hover:text-red-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
-                              disabled={installmentAdjustingId !== null || (m.installmentsPaid ?? 0) <= 0}
-                              onClick={() => handleAdjustInstallments(m.id, -1)}
-                              title={ar() ? "تقليل" : "Decrement"}
-                            >−</button>
+                            {(isAdmin || isCS || isFinance) && (
+                              <button
+                                className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-red-100 hover:text-red-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
+                                disabled={installmentAdjustingId !== null || (m.installmentsPaid ?? 0) <= 0}
+                                onClick={() => handleAdjustInstallments(m.id, -1)}
+                                title={ar() ? "تقليل" : "Decrement"}
+                              >−</button>
+                            )}
                             <span className="font-bold">{m.installmentsPaid}</span>
-                            <button
-                              className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-emerald-100 hover:text-emerald-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
-                              disabled={installmentAdjustingId !== null}
-                              onClick={() => handleAdjustInstallments(m.id, +1)}
-                              title={ar() ? "زيادة" : "Increment"}
-                            >+</button>
+                            {(isAdmin || isCS || isFinance) && (
+                              <button
+                                className="w-5 h-5 rounded flex items-center justify-center bg-surface-100 hover:bg-emerald-100 hover:text-emerald-600 text-surface-500 transition-colors disabled:opacity-40 text-sm font-bold"
+                                disabled={installmentAdjustingId !== null}
+                                onClick={() => handleAdjustInstallments(m.id, +1)}
+                                title={ar() ? "زيادة" : "Increment"}
+                              >+</button>
+                            )}
                             <span className="text-surface-400 text-sm">/ {m.installmentCount ?? "—"}</span>
                           </div>
                         </div>
@@ -2873,9 +2881,11 @@ export function UserProfilePanel({
                           ) : (
                             <div className="font-bold mt-0.5 flex items-center gap-2">
                               {fmt(m.activatedAt)}
-                              <button className="text-surface-300 hover:text-brand-pink-600 transition-colors" onClick={() => { setEditingDateId(`${m.id}_activatedAt`); setEditingDateValue(m.activatedAt ? new Date(m.activatedAt).toISOString().split('T')[0] : ""); }}>
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                              </button>
+                              {(isAdmin || isCS || isFinance) && (
+                                <button className="text-surface-300 hover:text-brand-pink-600 transition-colors" onClick={() => { setEditingDateId(`${m.id}_activatedAt`); setEditingDateValue(m.activatedAt ? new Date(m.activatedAt).toISOString().split('T')[0] : ""); }}>
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -2890,9 +2900,11 @@ export function UserProfilePanel({
                           ) : (
                             <div className="font-bold mt-0.5 flex items-center gap-2">
                               {fmt(m.expiresAt)}
-                              <button className="text-surface-300 hover:text-brand-pink-600 transition-colors" onClick={() => { setEditingDateId(`${m.id}_expiresAt`); setEditingDateValue(m.expiresAt ? new Date(m.expiresAt).toISOString().split('T')[0] : ""); }}>
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                              </button>
+                              {(isAdmin || isCS || isFinance) && (
+                                <button className="text-surface-300 hover:text-brand-pink-600 transition-colors" onClick={() => { setEditingDateId(`${m.id}_expiresAt`); setEditingDateValue(m.expiresAt ? new Date(m.expiresAt).toISOString().split('T')[0] : ""); }}>
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+                              )}
                             </div>
                           )}
                         </div>
@@ -2914,7 +2926,8 @@ export function UserProfilePanel({
                           </div>
                         )}
                       </div>
-                      <div className="mt-4 pt-3 border-t border-surface-100 flex justify-end">
+                      {(isAdmin || isCS || isFinance) && (
+                        <div className="mt-4 pt-3 border-t border-surface-100 flex justify-end">
                         <button
                           onClick={async () => {
                             const confirmCancel = window.confirm(

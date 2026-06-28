@@ -243,6 +243,7 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES,
     return res.json({
       user: {
         id: String(user._id),
+        fullName: user.fullName,
         username: user.username,
         email: user.email,
         phone: user.phone,
