@@ -2421,7 +2421,7 @@ export function UserProfilePanel({
     URL.revokeObjectURL(a.href);
   };
 
-  const tabs: { key: ProfileTab; label: string; labelAr: string }[] = [
+  const allTabs: { key: ProfileTab; label: string; labelAr: string }[] = [
     { key: "overview", label: "Overview", labelAr: "نظرة عامة" },
     { key: "memberships", label: "Memberships", labelAr: "العضويات" },
     { key: "cashback", label: "Cashback", labelAr: "الكاش باك" },
@@ -2430,6 +2430,11 @@ export function UserProfilePanel({
     { key: "kyc", label: "KYC / Civil ID", labelAr: "الهوية" },
     { key: "notes", label: "Notes", labelAr: "الملاحظات" },
   ];
+
+  const tabs = allTabs.filter(t => {
+    if (t.key === "notes" || t.key === "payments") return isAdmin || isFinance || isCS;
+    return true;
+  });
 
   const statusBadge = (s: string) => {
     const map: Record<string, string> = {
