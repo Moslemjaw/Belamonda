@@ -139,7 +139,10 @@ function ScheduleTable({
   const renderRows = (items: any[]) =>
     items.map((s) => (
       <tr key={s.id} className="border-b border-surface-100">
-        <td className="py-2 text-sm font-semibold text-surface-800">{s.customerName || "Customer"}</td>
+        <td className="py-2">
+          <div className="text-sm font-semibold text-surface-800">{s.customerName || "Customer"}</div>
+          {s.customerPhone && <div className="text-xs font-mono text-surface-500 mt-0.5" dir="ltr">{s.customerPhone}</div>}
+        </td>
         <td className="py-2 text-sm text-surface-600">{s.offerName || "Session"}</td>
         <td className="py-2 text-sm text-surface-600">{new Date(s.scheduledAt).toLocaleString()}</td>
         <td className="py-2 text-sm">
