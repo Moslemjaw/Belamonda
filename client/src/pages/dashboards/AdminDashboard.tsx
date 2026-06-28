@@ -2958,6 +2958,7 @@ export function UserProfilePanel({
                           {ar() ? "حذف العضوية" : "Delete Membership"}
                         </button>
                       </div>
+                      )}
                     </div>
                   );
                 })}
