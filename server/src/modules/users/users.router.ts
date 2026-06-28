@@ -116,7 +116,7 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
 });
 
 // Comprehensive user profile — admin / CS / finance
-usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES]), async (req, res, next) => {
+usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES, "clinicStaff"]), async (req, res, next) => {
   try {
     const { id } = req.params;
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ error: "INVALID_ID" });

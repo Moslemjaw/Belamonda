@@ -13,11 +13,12 @@ import ShareLinkPage from "../../components/ShareLinkPage";
 import { ReferralActivityWidget } from "../../components/ReferralActivityWidget";
 import NoticeBanner from "../../components/NoticeBanner";
 import { KpiCard } from "../../components/KpiCard";
+import { UserProfilePanel } from "./AdminDashboard";
 
 const ar = () => i18n.language === "ar";
 
 
-function SessionCard({ session, onMark, onMarkPaid }: { session: any; onMark: (id: string, status: string) => void; onMarkPaid: (id: string) => void }) {
+function SessionCard({ session, onMark, onMarkPaid, onSelectUser }: { session: any; onMark: (id: string, status: string) => void; onMarkPaid: (id: string) => void; onSelectUser?: (userId: string) => void }) {
   const { getAuthHeader } = useAuth();
   
   const isPast = session.status !== "scheduled";
@@ -42,7 +43,7 @@ function SessionCard({ session, onMark, onMarkPaid }: { session: any; onMark: (i
              {(session.customerName || session.userId || "?").charAt(0).toUpperCase()}
            </div>
            <div className="flex-1 min-w-0">
-             <div className="text-base font-black text-surface-900 truncate">{session.customerName || (ar() ? "عميل" : "Customer")}</div>
+             <button type="button" onClick={() => onSelectUser?.(session.userId)} className="text-base font-black text-brand-pink-600 hover:text-brand-pink-700 hover:underline truncate text-left">{session.customerName || (ar() ? "عميل" : "Customer")}</button>
              <div className="text-xs text-surface-500 font-medium mt-0.5">{session.offerName ? <><span className="text-brand-pink-500 font-bold">{session.offerName}</span> · </> : null}{date}</div>
            </div>
         </div>
@@ -112,10 +113,12 @@ function ScheduleTable({
   sessions,
   onMark,
   onMarkPaid,
+  onSelectUser,
 }: {
   sessions: any[];
   onMark: (id: string, status: string) => void;
   onMarkPaid: (bookingRequestId: string) => void;
+  onSelectUser?: (userId: string) => void;
 }) {
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const today = startOfDay(new Date());
@@ -140,7 +143,13 @@ function ScheduleTable({
     items.map((s) => (
       <tr key={s.id} className="border-b border-surface-100">
         <td className="py-2">
-          <div className="text-sm font-semibold text-surface-800">{s.customerName || "Customer"}</div>
+          <button 
+            type="button" 
+            className="text-sm font-semibold text-brand-pink-600 hover:text-brand-pink-700 hover:underline text-left"
+            onClick={() => onSelectUser?.(s.userId)}
+          >
+            {s.customerName || "Customer"}
+          </button>
           {s.customerPhone && <div className="text-xs font-mono text-surface-500 mt-0.5" dir="ltr">{s.customerPhone}</div>}
         </td>
         <td className="py-2 text-sm text-surface-600">{s.offerName || "Session"}</td>
@@ -1424,6 +1433,7 @@ export default function ClinicDashboard() {
   const [chatConvId, setChatConvId] = useState<string | undefined>(undefined);
   const [complaintForm, setComplaintForm] = useState({ category: "other", subject: "", description: "" });
   const [sysAlert, setSysAlert] = useState<string | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any>(null);
   
   // Clinic staff accounts are linked to a clinicId from backend auth.
   // Fall back to the old demo clinic ids only if missing.
@@ -1618,7 +1628,7 @@ export default function ClinicDashboard() {
                 ↻ {ar() ? "تحديث" : "Refresh"}
               </button>
             </div>
-            <ScheduleTable sessions={sessions} onMark={markSession} onMarkPaid={markPaidFromSchedule} />
+            <ScheduleTable sessions={sessions} onMark={markSession} onMarkPaid={markPaidFromSchedule} onSelectUser={(userId) => setSelectedUser({ id: userId })} />
           </div>
         )}
 
@@ -1825,6 +1835,19 @@ export default function ClinicDashboard() {
         )}
 
       </div>
+      {selectedUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-surface-900/40 backdrop-blur-sm animate-fade-in" onClick={() => setSelectedUser(null)}>
+          <div className="bg-white rounded-3xl overflow-hidden shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto relative animate-slide-up" onClick={(e) => e.stopPropagation()}>
+            <UserProfilePanel 
+              user={selectedUser} 
+              onClose={() => setSelectedUser(null)}
+              onRoleChange={() => {}}
+              onStatusChange={() => {}}
+              onLoginAs={() => {}}
+            />
+          </div>
+        </div>
+      )}
     </DashboardShell>
   );
 }
