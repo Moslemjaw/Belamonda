@@ -2820,7 +2820,9 @@ export function UserProfilePanel({
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${statusBadge(m.status)}`}>{m.status}</span>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mt-3">
-                        <div><span className="text-surface-400">{ar() ? "نوع الشراء" : "Mode"}</span><div className="font-bold mt-0.5">{m.purchaseMode ?? "—"}</div></div>
+                        {(isAdmin || isCS || isFinance) && (
+                          <div><span className="text-surface-400">{ar() ? "نوع الشراء" : "Mode"}</span><div className="font-bold mt-0.5">{m.purchaseMode ?? "—"}</div></div>
+                        )}
                         <div>
                           <span className="text-surface-400">{ar() ? "جلسات مستخدمة" : "Sessions Used"}</span>
                           <div className="flex items-center gap-1 mt-0.5">
