@@ -2340,7 +2340,7 @@ function CsSettings() {
   );
 }
 
-function ClinicChangeRequestsQueue() {
+export function ClinicChangeRequestsQueue() {
   const { getAuthHeader } = useAuth();
   const { data, loading, refetch } = useClinicChangeRequestsCs();
   const [processing, setProcessing] = useState<string | null>(null);

@@ -23,6 +23,7 @@ import NotificationSettingsPanel from "../../features/admin/NotificationSettings
 import QRCodeCanvas from "../../components/QRCodeCanvas";
 import { KpiCard } from "../../components/KpiCard";
 import AdminSessionsLogTab from "./AdminSessionsLogTab";
+import { ClinicChangeRequestsQueue } from "./CsDashboard";
 
 const ar = () => i18n.language === "ar";
 
@@ -4699,6 +4700,7 @@ export default function AdminDashboard() {
     { key: "users", icon: Icons.users, label: t("users") },
     { key: "clinics", icon: Icons.clinic, label: t("clinics") },
     { key: "sessions_log", icon: Icons.calendar, label: ar() ? "سجل الجلسات" : "Sessions Log" },
+    { key: "clinic_changes", icon: Icons.clinic, label: ar() ? "تغيير العيادات" : "Clinic Changes" },
     { key: "tasks", icon: Icons.clipboard, label: t("tasks") },
     { key: "complaints", icon: Icons.complaint, label: t("complaints") },
     { key: "eforms", icon: Icons.report, label: ar() ? "النماذج" : "E-Forms" },
@@ -4871,6 +4873,7 @@ export default function AdminDashboard() {
             <AdminBookingsMonitor />
           </div>
         )}
+        {activeNav === "clinic_changes" && <ClinicChangeRequestsQueue />}
         {activeNav === "sessions_log" && <AdminSessionsLogTab />}
         {activeNav === "reservations" && <AdminReservationsPanel />}
         {activeNav === "share" && <ShareLinkPage />}
