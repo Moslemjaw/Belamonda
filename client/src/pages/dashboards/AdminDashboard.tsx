@@ -24,6 +24,7 @@ import QRCodeCanvas from "../../components/QRCodeCanvas";
 import { KpiCard } from "../../components/KpiCard";
 import AdminSessionsLogTab from "./AdminSessionsLogTab";
 import { ClinicChangeRequestsQueue } from "./CsDashboard";
+import ClinicChangeModal from "../../components/ClinicChangeModal";
 
 const ar = () => i18n.language === "ar";
 
@@ -4677,6 +4678,7 @@ function KycReviewCard({ items }: { items: any[] }) {
 export default function AdminDashboard() {
   const { t } = useTranslation();
   const [activeNav, setActiveNav] = useState("home");
+  const [clinicChangeModal, setClinicChangeModal] = useState<{ type: "membership" | "session" | "request"; id: string; currentClinicId: string; defaultFee: string } | null>(null);
   const { data: kycData } = useKycQueue({ lazy: activeNav !== "home" });
   const { data: paymentsData } = usePendingPayments({ lazy: activeNav !== "home" });
   const { data: productsData } = useProducts({ lazy: activeNav !== "home" });
@@ -4773,7 +4775,9 @@ export default function AdminDashboard() {
               <div className="grid gap-6 lg:grid-cols-3 items-start">
                 <KycQueue />
                 <PaymentQueue />
-                <BookingRequestsQueue />
+                <BookingRequestsQueue onTransfer={(id, clinicId) => {
+                  setClinicChangeModal({ type: 'request', id, currentClinicId: clinicId, defaultFee: '5.000' });
+                }} />
               </div>
             </div>
 
@@ -4883,6 +4887,13 @@ export default function AdminDashboard() {
         {activeNav === "audit" && <AuditLogViewer />}
         {activeNav === "settings" && <AdminSettings />}
       </div>
+
+      {clinicChangeModal && (
+        <ClinicChangeModal
+          modal={clinicChangeModal}
+          onClose={() => setClinicChangeModal(null)}
+        />
+      )}
     </DashboardShell>
   );
 }
