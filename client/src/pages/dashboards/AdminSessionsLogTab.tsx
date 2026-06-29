@@ -11,11 +11,20 @@ export default function AdminSessionsLogTab() {
   const { getAuthHeader } = useAuth();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      const res: any = await apiFetch("/scheduling/admin/sessions-log", {
+      let q = "";
+      if (startDate || endDate) {
+        const p = new URLSearchParams();
+        if (startDate) p.set("from", startDate);
+        if (endDate) p.set("to", endDate);
+        q = `?${p.toString()}`;
+      }
+      const res: any = await apiFetch(`/scheduling/admin/sessions-log${q}`, {
         headers: getAuthHeader()
       });
       setSessions(res.items || []);
@@ -24,7 +33,7 @@ export default function AdminSessionsLogTab() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader]);
+  }, [getAuthHeader, startDate, endDate]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
@@ -45,12 +54,19 @@ export default function AdminSessionsLogTab() {
         <div>
           <h3 className="text-xl font-bold text-surface-900">{ar() ? "سجل الجلسات" : "Sessions Log"}</h3>
           <p className="text-sm text-surface-500 mt-1">
-            {ar() ? "عرض جميع الجلسات المؤكدة في العيادات" : "View all confirmed sessions across clinics"}
+            {ar() ? "عرض جميع الجلسات والطلبات في العيادات" : "View all sessions and pending requests across clinics"}
           </p>
         </div>
-        <button onClick={fetchSessions} className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg">
-          ↻ {ar() ? "تحديث" : "Refresh"}
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="input-field py-1.5 text-sm" />
+            <span className="text-surface-400">-</span>
+            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="input-field py-1.5 text-sm" />
+          </div>
+          <button onClick={fetchSessions} className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg">
+            ↻ {ar() ? "تحديث" : "Refresh"}
+          </button>
+        </div>
       </div>
 
       <div className="card-elevated overflow-hidden border border-surface-200">
@@ -101,8 +117,11 @@ export default function AdminSessionsLogTab() {
                           ${s.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : ''}
                           ${s.status === 'no_show' ? 'bg-red-50 text-red-700' : ''}
                           ${s.status === 'cancelled' ? 'bg-surface-100 text-surface-600' : ''}
+                          ${['pending', 'under_review'].includes(s.status) ? 'bg-amber-50 text-amber-700' : ''}
+                          ${s.status === 'slot_proposed' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
+                          ${s.status === 'slot_accepted' ? 'bg-indigo-50 text-indigo-700' : ''}
                         `}>
-                          {s.status}
+                          {s.status.replace(/_/g, ' ')}
                         </span>
                       </td>
                     </tr>

@@ -2007,29 +2007,75 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
 // ── Admin Sessions Log ────────────────────────────────────────────────────────
 schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_director", "legal", "cs"]), async (req, res, next) => {
   try {
-    const docs = await BookingSessionModel.find({}).sort({ scheduledAt: -1 }).limit(300).lean();
-    
-    const uniqueUserIds = [...new Set(docs.map((i) => i.userId))];
+    const { from, to } = req.query;
+
+    const sessionQuery: any = {};
+    if (from || to) {
+      sessionQuery.scheduledAt = {};
+      if (from) sessionQuery.scheduledAt.$gte = new Date(from as string);
+      if (to) sessionQuery.scheduledAt.$lte = new Date(to as string);
+    }
+    const sessionDocs = await BookingSessionModel.find(sessionQuery).sort({ scheduledAt: -1 }).limit(300).lean();
+
+    const requestQuery: any = { status: { $ne: "confirmed" } };
+    if (from || to) {
+      const dateFilter: any = {};
+      if (from) dateFilter.$gte = new Date(from as string);
+      if (to) dateFilter.$lte = new Date(to as string);
+      requestQuery.$or = [
+        { proposedAt: dateFilter },
+        { preferredAt: dateFilter },
+        { createdAt: dateFilter }
+      ];
+    }
+    const requestDocs = await BookingRequestModel.find(requestQuery).sort({ createdAt: -1 }).limit(300).lean();
+
+    const userIds = [
+      ...sessionDocs.map((i: any) => i.userId),
+      ...requestDocs.map((i: any) => i.userId)
+    ];
+    const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
     const users = await UserModel.find({ _id: { $in: uniqueUserIds } }).select("_id fullName phone").lean();
     const userMap = new Map(users.map((u: any) => [u._id.toString(), { fullName: u.fullName, phone: u.phone }]));
 
-    const uniqueOfferIds = [...new Set(docs.map(it => it.offerId).filter(id => !!id && mongoose.isValidObjectId(id)))];
+    const offerIds = [
+      ...sessionDocs.map((i: any) => i.offerId),
+      ...requestDocs.map((i: any) => i.offerId)
+    ];
+    const uniqueOfferIds = [...new Set(offerIds.filter(id => !!id && mongoose.isValidObjectId(id)))];
     const offerDocs = uniqueOfferIds.length > 0 ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).lean() : [];
     const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o.name]));
     
-    const enriched = docs.map((doc: any) => ({
+    const enrichedSessions = sessionDocs.map((doc: any) => ({
       id: doc._id.toString(),
+      type: "session",
       userId: doc.userId,
       clinicId: doc.clinicId,
       scheduledAt: doc.scheduledAt.toISOString(),
       status: doc.status,
       customerName: userMap.get(doc.userId)?.fullName || null,
       customerPhone: userMap.get(doc.userId)?.phone || null,
-      offerName: doc.offerId ? (offerMap.get(doc.offerId) || "Unknown Offer") : "Standalone Booking",
+      offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
       createdAt: doc.createdAt.toISOString()
     }));
 
-    return res.json({ items: enriched });
+    const enrichedRequests = requestDocs.map((doc: any) => ({
+      id: doc._id.toString(),
+      type: "request",
+      userId: doc.userId,
+      clinicId: doc.clinicId,
+      scheduledAt: doc.proposedAt?.toISOString() || doc.preferredAt?.toISOString() || doc.createdAt.toISOString(),
+      status: doc.status,
+      customerName: userMap.get(doc.userId)?.fullName || null,
+      customerPhone: userMap.get(doc.userId)?.phone || null,
+      offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
+      createdAt: doc.createdAt.toISOString()
+    }));
+
+    const allItems = [...enrichedSessions, ...enrichedRequests];
+    allItems.sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
+
+    return res.json({ items: allItems.slice(0, 500) });
   } catch (e) {
     next(e);
   }
