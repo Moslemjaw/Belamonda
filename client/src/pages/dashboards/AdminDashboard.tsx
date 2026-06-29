@@ -2874,7 +2874,9 @@ export function UserProfilePanel({
                             <span className="text-surface-400 text-sm">/ {m.installmentCount ?? "—"}</span>
                           </div>
                         </div>
-                        <div><span className="text-surface-400">{ar() ? "المبلغ (د.ك)" : "Amount (KWD)"}</span><div className="font-bold mt-0.5">{m.paymentAmountKwd ?? "—"}</div></div>
+                        {(isAdmin || isCS || isFinance) && (
+                          <div><span className="text-surface-400">{ar() ? "المبلغ (د.ك)" : "Amount (KWD)"}</span><div className="font-bold mt-0.5">{m.paymentAmountKwd ?? "—"}</div></div>
+                        )}
                         <div>
                           <span className="text-surface-400">{ar() ? "التفعيل" : "Activated"}</span>
                           {editingDateId === `${m.id}_activatedAt` ? (
@@ -2914,7 +2916,7 @@ export function UserProfilePanel({
                           )}
                         </div>
                         <div><span className="text-surface-400">{ar() ? "تاريخ الإنشاء" : "Created"}</span><div className="font-bold mt-0.5">{fmt(m.createdAt)}</div></div>
-                        {m.purchaseMode === "installments" && m.installmentSchedule && m.installmentSchedule.some((i: any) => !i.paid) && (
+                        {(isAdmin || isCS || isFinance) && m.purchaseMode === "installments" && m.installmentSchedule && m.installmentSchedule.some((i: any) => !i.paid) && (
                           <div className="sm:col-span-4 mt-2 p-3 bg-amber-50 rounded-xl border border-amber-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                             <div>
                               <span className="text-amber-700 font-bold">{ar() ? "المبلغ المتبقي (غير مدفوع)" : "Unpaid Amount Left"}</span>
