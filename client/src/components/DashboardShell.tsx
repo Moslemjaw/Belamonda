@@ -190,7 +190,7 @@ const getGroupForNavItem = (key: string, role: string, isAr: boolean): { name: s
 
   if (role === "clinicStaff" || role === "clinic") {
     if (key === "home") return { name: isAr ? "نظرة عامة" : "Overview", order: 1 };
-    if (["scanner", "requests", "schedule", "chat"].includes(key)) {
+    if (["scanner", "requests", "booking_requests", "schedule", "chat"].includes(key)) {
       return { name: isAr ? "الخدمات" : "Services", order: 2 };
     }
     if (["invoices", "reports", "performance"].includes(key)) {
