@@ -492,6 +492,8 @@ export async function updateOffer(id: string, patch: Record<string, unknown>) {
   if (typeof patch.endDate === "string") update.endDate = new Date(patch.endDate);
   if (typeof patch.offerExpirationDate === "string" && patch.offerExpirationDate) {
     update.offerExpirationDate = new Date(patch.offerExpirationDate);
+  } else if ("offerExpirationDate" in patch && (patch.offerExpirationDate === null || patch.offerExpirationDate === "")) {
+    update.offerExpirationDate = null;
   }
 
   const refKeys = ["fullPaymentEFormId", "installmentsEFormId", "depositEFormId", "enetEFormId"] as const;

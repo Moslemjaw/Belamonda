@@ -109,7 +109,7 @@ const OfferBaseSchema = z.object({
   membershipType: z.enum(["cashback", "free_sessions", "group"]).optional(),
 
   // Offer window / expiry (admin "Offer Expiration Date" — ISO or yyyy-mm-dd)
-  offerExpirationDate: z.string().optional(),
+  offerExpirationDate: z.string().nullable().optional(),
 
   // Group offer
   isGroupOffer: z.boolean().default(false),

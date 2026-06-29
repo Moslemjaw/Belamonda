@@ -284,7 +284,7 @@ function OffersManager() {
           tagsAr: form.tagsAr.split(",").map((s: any) => s.trim()).filter(Boolean),
           imageUrl: form.imageUrl || undefined,
           isCashbackOnly: !!form.isCashbackOnly,
-          offerExpirationDate: form.offerExpirationDate ? new Date(form.offerExpirationDate).toISOString() : undefined,
+          offerExpirationDate: form.offerExpirationDate ? new Date(form.offerExpirationDate).toISOString() : null,
           isGroupOffer: !!form.isGroupOffer,
           groupSizeRequired: parseInt(form.groupSizeRequired) || 2,
           groupRewardType: form.groupRewardType,
