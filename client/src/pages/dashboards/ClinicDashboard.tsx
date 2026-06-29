@@ -8,6 +8,7 @@ import { apiFetch, API_BASE_URL } from "../../lib/api";
 import { sharedClinics } from "../../lib/clinics";
 import { fmtDate } from "../../lib/dateFormat";
 import i18n from "../../app/i18n";
+import ClinicBookingRequestsTab from "./ClinicBookingRequestsTab";
 import ChatWidget from "../../components/ChatWidget";
 import ShareLinkPage from "../../components/ShareLinkPage";
 import { ReferralActivityWidget } from "../../components/ReferralActivityWidget";
@@ -1541,6 +1542,7 @@ export default function ClinicDashboard() {
     { key: "reports", icon: Icons.report, label: ar() ? "التقارير" : "Reports" },
     { key: "performance", icon: Icons.chart, label: ar() ? "الأداء" : "Performance" },
     { key: "complaints", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>, label: ar() ? "الشكاوى والدعم" : "Complaints & Support" },
+    { key: "booking_requests", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, label: ar() ? "طلبات الحجز" : "Booking Requests" },
     { key: "profile", icon: Icons.profile, label: ar() ? "الملف الشخصي" : "Profile & Settings" },
   ];
 
@@ -1662,6 +1664,10 @@ export default function ClinicDashboard() {
 
         {activeNav === "reports" && (
           <ClinicReportsTab clinicId={CLINIC_ID} />
+        )}
+
+        {activeNav === "booking_requests" && (
+          <ClinicBookingRequestsTab clinicId={CLINIC_ID} />
         )}
 
         {activeNav === "complaints" && (

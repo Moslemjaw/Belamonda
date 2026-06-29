@@ -1061,7 +1061,7 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
     if (!clinicId) return res.json({ items: [] });
   }
   const status = (typeof req.query.status === "string" ? req.query.status : "open") as BookingRequestStatus | "all" | "open";
-  const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status, bookingRoute: "clinic" };
+  const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status };
   if (clinicId) filter.clinicId = clinicId;
   const items = await bookingRequestsStore.list(filter);
 
@@ -1571,9 +1571,41 @@ schedulingRouter.post("/cs/schedule", authRequired, requireRole(["cs", "legal", 
 
 // ── CS schedules from a specific request id ────────────────────────────────
 schedulingRouter.post(
-  "/cs/requests/:id/schedule",
+  "/cs/requests/:id/propose",
   authRequired,
-  requireRole(["cs", "legal", "admin", "clinicStaff", "cs_director"]),
+  requireRole(["cs", "legal", "admin", "cs_director"]),
+  async (req, res) => {
+    const parsed = ProposeSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
+    const breq = await bookingRequestsStore.get(req.params.id);
+    if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
+    if (["confirmed", "cancelled", "rejected"].includes(breq.status)) {
+      return res.status(409).json({ error: "INVALID_STATE" });
+    }
+
+    const updated = await bookingRequestsStore.update(breq.id, {
+      status: "slot_proposed",
+      proposedAt: parsed.data.scheduledAt,
+      proposedBy: req.auth!.userId,
+      notes: parsed.data.notes
+    });
+
+    if (updated?.conversationId) {
+      postSystemMessage(
+        updated.conversationId,
+        "slot_proposed",
+        `Date suggested for clinic: ${parsed.data.scheduledAt}. Notes: ${parsed.data.notes || "None"}`,
+        { bookingRequestId: updated.id }
+      );
+    }
+    return res.status(200).json({ request: updated });
+  }
+);
+
+schedulingRouter.post(
+  "/clinic/requests/:id/confirm",
+  authRequired,
+  requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]),
   async (req, res) => {
     const parsed = ProposeSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
@@ -1585,6 +1617,7 @@ schedulingRouter.post(
     if (["confirmed", "cancelled", "rejected"].includes(breq.status)) {
       return res.status(409).json({ error: "INVALID_STATE" });
     }
+    
     // Standalone CS booking requests are confirmed without creating UserOffer/session.
     if (!breq.userOfferId) {
       const updated = await bookingRequestsStore.update(breq.id, {
@@ -1597,7 +1630,7 @@ schedulingRouter.post(
         postSystemMessage(
           updated.conversationId,
           "booking_confirmed",
-          `Booking confirmed for ${parsed.data.scheduledAt}.`,
+          `Booking confirmed by clinic for ${parsed.data.scheduledAt}.`,
           { bookingRequestId: updated.id }
         );
       }
@@ -1618,10 +1651,6 @@ schedulingRouter.post(
     const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
-
-
-    // Use the booking request's clinicId (what the customer actually requested and CS confirmed)
-    // rather than uo.clinicId, so the session appears in the correct clinic's dashboard.
     const sessionClinicId = breq.clinicId || uo.clinicId;
     if (await sessionsStore.isSlotTaken(sessionClinicId, parsed.data.scheduledAt)) {
       return res.status(409).json({ error: "SLOT_TAKEN" });
@@ -1663,7 +1692,7 @@ schedulingRouter.post(
       postSystemMessage(
         updated.conversationId,
         "booking_confirmed",
-        `Booking confirmed for ${parsed.data.scheduledAt}.`,
+        `Booking confirmed by clinic for ${parsed.data.scheduledAt}.`,
         { bookingRequestId: updated.id, sessionId: session.id }
       );
     }
