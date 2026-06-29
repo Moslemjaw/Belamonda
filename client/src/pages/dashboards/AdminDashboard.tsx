@@ -2894,8 +2894,8 @@ export function UserProfilePanel({
                             <div className="font-bold mt-0.5 flex items-center gap-2">
                               {fmt(m.activatedAt)}
                               {(isAdmin || isCS || isFinance) && (
-                                <button className="text-surface-300 hover:text-brand-pink-600 transition-colors" onClick={() => { setEditingDateId(`${m.id}_activatedAt`); setEditingDateValue(m.activatedAt ? new Date(m.activatedAt).toISOString().split('T')[0] : ""); }}>
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                <button className="bg-surface-100 text-surface-600 hover:bg-brand-pink-50 hover:text-brand-pink-600 p-1.5 rounded-md border border-surface-200 shadow-sm transition-all flex items-center justify-center" title="Edit Date" onClick={() => { setEditingDateId(`${m.id}_activatedAt`); setEditingDateValue(m.activatedAt ? new Date(m.activatedAt).toISOString().split('T')[0] : ""); }}>
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                 </button>
                               )}
                             </div>
@@ -2913,8 +2913,8 @@ export function UserProfilePanel({
                             <div className="font-bold mt-0.5 flex items-center gap-2">
                               {fmt(m.expiresAt)}
                               {(isAdmin || isCS || isFinance) && (
-                                <button className="text-surface-300 hover:text-brand-pink-600 transition-colors" onClick={() => { setEditingDateId(`${m.id}_expiresAt`); setEditingDateValue(m.expiresAt ? new Date(m.expiresAt).toISOString().split('T')[0] : ""); }}>
-                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                <button className="bg-surface-100 text-surface-600 hover:bg-brand-pink-50 hover:text-brand-pink-600 p-1.5 rounded-md border border-surface-200 shadow-sm transition-all flex items-center justify-center" title="Edit Date" onClick={() => { setEditingDateId(`${m.id}_expiresAt`); setEditingDateValue(m.expiresAt ? new Date(m.expiresAt).toISOString().split('T')[0] : ""); }}>
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                 </button>
                               )}
                             </div>
