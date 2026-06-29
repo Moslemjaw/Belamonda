@@ -40,7 +40,8 @@ export function KycQueue() {
       } else {
         await apiFetch(`/kyc/cs/${submissionId}/reject`, { method: "POST", headers: getAuthHeader(), body: JSON.stringify({ reason: "Documents unclear" }) });
       }
-      refetch();
+      invalidateCache("/kyc");
+      refetch(true);
     } catch (e: any) { alert(e.message); }
     finally { setProcessing(null); }
   };
