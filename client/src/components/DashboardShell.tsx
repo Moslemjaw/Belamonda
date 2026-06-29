@@ -160,7 +160,7 @@ const getGroupForNavItem = (key: string, role: string, isAr: boolean): { name: s
     if (["offers", "subscriptions", "promotions", "categories", "treatments", "standalone"].includes(key)) {
       return { name: isAr ? "إدارة الكتالوج" : "Catalog Management", order: 2 };
     }
-    if (["users", "clinics", "bookings", "reservations"].includes(key)) {
+    if (["users", "clinics", "sessions_log", "bookings", "reservations"].includes(key)) {
       return { name: isAr ? "العمليات والحجوزات" : "Operations & Bookings", order: 3 };
     }
     if (["eforms", "notices", "complaints", "share", "tasks", "audit"].includes(key)) {
