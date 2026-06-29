@@ -146,29 +146,42 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES,
     const offerMap: Record<string, { name: string; nameAr?: string; maxSessions?: number }> = {};
     offers.forEach((o) => { offerMap[String(o._id)] = { name: o.name, nameAr: o.nameAr, maxSessions: o.maxSessions }; });
 
-    const membershipItems = memberships.map((m: any) => ({
-      id: String(m._id),
-      offerId: String(m.offerId),
-      offerName: offerMap[String(m.offerId)]?.name ?? "—",
-      offerNameAr: offerMap[String(m.offerId)]?.nameAr,
-      maxSessions: offerMap[String(m.offerId)]?.maxSessions,
-      clinicId: m.clinicId ? String(m.clinicId) : undefined,
-      status: m.status,
-      purchaseMode: m.purchaseMode,
-      sessionsUsed: m.sessionsUsed ?? 0,
-      installmentCount: m.installmentCount,
-      installmentsPaid: m.installmentsPaid ?? 0,
-      paymentAmountKwd: m.paymentAmountKwd,
-      activatedAt: m.activatedAt ? new Date(m.activatedAt).toISOString() : undefined,
-      expiresAt: m.expiresAt ? new Date(m.expiresAt).toISOString() : undefined,
-      createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : undefined,
-      installmentSchedule: m.installmentSchedule,
-      nextInstallmentDueAt: m.nextInstallmentDueAt ? new Date(m.nextInstallmentDueAt).toISOString() : undefined,
-      cashbackBalanceKwd: m.cashbackBalanceKwd,
-      depositAmountKwd: m.depositAmountKwd,
-      depositPaidAt: m.depositPaidAt ? new Date(m.depositPaidAt).toISOString() : undefined,
-      reservationExpiresAt: m.reservationExpiresAt ? new Date(m.reservationExpiresAt).toISOString() : undefined,
-    }));
+    // Enrich memberships with clinic names
+    const membershipClinicIds = [...new Set(memberships.map((m: any) => m.clinicId ? String(m.clinicId) : undefined).filter(Boolean))].filter((cid) => mongoose.isValidObjectId(cid!));
+    const membershipClinics = membershipClinicIds.length
+      ? await ClinicModel.find({ _id: { $in: membershipClinicIds } }).select("nameEn nameAr").lean()
+      : [];
+    const membershipClinicMap: Record<string, { nameEn?: string; nameAr?: string }> = {};
+    membershipClinics.forEach((c: any) => { membershipClinicMap[String(c._id)] = { nameEn: c.nameEn, nameAr: c.nameAr }; });
+
+    const membershipItems = memberships.map((m: any) => {
+      const clinicInfo: any = m.clinicId ? (membershipClinicMap[String(m.clinicId)] || {}) : {};
+      return {
+        id: String(m._id),
+        offerId: String(m.offerId),
+        offerName: offerMap[String(m.offerId)]?.name ?? "—",
+        offerNameAr: offerMap[String(m.offerId)]?.nameAr,
+        maxSessions: offerMap[String(m.offerId)]?.maxSessions,
+        clinicId: m.clinicId ? String(m.clinicId) : undefined,
+        clinicNameEn: clinicInfo.nameEn || undefined,
+        clinicNameAr: clinicInfo.nameAr || undefined,
+        status: m.status,
+        purchaseMode: m.purchaseMode,
+        sessionsUsed: m.sessionsUsed ?? 0,
+        installmentCount: m.installmentCount,
+        installmentsPaid: m.installmentsPaid ?? 0,
+        paymentAmountKwd: m.paymentAmountKwd,
+        activatedAt: m.activatedAt ? new Date(m.activatedAt).toISOString() : undefined,
+        expiresAt: m.expiresAt ? new Date(m.expiresAt).toISOString() : undefined,
+        createdAt: m.createdAt ? new Date(m.createdAt).toISOString() : undefined,
+        installmentSchedule: m.installmentSchedule,
+        nextInstallmentDueAt: m.nextInstallmentDueAt ? new Date(m.nextInstallmentDueAt).toISOString() : undefined,
+        cashbackBalanceKwd: m.cashbackBalanceKwd,
+        depositAmountKwd: m.depositAmountKwd,
+        depositPaidAt: m.depositPaidAt ? new Date(m.depositPaidAt).toISOString() : undefined,
+        reservationExpiresAt: m.reservationExpiresAt ? new Date(m.reservationExpiresAt).toISOString() : undefined,
+      };
+    });
 
     // Enrich payments with offer names
     const paymentOfferIds = [...new Set(payments.map((p: any) => p.offerId ? String(p.offerId) : undefined).filter(Boolean))];
