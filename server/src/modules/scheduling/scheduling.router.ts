@@ -2004,6 +2004,37 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
   }
 });
 
+// ── Admin Sessions Log ────────────────────────────────────────────────────────
+schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_director", "legal", "cs"]), async (req, res, next) => {
+  try {
+    const docs = await BookingSessionModel.find({}).sort({ scheduledAt: -1 }).limit(300).lean();
+    
+    const uniqueUserIds = [...new Set(docs.map((i) => i.userId))];
+    const users = await UserModel.find({ _id: { $in: uniqueUserIds } }).select("_id fullName phone").lean();
+    const userMap = new Map(users.map((u: any) => [u._id.toString(), { fullName: u.fullName, phone: u.phone }]));
+
+    const uniqueOfferIds = [...new Set(docs.map(it => it.offerId).filter(id => !!id && mongoose.isValidObjectId(id)))];
+    const offerDocs = uniqueOfferIds.length > 0 ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).lean() : [];
+    const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o.name]));
+    
+    const enriched = docs.map((doc: any) => ({
+      id: doc._id.toString(),
+      userId: doc.userId,
+      clinicId: doc.clinicId,
+      scheduledAt: doc.scheduledAt.toISOString(),
+      status: doc.status,
+      customerName: userMap.get(doc.userId)?.fullName || null,
+      customerPhone: userMap.get(doc.userId)?.phone || null,
+      offerName: doc.offerId ? (offerMap.get(doc.offerId) || "Unknown Offer") : "Standalone Booking",
+      createdAt: doc.createdAt.toISOString()
+    }));
+
+    return res.json({ items: enriched });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ── Admin overview of all booking requests ────────────────────────────────
 schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin"]), async (req, res) => {
   const status = (typeof req.query.status === "string" ? req.query.status : "all") as BookingRequestStatus | "all" | "open";

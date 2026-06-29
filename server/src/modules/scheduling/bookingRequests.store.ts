@@ -124,7 +124,7 @@ export const bookingRequestsStore = {
     
     if (filter?.status && filter.status !== "all") {
       if (filter.status === "open") {
-        query.status = { $in: ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted"] };
+        query.status = { $in: ["awaiting_session_payment", "under_review", "slot_accepted"] };
       } else {
         query.status = filter.status;
       }
