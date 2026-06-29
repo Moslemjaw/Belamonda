@@ -13,15 +13,17 @@ export default function AdminSessionsLogTab() {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [status, setStatus] = useState("all");
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
       let q = "";
-      if (startDate || endDate) {
+      if (startDate || endDate || status !== "all") {
         const p = new URLSearchParams();
         if (startDate) p.set("from", startDate);
         if (endDate) p.set("to", endDate);
+        if (status !== "all") p.set("status", status);
         q = `?${p.toString()}`;
       }
       const res: any = await apiFetch(`/scheduling/admin/sessions-log${q}`, {
@@ -33,7 +35,7 @@ export default function AdminSessionsLogTab() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader, startDate, endDate]);
+  }, [getAuthHeader, startDate, endDate, status]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
@@ -58,6 +60,19 @@ export default function AdminSessionsLogTab() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <select value={status} onChange={e => setStatus(e.target.value)} className="input-field py-1.5 text-sm">
+              <option value="all">{ar() ? "الكل" : "All Statuses"}</option>
+              <option value="scheduled">{ar() ? "مجدول" : "Scheduled"}</option>
+              <option value="completed">{ar() ? "مكتمل" : "Completed"}</option>
+              <option value="no_show">{ar() ? "لم يحضر" : "No Show"}</option>
+              <option value="cancelled">{ar() ? "ملغي" : "Cancelled"}</option>
+              <option value="pending">{ar() ? "قيد الانتظار" : "Pending"}</option>
+              <option value="under_review">{ar() ? "قيد المراجعة" : "Under Review"}</option>
+              <option value="slot_proposed">{ar() ? "تم اقتراح موعد" : "Slot Proposed"}</option>
+              <option value="slot_accepted">{ar() ? "تم قبول الموعد" : "Slot Accepted"}</option>
+            </select>
+          </div>
           <div className="flex items-center gap-2">
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="input-field py-1.5 text-sm" />
             <span className="text-surface-400">-</span>

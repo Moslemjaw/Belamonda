@@ -2007,7 +2007,7 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
 // ── Admin Sessions Log ────────────────────────────────────────────────────────
 schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_director", "legal", "cs"]), async (req, res, next) => {
   try {
-    const { from, to } = req.query;
+    const { from, to, status } = req.query;
 
     const sessionQuery: any = {};
     if (from || to) {
@@ -2015,7 +2015,15 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
       if (from) sessionQuery.scheduledAt.$gte = new Date(from as string);
       if (to) sessionQuery.scheduledAt.$lte = new Date(to as string);
     }
-    const sessionDocs = await BookingSessionModel.find(sessionQuery).sort({ scheduledAt: -1 }).limit(300).lean();
+    if (status && status !== "all") {
+      sessionQuery.status = status;
+    }
+
+    let sessionDocs: any[] = [];
+    const isSessionStatus = !status || status === "all" || ["scheduled", "completed", "no_show", "cancelled"].includes(status as string);
+    if (isSessionStatus) {
+      sessionDocs = await BookingSessionModel.find(sessionQuery).sort({ scheduledAt: -1 }).limit(300).lean();
+    }
 
     const requestQuery: any = { status: { $ne: "confirmed" } };
     if (from || to) {
@@ -2028,7 +2036,15 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
         { createdAt: dateFilter }
       ];
     }
-    const requestDocs = await BookingRequestModel.find(requestQuery).sort({ createdAt: -1 }).limit(300).lean();
+    if (status && status !== "all") {
+      requestQuery.status = status;
+    }
+
+    let requestDocs: any[] = [];
+    const isRequestStatus = !status || status === "all" || ["pending", "under_review", "slot_proposed", "slot_accepted", "awaiting_session_payment", "cancelled", "rejected"].includes(status as string);
+    if (isRequestStatus) {
+      requestDocs = await BookingRequestModel.find(requestQuery).sort({ createdAt: -1 }).limit(300).lean();
+    }
 
     const userIds = [
       ...sessionDocs.map((i: any) => i.userId),
