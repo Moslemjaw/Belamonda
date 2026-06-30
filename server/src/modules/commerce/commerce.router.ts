@@ -270,7 +270,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
     );
     const [offers, clinicsForNames] = await Promise.all([
       OfferModel.find({ _id: { $in: offerIds } })
-        .select("name nameAr clinicLocked clinicTransferFeeKwd branchSessionPrices sessionIntervalDays isGroupOffer groupSizeRequired groupRewardType groupRewardValue maxSessions allowExtraPaidSessions extraSessionPriceKwd subscriptionPriceKwd allowFullPayment allowInstallments maxInstallments depositAmountKwd allowDeposit category type")
+        .select("name nameAr clinicLocked clinicTransferFeeKwd branchSessionPrices sessionIntervalDays isGroupOffer groupSizeRequired groupRewardType groupRewardValue maxSessions allowExtraPaidSessions extraSessionPriceKwd subscriptionPriceKwd allowFullPayment allowInstallments maxInstallments depositAmountKwd allowDeposit allowAppointmentBooking category type")
         .lean(),
       ClinicModel.find({ _id: { $in: clinicIdsForLookup } }).select("nameEn nameAr").lean(),
     ]);
@@ -341,6 +341,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
         isGroupOffer: offer.isGroupOffer || false,
         maxSessions: offer.maxSessions,
         allowExtraPaidSessions: offer.allowExtraPaidSessions || false,
+        allowAppointmentBooking: offer.allowAppointmentBooking != null ? offer.allowAppointmentBooking : undefined,
         extraSessionPriceKwd: offer.extraSessionPriceKwd || undefined,
         clinicTransferFeeKwd: offer.clinicTransferFeeKwd || "0.000",
         subscriptionPriceKwd: offer.subscriptionPriceKwd || undefined,

@@ -131,6 +131,7 @@ export function serializeOffer(doc: OfferDoc, categorySlug?: string | null) {
     })),
     allowExtraPaidSessions: (doc as any).allowExtraPaidSessions ?? false,
     extraSessionPriceKwd: (doc as any).extraSessionPriceKwd,
+    allowAppointmentBooking: doc.allowAppointmentBooking ?? false,
     branchExtraSessionPrices: ((doc as any).branchExtraSessionPrices ?? []).map((b: any) => ({
       clinicId: b.clinicId,
       priceKwd: b.priceKwd

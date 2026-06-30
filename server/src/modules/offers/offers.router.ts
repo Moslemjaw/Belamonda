@@ -64,6 +64,7 @@ const OfferBaseSchema = z.object({
   sessionExpiryMonths: z.number().int().min(0).default(0),
   maxBookingsPerWeek: z.number().int().positive().optional(),
   maxActiveSessions: z.number().int().positive().optional(),
+  allowAppointmentBooking: z.boolean().default(false),
   bookingMode: z.enum(["instant", "review", "doctor_approval", "manual_confirmation"]).default("instant"),
 
   // Capacity & Window

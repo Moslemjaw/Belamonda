@@ -1877,6 +1877,8 @@ function EFormsViewer({ from, to }: { from: string; to: string }) {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedSub, setSelectedSub] = useState<any>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterFormId, setFilterFormId] = useState("");
 
   const fetchSubmissions = async () => {
     setLoading(true);
@@ -1944,9 +1946,30 @@ function EFormsViewer({ from, to }: { from: string; to: string }) {
             <div className="meta">{ar() ? "عرض جميع النماذج الموقّعة من العملاء" : "View all signed forms from customers"}</div>
           </div>
         </div>
-        <div className="flex items-center gap-2 ms-auto">
-          {submissions.length > 0 && <span className="status-pill-pending"><span className="dot" aria-hidden="true" />{submissions.length} {ar() ? "نموذج" : "submissions"}</span>}
-          <button className="icon-btn" onClick={fetchSubmissions} aria-label={ar() ? "تحديث" : "Refresh"} title={ar() ? "تحديث" : "Refresh"}>
+        <div className="flex items-center gap-3 ms-auto flex-wrap justify-end">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-surface-500">{ar() ? "تصفية حسب النموذج" : "Filter by form"}:</span>
+            <select className="select-field max-w-[160px] text-xs py-1.5" value={filterFormId} onChange={(e) => setFilterFormId(e.target.value)}>
+              <option value="">{ar() ? "كل النماذج" : "All forms"}</option>
+              {Array.from(new Set(submissions.map((s) => s.formId))).map((id) => (
+                <option key={id} value={id}>
+                  {submissions.find((s) => s.formId === id)?.formTitle || "Untitled Form"}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="hidden sm:block w-px h-6 bg-surface-200"></div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-medium text-surface-500">{ar() ? "بحث بالاسم" : "Search by name"}:</span>
+            <input
+              type="text"
+              className="input-field max-w-[160px] text-xs py-1.5"
+              placeholder={ar() ? "اسم العميلة..." : "Customer name..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <button className="icon-btn ms-2" onClick={fetchSubmissions} aria-label={ar() ? "تحديث" : "Refresh"} title={ar() ? "تحديث" : "Refresh"}>
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
           </button>
         </div>
@@ -1961,7 +1984,17 @@ function EFormsViewer({ from, to }: { from: string; to: string }) {
         </div>
       ) : (
         <div className="space-y-1.5 mt-4">
-          {submissions.map((s: any) => (
+          {submissions
+            .filter((s) => {
+              if (filterFormId && s.formId !== filterFormId) return false;
+              if (searchQuery) {
+                const q = searchQuery.toLowerCase();
+                const customerName = (s.userName || s.userId || "").toLowerCase();
+                if (!customerName.includes(q)) return false;
+              }
+              return true;
+            })
+            .map((s: any) => (
             <div key={s.id} className="queue-row group cursor-pointer" onClick={() => setSelectedSub(s)}>
               <div className="avatar avatar-md bg-indigo-50 text-indigo-600" aria-hidden="true">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>

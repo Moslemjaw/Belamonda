@@ -144,7 +144,7 @@ function OffersManager() {
 
   const eforms = formsData?.items || [];
 
-  const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[], allowExtraPaidSessions: false, extraSessionPriceKwd: "", branchExtraSessionPrices: [] as { clinicId: string, priceKwd: string }[] };
+  const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[], allowExtraPaidSessions: false, extraSessionPriceKwd: "", branchExtraSessionPrices: [] as { clinicId: string, priceKwd: string }[], allowAppointmentBooking: false };
   const [form, setForm] = useState(emptyForm);
 
   const offers = apiOffersData?.items || [];
@@ -219,6 +219,7 @@ function OffersManager() {
         priceKwd: String(x.priceKwd ?? "0")
       })),
       allowExtraPaidSessions: o.allowExtraPaidSessions ?? false,
+      allowAppointmentBooking: o.allowAppointmentBooking ?? false,
       extraSessionPriceKwd: o.extraSessionPriceKwd ?? "",
       branchExtraSessionPrices: (o.branchExtraSessionPrices || []).map((x: any) => ({
         clinicId: x.clinicId || "",
@@ -298,6 +299,7 @@ function OffersManager() {
           branchSessionPrices,
           branchSubscriptionPrices,
           allowExtraPaidSessions: !!form.allowExtraPaidSessions,
+          allowAppointmentBooking: !!form.allowAppointmentBooking,
           extraSessionPriceKwd: form.allowExtraPaidSessions && form.extraSessionPriceKwd ? `${Number(form.extraSessionPriceKwd).toFixed(3)}` : undefined,
           branchExtraSessionPrices: form.allowExtraPaidSessions
             ? form.branchExtraSessionPrices
@@ -767,6 +769,19 @@ function OffersManager() {
             <div className="grid gap-4 md:grid-cols-2">
               {F("Tags (EN) — comma separated", <input className="input-field" value={form.tagsEn} onChange={e => setForm({...form, tagsEn: e.target.value})} placeholder="e.g. 1 Year, 500 KWD Cashback" />)}
               {F("Tags (AR) — comma separated", <input className="input-field" dir="rtl" value={form.tagsAr} onChange={e => setForm({...form, tagsAr: e.target.value})} placeholder="مثال: سنة واحدة, كاش باك 500 دك" />)}
+            </div>
+          </div>
+
+          <div className="border-t border-surface-100 pt-4 mt-4">
+            <h5 className="flex items-center gap-2.5 text-sm font-bold text-surface-900 mb-4 pb-3 border-b border-surface-100 before:content-[''] before:h-4 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-brand-pink-500 before:to-brand-sage-300 before:shrink-0">{ar() ? "خيارات العرض" : "Display Options"}</h5>
+            <div className="mt-4">
+              <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${form.allowAppointmentBooking ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
+                <input type="checkbox" checked={form.allowAppointmentBooking} onChange={e => setForm({...form, allowAppointmentBooking: e.target.checked})} className="accent-brand-pink-500 w-4 h-4" />
+                <div>
+                  <span className="font-bold text-sm text-surface-900">{ar() ? "إظهار زر حجز موعد" : "Show \"Book Appointment\" Button"}</span>
+                  <p className="text-xs text-surface-500 mt-0.5">{ar() ? "فعّل هذا الخيار لإظهار زر حجز الموعد لهذه العضوية. إيقافه سيقوم بإخفاء الزر بالكامل." : "Enable this option to display a Book Appointment button for this membership. Disabling it will hide the button."}</p>
+                </div>
+              </label>
             </div>
           </div>
 

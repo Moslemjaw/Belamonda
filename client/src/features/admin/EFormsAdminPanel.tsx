@@ -259,6 +259,7 @@ export function EFormsAdminPanel() {
   const [filterFormId, setFilterFormId] = useState<string>("");
   const [previewForm, setPreviewForm] = useState<FormItem | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Send form state
   const [sendFormModal, setSendFormModal] = useState<FormItem | null>(null);
@@ -269,7 +270,15 @@ export function EFormsAdminPanel() {
   const customers = usersData?.items ?? [];
 
   const offersById = useMemo(() => new Map(offers.map((o) => [o.id, o.name])), [offers]);
-  const filteredSubs = filterFormId ? submissions.filter((s) => s.formId === filterFormId) : submissions;
+  const filteredSubs = submissions.filter((s) => {
+    if (filterFormId && s.formId !== filterFormId) return false;
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      const customerName = (s.userName || s.userId || "").toLowerCase();
+      if (!customerName.includes(q)) return false;
+    }
+    return true;
+  });
 
   const startCreate = () => {
     setEditingId(null);
@@ -690,13 +699,26 @@ export function EFormsAdminPanel() {
 
       {view === "submissions" && (
         <div className="space-y-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium text-surface-500">{ar() ? "تصفية حسب النموذج" : "Filter by form"}:</span>
-            <select className="select-field max-w-xs" value={filterFormId} onChange={(e) => setFilterFormId(e.target.value)}>
-              <option value="">{ar() ? "كل النماذج" : "All forms"}</option>
-              {forms.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
-            </select>
-            <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => void refetchSubs()}>↻</button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-surface-500">{ar() ? "تصفية حسب النموذج" : "Filter by form"}:</span>
+              <select className="select-field max-w-xs" value={filterFormId} onChange={(e) => setFilterFormId(e.target.value)}>
+                <option value="">{ar() ? "كل النماذج" : "All forms"}</option>
+                {forms.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
+              </select>
+            </div>
+            <div className="hidden sm:block w-px h-6 bg-surface-200"></div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-surface-500">{ar() ? "بحث بالاسم" : "Search by name"}:</span>
+              <input
+                type="text"
+                className="input-field max-w-[200px]"
+                placeholder={ar() ? "اسم العميلة..." : "Customer name..."}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <button type="button" className="btn-secondary btn-sm text-xs ms-auto sm:ms-0" onClick={() => void refetchSubs()}>↻</button>
           </div>
           <div className="card-elevated overflow-hidden">
             <table className="w-full text-sm">
