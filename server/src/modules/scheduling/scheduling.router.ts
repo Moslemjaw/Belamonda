@@ -597,7 +597,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
 
     // Gate: session interval cooling period
     if (offer.sessionIntervalDays > 0) {
-      const lastCompletedAt = await sessionsStore.lastCompletedAt(uo.id);
+      const lastCompletedAt = await sessionsStore.lastCompletedAt(uo.id, req.auth!.userId);
       if (lastCompletedAt) {
         const nextEligible = new Date(new Date(lastCompletedAt).getTime() + offer.sessionIntervalDays * 24 * 60 * 60 * 1000);
         if (new Date() < nextEligible) {
@@ -615,6 +615,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     const openStatuses = ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted"];
     const existingReq = await BookingRequestModel.findOne({
       userOfferId: uo.id,
+      userId: req.auth!.userId,
       status: { $in: openStatuses }
     });
     if (existingReq) {
@@ -646,7 +647,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       // Create the booking request first so we can link the payment to it
       const breq = await bookingRequestsStore.create({
         userOfferId: uo.id,
-        userId: uo.userId,
+        userId: req.auth!.userId,
         offerId: uo.offerId,
         clinicId: uo.clinicId,
         isStandalone: !!parsed.data.isStandalone,
@@ -721,7 +722,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
 
     const breq = await bookingRequestsStore.create({
       userOfferId: uo.id,
-      userId: uo.userId,
+      userId: req.auth!.userId,
       offerId: uo.offerId,
       clinicId: uo.clinicId,
       isStandalone: !!parsed.data.isStandalone,
@@ -1540,7 +1541,7 @@ schedulingRouter.post("/cs/schedule", authRequired, requireRole(["cs", "legal", 
     const scheduledAtDate = new Date(parsed.data.scheduledAt);
     if (!isWithinOfferValidity(uo, scheduledAtDate)) return res.status(409).json({ error: "OFFER_OUT_OF_VALIDITY" });
 
-    const lastCompletedAt = await sessionsStore.lastCompletedAt(uo.id);
+    const lastCompletedAt = await sessionsStore.lastCompletedAt(uo.id, req.auth!.userId);
     if (lastCompletedAt && offer.sessionIntervalDays > 0) {
       const nextEligible = new Date(new Date(lastCompletedAt).getTime() + offer.sessionIntervalDays * 24 * 60 * 60 * 1000);
       if (scheduledAtDate < nextEligible) {

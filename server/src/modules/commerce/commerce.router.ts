@@ -283,14 +283,16 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
     const [pendingRequests, scheduledSessions, lastCompletedSessions] = await Promise.all([
       BookingRequestModel.find({
         userOfferId: { $in: userOfferIdsStr },
+        userId: req.auth!.userId,
         status: { $in: ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted"] }
       }).select("userOfferId").lean(),
       BookingSessionModel.find({
         userOfferId: { $in: userOfferObjectIds },
+        userId: req.auth!.userId,
         status: "scheduled"
       }).select("userOfferId").lean(),
       BookingSessionModel.aggregate([
-        { $match: { userOfferId: { $in: userOfferObjectIds }, status: "completed" } },
+        { $match: { userOfferId: { $in: userOfferObjectIds }, userId: req.auth!.userId, status: "completed" } },
         { $sort: { completedAt: -1 } },
         { $group: { _id: "$userOfferId", lastCompletedAt: { $first: "$completedAt" } } }
       ])

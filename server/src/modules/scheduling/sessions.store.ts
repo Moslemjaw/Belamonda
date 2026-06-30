@@ -74,12 +74,15 @@ export const sessionsStore = {
     return docs.map(mapDoc);
   },
 
-  async lastCompletedAt(userOfferId: string): Promise<string | null> {
-    const doc = await BookingSessionModel.findOne({
+  async lastCompletedAt(userOfferId: string, userId?: string): Promise<string | null> {
+    const query: any = {
       userOfferId,
       status: "completed",
       completedAt: { $exists: true }
-    }).sort({ completedAt: -1 });
+    };
+    if (userId) query.userId = userId;
+
+    const doc = await BookingSessionModel.findOne(query).sort({ completedAt: -1 });
 
     const { UserOfferModel } = await import("../../models/userOffer.model.js");
     const uo = await UserOfferModel.findById(userOfferId).select("lastManualSessionAt").lean();

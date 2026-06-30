@@ -65,13 +65,15 @@ export async function listByUserOffer(userOfferId: string) {
   return rows.map((r) => serializeBookingSession(r as any));
 }
 
-export async function lastCompletedAt(userOfferId: string): Promise<string | null> {
+export async function lastCompletedAt(userOfferId: string, userId?: string): Promise<string | null> {
   if (!mongoose.isValidObjectId(userOfferId)) return null;
-  const doc = (await BookingSessionModel.findOne({
+  const query: any = {
     userOfferId: new mongoose.Types.ObjectId(userOfferId),
     status: "completed",
     completedAt: { $exists: true }
-  })
+  };
+  if (userId) query.userId = userId;
+  const doc = (await BookingSessionModel.findOne(query)
     .sort({ completedAt: -1 })
     .lean()) as { completedAt?: Date } | null;
   return doc?.completedAt ? new Date(doc.completedAt).toISOString() : null;
