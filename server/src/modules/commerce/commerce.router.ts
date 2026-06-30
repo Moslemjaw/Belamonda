@@ -341,7 +341,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
         isGroupOffer: offer.isGroupOffer || false,
         maxSessions: offer.maxSessions,
         allowExtraPaidSessions: offer.allowExtraPaidSessions || false,
-        allowAppointmentBooking: offer.allowAppointmentBooking != null ? offer.allowAppointmentBooking : undefined,
+        allowAppointmentBooking: offer.allowAppointmentBooking != null ? offer.allowAppointmentBooking : true,
         extraSessionPriceKwd: offer.extraSessionPriceKwd || undefined,
         clinicTransferFeeKwd: offer.clinicTransferFeeKwd || "0.000",
         subscriptionPriceKwd: offer.subscriptionPriceKwd || undefined,

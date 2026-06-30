@@ -108,7 +108,7 @@ const OfferSchema = new Schema(
       default: []
     },
     /** Whether to show the Book Appointment button on the customer dashboard */
-    allowAppointmentBooking: { type: Boolean, default: false },
+    allowAppointmentBooking: { type: Boolean, default: true },
     /** How incoming bookings are processed. */
     bookingMode: {
       type: String,
