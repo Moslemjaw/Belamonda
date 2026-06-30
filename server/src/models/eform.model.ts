@@ -101,6 +101,7 @@ const FormSubmissionSchema = new Schema(
 
 FormSubmissionSchema.index({ userId: 1, createdAt: -1 });
 FormSubmissionSchema.index({ formId: 1, userId: 1, createdAt: -1 });
+FormSubmissionSchema.index({ createdAt: -1 });
 
 export const EFormSubmissionModel =
   mongoose.models.EFormSubmission ?? mongoose.model("EFormSubmission", FormSubmissionSchema);
