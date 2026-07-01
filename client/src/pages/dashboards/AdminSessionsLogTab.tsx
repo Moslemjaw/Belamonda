@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../app/AuthContext";
+import { useApi } from "../../hooks/useApi";
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { sharedClinics } from "../../lib/clinics";
@@ -9,11 +10,20 @@ const ar = () => i18n.language === "ar";
 
 export default function AdminSessionsLogTab() {
   const { getAuthHeader } = useAuth();
+  const { data: clinicsData } = useApi<{ items: any[] }>("/clinics/admin");
+  const apiClinics = clinicsData?.items || [];
+
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [status, setStatus] = useState("all");
+
+  const [changeClinicTarget, setChangeClinicTarget] = useState<any>(null);
+  const [newClinicSelection, setNewClinicSelection] = useState("");
+  const [changeIsPaid, setChangeIsPaid] = useState(false);
+  const [changeFee, setChangeFee] = useState("5.000");
+  const [changeSubmitting, setChangeSubmitting] = useState(false);
 
   const fetchSessions = useCallback(async () => {
     setLoading(true);
@@ -38,6 +48,39 @@ export default function AdminSessionsLogTab() {
   }, [getAuthHeader, startDate, endDate, status]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
+
+  const submitChangeClinic = async () => {
+    if (!newClinicSelection || newClinicSelection === changeClinicTarget.clinicId) {
+      alert(ar() ? "الرجاء اختيار عيادة مختلفة" : "Please select a different clinic");
+      return;
+    }
+    setChangeSubmitting(true);
+    try {
+      const endpoint = changeClinicTarget.type === "session"
+        ? `/scheduling/admin/sessions/${changeClinicTarget.id}/change-clinic`
+        : `/scheduling/admin/requests/${changeClinicTarget.id}/change-clinic`;
+      
+      const payload = {
+        clinicId: newClinicSelection,
+        isPaid: changeIsPaid,
+        feeAmount: changeFee
+      };
+      
+      await apiFetch(endpoint, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify(payload)
+      });
+      
+      alert(ar() ? "تم تغيير العيادة بنجاح" : "Clinic changed successfully");
+      setChangeClinicTarget(null);
+      fetchSessions();
+    } catch (err: any) {
+      alert(err.message || "Failed to change clinic");
+    } finally {
+      setChangeSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -105,7 +148,7 @@ export default function AdminSessionsLogTab() {
                 </tr>
               ) : (
                 sessions.map((s) => {
-                  const clinic = sharedClinics.find(c => c.id === s.clinicId);
+                  const clinic = apiClinics.find(c => String(c.id || c._id) === String(s.clinicId));
                   const clinicName = ar() ? clinic?.nameAr : clinic?.nameEn;
                   
                   return (
@@ -115,9 +158,24 @@ export default function AdminSessionsLogTab() {
                         <div className="text-xs text-surface-500">{s.customerPhone || "—"}</div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-100 text-surface-800">
-                          {clinicName || s.clinicId}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-100 text-surface-800">
+                            {clinicName || s.clinicId}
+                          </span>
+                          {['pending', 'under_review', 'slot_proposed', 'slot_accepted', 'scheduled'].includes(s.status) && (
+                            <button 
+                              onClick={() => {
+                                setChangeClinicTarget(s);
+                                setNewClinicSelection("");
+                                setChangeIsPaid(false);
+                                setChangeFee("5.000");
+                              }}
+                              className="text-[10px] font-bold bg-brand-pink-50 text-brand-pink-600 hover:bg-brand-pink-100 px-2 py-1 rounded transition-colors"
+                            >
+                              {ar() ? "تغيير" : "Change"}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 font-medium text-surface-700">
                         {s.offerName}
@@ -147,6 +205,62 @@ export default function AdminSessionsLogTab() {
           </table>
         </div>
       </div>
+
+      {changeClinicTarget && (
+        <div className="fixed inset-0 z-[100] bg-surface-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-slide-up relative">
+            <button className="absolute top-4 right-4 text-surface-400 hover:text-surface-900" onClick={() => setChangeClinicTarget(null)}>✕</button>
+            <h3 className="text-xl font-bold text-surface-900 mb-4">{ar() ? "تغيير العيادة" : "Change Clinic"}</h3>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-bold text-surface-700 mb-1">{ar() ? "اختر العيادة الجديدة" : "Select New Clinic"}</label>
+                <select 
+                  className="input-field w-full"
+                  value={newClinicSelection}
+                  onChange={e => setNewClinicSelection(e.target.value)}
+                >
+                  <option value="">{ar() ? "-- اختر العيادة --" : "-- Select Clinic --"}</option>
+                  {apiClinics.map(c => (
+                    <option key={c.id || c._id} value={c.id || c._id}>
+                      {ar() ? c.nameAr || c.nameEn : c.nameEn}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="w-4 h-4 rounded border-surface-300 text-brand-pink-600 focus:ring-brand-pink-600" checked={changeIsPaid} onChange={e => setChangeIsPaid(e.target.checked)} />
+                <span className="text-sm font-medium text-surface-700">{ar() ? "تطبيق رسوم تغيير" : "Apply Change Fee"}</span>
+              </label>
+
+              {changeIsPaid && (
+                <div>
+                  <label className="block text-sm font-bold text-surface-700 mb-1">{ar() ? "قيمة الرسوم (د.ك)" : "Fee Amount (KWD)"}</label>
+                  <input type="number" step="0.001" className="input-field w-full" value={changeFee} onChange={e => setChangeFee(e.target.value)} />
+                </div>
+              )}
+            </div>
+            
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setChangeClinicTarget(null)}
+                className="flex-1 px-4 py-2 bg-surface-100 text-surface-600 rounded-xl font-bold hover:bg-surface-200 transition-colors"
+                disabled={changeSubmitting}
+              >
+                {ar() ? "إلغاء" : "Cancel"}
+              </button>
+              <button 
+                onClick={submitChangeClinic}
+                className="flex-1 px-4 py-2 bg-brand-pink-500 text-white rounded-xl font-bold hover:bg-brand-pink-600 transition-colors"
+                disabled={changeSubmitting || !newClinicSelection || newClinicSelection === changeClinicTarget.clinicId}
+              >
+                {changeSubmitting ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "تأكيد" : "Confirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
