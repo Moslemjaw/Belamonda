@@ -312,7 +312,7 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                   <th>{ar() ? "التاريخ" : "Date"}</th>
                   <th>{ar() ? "العميل" : "Customer"}</th>
                   <th>{ar() ? "نوع العضوية" : "Membership Type"}</th>
-                  <th className="text-right">{ar() ? "سعر الجلسة" : "Session Price"}</th>
+                  <th>{ar() ? "سعر الجلسة" : "Session Price"}</th>
                   <th>{ar() ? "دفعة العيادة" : "Clinic Payment"}</th>
                   <th>{ar() ? "حالة الفاتورة" : "Invoice Status"}</th>
                 </tr>
@@ -326,7 +326,7 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                       {inv.customerPhone && <div className="text-xs text-surface-400">{inv.customerPhone}</div>}
                     </td>
                     <td className="capitalize text-surface-600">{inv.membershipType ?? "—"}</td>
-                    <td className="text-right font-bold text-surface-900">
+                    <td className="font-bold text-surface-900">
                       {inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}
                     </td>
                     <td>

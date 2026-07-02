@@ -1010,7 +1010,7 @@ function ClinicRowDetail({ clinicId, from, to }: { clinicId: string; from: strin
                 <th>{ar() ? "التاريخ" : "Date"}</th>
                 <th>{ar() ? "العميل" : "Customer"}</th>
                 <th>{ar() ? "النوع" : "Type"}</th>
-                <th className="text-right">{ar() ? "سعر الجلسة" : "Session Price"}</th>
+                <th>{ar() ? "سعر الجلسة" : "Session Price"}</th>
                 <th>{ar() ? "دفعة العيادة" : "Clinic Payment"}</th>
                 <th>{ar() ? "الحالة" : "Status"}</th>
               </tr>
@@ -1021,7 +1021,7 @@ function ClinicRowDetail({ clinicId, from, to }: { clinicId: string; from: strin
                   <td className="text-surface-500">{fmtDate(inv.createdAt)}</td>
                   <td className="font-medium">{inv.customerName}</td>
                   <td className="text-surface-500 capitalize">{inv.membershipType ?? "—"}</td>
-                  <td className="text-right font-bold text-surface-900">{inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}</td>
+                  <td className="font-bold text-surface-900">{inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}</td>
                   <td>
                     <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${inv.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
                       {inv.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع" : "Paid") : (ar() ? "معلق" : "Pending")}
