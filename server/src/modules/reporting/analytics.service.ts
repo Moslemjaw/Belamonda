@@ -1389,7 +1389,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         { key: "noShow", header: "No-Show" },
         { key: "totalInvoices", header: "Total Invoices" },
         { key: "paidInvoices", header: "Paid Invoices" },
-        { key: "revenueKwd", header: "Revenue KWD" },
+        { key: "status", header: "Status" },
       ],
       data.items.map((c: any) => ({
         clinicName: c.clinicNameEn,
@@ -1399,13 +1399,25 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         noShow: c.noShowSessions,
         totalInvoices: c.totalInvoices,
         paidInvoices: c.paidInvoices,
-        revenueKwd: c.revenueKwd,
+        status: c.isActive ? "Active" : "Inactive",
       })),
     );
 
     const wsS = wb.addWorksheet("All Sessions");
-    const sHeaders = ["Date", "Customer", "Phone", "Clinic", "Status", "Bill (KWD)", "Notes", "Session Type"];
-    const sHeaderRow = wsS.getRow(1);
+    
+    // Add subtotal row at the top
+    wsS.getCell("A1").value = "Total Sessions:";
+    wsS.getCell("A1").font = { bold: true };
+    wsS.getCell("B1").value = { formula: "SUBTOTAL(3, B4:B100000)" };
+    wsS.getCell("B1").font = { bold: true };
+    
+    wsS.getCell("G1").value = "Total Bill (KWD):";
+    wsS.getCell("G1").font = { bold: true };
+    wsS.getCell("H1").value = { formula: "SUBTOTAL(9, H4:H100000)" };
+    wsS.getCell("H1").font = { bold: true };
+
+    const sHeaders = ["Date", "Customer", "Phone", "Clinic", "Membership", "Session Type", "Status", "Bill (KWD)", "Notes"];
+    const sHeaderRow = wsS.getRow(3);
     sHeaderRow.values = sHeaders;
     sHeaderRow.eachCell((c) => {
       c.font = { bold: true };
@@ -1415,12 +1427,15 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     wsS.getColumn(2).width = 25;
     wsS.getColumn(3).width = 18;
     wsS.getColumn(4).width = 25;
-    wsS.getColumn(5).width = 15;
-    wsS.getColumn(6).width = 15;
-    wsS.getColumn(7).width = 30;
-    wsS.getColumn(8).width = 20;
+    wsS.getColumn(5).width = 25; // Membership
+    wsS.getColumn(6).width = 20; // Session Type
+    wsS.getColumn(7).width = 15; // Status
+    wsS.getColumn(8).width = 15; // Bill
+    wsS.getColumn(9).width = 30; // Notes
 
     const sessionQ: any = {};
+    const sessionDateFilter = buildDateFilter(filters.from, filters.to);
+    if (sessionDateFilter) sessionQ.scheduledAt = sessionDateFilter;
     const allSessions = await BookingSessionModel.find(sessionQ).sort({ scheduledAt: -1 }).lean();
 
     const uIds = [...new Set(allSessions.map((s: any) => s.userId).filter(Boolean))];
@@ -1436,22 +1451,38 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
 
     const clinicDocs = await ClinicModel.find().lean();
     const cMap = new Map(clinicDocs.map((c: any) => [c._id.toString(), c.nameEn || c.nameAr]));
+    
+    // Fetch offers to get membership and session type
+    const oIds = [...new Set(allSessions.map((s: any) => s.offerId?.toString()).filter(Boolean))];
+    const offers = await OfferModel.find({ _id: { $in: oIds } }).select("name nameAr category offerKind").lean();
+    const oMap = new Map(offers.map((o: any) => [o._id.toString(), o]));
 
     allSessions.forEach((s: any, idx) => {
       const u = uMap.get(s.userId) || {};
       const c = cMap.get(s.clinicId?.toString()) || s.clinicId;
-      const row = wsS.getRow(idx + 2);
+      const o = s.offerId ? (oMap.get(s.offerId.toString()) || {}) : {};
+      
+      const membership = o.nameAr || o.name || "—";
+      const sessionType = o.offerKind || o.category || "—";
+
+      const row = wsS.getRow(idx + 4);
       row.values = [
         s.scheduledAt ? new Date(s.scheduledAt).toISOString().slice(0, 16).replace("T", " ") : "",
         u.fullName || u.username || s.userId,
         u.phone || "",
         c,
+        membership,
+        sessionType,
         s.status,
-        s.finalPaidKwd || s.totalBillKwd || "0",
+        Number.parseFloat(s.finalPaidKwd || s.totalBillKwd || "0"),
         s.notes || "",
-        s.sessionType || "",
       ];
     });
+
+    wsS.autoFilter = {
+      from: { row: 3, column: 1 },
+      to: { row: 3, column: sHeaders.length },
+    };
   }
 
   const buf = await wb.xlsx.writeBuffer();
