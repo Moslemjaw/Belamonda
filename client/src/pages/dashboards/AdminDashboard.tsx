@@ -920,9 +920,7 @@ function OffersManager() {
                         <button className="text-xs font-bold text-brand-pink-600 bg-brand-pink-50 px-3 py-1.5 rounded-lg hover:bg-brand-pink-100" onClick={() => openEdit(o)}>{ar() ? "تعديل" : "Edit"}</button>
                         <button className="text-xs font-bold text-surface-500 bg-surface-100 px-3 py-1.5 rounded-lg hover:bg-surface-200" onClick={() => setExpandedId(isExpanded ? null : (o.id || o._id))}>{isExpanded ? (ar() ? "إخفاء" : "Less") : (ar() ? "تفاصيل" : "Details")}</button>
                         <button className="text-xs font-bold px-3 py-1.5 rounded-lg ml-auto" onClick={() => toggleActive(o)}>{(o.status === "active" || (!o.status && o.active)) ? <span className="text-amber-600 bg-amber-50 px-2 py-1 rounded-lg">{ar() ? "إيقاف" : "Deactivate"}</span> : <span className="text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg">{ar() ? "تفعيل" : "Activate"}</span>}</button>
-                        {o.status !== "expired" && (
-                          <button className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100" onClick={() => setOfferStatus(o, "expired")}>{ar() ? "إنهاء العرض" : "Expired"}</button>
-                        )}
+
                         <button className="text-xs font-bold text-red-500 bg-red-50 px-3 py-1.5 rounded-lg hover:bg-red-100" onClick={() => deleteOffer(o.id || o._id)}>{ar() ? "حذف" : "Delete"}</button>
                       </div>
                     </div>
