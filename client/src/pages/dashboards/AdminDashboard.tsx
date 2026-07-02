@@ -2162,6 +2162,8 @@ export function UserProfilePanel({
   const [installmentAdjustingId, setInstallmentAdjustingId] = useState<string | null>(null);
   const [editingDateId, setEditingDateId] = useState<string | null>(null);
   const [editingDateValue, setEditingDateValue] = useState("");
+  const [editingClinicId, setEditingClinicId] = useState<string | null>(null);
+  const [editingClinicValue, setEditingClinicValue] = useState("");
 
   const [newNote, setNewNote] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
@@ -2353,6 +2355,22 @@ export function UserProfilePanel({
       alert(e.message);
     } finally {
       setEditingDateId(null);
+    }
+  };
+
+  const handleUpdateClinic = async (membershipId: string) => {
+    try {
+      await apiFetch(`/commerce/admin/user-offers/${membershipId}`, {
+        method: "PATCH",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ clinicId: editingClinicValue || null }),
+      });
+      const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
+      setProfile(d);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setEditingClinicId(null);
     }
   };
 
@@ -2831,12 +2849,30 @@ export function UserProfilePanel({
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <div>
                           <div className="font-bold text-surface-900 text-sm">{ar() && m.offerNameAr ? m.offerNameAr : m.offerName}</div>
-                          {(m.clinicNameEn || m.clinicNameAr) && (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <svg className="w-3.5 h-3.5 text-surface-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                              <span className="text-xs font-semibold text-surface-600">{ar() ? (m.clinicNameAr || m.clinicNameEn) : (m.clinicNameEn || m.clinicNameAr)}</span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <svg className="w-3.5 h-3.5 text-surface-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                            {editingClinicId === m.id ? (
+                              <div className="flex items-center gap-1">
+                                <select className="select-field py-0.5 px-1.5 text-xs h-7 min-w-[120px]" value={editingClinicValue} onChange={e => setEditingClinicValue(e.target.value)}>
+                                  <option value="">{ar() ? "لا يوجد" : "None"}</option>
+                                  {allClinics.map((c: any) => (
+                                    <option key={c.id || c._id} value={c.id || c._id}>{ar() ? c.nameAr || c.nameEn : c.nameEn}</option>
+                                  ))}
+                                </select>
+                                <button className="btn-primary btn-sm px-2 text-xs py-1 h-7" onClick={() => void handleUpdateClinic(m.id)}>OK</button>
+                                <button className="btn-secondary btn-sm px-2 text-xs py-1 h-7" onClick={() => setEditingClinicId(null)}>X</button>
+                              </div>
+                            ) : (
+                              <>
+                                <span className="text-xs font-semibold text-surface-600">{(m.clinicNameEn || m.clinicNameAr) ? (ar() ? (m.clinicNameAr || m.clinicNameEn) : (m.clinicNameEn || m.clinicNameAr)) : (ar() ? "لم يحدد" : "Not set")}</span>
+                                {(isAdmin || isCS || isFinance) && (
+                                  <button className="bg-surface-100 text-surface-600 hover:bg-brand-pink-50 hover:text-brand-pink-600 p-1 rounded-md border border-surface-200 shadow-sm transition-all flex items-center justify-center" title="Edit Clinic" onClick={() => { setEditingClinicId(m.id); setEditingClinicValue(m.clinicId || ""); }}>
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                  </button>
+                                )}
+                              </>
+                            )}
+                          </div>
                           <div className="text-xs text-surface-400 font-mono mt-0.5">{m.id}</div>
                         </div>
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${statusBadge(m.status)}`}>{m.status}</span>
