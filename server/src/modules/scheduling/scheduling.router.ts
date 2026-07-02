@@ -1610,6 +1610,8 @@ schedulingRouter.post(
   async (req, res) => {
     const parsed = ProposeSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
+    if (!parsed.data.scheduledAt) return res.status(400).json({ error: "VALIDATION_ERROR", details: "scheduledAt is required" });
+    const scheduledAt = parsed.data.scheduledAt;
     const breq = await bookingRequestsStore.get(req.params.id);
     if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
     if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
@@ -1625,21 +1627,21 @@ schedulingRouter.post(
         status: "confirmed",
         confirmedAt: new Date().toISOString(),
         confirmedBy: req.auth!.userId,
-        proposedAt: parsed.data.scheduledAt
+        proposedAt: scheduledAt
       });
       if (updated?.conversationId) {
         postSystemMessage(
           updated.conversationId,
           "booking_confirmed",
-          `Booking confirmed by clinic for ${parsed.data.scheduledAt}.`,
+          `Booking confirmed by clinic for ${scheduledAt}.`,
           { bookingRequestId: updated.id }
         );
       }
-      notifyBookingConfirmed(breq.userId, breq.id, parsed.data.scheduledAt);
+      notifyBookingConfirmed(breq.userId, breq.id, scheduledAt);
       notifyChatRelatedUsers({
         userIds: [breq.userId],
         kind: "booking_confirmed",
-        body: `Your booking is confirmed for ${parsed.data.scheduledAt}`,
+        body: `Your booking is confirmed for ${scheduledAt}`,
         payload: { bookingRequestId: breq.id }
       });
       return res.status(201).json({ session: null, request: updated });
@@ -1653,7 +1655,7 @@ schedulingRouter.post(
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
     const sessionClinicId = breq.clinicId || uo.clinicId;
-    if (await sessionsStore.isSlotTaken(sessionClinicId, parsed.data.scheduledAt)) {
+    if (await sessionsStore.isSlotTaken(sessionClinicId, scheduledAt)) {
       return res.status(409).json({ error: "SLOT_TAKEN" });
     }
     const session = await sessionsStore.create({
@@ -1661,7 +1663,7 @@ schedulingRouter.post(
       userId: uo.userId,
       offerId: uo.offerId,
       clinicId: sessionClinicId,
-      scheduledAt: parsed.data.scheduledAt,
+      scheduledAt: scheduledAt,
       scheduledBy: req.auth!.userId,
       notes: parsed.data.notes
     });
@@ -1681,7 +1683,7 @@ schedulingRouter.post(
       confirmedAt: new Date().toISOString(),
       confirmedBy: req.auth!.userId,
       scheduledSessionId: session.id,
-      proposedAt: parsed.data.scheduledAt,
+      proposedAt: scheduledAt,
       sessionPriceKwd: clinicTake,
       cashbackDeductedKwd: cashbackUsed,
       clinicPaymentStatus: isCsOrAdmin ? "paid" : "pending",
@@ -1693,7 +1695,7 @@ schedulingRouter.post(
       postSystemMessage(
         updated.conversationId,
         "booking_confirmed",
-        `Booking confirmed by clinic for ${parsed.data.scheduledAt}.`,
+        `Booking confirmed by clinic for ${scheduledAt}.`,
         { bookingRequestId: updated.id, sessionId: session.id }
       );
     }
@@ -1701,7 +1703,7 @@ schedulingRouter.post(
     notifyChatRelatedUsers({
       userIds: [uo.userId],
       kind: "booking_confirmed",
-      body: `Your booking is confirmed for ${parsed.data.scheduledAt}`,
+      body: `Your booking is confirmed for ${scheduledAt}`,
       payload: { sessionId: session.id }
     });
     return res.status(201).json({ session, request: updated });
