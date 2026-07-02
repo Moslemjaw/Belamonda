@@ -2118,7 +2118,7 @@ function AdminSettings() {
 }
 
 // ── User Profile Panel (tabbed) ──────────────────────────────────────────────
-export type ProfileTab = "overview" | "memberships" | "cashback" | "sessions" | "payments" | "kyc" | "notes";
+export type ProfileTab = "overview" | "memberships" | "cashback" | "requests" | "sessions" | "payments" | "kyc" | "notes";
 
 export function UserProfilePanel({
   user,
@@ -3065,16 +3065,33 @@ export function UserProfilePanel({
               </div>
             )}
 
-            {/* ── SESSIONS ── */}
-            {tab === "sessions" && (
+            {/* ── REQUESTS ── */}
+            {tab === "requests" && (
               <div className="space-y-2">
-                {profile.sessions?.length === 0 && <div className="text-sm text-surface-400 text-center py-8">{ar() ? "لا توجد جلسات" : "No sessions"}</div>}
+                {profile.sessions?.length === 0 && <div className="text-sm text-surface-400 text-center py-8">{ar() ? "لا توجد طلبات" : "No requests"}</div>}
                 {profile.sessions?.map((s: any) => (
                   <div key={s.id} className="bg-white rounded-xl border border-surface-100 px-4 py-3 flex items-center justify-between gap-3">
                     <div>
                       <div className="font-bold text-surface-900">{ar() ? (s.offerNameAr || s.offerName) : s.offerName}</div>
-                      <div className="text-xs font-mono text-surface-400 mt-0.5" title="Session ID">{s.id}</div>
-                      <div className="text-xs text-surface-500 mt-0.5">{ar() ? "طلب بتاريخ" : "Requested"}: {fmt(s.requestedAt)}</div>
+                      <div className="text-xs font-mono text-surface-400 mt-0.5" title="Request ID">{s.id}</div>
+                      <div className="text-xs text-surface-500 mt-0.5">{ar() ? "تاريخ الطلب" : "Requested"}: {fmt(s.requestedAt)}</div>
+                    </div>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${statusBadge(s.status)}`}>{s.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── SESSIONS ── */}
+            {tab === "sessions" && (
+              <div className="space-y-2">
+                {profile.bookingSessions?.length === 0 && <div className="text-sm text-surface-400 text-center py-8">{ar() ? "لا توجد جلسات" : "No sessions"}</div>}
+                {profile.bookingSessions?.map((s: any) => (
+                  <div key={s.id} className="bg-white rounded-xl border border-surface-100 px-4 py-3 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-bold text-surface-900">{ar() ? (s.offerNameAr || s.offerName) : s.offerName}</div>
+                      <div className="text-xs font-mono text-surface-400 mt-0.5" title="Session ID">{s.shortId || s.id}</div>
+                      <div className="text-xs text-surface-500 mt-0.5">{ar() ? "الموعد" : "Scheduled"}: {fmt(s.scheduledAt)}</div>
                     </div>
                     <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${statusBadge(s.status)}`}>{s.status}</span>
                   </div>
