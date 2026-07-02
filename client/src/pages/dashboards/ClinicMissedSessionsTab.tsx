@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useAuth } from "../../app/AuthContext";
 import { apiFetch } from "../../lib/api";
 import { fmtDate } from "../../lib/dateFormat";
-import { ar } from "../../lib/i18n";
-import { useTranslation } from "react-i18next";
+import i18n from "../../app/i18n";
+
+const ar = () => i18n.language === "ar";
 
 function RescheduleModal({ isOpen, session, onClose, onSubmit }: {
   isOpen: boolean;
