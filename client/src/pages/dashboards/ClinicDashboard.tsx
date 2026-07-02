@@ -9,6 +9,7 @@ import { sharedClinics } from "../../lib/clinics";
 import { fmtDate } from "../../lib/dateFormat";
 import i18n from "../../app/i18n";
 import ClinicBookingRequestsTab from "./ClinicBookingRequestsTab";
+import ClinicMissedSessionsTab from "./ClinicMissedSessionsTab";
 import ChatWidget from "../../components/ChatWidget";
 import ShareLinkPage from "../../components/ShareLinkPage";
 import { ReferralActivityWidget } from "../../components/ReferralActivityWidget";
