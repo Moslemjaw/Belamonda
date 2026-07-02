@@ -334,7 +334,21 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                         {inv.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع" : "Paid") : (ar() ? "معلق" : "Pending")}
                       </span>
                     </td>
-                    <td className="text-surface-500 capitalize">{inv.status.replace(/_/g, " ")}</td>
+                    <td>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide
+                        ${inv.status === 'scheduled' ? 'bg-blue-50 text-blue-700' : ''}
+                        ${inv.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : ''}
+                        ${inv.status === 'no_show' ? 'bg-red-50 text-red-700' : ''}
+                        ${inv.status === 'cancelled' ? 'bg-surface-100 text-surface-600' : ''}
+                        ${['pending', 'under_review'].includes(inv.status) ? 'bg-amber-50 text-amber-700' : ''}
+                        ${inv.status === 'slot_proposed' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
+                        ${inv.status === 'slot_accepted' ? 'bg-indigo-50 text-indigo-700' : ''}
+                        ${inv.status === 'rejected' ? 'bg-red-50 text-red-700' : ''}
+                        ${inv.status === 'awaiting_session_payment' ? 'bg-amber-50 text-amber-700' : ''}
+                      `}>
+                        {inv.status.replace(/_/g, ' ')}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -440,8 +454,14 @@ function ClinicReportsTab({ clinicId: _clinicId }: { clinicId: string }) {
 const SESSION_STATUS_STYLE: Record<string, string> = {
   completed: "bg-emerald-50 text-emerald-700",
   scheduled: "bg-blue-50 text-blue-700",
-  no_show:   "bg-red-50 text-red-600",
-  cancelled: "bg-surface-100 text-surface-500",
+  no_show:   "bg-red-50 text-red-700",
+  cancelled: "bg-surface-100 text-surface-600",
+  pending: "bg-amber-50 text-amber-700",
+  under_review: "bg-amber-50 text-amber-700",
+  slot_proposed: "bg-brand-pink-50 text-brand-pink-700",
+  slot_accepted: "bg-indigo-50 text-indigo-700",
+  rejected: "bg-red-50 text-red-700",
+  awaiting_session_payment: "bg-amber-50 text-amber-700",
 };
 
 function ClinicReportTable({ data, loading, from, to }: {
