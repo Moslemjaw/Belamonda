@@ -772,11 +772,9 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
   const [scheduleForm, setScheduleForm] = useState<{ scheduledAt: string; notes: string }>({ scheduledAt: "", notes: "" });
 
   const schedule = async (requestId: string) => {
-    if (!scheduleForm.scheduledAt) return;
     setProcessing(requestId);
     try {
-      // datetime-local -> ISO
-      const iso = new Date(scheduleForm.scheduledAt).toISOString();
+      const iso = scheduleForm.scheduledAt ? new Date(scheduleForm.scheduledAt).toISOString() : undefined;
       await apiFetch(`/scheduling/cs/requests/${encodeURIComponent(requestId)}/propose`, {
         method: "POST",
         headers: getAuthHeader(),
@@ -1034,7 +1032,7 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
              <div className="mt-6 flex flex-col gap-2">
                 <button 
                   className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
-                  disabled={!scheduleForm.scheduledAt || processing === selectedBooking.id}
+                  disabled={processing === selectedBooking.id}
                   onClick={() => schedule(selectedBooking.id)}
                 >
                   {processing === selectedBooking.id ? (
@@ -1042,7 +1040,7 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
                   ) : (
                     <>
                       <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                      {ar() ? "اقتراح الموعد وإرسال للعيادة" : "Suggest Date & Send to Clinic"}
+                      {scheduleForm.scheduledAt ? (ar() ? "اقتراح الموعد وإرسال للعيادة" : "Suggest Date & Send to Clinic") : (ar() ? "إرسال للعيادة بدون موعد" : "Send to Clinic Without Date")}
                     </>
                   )}
                 </button>

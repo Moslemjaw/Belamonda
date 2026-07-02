@@ -44,7 +44,7 @@ const ScheduleSchema = z.object({
 });
 
 const ProposeSchema = z.object({
-  scheduledAt: z.string().datetime(),
+  scheduledAt: z.string().datetime().optional(),
   notes: z.string().optional()
 });
 
@@ -1595,7 +1595,7 @@ schedulingRouter.post(
       postSystemMessage(
         updated.conversationId,
         "slot_proposed",
-        `Date suggested for clinic: ${parsed.data.scheduledAt}. Notes: ${parsed.data.notes || "None"}`,
+        `Date suggested for clinic: ${parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt).toLocaleString() : "Not specified"}. Notes: ${parsed.data.notes || "None"}`,
         { bookingRequestId: updated.id }
       );
     }
