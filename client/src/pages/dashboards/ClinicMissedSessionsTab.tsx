@@ -1,0 +1,163 @@
+import { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { apiFetch } from "../../lib/api";
+import { fmtDate } from "../../lib/dateFormat";
+import { ar } from "../../lib/i18n";
+import { useTranslation } from "react-i18next";
+
+function RescheduleModal({ isOpen, session, onClose, onSubmit }: {
+  isOpen: boolean;
+  session: any;
+  onClose: () => void;
+  onSubmit: (scheduledAt: string) => Promise<void>;
+}) {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setDate("");
+      setTime("");
+    }
+  }, [isOpen]);
+
+  if (!isOpen || !session) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-surface-100 flex items-center justify-between bg-surface-50">
+          <h3 className="font-bold text-surface-900">{ar() ? "إعادة جدولة الجلسة" : "Reschedule Session"}</h3>
+          <button onClick={onClose} className="p-1.5 text-surface-400 hover:text-surface-700 rounded-full transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "التاريخ الجديد" : "New Date"}</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input-field w-full" />
+          </div>
+          <div>
+            <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "الوقت الجديد" : "New Time"}</label>
+            <input type="time" value={time} onChange={e => setTime(e.target.value)} className="input-field w-full" />
+          </div>
+          <button 
+            disabled={loading || !date || !time} 
+            onClick={async () => {
+              setLoading(true);
+              try { 
+                const scheduledAt = new Date(`${date}T${time}`).toISOString();
+                await onSubmit(scheduledAt); 
+                onClose(); 
+              } catch(e:any) { 
+                alert(e.message); 
+              } finally { 
+                setLoading(false); 
+              }
+            }} 
+            className="btn-primary w-full mt-2"
+          >
+            {loading ? "..." : (ar() ? "تأكيد" : "Confirm")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ClinicMissedSessionsTab({ clinicId }: { clinicId: string }) {
+  const { getAuthHeader } = useAuth();
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [rescheduleSession, setRescheduleSession] = useState<any | null>(null);
+
+  const fetchMissedSessions = async () => {
+    try {
+      setLoading(true);
+      const res: any = await apiFetch(`/scheduling/clinic/${clinicId}/missed-sessions`, {
+        headers: getAuthHeader()
+      });
+      setSessions(res.items || []);
+    } catch (e: any) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (clinicId) {
+      fetchMissedSessions();
+    }
+  }, [clinicId]);
+
+  const handleReschedule = async (scheduledAt: string) => {
+    if (!rescheduleSession) return;
+    await apiFetch(`/scheduling/clinic/sessions/${rescheduleSession.id}/reschedule`, {
+      method: "POST",
+      headers: getAuthHeader(),
+      body: JSON.stringify({ scheduledAt, notes: "Rescheduled from Missed Sessions tab" })
+    });
+    await fetchMissedSessions();
+  };
+
+  if (loading) return <div className="p-8 text-center text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>;
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="card-elevated p-5 sm:p-6 rounded-[28px] bg-white/80 backdrop-blur-xl border border-surface-200">
+        <div className="flex items-center justify-between mb-5">
+          <h4 className="font-bold text-surface-900">{ar() ? "الجلسات الفائتة" : "Missed Sessions"}</h4>
+          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-50 text-red-600">{sessions.length} {ar() ? "جلسة فائتة" : "missed"}</span>
+        </div>
+        
+        {sessions.length === 0 ? (
+          <div className="text-center py-10 text-sm text-surface-400 bg-surface-50/50 rounded-2xl border border-dashed border-surface-200">
+            {ar() ? "لا توجد جلسات فائتة" : "No missed sessions"}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {sessions.map(s => (
+              <div key={s.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-surface-50/80 rounded-[20px] border border-red-100 gap-4 transition-all hover:border-red-200">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border bg-red-50 text-red-600 border-red-200">
+                      {ar() ? "لم يحضر" : "No Show"}
+                    </span>
+                    <span className="font-bold text-surface-900">{s.customerName || "—"}</span>
+                  </div>
+                  <div className="text-sm font-semibold text-surface-700">
+                    {s.offerName || "Session"}
+                  </div>
+                  <div className="text-xs text-surface-500 mt-1 flex items-center gap-2">
+                    <span>{s.customerPhone || "—"}</span>
+                    <span className="text-surface-300">•</span>
+                    <span>{fmtDate(s.scheduledAt)} {new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                </div>
+                <div className="w-full sm:w-auto">
+                  <button 
+                    onClick={() => setRescheduleSession(s)} 
+                    className="w-full sm:w-auto text-xs font-bold px-4 py-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
+                  >
+                    {ar() ? "إعادة جدولة" : "Reschedule"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <RescheduleModal 
+        isOpen={!!rescheduleSession} 
+        session={rescheduleSession}
+        onClose={() => setRescheduleSession(null)}
+        onSubmit={handleReschedule}
+      />
+    </div>
+  );
+}

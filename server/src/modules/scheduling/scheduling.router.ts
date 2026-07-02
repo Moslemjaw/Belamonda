@@ -1807,6 +1807,62 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
   }
 });
 
+// ── Clinic missed sessions view (Mongo-aware) ────────────────────────────
+schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
+  try {
+    const sessions = await sessionsStore.listMissedByClinic(req.params.clinicId);
+
+    if (sessions.length === 0) return res.json({ items: [] });
+
+    const uniqueUserIds       = [...new Set(sessions.map(s => s.userId))];
+    const uniqueUserOfferIds  = [...new Set(sessions.map(s => s.userOfferId).filter(id => mongoose.isValidObjectId(id)))];
+    const validSessionIds     = sessions.map(s => s.id).filter(id => mongoose.isValidObjectId(id));
+
+    const [userDocs, userOfferDocs, breqDocs] = await Promise.all([
+      uniqueUserIds.length > 0
+        ? UserModel.find({ _id: { $in: uniqueUserIds } }).select("_id fullName phone").lean()
+        : Promise.resolve([]),
+      uniqueUserOfferIds.length > 0
+        ? UserOfferModel.find({ _id: { $in: uniqueUserOfferIds } }).lean()
+        : Promise.resolve([]),
+      validSessionIds.length > 0
+        ? BookingRequestModel.find({ scheduledSessionId: { $in: validSessionIds } })
+            .select("_id scheduledSessionId isStandalone membershipType").lean()
+        : Promise.resolve([]),
+    ]);
+
+    const userMap        = new Map((userDocs as any[]).map(u => [u._id.toString(), u]));
+    const uoMap          = new Map((userOfferDocs as any[]).map(uo => [uo._id.toString(), uo]));
+    const breqBySession  = new Map((breqDocs as any[]).map(b => [b.scheduledSessionId?.toString(), b]));
+
+    const uniqueOfferIds = [...new Set((userOfferDocs as any[]).map(uo => uo.offerId?.toString()).filter(Boolean))];
+    const offerDocs = uniqueOfferIds.length > 0
+      ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).lean()
+      : [];
+    const offerMap = new Map((offerDocs as any[]).map(o => [o._id.toString(), o]));
+
+    const items = sessions.map((s) => {
+      const uoDoc    = mongoose.isValidObjectId(s.userOfferId) ? uoMap.get(s.userOfferId) : null;
+      const offerDoc = uoDoc ? offerMap.get(uoDoc.offerId?.toString()) : null;
+      const breq     = breqBySession.get(s.id);
+      const user = userMap.get(s.userId);
+      return {
+        ...s,
+        customerName: (user as any)?.fullName ?? null,
+        customerPhone: (user as any)?.phone ?? null,
+        offerName: breq?.standaloneName ?? (offerDoc as any)?.name ?? null,
+        bookingRequestId: breq?._id?.toString() ?? null,
+        membershipType: breq?.membershipType ?? uoDoc?.membershipType ?? "none",
+        isStandalone: breq?.isStandalone ?? false,
+      };
+    });
+
+    return res.json({ items });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ── Clinic marks a session status (Mongo-aware) ────────────────────────────
 schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res, next) => {
   try {
@@ -1968,8 +2024,8 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
       return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
     }
 
-    if (session.status !== "scheduled") {
-      return res.status(409).json({ error: "INVALID_STATE", detail: "Only scheduled sessions can be rescheduled" });
+    if (session.status !== "scheduled" && session.status !== "no_show") {
+      return res.status(409).json({ error: "INVALID_STATE", detail: "Only scheduled or missed sessions can be rescheduled" });
     }
 
     if (parsed.data.scheduledAt !== session.scheduledAt && await sessionsStore.isSlotTaken(session.clinicId, parsed.data.scheduledAt)) {

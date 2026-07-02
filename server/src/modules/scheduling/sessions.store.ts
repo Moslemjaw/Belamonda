@@ -64,6 +64,14 @@ export const sessionsStore = {
     return docs.map(mapDoc);
   },
 
+  async listMissedByClinic(clinicId: string): Promise<SessionRecord[]> {
+    const docs = await BookingSessionModel.find({
+      clinicId,
+      status: "no_show"
+    }).sort({ scheduledAt: -1 });
+    return docs.map(mapDoc);
+  },
+
   async listByUser(userId: string): Promise<SessionRecord[]> {
     const docs = await BookingSessionModel.find({ userId }).sort({ scheduledAt: -1 });
     return docs.map(mapDoc);
@@ -156,7 +164,8 @@ export const sessionsStore = {
   }): Promise<SessionRecord | null> {
     const update: any = {
       scheduledAt: new Date(input.scheduledAt),
-      scheduledBy: input.rescheduledBy
+      scheduledBy: input.rescheduledBy,
+      status: "scheduled"
     };
     if (input.notes) update.notes = input.notes;
     const doc = await BookingSessionModel.findByIdAndUpdate(
