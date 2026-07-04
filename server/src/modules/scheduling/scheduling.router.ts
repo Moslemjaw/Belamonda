@@ -1234,9 +1234,9 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
   const sessionClinicId = breq.clinicId || uo.clinicId;
-  if (await sessionsStore.isSlotTaken(sessionClinicId, scheduledAt)) {
-    return res.status(409).json({ error: "SLOT_TAKEN" });
-  }
+  // if (await sessionsStore.isSlotTaken(sessionClinicId, scheduledAt)) {
+  //   return res.status(409).json({ error: "SLOT_TAKEN" });
+  // }
 
   const session = await sessionsStore.create({
     userOfferId: uo.id,
@@ -1549,9 +1549,9 @@ schedulingRouter.post("/cs/schedule", authRequired, requireRole(["cs", "legal", 
       }
     }
 
-    if (await sessionsStore.isSlotTaken(uo.clinicId, parsed.data.scheduledAt)) {
-      return res.status(409).json({ error: "SLOT_TAKEN" });
-    }
+    // if (await sessionsStore.isSlotTaken(uo.clinicId, parsed.data.scheduledAt)) {
+    //   return res.status(409).json({ error: "SLOT_TAKEN" });
+    // }
 
     const session = await sessionsStore.create({
       userOfferId: uo.id,
@@ -1655,9 +1655,9 @@ schedulingRouter.post(
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
     const sessionClinicId = breq.clinicId || uo.clinicId;
-    if (await sessionsStore.isSlotTaken(sessionClinicId, scheduledAt)) {
-      return res.status(409).json({ error: "SLOT_TAKEN" });
-    }
+    // if (await sessionsStore.isSlotTaken(sessionClinicId, scheduledAt)) {
+    //   return res.status(409).json({ error: "SLOT_TAKEN" });
+    // }
     const session = await sessionsStore.create({
       userOfferId: uo.id,
       userId: uo.userId,
@@ -2028,9 +2028,9 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
       return res.status(409).json({ error: "INVALID_STATE", detail: "Only scheduled or missed sessions can be rescheduled" });
     }
 
-    if (parsed.data.scheduledAt !== session.scheduledAt && await sessionsStore.isSlotTaken(session.clinicId, parsed.data.scheduledAt)) {
-      return res.status(409).json({ error: "SLOT_TAKEN" });
-    }
+    // if (parsed.data.scheduledAt !== session.scheduledAt && await sessionsStore.isSlotTaken(session.clinicId, parsed.data.scheduledAt)) {
+    //   return res.status(409).json({ error: "SLOT_TAKEN" });
+    // }
 
     const updated = await sessionsStore.reschedule({
       sessionId: session.id,
