@@ -18,6 +18,7 @@ export default function AdminSessionsLogTab() {
   const [filterDate, setFilterDate] = useState("");
   const [status, setStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterClinic, setFilterClinic] = useState("all");
 
   const [changeClinicTarget, setChangeClinicTarget] = useState<any>(null);
   const [newClinicSelection, setNewClinicSelection] = useState("");
@@ -57,6 +58,7 @@ export default function AdminSessionsLogTab() {
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
   const filteredSessions = sessions.filter(s => {
+    if (filterClinic !== "all" && String(s.clinicId) !== filterClinic) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     const name = (s.customerName || "").toLowerCase();
@@ -119,6 +121,14 @@ export default function AdminSessionsLogTab() {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
+            <select value={filterClinic} onChange={e => setFilterClinic(e.target.value)} className="input-field py-1.5 text-sm">
+              <option value="all">{ar() ? "جميع العيادات" : "All Clinics"}</option>
+              {apiClinics.map(c => (
+                <option key={c.id || c._id} value={c.id || c._id}>
+                  {ar() ? c.nameAr || c.nameEn : c.nameEn}
+                </option>
+              ))}
+            </select>
             <select value={status} onChange={e => setStatus(e.target.value)} className="input-field py-1.5 text-sm">
               <option value="all">{ar() ? "الكل" : "All Statuses"}</option>
               <option value="scheduled">{ar() ? "مجدول" : "Scheduled"}</option>
