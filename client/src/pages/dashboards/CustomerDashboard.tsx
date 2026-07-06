@@ -2988,12 +2988,13 @@ export default function CustomerDashboard() {
                 );
                 if (activeRequests.length === 0) return null;
                 const statusMeta: Record<string, { label: string; labelAr: string; color: string }> = {
-                  under_review:  { label: "Under Review",   labelAr: "قيد المراجعة",    color: "bg-amber-100 text-amber-800" },
-                  slot_proposed: { label: "Time Proposed",  labelAr: "وقت مقترح",        color: "bg-blue-100 text-blue-800" },
-                  slot_accepted: { label: "Slot Accepted",  labelAr: "الوقت مقبول",      color: "bg-purple-100 text-purple-800" },
-                  confirmed:     { label: "Confirmed",      labelAr: "مؤكد",              color: "bg-emerald-100 text-emerald-800" },
-                  rejected:      { label: "Declined",       labelAr: "مرفوض",             color: "bg-red-100 text-red-800" },
-                  cancelled:     { label: "Cancelled",      labelAr: "ملغى",              color: "bg-surface-100 text-surface-500" },
+                  request_received: { label: "Request Received", labelAr: "تم استلام الطلب", color: "bg-amber-100 text-amber-800" },
+                  slot_assigned:    { label: "Slot Assigned",    labelAr: "تم تحديد الوقت", color: "bg-blue-100 text-blue-800" },
+                  scheduled:        { label: "Scheduled",        labelAr: "مجدول",           color: "bg-emerald-100 text-emerald-800" },
+                  checked_in:       { label: "Checked In",       labelAr: "تم الحضور",       color: "bg-teal-100 text-teal-800" },
+                  completed:        { label: "Completed",        labelAr: "مكتمل",           color: "bg-emerald-100 text-emerald-800" },
+                  no_show:          { label: "No Show",          labelAr: "لم يحضر",         color: "bg-red-100 text-red-800" },
+                  cancelled:        { label: "Cancelled",        labelAr: "ملغى",            color: "bg-surface-100 text-surface-500" },
                 };
                 return (
                   <div>
@@ -3006,10 +3007,10 @@ export default function CustomerDashboard() {
                         return (
                           <div key={r.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                             <div className="flex items-center gap-4">
-                              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${r.status === "confirmed" ? "bg-emerald-50 text-emerald-600" : r.status === "rejected" ? "bg-red-50 text-red-500" : "bg-amber-50 text-amber-600"}`}>
-                                {r.status === "confirmed"
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${r.status === "scheduled" ? "bg-emerald-50 text-emerald-600" : r.status === "cancelled" ? "bg-red-50 text-red-500" : "bg-amber-50 text-amber-600"}`}>
+                                {r.status === "scheduled"
                                   ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                  : r.status === "rejected"
+                                  : r.status === "cancelled"
                                   ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                   : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 }
@@ -3021,7 +3022,7 @@ export default function CustomerDashboard() {
                                 </div>
                                 <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold text-surface-700">{clinicName}</span></div>
                                 {r.preferredAt && <div className="text-xs text-surface-400 mt-0.5">{ar() ? "الوقت المفضل:" : "Preferred:"} {fmtDateTime(r.preferredAt)}</div>}
-                                {r.proposedAt && (r.status === "slot_proposed" || r.status === "confirmed") && <div className="text-xs text-blue-600 mt-0.5 font-medium">{ar() ? (r.status === "confirmed" ? "وقت الموعد:" : "الوقت المقترح:") : (r.status === "confirmed" ? "Scheduled time:" : "Proposed time:")} {fmtDateTime(r.proposedAt)}</div>}
+                                {r.proposedAt && (r.status === "slot_assigned" || r.status === "scheduled") && <div className="text-xs text-blue-600 mt-0.5 font-medium">{ar() ? (r.status === "scheduled" ? "وقت الموعد:" : "الوقت المقترح:") : (r.status === "scheduled" ? "Scheduled time:" : "Proposed time:")} {fmtDateTime(r.proposedAt)}</div>}
                                 {r.rejectionReason && <div className="text-xs text-red-500 mt-0.5">{ar() ? "السبب:" : "Reason:"} {r.rejectionReason}</div>}
                               </div>
                             </div>
@@ -3036,7 +3037,7 @@ export default function CustomerDashboard() {
                                   {ar() ? "المحادثة" : "View chat"}
                                 </button>
                               )}
-                              {r.status === "slot_proposed" && (
+                              {r.status === "slot_assigned" && (
                                 <button
                                   type="button"
                                   className="text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors"
@@ -3050,7 +3051,7 @@ export default function CustomerDashboard() {
                                   }}
                                 >{ar() ? "قبول الوقت" : "Accept slot"}</button>
                               )}
-                              {["under_review", "slot_proposed"].includes(r.status) && (
+                              {["request_received", "slot_assigned"].includes(r.status) && (
                                 <button
                                   type="button"
                                   className="text-xs font-bold bg-surface-100 hover:bg-surface-200 text-surface-700 px-3 py-1.5 rounded-lg transition-colors"

@@ -125,10 +125,8 @@ export default function AdminSessionsLogTab() {
               <option value="completed">{ar() ? "مكتمل" : "Completed"}</option>
               <option value="no_show">{ar() ? "لم يحضر" : "No Show"}</option>
               <option value="cancelled">{ar() ? "ملغي" : "Cancelled"}</option>
-              <option value="pending">{ar() ? "قيد الانتظار" : "Pending"}</option>
-              <option value="under_review">{ar() ? "قيد المراجعة" : "Under Review"}</option>
-              <option value="slot_proposed">{ar() ? "تم اقتراح موعد" : "Slot Proposed"}</option>
-              <option value="slot_accepted">{ar() ? "تم قبول الموعد" : "Slot Accepted"}</option>
+              <option value="request_received">{ar() ? "تم استلام الطلب" : "Request Received"}</option>
+              <option value="slot_assigned">{ar() ? "تم تحديد الوقت" : "Slot Assigned"}</option>
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -188,7 +186,7 @@ export default function AdminSessionsLogTab() {
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-100 text-surface-800">
                             {clinicName || s.clinicId}
                           </span>
-                          {['pending', 'under_review', 'slot_proposed', 'slot_accepted', 'scheduled'].includes(s.status) && (
+                          {['request_received', 'slot_assigned', 'scheduled'].includes(s.status) && (
                             <>
                               <button 
                                 onClick={() => {
@@ -254,9 +252,9 @@ export default function AdminSessionsLogTab() {
                           ${s.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : ''}
                           ${s.status === 'no_show' ? 'bg-red-50 text-red-700' : ''}
                           ${s.status === 'cancelled' ? 'bg-surface-100 text-surface-600' : ''}
-                          ${['pending', 'under_review'].includes(s.status) ? 'bg-amber-50 text-amber-700' : ''}
-                          ${s.status === 'slot_proposed' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
-                          ${s.status === 'slot_accepted' ? 'bg-indigo-50 text-indigo-700' : ''}
+                          ${s.status === 'request_received' ? 'bg-amber-50 text-amber-700' : ''}
+                          ${s.status === 'slot_assigned' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
+                          ${s.status === 'checked_in' ? 'bg-teal-50 text-teal-700' : ''}
                         `}>
                           {s.status.replace(/_/g, ' ')}
                         </span>

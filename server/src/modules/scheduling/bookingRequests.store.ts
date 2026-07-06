@@ -1,11 +1,4 @@
-export type BookingRequestStatus =
-  | "awaiting_session_payment"
-  | "under_review"
-  | "slot_proposed"
-  | "slot_accepted"
-  | "confirmed"
-  | "rejected"
-  | "cancelled";
+import type { AppointmentStatus, PaymentStatus } from "@belamonda/shared";
 
 export type BookingRequestRecord = {
   id: string;
@@ -13,7 +6,7 @@ export type BookingRequestRecord = {
   userId: string;
   offerId?: string;   // optional — standalone bookings may not have a DB offer id yet
   clinicId: string;
-  status: BookingRequestStatus;
+  status: AppointmentStatus;
   isStandalone?: boolean;
   bookingRoute?: "cs" | "clinic";
   standaloneName?: string;
@@ -32,7 +25,7 @@ export type BookingRequestRecord = {
   cashbackDeductedKwd?: string;
   membershipType?: string;
   hadCashback?: boolean;
-  clinicPaymentStatus?: "pending" | "paid";
+  clinicPaymentStatus?: PaymentStatus;
   clinicPaymentMarkedAt?: string;
   clinicPaymentMarkedBy?: string;
   notes?: string;
@@ -103,7 +96,7 @@ export const bookingRequestsStore = {
   }): Promise<BookingRequestRecord> {
     const doc = await BookingRequestModel.create({
       ...input,
-      status: "under_review",
+      status: "request_received",
     });
     return mapDoc(doc);
   },
@@ -114,7 +107,7 @@ export const bookingRequestsStore = {
   },
 
   async list(filter?: {
-    status?: BookingRequestStatus | "all" | "open";
+    status?: AppointmentStatus | "all" | "open";
     clinicId?: string;
     userId?: string;
     isStandalone?: boolean;
@@ -124,7 +117,7 @@ export const bookingRequestsStore = {
     
     if (filter?.status && filter.status !== "all") {
       if (filter.status === "open") {
-        query.status = { $in: ["awaiting_session_payment", "under_review", "slot_accepted"] };
+        query.status = { $in: ["request_received", "slot_assigned"] };
       } else {
         query.status = filter.status;
       }

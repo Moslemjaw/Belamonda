@@ -1033,11 +1033,9 @@ function ClinicRowDetail({ clinicId, from, to }: { clinicId: string; from: strin
                       ${inv.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : ''}
                       ${inv.status === 'no_show' ? 'bg-red-50 text-red-700' : ''}
                       ${inv.status === 'cancelled' ? 'bg-surface-100 text-surface-600' : ''}
-                      ${['pending', 'under_review'].includes(inv.status) ? 'bg-amber-50 text-amber-700' : ''}
-                      ${inv.status === 'slot_proposed' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
-                      ${inv.status === 'slot_accepted' ? 'bg-indigo-50 text-indigo-700' : ''}
-                      ${inv.status === 'rejected' ? 'bg-red-50 text-red-700' : ''}
-                      ${inv.status === 'awaiting_session_payment' ? 'bg-amber-50 text-amber-700' : ''}
+                      ${inv.status === 'request_received' ? 'bg-amber-50 text-amber-700' : ''}
+                      ${inv.status === 'slot_assigned' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
+                      ${inv.status === 'checked_in' ? 'bg-teal-50 text-teal-700' : ''}
                     `}>
                       {inv.status.replace(/_/g, ' ')}
                     </span>

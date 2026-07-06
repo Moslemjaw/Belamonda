@@ -1,4 +1,4 @@
-import type { SessionStatus } from "@belamonda/shared";
+import type { AppointmentStatus } from "@belamonda/shared";
 import mongoose, { Schema } from "mongoose";
 import { CounterModel } from "./counter.model.js";
 
@@ -11,7 +11,15 @@ const BookingSessionSchema = new Schema(
     scheduledAt: { type: Date, required: true },
     status: {
       type: String,
-      enum: ["scheduled", "completed", "no_show", "cancelled"] satisfies SessionStatus[],
+      enum: [
+        "request_received",
+        "slot_assigned",
+        "scheduled",
+        "checked_in",
+        "completed",
+        "cancelled",
+        "no_show"
+      ] satisfies AppointmentStatus[],
       default: "scheduled"
     },
     scheduledBy: { type: String, required: true },

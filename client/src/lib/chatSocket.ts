@@ -66,7 +66,7 @@ export type BookingRequest = {
   userId: string;
   offerId: string;
   clinicId: string;
-  status: "under_review" | "slot_proposed" | "slot_accepted" | "confirmed" | "rejected" | "cancelled";
+  status: "request_received" | "slot_assigned" | "scheduled" | "checked_in" | "completed" | "no_show" | "cancelled";
   preferredAt?: string;
   proposedAt?: string;
   proposedBy?: string;

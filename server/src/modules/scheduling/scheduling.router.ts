@@ -8,7 +8,8 @@ import * as userOfferService from "../../services/userOffer.service.js";
 import { offersStore } from "../offers/offers.store.js";
 import { kycStore } from "../kyc/kyc.store.js";
 import { sessionsStore } from "./sessions.store.js";
-import { bookingRequestsStore, type BookingRequestStatus } from "./bookingRequests.store.js";
+import { bookingRequestsStore } from "./bookingRequests.store.js";
+import type { AppointmentStatus, PaymentStatus } from "@belamonda/shared";
 import { chatStore } from "../chat/chat.store.js";
 import { emitToConversation, emitToUser } from "../chat/chat.socket.js";
 import { UserModel } from "../../models/user.model.js";
@@ -507,7 +508,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
        const bookingRoute: "clinic" | "cs" =
          parsed.data.schedulingMode === "belamonda_cs" ? "cs" : "clinic";
 
-       const openStatuses = ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted"];
+       const openStatuses = ["request_received", "slot_assigned"];
        const existingStandalone = await BookingRequestModel.findOne({
          userId: req.auth!.userId,
          isStandalone: true,
@@ -612,7 +613,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     }
 
     // Gate: prevent multiple open booking requests for the same membership
-    const openStatuses = ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted"];
+    const openStatuses = ["request_received", "slot_assigned"];
     const existingReq = await BookingRequestModel.findOne({
       userOfferId: uo.id,
       userId: req.auth!.userId,
@@ -660,7 +661,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       });
       const gross = parseFloat(amountToPay) + cashbackDeducted;
       await bookingRequestsStore.update(breq.id, { 
-        status: "awaiting_session_payment", 
+        status: "request_received", 
         sessionPriceKwd: parsed.data.sessionGrossKwd ?? gross.toFixed(3)
         // We do not save cashbackDeductedKwd here. It will be handled entirely at POS checkout.
       });
@@ -868,12 +869,12 @@ schedulingRouter.post("/me/requests/:id/pay-session", authRequired, async (req, 
     const breq = await bookingRequestsStore.get(req.params.id);
     if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
     if (breq.userId !== req.auth!.userId) return res.status(403).json({ error: "FORBIDDEN" });
-    if (breq.status !== "awaiting_session_payment") return res.status(409).json({ error: "INVALID_STATE" });
+    if (breq.status !== "request_received") return res.status(409).json({ error: "INVALID_STATE" });
     if (!breq.sessionPaymentId) return res.status(400).json({ error: "NO_SESSION_PAYMENT" });
 
     await confirmSessionPayment(breq.sessionPaymentId);
 
-    const updated = await bookingRequestsStore.update(breq.id, { status: "under_review" });
+    const updated = await bookingRequestsStore.update(breq.id, { status: "request_received" });
 
     const [{ conv, csIds: convCsIds2 }, financeIds] = await Promise.all([
       ensureConversationFor(breq.id),
@@ -924,10 +925,10 @@ schedulingRouter.post("/me/requests/:id/accept", authRequired, async (req, res) 
   const breq = await bookingRequestsStore.get(req.params.id);
   if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
   if (breq.userId !== req.auth!.userId) return res.status(403).json({ error: "FORBIDDEN" });
-  if (breq.status !== "slot_proposed") return res.status(409).json({ error: "INVALID_STATE" });
+  if (breq.status !== "slot_assigned") { return res.status(409).json({ error: "INVALID_STATE" }); }
 
   const updated = await bookingRequestsStore.update(breq.id, {
-    status: "slot_accepted",
+    status: "slot_assigned",
     acceptedAt: new Date().toISOString()
   });
 
@@ -955,7 +956,7 @@ schedulingRouter.post("/me/requests/:id/cancel", authRequired, async (req, res) 
   const breq = await bookingRequestsStore.get(req.params.id);
   if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
   if (breq.userId !== req.auth!.userId) return res.status(403).json({ error: "FORBIDDEN" });
-  if (!["under_review", "slot_proposed", "slot_accepted"].includes(breq.status)) {
+  if (!["request_received", "slot_assigned"].includes(breq.status)) {
     return res.status(409).json({ error: "INVALID_STATE" });
   }
   const parsed = CancelSchema.safeParse(req.body ?? {});
@@ -998,7 +999,7 @@ schedulingRouter.post("/me/requests/:id/cancel", authRequired, async (req, res) 
 // ── Clinic / CS lists pending booking requests ─────────────────────────────
 schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "admin", "clinicStaff", "finance", "cs_director"]), async (req, res) => {
   try {
-  const status = (typeof req.query.status === "string" ? req.query.status : "open") as BookingRequestStatus | "all" | "open";
+  const status = (typeof req.query.status === "string" ? req.query.status : "open") as AppointmentStatus | "all" | "open";
   const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status };
   if (req.auth!.role === "clinicStaff") {
     const cid = await getUserClinicId(req.auth!.userId);
@@ -1057,11 +1058,11 @@ schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "
 
 schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res) => {
   let clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
-  if (!clinicId && req.auth!.role === "clinicStaff") {
+  if (req.auth!.role === "clinicStaff") {
     clinicId = req.auth!.clinicId || await getUserClinicId(req.auth!.userId);
     if (!clinicId) return res.json({ items: [] });
   }
-  const status = (typeof req.query.status === "string" ? req.query.status : "open") as BookingRequestStatus | "all" | "open";
+  const status = (typeof req.query.status === "string" ? req.query.status : "open") as AppointmentStatus | "all" | "open";
   const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status };
   if (clinicId) filter.clinicId = clinicId;
   const items = await bookingRequestsStore.list(filter);
@@ -1101,7 +1102,7 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
 
 schedulingRouter.get("/clinic/financial-summary", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res) => {
   let clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
-  if (!clinicId && req.auth!.role === "clinicStaff") {
+  if (req.auth!.role === "clinicStaff") {
     clinicId = req.auth!.clinicId || ((await getUserClinicId(req.auth!.userId)) ?? undefined);
   }
   const empty = {
@@ -1181,11 +1182,11 @@ schedulingRouter.post("/requests/:id/propose", authRequired, requireRole(["clini
   if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
     return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
   }
-  if (!["under_review", "slot_proposed", "slot_accepted", "awaiting_session_payment"].includes(breq.status)) {
+  if (!["request_received", "slot_assigned"].includes(breq.status)) {
     return res.status(409).json({ error: "INVALID_STATE" });
   }
   const updated = await bookingRequestsStore.update(breq.id, {
-    status: "slot_proposed",
+    status: "slot_assigned",
     proposedAt: parsed.data.scheduledAt,
     proposedBy: req.auth!.userId
   });
@@ -1215,7 +1216,7 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
     return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
   }
-  if (!["slot_proposed", "slot_accepted", "under_review", "awaiting_session_payment"].includes(breq.status)) {
+  if (!["request_received", "slot_assigned"].includes(breq.status)) {
     return res.status(409).json({ error: "INVALID_STATE" });
   }
   const bodyParsed = ProposeSchema.safeParse(req.body ?? {});
@@ -1257,7 +1258,7 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   await bookingRequestsStore.update(breq.id, {
     sessionPriceKwd: breq.sessionPriceKwd && parseFloat(breq.sessionPriceKwd) > 0 ? breq.sessionPriceKwd : finPreview.clinicTakeKwd,
     cashbackDeductedKwd: breq.cashbackDeductedKwd && parseFloat(breq.cashbackDeductedKwd) > 0 ? breq.cashbackDeductedKwd : finPreview.cashbackDeductedKwd,
-    clinicPaymentStatus: clinicStaffConfirm ? "pending" : breq.clinicPaymentStatus,
+    clinicPaymentStatus: clinicStaffConfirm ? "payment_pending" : breq.clinicPaymentStatus,
   });
 
   let sessionPaymentId = breq.sessionPaymentId;
@@ -1277,7 +1278,7 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   }
 
   const updated = await bookingRequestsStore.update(breq.id, {
-    status: "confirmed",
+    status: "scheduled",
     confirmedAt: new Date().toISOString(),
     confirmedBy: req.auth!.userId,
     scheduledSessionId: session.id,
@@ -1433,7 +1434,7 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
   finalPaidKwd = Math.max(0, basePrice + extraSum - cbToDeduct).toFixed(3);
 
   const updated = await bookingRequestsStore.update(breq.id, {
-    status: "confirmed",
+    status: "scheduled",
     clinicPaymentStatus: "paid",
     clinicPaymentMarkedAt: new Date().toISOString(),
     clinicPaymentMarkedBy: req.auth!.userId,
@@ -1478,7 +1479,7 @@ schedulingRouter.post("/requests/:id/reject", authRequired, requireRole(["clinic
     return res.status(409).json({ error: "INVALID_STATE" });
   }
   const updated = await bookingRequestsStore.update(breq.id, {
-    status: "rejected",
+    status: "cancelled",
     rejectedAt: new Date().toISOString(),
     rejectedBy: req.auth!.userId,
     rejectionReason: parsed.data.reason
@@ -1585,7 +1586,7 @@ schedulingRouter.post(
     }
 
     const updated = await bookingRequestsStore.update(breq.id, {
-      status: "slot_proposed",
+      status: "slot_assigned",
       proposedAt: parsed.data.scheduledAt,
       proposedBy: req.auth!.userId,
       notes: parsed.data.notes
@@ -1624,7 +1625,7 @@ schedulingRouter.post(
     // Standalone CS booking requests are confirmed without creating UserOffer/session.
     if (!breq.userOfferId) {
       const updated = await bookingRequestsStore.update(breq.id, {
-        status: "confirmed",
+        status: "scheduled",
         confirmedAt: new Date().toISOString(),
         confirmedBy: req.auth!.userId,
         proposedAt: scheduledAt
@@ -1679,14 +1680,14 @@ schedulingRouter.post(
     const cashbackUsed = breqAfterCb.cashbackDeductedKwd && parseFloat(breqAfterCb.cashbackDeductedKwd) > 0 ? breqAfterCb.cashbackDeductedKwd : finPreview.cashbackDeductedKwd;
 
     const updated = await bookingRequestsStore.update(breq.id, {
-      status: "confirmed",
+      status: "scheduled",
       confirmedAt: new Date().toISOString(),
       confirmedBy: req.auth!.userId,
       scheduledSessionId: session.id,
       proposedAt: scheduledAt,
       sessionPriceKwd: clinicTake,
       cashbackDeductedKwd: cashbackUsed,
-      clinicPaymentStatus: isCsOrAdmin ? "paid" : "pending",
+      clinicPaymentStatus: isCsOrAdmin ? "paid" : "payment_pending",
       ...(isCsOrAdmin
         ? { clinicPaymentMarkedAt: new Date().toISOString(), clinicPaymentMarkedBy: req.auth!.userId }
         : {}),
@@ -1713,6 +1714,9 @@ schedulingRouter.post(
 // ── Clinic schedule view (Mongo-aware) ─────────────────────────────────────
 schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
+    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.clinicId))) {
+      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+    }
     const from = typeof req.query.from === "string" ? req.query.from : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const to = typeof req.query.to === "string" ? req.query.to : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const sessions = await sessionsStore.listByClinic(req.params.clinicId, from, to);
@@ -1810,6 +1814,9 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
 // ── Clinic missed sessions view (Mongo-aware) ────────────────────────────
 schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
+    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.clinicId))) {
+      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+    }
     const sessions = await sessionsStore.listMissedByClinic(req.params.clinicId);
 
     if (sessions.length === 0) return res.json({ items: [] });
@@ -2111,7 +2118,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     }
 
     let requestDocs: any[] = [];
-    const isRequestStatus = !status || status === "all" || ["pending", "under_review", "slot_proposed", "slot_accepted", "awaiting_session_payment", "cancelled", "rejected"].includes(status as string);
+    const isRequestStatus = !status || status === "all" || ["request_received", "slot_assigned", "scheduled", "cancelled", "no_show", "checked_in"].includes(status as string);
     if (isRequestStatus) {
       requestDocs = await BookingRequestModel.find(requestQuery).sort({ createdAt: -1 }).limit(300).lean();
     }
@@ -2207,7 +2214,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
 
 // ── Admin overview of all booking requests ────────────────────────────────
 schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin"]), async (req, res) => {
-  const status = (typeof req.query.status === "string" ? req.query.status : "all") as BookingRequestStatus | "all" | "open";
+  const status = (typeof req.query.status === "string" ? req.query.status : "all") as AppointmentStatus | "all" | "open";
   const clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
   const items = await bookingRequestsStore.list({ status, clinicId });
   const enriched = await Promise.all(
@@ -2451,7 +2458,7 @@ schedulingRouter.post("/admin/requests/:requestId/revert", authRequired, require
 
     // Revert the request status back to under_review
     const updated = await bookingRequestsStore.update(breq.id, {
-      status: "under_review",
+      status: "request_received",
       confirmedAt: undefined,
       confirmedBy: undefined,
       scheduledSessionId: undefined,

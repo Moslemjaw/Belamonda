@@ -1,4 +1,4 @@
-import type { SessionStatus } from "@belamonda/shared";
+import type { AppointmentStatus } from "@belamonda/shared";
 
 export type SessionRecord = {
   id: string;
@@ -7,7 +7,7 @@ export type SessionRecord = {
   offerId: string;
   clinicId: string;
   scheduledAt: string; // ISO
-  status: SessionStatus; // scheduled|completed|no_show|cancelled
+  status: AppointmentStatus;
   createdAt: string;
   scheduledBy: string; // CS user id
   completedAt?: string;
@@ -128,7 +128,7 @@ export const sessionsStore = {
 
   async mark(input: {
     sessionId: string;
-    status: "completed" | "no_show" | "cancelled";
+    status: "checked_in" | "completed" | "no_show" | "cancelled";
     markedBy: string;
     notes?: string;
     cashbackUnlockedKwd?: string;

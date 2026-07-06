@@ -93,8 +93,18 @@ export type UserOfferStatus =
 
 export type OrderStatus = "pending" | "confirmed" | "active" | "completed" | "cancelled";
 
-// ─── Sessions ───────────────────────────────────────
-export type SessionStatus = "scheduled" | "completed" | "no_show" | "cancelled";
+// ─── Appointments (replaces Sessions & BookingRequests) ─
+export type AppointmentStatus =
+  | "request_received"
+  | "slot_assigned"
+  | "scheduled"
+  | "checked_in"
+  | "completed"
+  | "cancelled"
+  | "no_show";
+
+// ─── Payments ───────────────────────────────────────
+export type PaymentStatus = "payment_pending" | "paid" | "refunded" | "failed";
 
 // ─── Wallet & Cashback ──────────────────────────────
 export type WalletTransactionType =

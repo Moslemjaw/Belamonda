@@ -24,18 +24,19 @@ type BookingRow = {
 
 type ClinicRow = { id: string; nameEn?: string; nameAr?: string };
 
-const STATUSES = ["all", "open", "under_review", "slot_proposed", "slot_accepted", "confirmed", "rejected", "cancelled"] as const;
+const STATUSES = ["all", "open", "request_received", "slot_assigned", "scheduled", "checked_in", "completed", "no_show", "cancelled"] as const;
 
 type StatusMeta = { cls: string; dotCls: string; labelEn: string; labelAr: string };
 
 const STATUS_META: Record<string, StatusMeta> = {
-  open:          { cls: "status-pill-pending",               dotCls: "dot bg-amber-500",   labelEn: "Open",          labelAr: "مفتوح" },
-  under_review:  { cls: "status-pill-pending",               dotCls: "dot bg-amber-500",   labelEn: "Under Review",  labelAr: "قيد المراجعة" },
-  slot_proposed: { cls: "status-pill bg-blue-50 text-blue-700", dotCls: "dot bg-blue-500", labelEn: "Slot Proposed", labelAr: "وقت مقترح" },
-  slot_accepted: { cls: "status-pill bg-blue-50 text-blue-700", dotCls: "dot bg-blue-500", labelEn: "Slot Accepted", labelAr: "وقت مقبول" },
-  confirmed:     { cls: "status-pill-active",                dotCls: "dot bg-emerald-500", labelEn: "Confirmed",     labelAr: "مؤكد" },
-  rejected:      { cls: "status-pill bg-red-50 text-red-700",  dotCls: "dot bg-red-500",   labelEn: "Rejected",      labelAr: "مرفوض" },
-  cancelled:     { cls: "status-pill-locked",                dotCls: "dot bg-surface-400", labelEn: "Cancelled",     labelAr: "ملغى" },
+  open:             { cls: "status-pill-pending",               dotCls: "dot bg-amber-500",   labelEn: "Open",             labelAr: "مفتوح" },
+  request_received: { cls: "status-pill-pending",               dotCls: "dot bg-amber-500",   labelEn: "Request Received", labelAr: "تم استلام الطلب" },
+  slot_assigned:    { cls: "status-pill bg-blue-50 text-blue-700", dotCls: "dot bg-blue-500", labelEn: "Slot Assigned",    labelAr: "تم تحديد الوقت" },
+  scheduled:        { cls: "status-pill-active",                dotCls: "dot bg-emerald-500", labelEn: "Scheduled",        labelAr: "مجدول" },
+  checked_in:       { cls: "status-pill bg-teal-50 text-teal-700", dotCls: "dot bg-teal-500", labelEn: "Checked In",       labelAr: "تم الحضور" },
+  completed:        { cls: "status-pill bg-gray-50 text-gray-700", dotCls: "dot bg-gray-500", labelEn: "Completed",        labelAr: "مكتمل" },
+  no_show:          { cls: "status-pill bg-red-50 text-red-700",  dotCls: "dot bg-red-500",   labelEn: "No Show",          labelAr: "لم يحضر" },
+  cancelled:        { cls: "status-pill-locked",                dotCls: "dot bg-surface-400", labelEn: "Cancelled",        labelAr: "ملغى" },
 };
 
 function StatusPill({ status }: { status: string }) {

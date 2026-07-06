@@ -106,7 +106,10 @@ dashboardsRouter.get("/finance/summary", authRequired, requireRole(["finance", "
 
 dashboardsRouter.get("/clinic/overview", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
-    const clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : "";
+    let clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : "";
+    if (req.auth!.role === "clinicStaff") {
+      clinicId = req.auth!.clinicId ?? "";
+    }
     if (!mongoose.isValidObjectId(clinicId)) {
       return res.status(400).json({ error: "INVALID_CLINIC_ID" });
     }

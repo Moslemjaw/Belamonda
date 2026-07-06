@@ -28,13 +28,13 @@ function kwDateTime(iso: string | undefined): string {
 /** Translate a booking status key into a readable label. */
 function statusLabel(status: string): string {
   const map: Record<string, [string, string]> = {
-    awaiting_session_payment: ["Awaiting Payment", "بانتظار الدفع"],
-    under_review: ["Under Review", "قيد المراجعة"],
-    slot_proposed: ["Time Proposed", "تم اقتراح موعد"],
-    slot_accepted: ["Time Accepted", "تم قبول الموعد"],
-    confirmed: ["Confirmed", "مؤكد"],
-    rejected: ["Rejected", "مرفوض"],
+    request_received: ["Request Received", "تم استلام الطلب"],
+    slot_assigned: ["Slot Assigned", "تم تحديد الوقت"],
+    scheduled: ["Scheduled", "مجدول"],
     cancelled: ["Cancelled", "ملغى"],
+    checked_in: ["Checked In", "تم الحضور"],
+    completed: ["Completed", "مكتمل"],
+    no_show: ["No Show", "لم يحضر"],
   };
   const pair = map[status];
   if (pair) return ar() ? pair[1] : pair[0];
@@ -477,15 +477,14 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                       )}
                     </div>
 
-                    {/* Customer accept slot */}
-                    {!adminMode && role === "customer" && bookingRequest.status === "slot_proposed" && (
+                    {!adminMode && role === "customer" && bookingRequest.status === "slot_assigned" && (
                       <button className="btn-primary btn-sm" onClick={acceptSlot}>
                         {ar() ? "قبول الموعد" : "Accept Slot"}
                       </button>
                     )}
 
                     {/* Staff propose / confirm / reject */}
-                    {!adminMode && showBookingActions && isStaff && !["confirmed", "cancelled", "rejected"].includes(bookingRequest.status) && (
+                    {!adminMode && showBookingActions && isStaff && !["scheduled", "cancelled", "checked_in", "completed", "no_show"].includes(bookingRequest.status) && (
                       <div className="flex flex-wrap items-center gap-2">
                         <input
                           type="datetime-local"

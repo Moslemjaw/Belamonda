@@ -1,3 +1,4 @@
+import type { AppointmentStatus, PaymentStatus } from "@belamonda/shared";
 import mongoose, { Schema } from "mongoose";
 
 const BookingRequestSchema = new Schema(
@@ -10,15 +11,15 @@ const BookingRequestSchema = new Schema(
     status: {
       type: String,
       enum: [
-        "awaiting_session_payment",
-        "under_review",
-        "slot_proposed",
-        "slot_accepted",
-        "confirmed",
-        "rejected",
-        "cancelled"
-      ],
-      default: "under_review",
+        "request_received",
+        "slot_assigned",
+        "scheduled",
+        "checked_in",
+        "completed",
+        "cancelled",
+        "no_show"
+      ] satisfies AppointmentStatus[],
+      default: "request_received",
       index: true
     },
     
@@ -44,8 +45,8 @@ const BookingRequestSchema = new Schema(
     hadCashback: { type: Boolean, default: false },
     clinicPaymentStatus: {
       type: String,
-      enum: ["pending", "paid"],
-      default: "pending"
+      enum: ["payment_pending", "paid", "refunded", "failed"] satisfies PaymentStatus[],
+      default: "payment_pending"
     },
     clinicPaymentMarkedAt: { type: Date },
     clinicPaymentMarkedBy: { type: String },

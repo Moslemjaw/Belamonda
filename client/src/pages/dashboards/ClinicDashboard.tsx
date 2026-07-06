@@ -352,11 +352,9 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                         ${inv.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : ''}
                         ${inv.status === 'no_show' ? 'bg-red-50 text-red-700' : ''}
                         ${inv.status === 'cancelled' ? 'bg-surface-100 text-surface-600' : ''}
-                        ${['pending', 'under_review'].includes(inv.status) ? 'bg-amber-50 text-amber-700' : ''}
-                        ${inv.status === 'slot_proposed' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
-                        ${inv.status === 'slot_accepted' ? 'bg-indigo-50 text-indigo-700' : ''}
-                        ${inv.status === 'rejected' ? 'bg-red-50 text-red-700' : ''}
-                        ${inv.status === 'awaiting_session_payment' ? 'bg-amber-50 text-amber-700' : ''}
+                        ${inv.status === 'request_received' ? 'bg-amber-50 text-amber-700' : ''}
+                        ${inv.status === 'slot_assigned' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
+                        ${inv.status === 'checked_in' ? 'bg-teal-50 text-teal-700' : ''}
                       `}>
                         {inv.status.replace(/_/g, ' ')}
                       </span>
@@ -468,12 +466,9 @@ const SESSION_STATUS_STYLE: Record<string, string> = {
   scheduled: "bg-blue-50 text-blue-700",
   no_show:   "bg-red-50 text-red-700",
   cancelled: "bg-surface-100 text-surface-600",
-  pending: "bg-amber-50 text-amber-700",
-  under_review: "bg-amber-50 text-amber-700",
-  slot_proposed: "bg-brand-pink-50 text-brand-pink-700",
-  slot_accepted: "bg-indigo-50 text-indigo-700",
-  rejected: "bg-red-50 text-red-700",
-  awaiting_session_payment: "bg-amber-50 text-amber-700",
+  request_received: "bg-amber-50 text-amber-700",
+  slot_assigned: "bg-brand-pink-50 text-brand-pink-700",
+  checked_in: "bg-teal-50 text-teal-700",
 };
 
 function ClinicReportTable({ data, loading, from, to }: {

@@ -1,3 +1,4 @@
+import type { PaymentStatus } from "@belamonda/shared";
 import mongoose, { Schema } from "mongoose";
 
 const PaymentSchema = new Schema(
@@ -37,8 +38,8 @@ const PaymentSchema = new Schema(
     failureReason: { type: String },
     status: {
       type: String,
-      enum: ["pending", "completed", "failed", "refunded"],
-      default: "pending",
+      enum: ["payment_pending", "paid", "refunded", "failed"] satisfies PaymentStatus[],
+      default: "payment_pending",
       index: true
     },
     proofRef: { type: String },
