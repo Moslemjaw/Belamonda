@@ -34,7 +34,7 @@ export const SESSION_STATUS_STYLE: Record<string, string> = {
   awaiting_session_payment: "bg-amber-50 text-amber-700",
   under_review: "bg-amber-50 text-amber-700",
   slot_proposed: "bg-blue-50 text-blue-700",
-  slot_accepted: "bg-teal-50 text-teal-700",
+  slot_accepted: "bg-indigo-50 text-indigo-700",
   confirmed: "bg-indigo-50 text-indigo-700",
   rejected: "bg-red-50 text-red-700",
   pending: "bg-amber-50 text-amber-700",
@@ -57,7 +57,7 @@ function SessionCard({ session, onMark, onMarkPaid, onSelectUser }: { session: a
 
   return (
     <div className={`card-elevated p-5 relative overflow-hidden group transition-all hover:shadow-lg flex flex-col rounded-[24px] border ${!allGreen && session.status === "scheduled" ? "border-red-200 bg-red-50/30" : "border-surface-200 bg-white/80 backdrop-blur-xl"}`}>
-      <div className={`absolute top-0 left-0 w-1.5 h-full ${session.status === 'completed' ? 'bg-emerald-500' : session.status === 'no_show' ? 'bg-red-500' : session.status === 'cancelled' ? 'bg-surface-300' : 'bg-brand-pink-500'}`} />
+      <div className={`absolute top-0 left-0 w-1.5 h-full ${session.status === 'completed' && session.clinicPaymentStatus !== 'paid' ? 'bg-amber-500' : session.status === 'completed' ? 'bg-emerald-500' : session.status === 'no_show' ? 'bg-red-500' : session.status === 'cancelled' ? 'bg-surface-300' : 'bg-brand-pink-500'}`} />
       
       <div className="flex flex-col gap-4 mb-5 pl-2">
         <div className="flex items-center gap-3">
@@ -116,8 +116,8 @@ function SessionCard({ session, onMark, onMarkPaid, onSelectUser }: { session: a
           </div>
         )}
         {session.status !== "scheduled" && (
-          <div className={`text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border ${session.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : session.status === 'no_show' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-surface-100 text-surface-600 border-surface-200'}`}>
-            {session.status.replace("_", " ")}
+          <div className={`text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border ${session.status === 'completed' && session.clinicPaymentStatus !== 'paid' ? 'bg-amber-50 text-amber-700 border-amber-200' : session.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : session.status === 'no_show' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-surface-100 text-surface-600 border-surface-200'}`}>
+            {session.status === 'completed' && session.clinicPaymentStatus !== 'paid' ? (ar() ? "بانتظار الدفع" : "Awaiting Session Payment") : session.status === 'slot_accepted' ? (ar() ? "مجدول" : "Scheduled") : session.status.replace("_", " ")}
           </div>
         )}
       </div>
@@ -407,8 +407,15 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                       {inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}
                     </td>
                     <td>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${SESSION_STATUS_STYLE[inv.status] ?? "bg-surface-100 text-surface-500"}`}>
-                        {inv.status.replace(/_/g, ' ')}
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
+                        inv.status === 'completed' && inv.clinicPaymentStatus !== 'paid'
+                          ? "bg-amber-50 text-amber-700"
+                          : SESSION_STATUS_STYLE[inv.status] ?? "bg-surface-100 text-surface-500"
+                      }`}>
+                        {inv.status === 'completed' && inv.clinicPaymentStatus !== 'paid'
+                          ? (ar() ? "بانتظار الدفع" : "AWAITING SESSION PAYMENT")
+                          : inv.status === 'slot_accepted' ? (ar() ? "مجدول" : "SCHEDULED")
+                          : inv.status.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td>
@@ -622,8 +629,15 @@ function ClinicReportTable({ data, loading, from, to }: {
                     <td className="px-4 py-3 text-surface-700 whitespace-nowrap">{fmtDateLocal(s.scheduledAt)}</td>
                     <td className="px-4 py-3 text-surface-500">{fmtTime(s.scheduledAt)}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${SESSION_STATUS_STYLE[s.status] ?? "bg-surface-100 text-surface-500"}`}>
-                        {s.status?.replace("_", " ")}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
+                        s.status === 'completed' && s.clinicPaymentStatus !== 'paid'
+                          ? "bg-amber-50 text-amber-700"
+                          : SESSION_STATUS_STYLE[s.status] ?? "bg-surface-100 text-surface-500"
+                      }`}>
+                        {s.status === 'completed' && s.clinicPaymentStatus !== 'paid'
+                          ? (ar() ? "بانتظار الدفع" : "Awaiting Session Payment")
+                          : s.status === 'slot_accepted' ? (ar() ? "مجدول" : "Scheduled")
+                          : s.status?.replace("_", " ")}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -682,8 +696,15 @@ function ClinicReportTable({ data, loading, from, to }: {
                     <td className="px-4 py-3 font-bold text-surface-900">{inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}</td>
                     <td className="px-4 py-3 text-emerald-700 font-bold">{inv.cashbackDeductedKwd ? `${inv.cashbackDeductedKwd} KWD` : "—"}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${SESSION_STATUS_STYLE[inv.status] ?? "bg-surface-100 text-surface-500"}`}>
-                        {inv.status?.replace("_", " ")}
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold capitalize ${
+                        inv.status === 'completed' && inv.clinicPaymentStatus !== 'paid'
+                          ? "bg-amber-50 text-amber-700"
+                          : SESSION_STATUS_STYLE[inv.status] ?? "bg-surface-100 text-surface-500"
+                      }`}>
+                        {inv.status === 'completed' && inv.clinicPaymentStatus !== 'paid'
+                          ? (ar() ? "بانتظار الدفع" : "Awaiting Session Payment")
+                          : inv.status === 'slot_accepted' ? (ar() ? "مجدول" : "Scheduled")
+                          : inv.status?.replace("_", " ")}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -743,6 +764,7 @@ function ClinicReportTable({ data, loading, from, to }: {
 const SESSION_STATUS_COLORS: Record<string, string> = {
   completed: "bg-emerald-50 text-emerald-700 border-emerald-200",
   scheduled: "bg-blue-50 text-blue-700 border-blue-200",
+  slot_accepted: "bg-blue-50 text-blue-700 border-blue-200",
   no_show: "bg-red-50 text-red-600 border-red-200",
   cancelled: "bg-surface-100 text-surface-500 border-surface-200",
 };
@@ -1152,7 +1174,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                   <div key={s.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-surface-50/80 rounded-[20px] border border-surface-100/80 gap-4 transition-all hover:border-surface-300">
                     <div className="flex-1 min-w-0 w-full sm:w-auto">
                       <div className="flex items-center justify-between sm:justify-start gap-3 mb-2 sm:mb-0">
-                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>{s.status?.replace("_", " ")}</span>
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>{s.status === 'slot_accepted' ? (ar() ? "مجدول" : "SCHEDULED") : s.status?.replace("_", " ")}</span>
                         <div className="text-sm font-bold text-surface-900 sm:hidden">
                           {new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                         </div>

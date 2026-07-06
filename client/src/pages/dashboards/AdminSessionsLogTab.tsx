@@ -23,7 +23,7 @@ const SESSION_STATUS_STYLE: Record<string, string> = {
   awaiting_session_payment: "bg-amber-50 text-amber-700",
   under_review: "bg-amber-50 text-amber-700",
   slot_proposed: "bg-blue-50 text-blue-700",
-  slot_accepted: "bg-teal-50 text-teal-700",
+  slot_accepted: "bg-indigo-50 text-indigo-700",
   confirmed: "bg-indigo-50 text-indigo-700",
   rejected: "bg-red-50 text-red-700",
   pending: "bg-amber-50 text-amber-700",
@@ -301,6 +301,7 @@ export default function AdminSessionsLogTab() {
                         }`}>
                           {s.status === 'completed' && s.clinicPaymentStatus !== 'paid' 
                             ? "Awaiting Session Payment" 
+                            : s.status === 'slot_accepted' ? (ar() ? "مجدول" : "Scheduled")
                             : s.status.replace(/_/g, ' ')}
                         </span>
                       </td>

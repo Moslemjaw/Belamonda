@@ -920,35 +920,110 @@ schedulingRouter.post("/me/requests/:id/pay-session", authRequired, async (req, 
   }
 });
 
-// ── Customer accepts a proposed slot ───────────────────────────────────────
-schedulingRouter.post("/me/requests/:id/accept", authRequired, async (req, res) => {
-  const breq = await bookingRequestsStore.get(req.params.id);
-  if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
-  if (breq.userId !== req.auth!.userId) return res.status(403).json({ error: "FORBIDDEN" });
-  if (breq.status !== "slot_assigned") { return res.status(409).json({ error: "INVALID_STATE" }); }
+// ── Customer accepts a proposed slot and automatically schedules it ──────────
+schedulingRouter.post("/me/requests/:id/accept", authRequired, async (req, res, next) => {
+  try {
+    const breq = await bookingRequestsStore.get(req.params.id);
+    if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
+    if (breq.userId !== req.auth!.userId) return res.status(403).json({ error: "FORBIDDEN" });
+    if (breq.status !== "slot_assigned") { return res.status(409).json({ error: "INVALID_STATE" }); }
 
-  const updated = await bookingRequestsStore.update(breq.id, {
-    status: "slot_assigned",
-    acceptedAt: new Date().toISOString()
-  });
+    const scheduledAt = breq.proposedAt;
+    if (!scheduledAt) return res.status(400).json({ error: "NO_SCHEDULED_TIME" });
 
-  if (updated) {
-    const { conv } = await ensureConversationFor(breq.id);
-    if (conv) {
-      postSystemMessage(conv.id, "slot_accepted", `Customer accepted the proposed time (${updated.proposedAt}).`, {
-        bookingRequestId: updated.id,
-        scheduledAt: updated.proposedAt
-      });
-      const recipients = conv.participants.map((p) => p.userId).filter((u) => u !== req.auth!.userId);
-      notifyChatRelatedUsers({
-        userIds: recipients,
-        kind: "booking_slot_accepted",
-        body: `Customer accepted the proposed time slot.`,
-        payload: { bookingRequestId: updated.id }
-      });
+    if (!breq.userOfferId) {
+      return res.status(400).json({ error: "STANDALONE_USE_SCHEDULE_ENDPOINT" });
     }
+
+    const uo = await loadUserOffer(breq.userOfferId);
+    if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
+    const offer = await loadOffer(uo.offerId);
+    if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
+    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
+    if (elErr) return res.status(elErr.status).json({ error: elErr.code });
+
+    const sessionClinicId = breq.clinicId || uo.clinicId;
+
+    const session = await sessionsStore.create({
+      userOfferId: uo.id,
+      userId: uo.userId,
+      offerId: uo.offerId,
+      clinicId: sessionClinicId,
+      scheduledAt,
+      scheduledBy: req.auth!.userId
+    });
+
+    if (!breq.isStandalone && breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
+      await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { sessionsUsed: 1 } });
+    }
+
+    const finPreview = computeBookingRequestFinancials(breq, offer);
+    await bookingRequestsStore.update(breq.id, {
+      sessionPriceKwd: breq.sessionPriceKwd && parseFloat(breq.sessionPriceKwd) > 0 ? breq.sessionPriceKwd : finPreview.clinicTakeKwd,
+      cashbackDeductedKwd: breq.cashbackDeductedKwd && parseFloat(breq.cashbackDeductedKwd) > 0 ? breq.cashbackDeductedKwd : finPreview.cashbackDeductedKwd,
+    });
+
+    let sessionPaymentId = breq.sessionPaymentId;
+    if (breq.sessionPriceKwd && parseFloat(breq.sessionPriceKwd) > 0 && !sessionPaymentId) {
+      const cb = parseFloat(breq.cashbackDeductedKwd || "0");
+      const gross = parseFloat(breq.sessionPriceKwd) + cb;
+      const sessionPayment = await createSessionPayment({
+        userId: uo.userId,
+        offerId: uo.offerId,
+        userOfferId: uo.id,
+        amountKwd: breq.sessionPriceKwd,
+        grossAmountKwd: gross.toFixed(3),
+        cashbackAppliedKwd: cb > 0 ? cb.toFixed(3) : undefined,
+        bookingRequestId: breq.id
+      });
+      sessionPaymentId = sessionPayment.id;
+    }
+
+    const updated = await bookingRequestsStore.update(breq.id, {
+      status: "scheduled",
+      acceptedAt: new Date().toISOString(),
+      confirmedAt: new Date().toISOString(),
+      confirmedBy: req.auth!.userId,
+      scheduledSessionId: session.id,
+      ...(sessionPaymentId ? { sessionPaymentId } : {})
+    });
+
+    if (updated?.conversationId) {
+      postSystemMessage(
+        updated.conversationId,
+        "booking_confirmed",
+        `Customer accepted the proposed time. Booking is confirmed for ${scheduledAt}.`,
+        { bookingRequestId: updated.id, sessionId: session.id, scheduledAt },
+        req.auth!.userId
+      );
+    }
+
+    notifyBookingConfirmed(uo.userId, session.id, session.scheduledAt);
+    
+    // Notify customer
+    notifyChatRelatedUsers({
+      userIds: [uo.userId],
+      kind: "booking_confirmed",
+      body: `Your booking is confirmed for ${scheduledAt}`,
+      payload: { sessionId: session.id, bookingRequestId: breq.id }
+    });
+
+    // Notify clinic & CS
+    const clinicStaff = await findClinicStaffUserIds(breq.clinicId);
+    const csIds = await findCsUserIds();
+    notifyChatRelatedUsers({
+      userIds: Array.from(new Set([...clinicStaff, ...csIds])),
+      kind: "booking_confirmed",
+      body: `Customer accepted and confirmed the booking for ${scheduledAt}`,
+      payload: { sessionId: session.id, bookingRequestId: breq.id }
+    });
+
+    emitToUser(uo.userId, "booking:confirmed", { request: updated, session });
+
+    return res.json({ request: updated, session });
+  } catch (err: any) {
+    next(err);
   }
-  return res.json({ request: updated });
 });
 
 // ── Customer cancels their request ─────────────────────────────────────────
