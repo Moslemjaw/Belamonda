@@ -14,13 +14,14 @@ const BookingRequestSchema = new Schema(
         "request_received",
         "slot_assigned",
         "scheduled",
+        "confirmed",
         "checked_in",
         "in_progress",
         "completed",
         "cancelled",
         "rescheduled",
         "no_show"
-      ] satisfies AppointmentStatus[],
+      ],
       default: "request_received",
       index: true
     },

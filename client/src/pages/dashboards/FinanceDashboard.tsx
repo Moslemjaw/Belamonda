@@ -38,6 +38,7 @@ import i18n from "../../app/i18n";
 import { UserProfilePanel, UsersManager } from "./AdminDashboard";
 import { KpiCard } from "../../components/KpiCard";
 import { fmtDate, fmtDateTime } from "../../lib/dateFormat";
+import DatePicker from "../../components/DatePicker";
 
 const ar = () => i18n.language === "ar";
 
@@ -161,11 +162,11 @@ function FilterBar({
   return (
     <div className="flex items-center justify-center sm:justify-end gap-2 text-xs rounded-2xl border border-surface-200 bg-white p-4 shadow-sm">
       <label className="text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
-      <input type="date" className="input-field text-xs py-1.5 h-auto max-w-[130px]"
+      <DatePicker className="input-field text-xs py-1.5 h-auto max-w-[130px]"
         value={localFrom.slice(0, 10)}
         onChange={e => setLocalFrom(e.target.value)} />
       <label className="text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
-      <input type="date" className="input-field text-xs py-1.5 h-auto max-w-[130px]"
+      <DatePicker className="input-field text-xs py-1.5 h-auto max-w-[130px]"
         value={localTo.slice(0, 10)}
         onChange={e => setLocalTo(e.target.value)} />
       <button 
@@ -1713,8 +1714,7 @@ function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
           </div>
           <div>
             <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "تاريخ الدفعة" : "Payment Date"}</label>
-            <input
-              type="date"
+            <DatePicker
               className="input-field"
               value={paymentDate}
               onChange={e => setPaymentDate(e.target.value)}

@@ -23,6 +23,7 @@ import NotificationSettingsPanel from "../../features/admin/NotificationSettings
 import QRCodeCanvas from "../../components/QRCodeCanvas";
 import { KpiCard } from "../../components/KpiCard";
 import AdminSessionsLogTab from "./AdminSessionsLogTab";
+import DatePicker from "../../components/DatePicker";
 import { ClinicChangeRequestsQueue } from "./CsDashboard";
 import ClinicChangeModal from "../../components/ClinicChangeModal";
 
@@ -465,7 +466,7 @@ function OffersManager() {
           <div className="grid gap-4 md:grid-cols-3 mt-4">
             {F(ar() ? "السعر (KWD)" : "Price (KWD)", <input className="input-field" type="number" value={form.price} onChange={e => setForm({...form, price: e.target.value})} />)}
             {F(ar() ? "المدة (أيام)" : "Validity (days)", <input className="input-field" type="number" value={form.validityDays} onChange={e => setForm({...form, validityDays: e.target.value})} />)}
-            {F(ar() ? "تاريخ إنتهاء العرض" : "Offer Expiration Date", <input className="input-field" type="date" value={form.offerExpirationDate} onChange={e => setForm({...form, offerExpirationDate: e.target.value})} />)}
+            {F(ar() ? "تاريخ إنتهاء العرض" : "Offer Expiration Date", <DatePicker className="input-field w-full" value={form.offerExpirationDate} onChange={e => setForm({...form, offerExpirationDate: e.target.value})} />)}
           </div>
 
           {/* 2. Included Categories */}
@@ -2746,7 +2747,7 @@ export function UserProfilePanel({
                                           <tr key={iIdx}>
                                             <td className="px-3 py-2 font-bold text-surface-500">{iIdx + 1}</td>
                                             <td className="px-3 py-2">
-                                              <input type="date" className="input-field text-xs py-1 px-2 w-full min-w-[110px]" value={inst.dueDate} onChange={e => {
+                                              <DatePicker className="input-field text-xs py-1 px-2 w-full min-w-[110px]" value={inst.dueDate} onChange={e => {
                                                 const newInsts = [...(en.customInstallments || [])];
                                                 newInsts[iIdx].dueDate = e.target.value;
                                                 updateGrantEnrollment(idx, { customInstallments: newInsts });
@@ -2805,7 +2806,7 @@ export function UserProfilePanel({
                                     {en.historicalSessions.map((hs: any, hsIdx: number) => (
                                       <div key={hsIdx} className="flex items-center gap-2">
                                         <div className="text-xs font-bold text-surface-400 w-6">{hsIdx + 1}.</div>
-                                        <input type="date" className="input-field text-xs py-1" value={hs.date} onChange={e => {
+                                        <DatePicker className="input-field text-xs py-1" value={hs.date} onChange={e => {
                                           const newEn = [...grantEnrollments];
                                           newEn[idx].historicalSessions[hsIdx].date = e.target.value;
                                           setGrantEnrollments(newEn);
@@ -2942,7 +2943,7 @@ export function UserProfilePanel({
                           <span className="text-surface-400">{ar() ? "التفعيل" : "Activated"}</span>
                           {editingDateId === `${m.id}_activatedAt` ? (
                             <div className="flex items-center gap-1 mt-0.5">
-                              <input type="date" className="input-field py-0.5 px-1.5 text-xs h-7 w-28" value={editingDateValue} onChange={e => setEditingDateValue(e.target.value)} />
+                              <DatePicker className="input-field py-0.5 px-1.5 text-xs h-7 w-28" value={editingDateValue} onChange={e => setEditingDateValue(e.target.value)} />
                               <button className="btn-primary btn-sm px-2 text-xs py-1 h-7" onClick={() => handleUpdateDate(m.id, "activatedAt")}>OK</button>
                               <button className="btn-secondary btn-sm px-2 text-xs py-1 h-7" onClick={() => setEditingDateId(null)}>X</button>
                             </div>
@@ -2961,7 +2962,7 @@ export function UserProfilePanel({
                           <span className="text-surface-400">{ar() ? "الانتهاء" : "Expires"}</span>
                           {editingDateId === `${m.id}_expiresAt` ? (
                             <div className="flex items-center gap-1 mt-0.5">
-                              <input type="date" className="input-field py-0.5 px-1.5 text-xs h-7 w-28" value={editingDateValue} onChange={e => setEditingDateValue(e.target.value)} />
+                              <DatePicker className="input-field py-0.5 px-1.5 text-xs h-7 w-28" value={editingDateValue} onChange={e => setEditingDateValue(e.target.value)} />
                               <button className="btn-primary btn-sm px-2 text-xs py-1 h-7" onClick={() => handleUpdateDate(m.id, "expiresAt")}>OK</button>
                               <button className="btn-secondary btn-sm px-2 text-xs py-1 h-7" onClick={() => setEditingDateId(null)}>X</button>
                             </div>
@@ -3365,8 +3366,7 @@ export function UserProfilePanel({
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-slide-up relative">
             <h3 className="text-lg font-bold text-surface-900 mb-2">{ar() ? "تاريخ الجلسة" : "Session Date"}</h3>
             <p className="text-sm text-surface-500 mb-4">{ar() ? "الرجاء إدخال تاريخ الجلسة" : "Please enter the session date"}</p>
-            <input
-              type="date"
+            <DatePicker
               className="input-field w-full mb-4"
               value={sessionDateValue}
               onChange={(e) => setSessionDateValue(e.target.value)}
@@ -3914,7 +3914,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                                           <tr key={iIdx}>
                                             <td className="px-3 py-2 font-bold text-surface-500">{iIdx + 1}</td>
                                             <td className="px-3 py-2">
-                                              <input type="date" className="input-field text-xs py-1 px-2 w-full min-w-[110px]" value={inst.dueDate} onChange={e => {
+                                              <DatePicker className="input-field text-xs py-1 px-2 w-full min-w-[110px]" value={inst.dueDate} onChange={e => {
                                                 const newInsts = [...(en.customInstallments || [])];
                                                 newInsts[iIdx].dueDate = e.target.value;
                                                 updateEnrollment(idx, { customInstallments: newInsts });
@@ -3980,7 +3980,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                                     {en.historicalSessions.map((hs: any, hsIdx: number) => (
                                       <div key={hsIdx} className="flex items-center gap-2">
                                         <div className="text-xs font-bold text-surface-400 w-6">{hsIdx + 1}.</div>
-                                        <input type="date" className="input-field text-xs py-1" value={hs.date} onChange={e => {
+                                        <DatePicker className="input-field text-xs py-1" value={hs.date} onChange={e => {
                                           const newEn = [...addForm.enrollments];
                                           newEn[idx].historicalSessions![hsIdx].date = e.target.value;
                                           setAddForm({ ...addForm, enrollments: newEn });
@@ -4223,10 +4223,10 @@ function AuditLogViewer() {
             <option value="Payment">Payment</option>
             <option value="UserOffer">User Offer</option>
           </select>
-          <input type="date" className="input-field text-sm" value={startDate}
+          <DatePicker className="input-field text-sm" value={startDate}
             onChange={e => { setStartDate(e.target.value); setPage(1); }}
             placeholder="Start date" />
-          <input type="date" className="input-field text-sm" value={endDate}
+          <DatePicker className="input-field text-sm" value={endDate}
             onChange={e => { setEndDate(e.target.value); setPage(1); }}
             placeholder="End date" />
         </div>

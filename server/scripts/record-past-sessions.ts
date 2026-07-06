@@ -102,7 +102,7 @@ async function run() {
           userOfferId: uo._id,
           clinicId: uo.clinicId,
           membershipType: (uo as any).membershipType,
-          status: "confirmed",
+          status: "completed",
           scheduledSessionId: sessionDoc._id,
           clinicPaymentStatus: "paid",
           createdAt: pastDate,

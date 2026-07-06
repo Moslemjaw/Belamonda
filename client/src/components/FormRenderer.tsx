@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import i18n from "../app/i18n";
+import DatePicker from "./DatePicker";
 
 const ar = () => i18n.language === "ar";
 
@@ -245,8 +246,7 @@ export function FormRenderer({
               )}
 
               {f.type === "date" && (
-                <input
-                  type="date"
+                <DatePicker
                   className="input-field"
                   value={values[f.key] ?? ""}
                   readOnly={readOnly}

@@ -1,0 +1,50 @@
+import React from 'react';
+import ReactDatePicker, { registerLocale } from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
+import ar from 'date-fns/locale/ar-SA';
+import enGB from 'date-fns/locale/en-GB';
+import i18n from '../app/i18n';
+
+registerLocale('ar', ar);
+registerLocale('en', enGB);
+
+interface DatePickerProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value'> {
+  value?: string;
+  onChange?: (e: { target: { value: string; name?: string } }) => void;
+}
+
+export default function DatePicker({ value, onChange, className, ...props }: DatePickerProps) {
+  // If the string is empty or invalid, dateValue will be null
+  const dateValue = value && !isNaN(new Date(value).getTime()) ? new Date(value) : null;
+
+  const handleChange = (date: Date | null) => {
+    if (onChange) {
+      if (!date) {
+        onChange({ target: { value: '', name: props.name } });
+        return;
+      }
+      
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      onChange({ target: { value: `${year}-${month}-${day}`, name: props.name } });
+    }
+  };
+
+  const isAr = i18n.language === 'ar';
+
+  return (
+    <ReactDatePicker
+      selected={dateValue}
+      onChange={handleChange}
+      dateFormat="dd/MM/yyyy"
+      className={className}
+      placeholderText={isAr ? 'يوم/شهر/سنة' : 'dd/mm/yyyy'}
+      locale={isAr ? 'ar' : 'en'}
+      showMonthDropdown
+      showYearDropdown
+      dropdownMode="select"
+      {...(props as any)}
+    />
+  );
+}

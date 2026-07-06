@@ -98,6 +98,7 @@ export type AppointmentStatus =
   | "request_received"
   | "slot_assigned"
   | "scheduled"
+  | "confirmed"
   | "checked_in"
   | "in_progress"
   | "completed"

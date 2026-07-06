@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../app/AuthContext";
 import { apiFetch } from "../lib/api";
 import ChatWidget from "./ChatWidget";
+import DatePicker from "./DatePicker";
 import i18n from "../app/i18n";
 
 const ar = () => i18n.language === "ar";
@@ -138,11 +139,11 @@ export default function AdminBookingsMonitor() {
           </div>
           <div>
             <label className="block text-xs font-semibold text-surface-500 mb-1.5">{ar() ? "من تاريخ" : "From"}</label>
-            <input type="date" className="input-field" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <DatePicker className="input-field w-36" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
           </div>
           <div>
             <label className="block text-xs font-semibold text-surface-500 mb-1.5">{ar() ? "إلى تاريخ" : "To"}</label>
-            <input type="date" className="input-field" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            <DatePicker className="input-field w-36" value={toDate} onChange={(e) => setToDate(e.target.value)} />
           </div>
           <button className="btn-primary btn-sm flex items-center gap-1.5" onClick={() => load()} disabled={loading}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}>

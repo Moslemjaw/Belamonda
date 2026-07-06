@@ -16,6 +16,7 @@ import { ReferralActivityWidget } from "../../components/ReferralActivityWidget"
 import NoticeBanner from "../../components/NoticeBanner";
 import { KpiCard } from "../../components/KpiCard";
 import { UserProfilePanel } from "./AdminDashboard";
+import DatePicker from "../../components/DatePicker";
 
 const ar = () => i18n.language === "ar";
 
@@ -352,9 +353,9 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
         <h3 className="text-xl font-bold text-surface-900">{ar() ? "الفواتير" : "Invoices"}</h3>
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-xs text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
+          <DatePicker value={from} onChange={e => setFrom(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
           <label className="text-xs text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
+          <DatePicker value={to} onChange={e => setTo(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
         </div>
       </div>
 
@@ -495,9 +496,9 @@ function ClinicReportsTab({ clinicId: _clinicId }: { clinicId: string }) {
         <h3 className="text-xl font-bold text-surface-900">{ar() ? "التقارير" : "Reports"}</h3>
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-xs text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
-          <input type="date" value={from} onChange={e => setFrom(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
+          <DatePicker value={from} onChange={e => setFrom(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
           <label className="text-xs text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
-          <input type="date" value={to} onChange={e => setTo(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
+          <DatePicker value={to} onChange={e => setTo(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
         </div>
       </div>
 

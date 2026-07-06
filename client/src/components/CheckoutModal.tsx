@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import DatePicker from "./DatePicker";
 import { apiFetch, API_BASE_URL } from "../lib/api";
 import { useAuth } from "../app/AuthContext";
 import { FormRenderer, FormDefinition } from "./FormRenderer";
@@ -634,8 +635,7 @@ export default function CheckoutModal({
                 <div className="rounded-2xl border border-surface-200 p-4 space-y-3">
                   <div>
                     <label className="text-xs font-bold text-surface-700">{t("When do you plan to complete payment?", "متى تخططين لإكمال الدفع؟")}</label>
-                    <input
-                      type="date"
+                    <DatePicker
                       value={completionDate}
                       onChange={(e) => setCompletionDate(e.target.value)}
                       className="mt-1 w-full rounded-lg border border-surface-300 px-3 py-2 text-sm"

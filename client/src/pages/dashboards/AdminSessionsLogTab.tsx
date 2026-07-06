@@ -5,6 +5,7 @@ import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { sharedClinics } from "../../lib/clinics";
 import { fmtDate } from "../../lib/dateFormat";
+import DatePicker from "../../components/DatePicker";
 
 const ar = () => i18n.language === "ar";
 
@@ -169,11 +170,10 @@ export default function AdminSessionsLogTab() {
               onChange={e => setSearchQuery(e.target.value)}
               className="input-field py-1.5 text-sm w-48"
             />
-            <input 
-              type="date" 
+            <DatePicker 
               value={filterDate} 
               onChange={e => setFilterDate(e.target.value)} 
-              className="input-field py-1.5 text-sm" 
+              className="input-field py-1.5 text-sm w-36" 
             />
           </div>
           <button onClick={fetchSessions} className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg">

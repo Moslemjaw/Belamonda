@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../../app/AuthContext";
 import { apiFetch } from "../../lib/api";
 import { fmtDate } from "../../lib/dateFormat";
+import DatePicker from "../../components/DatePicker";
 import i18n from "../../app/i18n";
 
 const ar = () => i18n.language === "ar";
@@ -39,7 +40,7 @@ function RescheduleModal({ isOpen, session, onClose, onSubmit }: {
         <div className="p-5 space-y-4">
           <div>
             <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "التاريخ الجديد" : "New Date"}</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="input-field w-full" />
+            <DatePicker value={date} onChange={e => setDate(e.target.value)} className="input-field w-full" />
           </div>
           <div>
             <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "الوقت الجديد" : "New Time"}</label>

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { fmtDate, fmtDateTime } from "../../lib/dateFormat";
+import DatePicker from "../../components/DatePicker";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
@@ -170,8 +171,7 @@ export function KycQueue() {
             <div className="px-6 py-4 bg-surface-50 border-t border-surface-100 flex items-center justify-between">
               <div>
                 <label className="block text-sm font-bold text-surface-700 mb-1">{ar() ? "تاريخ انتهاء البطاقة (اختياري)" : "Expiry Date (Optional)"}</label>
-                <input 
-                  type="date" 
+                <DatePicker 
                   className="input-field max-w-[200px]" 
                   value={kycExpiryDate}
                   onChange={e => setKycExpiryDate(e.target.value)}
@@ -1331,8 +1331,7 @@ function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, clinicI
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl animate-slide-up relative">
             <h3 className="text-lg font-bold text-surface-900 mb-2">{ar() ? "تاريخ الجلسة" : "Session Date"}</h3>
             <p className="text-sm text-surface-500 mb-4">{ar() ? "الرجاء إدخال تاريخ الجلسة" : "Please enter the session date"}</p>
-            <input
-              type="date"
+            <DatePicker
               className="input-field w-full mb-4"
               value={sessionDateValue}
               onChange={(e) => setSessionDateValue(e.target.value)}
@@ -2125,7 +2124,7 @@ function CustomersManager() {
                                           <tr key={iIdx}>
                                             <td className="px-3 py-2 font-bold text-surface-500">{iIdx + 1}</td>
                                             <td className="px-3 py-2">
-                                              <input type="date" className="input-field text-xs py-1 px-2 w-full min-w-[110px]" value={inst.dueDate} onChange={e => {
+                                              <DatePicker className="input-field text-xs py-1 px-2 w-full min-w-[110px]" value={inst.dueDate} onChange={e => {
                                                 const newInsts = [...(en.customInstallments || [])];
                                                 newInsts[iIdx].dueDate = e.target.value;
                                                 updateEnrollment(idx, { customInstallments: newInsts });
