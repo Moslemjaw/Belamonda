@@ -65,7 +65,7 @@ function RescheduleModal({ isOpen, onClose, onSubmit }: { isOpen: boolean; onClo
         <div className="space-y-3">
           <div>
             <label className="block text-xs font-bold text-surface-600 mb-1">{ar() ? "التاريخ" : "Date"}</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full border border-surface-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-pink-400 focus:border-brand-pink-400 outline-none" />
+            <DatePicker value={date} onChange={e => setDate(e.target.value)} className="w-full border border-surface-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-pink-400 focus:border-brand-pink-400 outline-none" />
           </div>
           <div>
             <label className="block text-xs font-bold text-surface-600 mb-1">{ar() ? "الوقت" : "Time"}</label>
