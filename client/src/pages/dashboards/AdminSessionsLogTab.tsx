@@ -293,9 +293,15 @@ export default function AdminSessionsLogTab() {
                         <div className="text-xs text-surface-500">{new Date(s.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
                       {/* Appointment Status */}
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${SESSION_STATUS_STYLE[s.status] ?? "bg-surface-100 text-surface-500"}`}>
-                          {s.status.replace(/_/g, ' ')}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
+                          s.status === 'completed' && s.clinicPaymentStatus !== 'paid' 
+                            ? "bg-amber-50 text-amber-700" 
+                            : SESSION_STATUS_STYLE[s.status] ?? "bg-surface-100 text-surface-500"
+                        }`}>
+                          {s.status === 'completed' && s.clinicPaymentStatus !== 'paid' 
+                            ? "Awaiting Session Payment" 
+                            : s.status.replace(/_/g, ' ')}
                         </span>
                       </td>
                       {/* Payment Status */}

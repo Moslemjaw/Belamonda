@@ -2481,6 +2481,9 @@ export function UserProfilePanel({
       reserved: "bg-blue-50 text-blue-700",
       enet_pending: "bg-purple-50 text-purple-700",
       enet_rejected: "bg-red-50 text-red-600",
+      completed: "bg-emerald-50 text-emerald-700",
+      scheduled: "bg-blue-50 text-blue-700",
+      no_show: "bg-red-50 text-red-600",
     };
     return map[s] ?? "bg-surface-100 text-surface-600";
   };
@@ -3114,7 +3117,15 @@ export function UserProfilePanel({
                       <div className="text-xs font-mono text-surface-400 mt-0.5" title="Request ID">{s.id}</div>
                       <div className="text-xs text-surface-500 mt-0.5">{ar() ? "تاريخ الطلب" : "Requested"}: {fmt(s.requestedAt)}</div>
                     </div>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${statusBadge(s.status)}`}>{s.status}</span>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                      s.status === 'completed' && s.clinicPaymentStatus !== 'paid'
+                        ? 'bg-amber-50 text-amber-700'
+                        : statusBadge(s.status)
+                    }`}>
+                      {s.status === 'completed' && s.clinicPaymentStatus !== 'paid'
+                        ? 'Awaiting Session Payment'
+                        : s.status}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -3161,7 +3172,15 @@ export function UserProfilePanel({
                           {ar() ? "إرجاع للانتظار" : "Revert to Pending"}
                         </button>
                       )}
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${statusBadge(s.status)}`}>{s.status}</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                        s.status === 'completed' && s.clinicPaymentStatus !== 'paid'
+                          ? 'bg-amber-50 text-amber-700'
+                          : statusBadge(s.status)
+                      }`}>
+                        {s.status === 'completed' && s.clinicPaymentStatus !== 'paid'
+                          ? 'Awaiting Session Payment'
+                          : s.status}
+                      </span>
                     </div>
                   </div>
                 ))}
