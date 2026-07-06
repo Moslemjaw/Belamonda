@@ -24,7 +24,7 @@ type BookingRow = {
 
 type ClinicRow = { id: string; nameEn?: string; nameAr?: string };
 
-const STATUSES = ["all", "open", "request_received", "slot_assigned", "scheduled", "checked_in", "completed", "no_show", "cancelled"] as const;
+const STATUSES = ["all", "open", "request_received", "slot_assigned", "scheduled", "checked_in", "in_progress", "completed", "no_show", "cancelled", "rescheduled"] as const;
 
 type StatusMeta = { cls: string; dotCls: string; labelEn: string; labelAr: string };
 
@@ -34,9 +34,11 @@ const STATUS_META: Record<string, StatusMeta> = {
   slot_assigned:    { cls: "status-pill bg-blue-50 text-blue-700", dotCls: "dot bg-blue-500", labelEn: "Slot Assigned",    labelAr: "تم تحديد الوقت" },
   scheduled:        { cls: "status-pill-active",                dotCls: "dot bg-emerald-500", labelEn: "Scheduled",        labelAr: "مجدول" },
   checked_in:       { cls: "status-pill bg-teal-50 text-teal-700", dotCls: "dot bg-teal-500", labelEn: "Checked In",       labelAr: "تم الحضور" },
+  in_progress:      { cls: "status-pill bg-purple-50 text-purple-700", dotCls: "dot bg-purple-500", labelEn: "In Progress", labelAr: "قيد التنفيذ" },
   completed:        { cls: "status-pill bg-gray-50 text-gray-700", dotCls: "dot bg-gray-500", labelEn: "Completed",        labelAr: "مكتمل" },
   no_show:          { cls: "status-pill bg-red-50 text-red-700",  dotCls: "dot bg-red-500",   labelEn: "No Show",          labelAr: "لم يحضر" },
   cancelled:        { cls: "status-pill-locked",                dotCls: "dot bg-surface-400", labelEn: "Cancelled",        labelAr: "ملغى" },
+  rescheduled:      { cls: "status-pill bg-orange-50 text-orange-700", dotCls: "dot bg-orange-500", labelEn: "Rescheduled", labelAr: "تمت إعادة الجدولة" },
 };
 
 function StatusPill({ status }: { status: string }) {

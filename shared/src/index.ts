@@ -99,8 +99,10 @@ export type AppointmentStatus =
   | "slot_assigned"
   | "scheduled"
   | "checked_in"
+  | "in_progress"
   | "completed"
   | "cancelled"
+  | "rescheduled"
   | "no_show";
 
 // ─── Payments ───────────────────────────────────────

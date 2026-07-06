@@ -2991,6 +2991,8 @@ export default function CustomerDashboard() {
                   request_received: { label: "Request Received", labelAr: "تم استلام الطلب", color: "bg-amber-100 text-amber-800" },
                   slot_assigned:    { label: "Slot Assigned",    labelAr: "تم تحديد الوقت", color: "bg-blue-100 text-blue-800" },
                   scheduled:        { label: "Scheduled",        labelAr: "مجدول",           color: "bg-emerald-100 text-emerald-800" },
+                  in_progress:      { label: "In Progress",      labelAr: "قيد التنفيذ",     color: "bg-purple-100 text-purple-800" },
+                  rescheduled:      { label: "Rescheduled",      labelAr: "تمت إعادة الجدولة", color: "bg-orange-100 text-orange-800" },
                   checked_in:       { label: "Checked In",       labelAr: "تم الحضور",       color: "bg-teal-100 text-teal-800" },
                   completed:        { label: "Completed",        labelAr: "مكتمل",           color: "bg-emerald-100 text-emerald-800" },
                   no_show:          { label: "No Show",          labelAr: "لم يحضر",         color: "bg-red-100 text-red-800" },

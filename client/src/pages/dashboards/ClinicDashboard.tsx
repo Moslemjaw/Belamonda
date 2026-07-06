@@ -340,6 +340,8 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                         ${inv.status === 'request_received' ? 'bg-amber-50 text-amber-700' : ''}
                         ${inv.status === 'slot_assigned' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
                         ${inv.status === 'checked_in' ? 'bg-teal-50 text-teal-700' : ''}
+                        ${inv.status === 'in_progress' ? 'bg-purple-50 text-purple-700' : ''}
+                        ${inv.status === 'rescheduled' ? 'bg-orange-50 text-orange-700' : ''}
                       `}>
                         {inv.status.replace(/_/g, ' ')}
                       </span>
@@ -351,9 +353,9 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                     </td>
                     <td>
                       {(() => {
-                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled'].includes(inv.status)
+                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled'].includes(inv.status)
                           ? 'awaiting'
-                          : inv.status === 'checked_in' ? 'checked_in'
+                          : ['checked_in', 'in_progress'].includes(inv.status) ? 'checked_in'
                           : inv.status === 'completed' ? 'attended'
                           : inv.status === 'no_show' ? 'no_show'
                           : 'n_a';
@@ -487,6 +489,8 @@ const SESSION_STATUS_STYLE: Record<string, string> = {
   request_received: "bg-amber-50 text-amber-700",
   slot_assigned: "bg-brand-pink-50 text-brand-pink-700",
   checked_in: "bg-teal-50 text-teal-700",
+  in_progress: "bg-purple-50 text-purple-700",
+  rescheduled: "bg-orange-50 text-orange-700",
 };
 
 function ClinicReportTable({ data, loading, from, to }: {
@@ -569,9 +573,9 @@ function ClinicReportTable({ data, loading, from, to }: {
                     </td>
                     <td className="px-4 py-3">
                       {(() => {
-                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled'].includes(s.status)
+                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled'].includes(s.status)
                           ? 'awaiting'
-                          : s.status === 'checked_in' ? 'checked_in'
+                          : ['checked_in', 'in_progress'].includes(s.status) ? 'checked_in'
                           : s.status === 'completed' ? 'attended'
                           : s.status === 'no_show' ? 'no_show'
                           : 'n_a';
@@ -634,9 +638,9 @@ function ClinicReportTable({ data, loading, from, to }: {
                     </td>
                     <td className="px-4 py-3">
                       {(() => {
-                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled'].includes(inv.status)
+                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled'].includes(inv.status)
                           ? 'awaiting'
-                          : inv.status === 'checked_in' ? 'checked_in'
+                          : ['checked_in', 'in_progress'].includes(inv.status) ? 'checked_in'
                           : inv.status === 'completed' ? 'attended'
                           : inv.status === 'no_show' ? 'no_show'
                           : 'n_a';

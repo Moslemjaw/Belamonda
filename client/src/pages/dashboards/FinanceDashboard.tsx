@@ -1036,6 +1036,8 @@ function ClinicRowDetail({ clinicId, from, to }: { clinicId: string; from: strin
                       ${inv.status === 'request_received' ? 'bg-amber-50 text-amber-700' : ''}
                       ${inv.status === 'slot_assigned' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
                       ${inv.status === 'checked_in' ? 'bg-teal-50 text-teal-700' : ''}
+                      ${inv.status === 'in_progress' ? 'bg-purple-50 text-purple-700' : ''}
+                      ${inv.status === 'rescheduled' ? 'bg-orange-50 text-orange-700' : ''}
                     `}>
                       {inv.status.replace(/_/g, ' ')}
                     </span>

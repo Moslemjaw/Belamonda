@@ -33,7 +33,9 @@ function statusLabel(status: string): string {
     scheduled: ["Scheduled", "مجدول"],
     cancelled: ["Cancelled", "ملغى"],
     checked_in: ["Checked In", "تم الحضور"],
+    in_progress: ["In Progress", "قيد التنفيذ"],
     completed: ["Completed", "مكتمل"],
+    rescheduled: ["Rescheduled", "تمت إعادة الجدولة"],
     no_show: ["No Show", "لم يحضر"],
   };
   const pair = map[status];
@@ -484,7 +486,7 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                     )}
 
                     {/* Staff propose / confirm / reject */}
-                    {!adminMode && showBookingActions && isStaff && !["scheduled", "cancelled", "checked_in", "completed", "no_show"].includes(bookingRequest.status) && (
+                    {!adminMode && showBookingActions && isStaff && !["scheduled", "cancelled", "checked_in", "in_progress", "completed", "no_show", "rescheduled"].includes(bookingRequest.status) && (
                       <div className="flex flex-wrap items-center gap-2">
                         <input
                           type="datetime-local"

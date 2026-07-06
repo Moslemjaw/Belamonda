@@ -15,8 +15,10 @@ const BookingRequestSchema = new Schema(
         "slot_assigned",
         "scheduled",
         "checked_in",
+        "in_progress",
         "completed",
         "cancelled",
+        "rescheduled",
         "no_show"
       ] satisfies AppointmentStatus[],
       default: "request_received",
