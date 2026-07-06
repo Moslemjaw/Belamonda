@@ -1936,6 +1936,17 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
 
     if (updated?.status === "completed") {
       notifySessionCompletedCashback(uo.userId, updated.id, cashbackUnlocked);
+
+      // Auto-mark the associated booking request as paid
+      const breq = await bookingRequestsStore.findBySessionId(session.id);
+      if (breq && breq.clinicPaymentStatus !== "paid") {
+        await bookingRequestsStore.update(breq.id, {
+          clinicPaymentStatus: "paid",
+          clinicPaymentMarkedAt: new Date().toISOString(),
+          clinicPaymentMarkedBy: req.auth!.userId,
+          sessionPriceKwd: finalPaidKwd || totalBillKwd || breq.sessionPriceKwd
+        });
+      }
     }
     if (updated?.status === "cancelled") {
     if (session.userOfferId && mongoose.isValidObjectId(session.userOfferId)) {
@@ -2121,31 +2132,69 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     const offerDocs = uniqueOfferIds.length > 0 ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).lean() : [];
     const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o.name]));
     
-    const enrichedSessions = sessionDocs.map((doc: any) => ({
-      id: doc._id.toString(),
-      type: "session",
-      userId: doc.userId,
-      clinicId: doc.clinicId,
-      scheduledAt: doc.scheduledAt.toISOString(),
-      status: doc.status,
-      customerName: userMap.get(doc.userId)?.fullName || null,
-      customerPhone: userMap.get(doc.userId)?.phone || null,
-      offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
-      createdAt: doc.createdAt.toISOString()
-    }));
+    // Fetch associated requests for sessions to get payment status
+    const sessionIds = sessionDocs.map(s => s._id.toString());
+    const requestsForSessions = sessionIds.length > 0 ? await BookingRequestModel.find({ scheduledSessionId: { $in: sessionIds } }).lean() : [];
+    const requestsBySessionMap = new Map(requestsForSessions.map((r: any) => [r.scheduledSessionId?.toString(), r]));
 
-    const enrichedRequests = requestDocs.map((doc: any) => ({
-      id: doc._id.toString(),
-      type: "request",
-      userId: doc.userId,
-      clinicId: doc.clinicId,
-      scheduledAt: doc.proposedAt?.toISOString() || doc.preferredAt?.toISOString() || doc.createdAt.toISOString(),
-      status: doc.status,
-      customerName: userMap.get(doc.userId)?.fullName || null,
-      customerPhone: userMap.get(doc.userId)?.phone || null,
-      offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
-      createdAt: doc.createdAt.toISOString()
-    }));
+    // Fetch associated sessions for requests to get session status
+    const reqSessionIds = requestDocs.map(r => r.scheduledSessionId).filter(Boolean);
+    const sessionsForRequests = reqSessionIds.length > 0 ? await BookingSessionModel.find({ _id: { $in: reqSessionIds } }).lean() : [];
+    const sessionsByReqMap = new Map(sessionsForRequests.map((s: any) => [s._id.toString(), s]));
+
+    const enrichedSessions = sessionDocs.map((doc: any) => {
+      const req = requestsBySessionMap.get(doc._id.toString());
+      const sStatus = doc.status;
+      const pStatus = req?.clinicPaymentStatus || "pending";
+      
+      let combinedStatus = "";
+      if (sStatus === "completed" && pStatus === "paid") combinedStatus = "Completed";
+      else if (sStatus === "completed" && pStatus !== "paid") combinedStatus = "Missing POS";
+      else if (sStatus !== "completed" && pStatus === "paid") combinedStatus = "Missing Came";
+      else combinedStatus = "Missing Both";
+
+      return {
+        id: doc._id.toString(),
+        type: "session",
+        userId: doc.userId,
+        clinicId: doc.clinicId,
+        scheduledAt: doc.scheduledAt.toISOString(),
+        status: doc.status,
+        customerName: userMap.get(doc.userId)?.fullName || null,
+        customerPhone: userMap.get(doc.userId)?.phone || null,
+        offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
+        createdAt: doc.createdAt.toISOString(),
+        combinedSessionStatus: combinedStatus,
+        clinicPaymentStatus: pStatus
+      };
+    });
+
+    const enrichedRequests = requestDocs.map((doc: any) => {
+      const sess = doc.scheduledSessionId ? sessionsByReqMap.get(doc.scheduledSessionId.toString()) : null;
+      const sStatus = sess?.status;
+      const pStatus = doc.clinicPaymentStatus || "pending";
+      
+      let combinedStatus = "";
+      if (sStatus === "completed" && pStatus === "paid") combinedStatus = "Completed";
+      else if (sStatus === "completed" && pStatus !== "paid") combinedStatus = "Missing POS";
+      else if (sStatus !== "completed" && pStatus === "paid") combinedStatus = "Missing Came";
+      else combinedStatus = "Missing Both";
+
+      return {
+        id: doc._id.toString(),
+        type: "request",
+        userId: doc.userId,
+        clinicId: doc.clinicId,
+        scheduledAt: doc.proposedAt?.toISOString() || doc.preferredAt?.toISOString() || doc.createdAt.toISOString(),
+        status: doc.status,
+        customerName: userMap.get(doc.userId)?.fullName || null,
+        customerPhone: userMap.get(doc.userId)?.phone || null,
+        offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
+        createdAt: doc.createdAt.toISOString(),
+        combinedSessionStatus: combinedStatus,
+        clinicPaymentStatus: pStatus
+      };
+    });
 
     const allItems = [...enrichedSessions, ...enrichedRequests];
     allItems.sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());

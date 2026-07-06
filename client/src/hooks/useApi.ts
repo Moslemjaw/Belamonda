@@ -600,6 +600,7 @@ export type ClinicDetailInvoice = {
   id: string; userId: string; customerName: string; customerPhone?: string | null;
   status: string; sessionPriceKwd?: string | null; cashbackDeductedKwd?: string | null;
   clinicPaymentStatus: string; membershipType?: string | null; createdAt: string; confirmedAt?: string | null;
+  combinedSessionStatus?: string;
 };
 export type ClinicDetailSummary = {
   totalSessions: number; completedSessions: number; noShowSessions: number; scheduledSessions: number;

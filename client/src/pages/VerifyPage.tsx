@@ -1,3 +1,4 @@
+import { fmtDate } from "../lib/dateFormat";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { apiFetch } from "../lib/api";
@@ -62,7 +63,7 @@ export default function VerifyPage() {
                   <div className="text-xs font-bold uppercase tracking-widest text-brand-pink-200 mb-1">Membership Card</div>
                   <h1 className="text-2xl font-black">{card.displayName}</h1>
                   {card.memberSince && (
-                    <div className="text-sm text-brand-pink-200 mt-1">Member since {new Date(card.memberSince).toLocaleDateString("en-KW", { month: "long", year: "numeric" })}</div>
+                    <div className="text-sm text-brand-pink-200 mt-1">Member since {fmtDate(card.memberSince)}</div>
                   )}
                 </div>
                 <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center text-2xl font-black text-white backdrop-blur-sm">

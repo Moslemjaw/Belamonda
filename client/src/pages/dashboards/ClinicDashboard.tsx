@@ -6,7 +6,7 @@ import { useAuth } from "../../app/AuthContext";
 import { useClinicSchedule, useMyClinicReport, invalidateCache } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL } from "../../lib/api";
 import { sharedClinics } from "../../lib/clinics";
-import { fmtDate } from "../../lib/dateFormat";
+import { fmtDate, fmtDateTime } from "../../lib/dateFormat";
 import i18n from "../../app/i18n";
 import ClinicBookingRequestsTab from "./ClinicBookingRequestsTab";
 import ClinicMissedSessionsTab from "./ClinicMissedSessionsTab";
@@ -155,7 +155,7 @@ function ScheduleTable({
           {s.customerPhone && <div className="text-xs font-mono text-surface-500 mt-0.5" dir="ltr">{s.customerPhone}</div>}
         </td>
         <td className="py-2 text-sm text-surface-600">{s.offerName || "Session"}</td>
-        <td className="py-2 text-sm text-surface-600">{new Date(s.scheduledAt).toLocaleString()}</td>
+        <td className="py-2 text-sm text-surface-600">{fmtDateTime(s.scheduledAt)}</td>
         <td className="py-2 text-sm">
           <span className={`px-2 py-1 rounded-full text-xs font-bold ${s.status === "completed" ? "bg-emerald-100 text-emerald-700" : s.status === "no_show" ? "bg-red-100 text-red-700" : "bg-blue-100 text-blue-700"}`}>
             {s.status}
@@ -315,6 +315,7 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                   <th>{ar() ? "نوع العضوية" : "Membership Type"}</th>
                   <th>{ar() ? "سعر الجلسة" : "Session Price"}</th>
                   <th>{ar() ? "دفعة العيادة" : "Clinic Payment"}</th>
+                  <th>{ar() ? "حالة الجلسة" : "Session Status"}</th>
                   <th>{ar() ? "حالة الفاتورة" : "Invoice Status"}</th>
                 </tr>
               </thead>
@@ -333,6 +334,16 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                     <td>
                       <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${inv.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
                         {inv.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع" : "Paid") : (ar() ? "معلق" : "Pending")}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide
+                        ${inv.combinedSessionStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700' : ''}
+                        ${inv.combinedSessionStatus === 'Missing POS' ? 'bg-amber-50 text-amber-700' : ''}
+                        ${inv.combinedSessionStatus === 'Missing Came' ? 'bg-amber-50 text-amber-700' : ''}
+                        ${inv.combinedSessionStatus === 'Missing Both' ? 'bg-red-50 text-red-700' : ''}
+                      `}>
+                        {inv.combinedSessionStatus}
                       </span>
                     </td>
                     <td>
@@ -990,7 +1001,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                       <div className="text-xs font-semibold text-orange-800 mt-1">
                         {b.standaloneName || b.offerName || "Session"}
                         <span className="mx-2 text-orange-300">•</span>
-                        {b.scheduledAt ? new Date(b.scheduledAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : "—"}
+                        {b.scheduledAt ? fmtDateTime(b.scheduledAt) : "—"}
                       </div>
                     </div>
                     <button
@@ -1036,7 +1047,12 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                     <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
                       {s.status === "scheduled" && (
                         <div className="flex gap-2 w-full sm:w-auto">
-                          <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "completed")} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 shadow-sm transition-colors">{markingId === s.id ? "…" : "✓ " + (ar() ? "حضر" : "Came")}</button>
+                          <button disabled={markingId === s.id} onClick={() => {
+                            const linkedBooking = clinicBookings.find((b: any) => b.scheduledSessionId === s.id);
+                            const owesMoney = linkedBooking && linkedBooking.clinicPaymentStatus !== "paid";
+                            const baseAmount = owesMoney ? (linkedBooking.clinicTakeKwd || linkedBooking.sessionPriceKwd || "0") : "0";
+                            setCheckoutSession({ ...s, baseAmount });
+                          }} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 shadow-sm transition-colors">{markingId === s.id ? "…" : "✓ " + (ar() ? "حضر" : "Came")}</button>
                           <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "no_show")} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 disabled:opacity-50 transition-colors">{markingId === s.id ? "…" : "✗ " + (ar() ? "لم يحضر" : "No Show")}</button>
                         </div>
                       )}
@@ -1123,7 +1139,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
       <POSCheckoutModal 
         isOpen={!!checkoutSession} 
         onClose={() => setCheckoutSession(null)} 
-        baseAmountKwd={"0.000"} 
+        baseAmountKwd={checkoutSession?.baseAmount || "0.000"} 
         walletBalanceKwd={maxCashbackKwd}
         baseCashbackKwd={"0"} // The base session's cashback (if any) was already handled, only allow cashback on extra items
         clinicProducts={clinicProducts}

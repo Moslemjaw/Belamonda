@@ -1637,6 +1637,11 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
   const noShow = (sessions as any[]).filter((s) => s.status === "no_show").length;
   const scheduled = (sessions as any[]).filter((s) => s.status === "scheduled").length;
 
+  // Find sessions for these bookingReqs
+  const brSessionIds = (bookingReqs as any[]).map(br => br.scheduledSessionId).filter(Boolean);
+  const brSessions = await BookingSessionModel.find({ _id: { $in: brSessionIds } }).select("status").lean();
+  const brSessionMap = new Map(brSessions.map((s: any) => [s._id.toString(), s.status]));
+
   return {
     clinic: clinic ? { nameEn: (clinic as any).nameEn ?? "", nameAr: (clinic as any).nameAr ?? "" } : null,
     summary: {
@@ -1662,18 +1667,28 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
       notes: s.notes ?? null,
       cashbackUnlockedKwd: s.cashbackUnlockedKwd ?? null,
     })),
-    invoices: (bookingReqs as any[]).map((br) => ({
-      id: br._id.toString(),
-      userId: br.userId,
-      ...resolveUser(br.userId),
-      status: br.status,
-      sessionPriceKwd: br.sessionPriceKwd ?? null,
-      cashbackDeductedKwd: br.cashbackDeductedKwd ?? null,
-      clinicPaymentStatus: br.clinicPaymentStatus ?? "pending",
-      membershipType: br.membershipType ?? null,
-      createdAt: br.createdAt,
-      confirmedAt: br.confirmedAt ?? null,
-    })),
+    invoices: (bookingReqs as any[]).map((br) => {
+      const sStatus = br.scheduledSessionId ? brSessionMap.get(br.scheduledSessionId.toString()) : null;
+      let combinedStatus = "";
+      if (br.clinicPaymentStatus === "paid" && sStatus === "completed") combinedStatus = "Completed";
+      else if (br.clinicPaymentStatus !== "paid" && sStatus === "completed") combinedStatus = "Missing POS";
+      else if (br.clinicPaymentStatus === "paid" && sStatus !== "completed") combinedStatus = "Missing Came";
+      else combinedStatus = "Missing Both";
+
+      return {
+        id: br._id.toString(),
+        userId: br.userId,
+        ...resolveUser(br.userId),
+        status: br.status,
+        sessionPriceKwd: br.sessionPriceKwd ?? null,
+        cashbackDeductedKwd: br.cashbackDeductedKwd ?? null,
+        clinicPaymentStatus: br.clinicPaymentStatus ?? "pending",
+        membershipType: br.membershipType ?? null,
+        createdAt: br.createdAt,
+        confirmedAt: br.confirmedAt ?? null,
+        combinedSessionStatus: combinedStatus,
+      };
+    }),
   };
 }
 
@@ -1853,7 +1868,7 @@ export async function exportClinicReportXlsx(clinicId: string, filters: { from?:
 
   // — Invoices sheet —
   const wsI = wb.addWorksheet("Invoices");
-  const invoiceHeaders = ["Date", "Customer", "Phone", "Session Price (KWD)", "Cashback Applied (KWD)", "Clinic Payment", "Type", "Status"];
+  const invoiceHeaders = ["Date", "Customer", "Phone", "Session Price (KWD)", "Cashback Applied (KWD)", "Clinic Payment", "Type", "Status", "Combined Status"];
   const iHeaderRow = wsI.getRow(1);
   iHeaderRow.values = invoiceHeaders;
   styleHeaderRow(iHeaderRow);
@@ -1869,6 +1884,7 @@ export async function exportClinicReportXlsx(clinicId: string, filters: { from?:
       inv.clinicPaymentStatus,
       inv.membershipType ?? "—",
       inv.status,
+      inv.combinedSessionStatus,
     ];
     styleDataRow(row, idx % 2 === 1);
   });

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { fmtDate } from "../../lib/dateFormat";
+import { fmtDate, fmtDateTime } from "../../lib/dateFormat";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
@@ -92,7 +92,7 @@ export function KycQueue() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <div className="text-xs sm:text-sm font-bold text-surface-900 truncate">{k.userName || "Unknown User"}</div>
-                    <span className="text-[9px] sm:text-[10px] font-bold text-surface-400 bg-surface-100 px-1 sm:px-1.5 py-0.5 rounded shrink-0" title={new Date(k.createdAt).toLocaleString()}>{fmtAge(k.createdAt)}</span>
+                    <span className="text-[9px] sm:text-[10px] font-bold text-surface-400 bg-surface-100 px-1 sm:px-1.5 py-0.5 rounded shrink-0" title={fmtDateTime(k.createdAt)}>{fmtAge(k.createdAt)}</span>
                   </div>
                   <div className="text-[10px] sm:text-xs text-surface-500 mt-0.5 flex items-center gap-1 sm:gap-2 truncate">
                     <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0" /></svg>
@@ -261,7 +261,7 @@ export function PaymentQueue() {
     const customerName = p.userName || p.userId;
     const amountDue = p.amount || p.paymentAmountKwd || "—";
 
-    const html = `<!DOCTYPE html><html dir="${isAr ? "rtl" : "ltr"}" lang="${isAr ? "ar" : "en"}"><head><meta charset="UTF-8"><title>Belamonda Receipt</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1a1a1a;background:#fff;padding:32px}.receipt{max-width:460px;margin:0 auto;border:1px solid #e8e8e8;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)}.header{background:linear-gradient(135deg,#fdf2f8 0%,#fff 100%);padding:22px 24px;border-bottom:1px solid #f5e6f0;display:flex;align-items:center;gap:14px}.logo-text h1{font-size:20px;font-weight:800;color:#1a1a1a;letter-spacing:-.5px}.logo-text p{font-size:10px;color:#bbb;text-transform:uppercase;letter-spacing:2px;margin-top:1px}.badge{margin-${isAr ? "right" : "left"}:auto;background:#fce7f3;color:#be185d;font-size:10px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}.section{padding:14px 24px}.section+.section{border-top:1px solid #f5f5f5}.label{font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}.row{display:flex;justify-content:space-between;align-items:center;padding:4px 0}.row .k{font-size:13px;color:#666}.row .v{font-size:13px;font-weight:600;color:#1a1a1a}.amount-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0 4px}.amount-row .k{font-size:13px;color:#666}.amount-row .v{font-size:26px;font-weight:900;color:#db2777}.status{display:inline-block;background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px}.ref{font-size:10px;color:#bbb;word-break:break-all}table{width:100%;border-collapse:collapse}.footer{padding:14px 24px;background:#fafafa;text-align:center;border-top:1px solid #f0f0f0}.footer p{font-size:11px;color:#bbb}@media print{body{padding:0}.receipt{border:none;border-radius:0;box-shadow:none}}</style></head><body><div class="receipt"><div class="header">${logoSvg}<div class="logo-text"><h1>Belamonda</h1><p>Beauty &amp; Wellness · Kuwait</p></div><div class="badge">${isAr ? "إيصال" : "Receipt"}</div></div><div class="section"><div class="label">${isAr ? "بيانات العميل" : "Customer"}</div><div class="row"><span class="k">${isAr ? "الاسم" : "Name"}</span><span class="v">${customerName}</span></div>${p.userPhone ? `<div class="row"><span class="k">${isAr ? "الهاتف" : "Phone"}</span><span class="v">${p.userPhone}</span></div>` : ""}${p.userEmail ? `<div class="row"><span class="k">${isAr ? "البريد الإلكتروني" : "Email"}</span><span class="v">${p.userEmail}</span></div>` : ""}</div><div class="section"><div class="label">${isAr ? "تفاصيل الباقة" : "Offer Details"}</div><div class="row"><span class="k">${isAr ? "الباقة" : "Package"}</span><span class="v">${offerDisplay}</span></div>${clinicDisplay ? `<div class="row"><span class="k">${isAr ? "العيادة" : "Clinic"}</span><span class="v">${clinicDisplay}</span></div>` : ""}<div class="row"><span class="k">${isAr ? "طريقة الدفع" : "Payment Mode"}</span><span class="v">${modeLabel}</span></div><div class="amount-row"><span class="k">${isAr ? "المبلغ المطلوب" : "Amount Due"}</span><span class="v">${amountDue} KWD</span></div></div>${installmentRows ? `<div class="section"><div class="label">${isAr ? "جدول الأقساط" : "Installment Schedule"}</div><table>${installmentRows}</table></div>` : ""}<div class="section"><div class="row"><span class="k">${isAr ? "الحالة" : "Status"}</span><span class="v"><span class="status">${isAr ? "في انتظار التأكيد" : "Awaiting Confirmation"}</span></span></div><div class="row" style="margin-top:6px"><span class="k">${isAr ? "التاريخ" : "Date"}</span><span class="v">${new Date(p.createdAt).toLocaleString()}</span></div><div class="row" style="margin-top:6px"><span class="k">${isAr ? "رقم المرجع" : "Reference ID"}</span><span class="v ref">${p.id}</span></div></div><div class="footer"><p>${isAr ? "شكراً لاختيارك بيلاموندو" : "Thank you for choosing Belamonda"}</p><p style="margin-top:3px">www.belamonda.com</p></div></div><script>window.onload=function(){window.print()}<\/script></body></html>`;
+    const html = `<!DOCTYPE html><html dir="${isAr ? "rtl" : "ltr"}" lang="${isAr ? "ar" : "en"}"><head><meta charset="UTF-8"><title>Belamonda Receipt</title><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1a1a1a;background:#fff;padding:32px}.receipt{max-width:460px;margin:0 auto;border:1px solid #e8e8e8;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.06)}.header{background:linear-gradient(135deg,#fdf2f8 0%,#fff 100%);padding:22px 24px;border-bottom:1px solid #f5e6f0;display:flex;align-items:center;gap:14px}.logo-text h1{font-size:20px;font-weight:800;color:#1a1a1a;letter-spacing:-.5px}.logo-text p{font-size:10px;color:#bbb;text-transform:uppercase;letter-spacing:2px;margin-top:1px}.badge{margin-${isAr ? "right" : "left"}:auto;background:#fce7f3;color:#be185d;font-size:10px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px}.section{padding:14px 24px}.section+.section{border-top:1px solid #f5f5f5}.label{font-size:10px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}.row{display:flex;justify-content:space-between;align-items:center;padding:4px 0}.row .k{font-size:13px;color:#666}.row .v{font-size:13px;font-weight:600;color:#1a1a1a}.amount-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0 4px}.amount-row .k{font-size:13px;color:#666}.amount-row .v{font-size:26px;font-weight:900;color:#db2777}.status{display:inline-block;background:#fef3c7;color:#92400e;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px}.ref{font-size:10px;color:#bbb;word-break:break-all}table{width:100%;border-collapse:collapse}.footer{padding:14px 24px;background:#fafafa;text-align:center;border-top:1px solid #f0f0f0}.footer p{font-size:11px;color:#bbb}@media print{body{padding:0}.receipt{border:none;border-radius:0;box-shadow:none}}</style></head><body><div class="receipt"><div class="header">${logoSvg}<div class="logo-text"><h1>Belamonda</h1><p>Beauty &amp; Wellness · Kuwait</p></div><div class="badge">${isAr ? "إيصال" : "Receipt"}</div></div><div class="section"><div class="label">${isAr ? "بيانات العميل" : "Customer"}</div><div class="row"><span class="k">${isAr ? "الاسم" : "Name"}</span><span class="v">${customerName}</span></div>${p.userPhone ? `<div class="row"><span class="k">${isAr ? "الهاتف" : "Phone"}</span><span class="v">${p.userPhone}</span></div>` : ""}${p.userEmail ? `<div class="row"><span class="k">${isAr ? "البريد الإلكتروني" : "Email"}</span><span class="v">${p.userEmail}</span></div>` : ""}</div><div class="section"><div class="label">${isAr ? "تفاصيل الباقة" : "Offer Details"}</div><div class="row"><span class="k">${isAr ? "الباقة" : "Package"}</span><span class="v">${offerDisplay}</span></div>${clinicDisplay ? `<div class="row"><span class="k">${isAr ? "العيادة" : "Clinic"}</span><span class="v">${clinicDisplay}</span></div>` : ""}<div class="row"><span class="k">${isAr ? "طريقة الدفع" : "Payment Mode"}</span><span class="v">${modeLabel}</span></div><div class="amount-row"><span class="k">${isAr ? "المبلغ المطلوب" : "Amount Due"}</span><span class="v">${amountDue} KWD</span></div></div>${installmentRows ? `<div class="section"><div class="label">${isAr ? "جدول الأقساط" : "Installment Schedule"}</div><table>${installmentRows}</table></div>` : ""}<div class="section"><div class="row"><span class="k">${isAr ? "الحالة" : "Status"}</span><span class="v"><span class="status">${isAr ? "في انتظار التأكيد" : "Awaiting Confirmation"}</span></span></div><div class="row" style="margin-top:6px"><span class="k">${isAr ? "التاريخ" : "Date"}</span><span class="v">${fmtDateTime(p.createdAt)}</span></div><div class="row" style="margin-top:6px"><span class="k">${isAr ? "رقم المرجع" : "Reference ID"}</span><span class="v ref">${p.id}</span></div></div><div class="footer"><p>${isAr ? "شكراً لاختيارك بيلاموندو" : "Thank you for choosing Belamonda"}</p><p style="margin-top:3px">www.belamonda.com</p></div></div><script>window.onload=function(){window.print()}<\/script></body></html>`;
 
     const w = window.open("", "_blank", "width=580,height=720");
     if (w) { w.document.write(html); w.document.close(); }
@@ -403,7 +403,7 @@ export function PaymentQueue() {
                 </div>
                 <div className="flex justify-between items-center text-sm mt-2">
                   <span className="text-surface-500">{ar() ? "تاريخ الطلب" : "Requested"}</span>
-                  <span className="font-semibold text-surface-800">{new Date(selectedPayment.createdAt).toLocaleString()}</span>
+                  <span className="font-semibold text-surface-800">{fmtDateTime(selectedPayment.createdAt)}</span>
                 </div>
               </div>
 
@@ -739,7 +739,7 @@ function PaymentsManager() {
                       <td className="px-6 py-4">
                         {uo.reservationExpiresAt ? (
                           <span className={`font-semibold px-2.5 py-1 rounded-lg border text-xs ${isExpired ? 'bg-red-50 text-red-700 border-red-100' : 'bg-surface-100 text-surface-700 border-surface-200'}`}>
-                            {new Date(uo.reservationExpiresAt).toLocaleString()}
+                            {fmtDateTime(uo.reservationExpiresAt)}
                           </span>
                         ) : "—"}
                       </td>
@@ -912,7 +912,7 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
                      <div>
                         <div className="font-bold text-surface-900">{selectedBooking.customerName || selectedBooking.userId}</div>
                         {selectedBooking.customerPhone && <div className="text-xs text-surface-500">{selectedBooking.customerPhone}</div>}
-                        <div className="text-xs text-surface-400">{new Date(selectedBooking.createdAt).toLocaleString()}</div>
+                        <div className="text-xs text-surface-400">{fmtDateTime(selectedBooking.createdAt)}</div>
                      </div>
                   </div>
                </div>
@@ -937,7 +937,7 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
                      </div>
                      <div className="flex justify-between items-center text-sm">
                         <span className="text-surface-500">{ar() ? "موعد مفضل" : "Preferred time"}</span>
-                        <span className="font-bold text-surface-900">{selectedBooking.preferredAt ? new Date(selectedBooking.preferredAt).toLocaleString() : (ar() ? "غير محدد" : "—")}</span>
+                        <span className="font-bold text-surface-900">{selectedBooking.preferredAt ? fmtDateTime(selectedBooking.preferredAt) : (ar() ? "غير محدد" : "—")}</span>
                      </div>
                      <div className="flex justify-between items-center text-sm">
                         <span className="text-surface-500">{ar() ? "العضوية/النوع" : "Membership Type"}</span>
@@ -2559,7 +2559,7 @@ function EFormsViewer() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold text-surface-900 truncate">{s.formTitle || "Untitled Form"}</div>
-                <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العميل:" : "Customer:"} <span className="font-semibold text-surface-700">{s.userName || s.userId}</span> {s.userPhone && `(${s.userPhone})`} • {new Date(s.createdAt).toLocaleString()}</div>
+                <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العميل:" : "Customer:"} <span className="font-semibold text-surface-700">{s.userName || s.userId}</span> {s.userPhone && `(${s.userPhone})`} • {fmtDateTime(s.createdAt)}</div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {s.signatureRef && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{ar() ? "موقّع" : "Signed"}</span>}
@@ -2584,7 +2584,7 @@ function EFormsViewer() {
             <div className="overflow-y-auto flex-1 p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "العميل" : "Customer"}</span><span className="font-bold text-surface-900">{selectedSub.userName || selectedSub.userId}<br/><span className="text-xs font-normal text-surface-500">{selectedSub.userPhone}</span></span></div>
-                <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "التاريخ" : "Date"}</span><span className="font-bold text-surface-900">{new Date(selectedSub.createdAt).toLocaleString()}</span></div>
+                <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "التاريخ" : "Date"}</span><span className="font-bold text-surface-900">{fmtDateTime(selectedSub.createdAt)}</span></div>
                 <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "إصدار النموذج" : "Form Version"}</span><span className="font-bold text-surface-900">v{selectedSub.formVersion}</span></div>
                 <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "الحالة" : "Status"}</span><span className="font-bold text-emerald-600">{selectedSub.signatureRef ? (ar() ? "موقّع" : "Signed") : (ar() ? "مقدم" : "Submitted")}</span></div>
               </div>
@@ -2753,7 +2753,7 @@ function InvoiceReviews() {
                   </div>
                 )}
 
-                <div className="text-[11px] text-surface-400">{ar() ? "تاريخ الطلب:" : "Submitted:"} {new Date(req.createdAt).toLocaleString()}</div>
+                <div className="text-[11px] text-surface-400">{ar() ? "تاريخ الطلب:" : "Submitted:"} {fmtDateTime(req.createdAt)}</div>
               </div>
               
               {/* ── Action Buttons ── */}
@@ -2855,7 +2855,7 @@ function SubscriptionRequests() {
                   <span className="text-xs text-surface-500">{ar() ? "المبلغ" : "Amount"}</span>
                   <span className="text-amber-600 font-black text-base">{req.amountKwd} KWD</span>
                 </div>
-                <div className="text-[11px] text-surface-400">{ar() ? "تاريخ الطلب:" : "Submitted:"} {new Date(req.createdAt).toLocaleString()}</div>
+                <div className="text-[11px] text-surface-400">{ar() ? "تاريخ الطلب:" : "Submitted:"} {fmtDateTime(req.createdAt)}</div>
               </div>
 
               {/* Actions */}
@@ -2943,7 +2943,7 @@ function ComplaintModal({ id, onClose, onUpdated }: { id: string, onClose: () =>
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div><span className="text-surface-500 block text-xs">{ar() ? "المرسل" : "From"}</span><span className="font-bold">{data.userName || data.userId}</span></div>
-            <div><span className="text-surface-500 block text-xs">{ar() ? "التاريخ" : "Date"}</span><span className="font-bold">{new Date(data.createdAt).toLocaleString()}</span></div>
+            <div><span className="text-surface-500 block text-xs">{ar() ? "التاريخ" : "Date"}</span><span className="font-bold">{fmtDateTime(data.createdAt)}</span></div>
             <div><span className="text-surface-500 block text-xs">{ar() ? "الفئة" : "Category"}</span><span className="badge-sage">{data.category}</span></div>
             <div><span className="text-surface-500 block text-xs">{ar() ? "الحالة الحالية" : "Current Status"}</span><span className="font-bold">{translateComplaintStatus(data.status)}</span></div>
           </div>
@@ -2964,7 +2964,7 @@ function ComplaintModal({ id, onClose, onUpdated }: { id: string, onClose: () =>
                   <div key={u.id} className="bg-surface-50 p-3 rounded-lg border border-surface-100 text-sm">
                     <div className="flex justify-between items-start mb-1 text-xs text-surface-500">
                       <span className="font-bold font-mono text-surface-700">{u.by}</span>
-                      <span>{new Date(u.createdAt).toLocaleString()}</span>
+                      <span>{fmtDateTime(u.createdAt)}</span>
                     </div>
                     <div><span className="font-bold mr-2">[{translateComplaintStatus(u.status)}]</span>{u.note}</div>
                   </div>
@@ -3067,7 +3067,7 @@ export default function CsDashboard() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-black text-surface-900">{ar() ? "مرحباً بك" : "Welcome back"}</h2>
-                <p className="text-sm text-surface-400 mt-0.5">{new Date().toLocaleDateString(ar() ? "ar-KW" : "en-US", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                <p className="text-sm text-surface-400 mt-0.5">{fmtDate(new Date())}</p>
               </div>
             </div>
 

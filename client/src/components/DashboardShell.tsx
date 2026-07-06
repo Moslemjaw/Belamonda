@@ -1,3 +1,4 @@
+import { fmtDate } from "../lib/dateFormat";
 import { useState, useEffect, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../app/AuthContext";
@@ -418,7 +419,7 @@ export default function DashboardShell({
 
               <div className="min-w-0">
                 <div className="hidden lg:block text-[10px] font-bold text-surface-500 uppercase tracking-widest mb-0.5">
-                  {new Date().toLocaleDateString(isAr ? "ar-KW" : "en-KW", { weekday: "long", month: "long", day: "numeric" })}
+                  {fmtDate(new Date())}
                 </div>
                 <h1 className="text-base sm:text-lg lg:text-xl font-black text-surface-900 leading-tight truncate">{title}</h1>
                 {subtitle && (

@@ -1,3 +1,4 @@
+import { fmtDateTime } from "../../lib/dateFormat";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../app/AuthContext";
 import { apiFetch } from "../../lib/api";
@@ -117,7 +118,7 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
                     <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
                     <div>
                       <span className="font-bold">{ar() ? "الموعد المقترح:" : "Suggested Date:"}</span>{" "}
-                      {r.proposedAt ? new Date(r.proposedAt).toLocaleString() : "—"}
+                      {r.proposedAt ? fmtDateTime(r.proposedAt) : "—"}
                     </div>
                   </div>
 

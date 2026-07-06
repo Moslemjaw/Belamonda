@@ -1,3 +1,4 @@
+import { fmtDateTime } from "../lib/dateFormat";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../app/AuthContext";
 import { apiFetch } from "../lib/api";
@@ -166,8 +167,8 @@ export default function AdminBookingsMonitor() {
                   <td><StatusPill status={it.status} /></td>
                   <td>{ar() ? (it.clinicNameAr ?? it.clinicNameEn ?? it.clinicId) : (it.clinicNameEn ?? it.clinicNameAr ?? it.clinicId)}</td>
                   <td className="font-mono text-xs">{it.userId}</td>
-                  <td>{it.proposedAt ? new Date(it.proposedAt).toLocaleString() : "—"}</td>
-                  <td>{new Date(it.createdAt).toLocaleString()}</td>
+                  <td>{it.proposedAt ? fmtDateTime(it.proposedAt) : "—"}</td>
+                  <td>{fmtDateTime(it.createdAt)}</td>
                   <td className="text-end">
                     {it.conversationId && (
                       <button className="btn-primary btn-sm" onClick={() => setSelectedConvId(it.conversationId!)}>

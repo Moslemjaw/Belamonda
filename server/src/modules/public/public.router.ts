@@ -372,6 +372,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
 
         return {
           id: String(b._id),
+          scheduledSessionId: b.scheduledSessionId ? String(b.scheduledSessionId) : null,
           status: b.status,
           clinicPaymentStatus: b.clinicPaymentStatus ?? "pending",
           sessionPriceKwd: b.sessionPriceKwd ?? null,

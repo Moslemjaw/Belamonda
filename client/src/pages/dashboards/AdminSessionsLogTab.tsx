@@ -15,9 +15,9 @@ export default function AdminSessionsLogTab() {
 
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [filterDate, setFilterDate] = useState("");
   const [status, setStatus] = useState("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [changeClinicTarget, setChangeClinicTarget] = useState<any>(null);
   const [newClinicSelection, setNewClinicSelection] = useState("");
@@ -29,10 +29,17 @@ export default function AdminSessionsLogTab() {
     setLoading(true);
     try {
       let q = "";
-      if (startDate || endDate || status !== "all") {
+      if (filterDate || status !== "all") {
         const p = new URLSearchParams();
-        if (startDate) p.set("from", startDate);
-        if (endDate) p.set("to", endDate);
+        if (filterDate) {
+           const d = new Date(filterDate);
+           if (!isNaN(d.getTime())) {
+             const from = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
+             const to = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).toISOString();
+             p.set("from", from);
+             p.set("to", to);
+           }
+        }
         if (status !== "all") p.set("status", status);
         q = `?${p.toString()}`;
       }
@@ -45,9 +52,17 @@ export default function AdminSessionsLogTab() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader, startDate, endDate, status]);
+  }, [getAuthHeader, filterDate, status]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
+
+  const filteredSessions = sessions.filter(s => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const name = (s.customerName || "").toLowerCase();
+    const phone = (s.customerPhone || "").toLowerCase();
+    return name.includes(q) || phone.includes(q);
+  });
 
   const submitChangeClinic = async () => {
     if (!newClinicSelection || newClinicSelection === changeClinicTarget.clinicId) {
@@ -117,9 +132,19 @@ export default function AdminSessionsLogTab() {
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="input-field py-1.5 text-sm" />
-            <span className="text-surface-400">-</span>
-            <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="input-field py-1.5 text-sm" />
+            <input 
+              type="text" 
+              placeholder={ar() ? "بحث بالاسم او الهاتف..." : "Search name or phone..."}
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              className="input-field py-1.5 text-sm w-48"
+            />
+            <input 
+              type="date" 
+              value={filterDate} 
+              onChange={e => setFilterDate(e.target.value)} 
+              className="input-field py-1.5 text-sm" 
+            />
           </div>
           <button onClick={fetchSessions} className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg">
             ↻ {ar() ? "تحديث" : "Refresh"}
@@ -136,18 +161,19 @@ export default function AdminSessionsLogTab() {
                 <th className="px-6 py-4">{ar() ? "العيادة" : "Clinic"}</th>
                 <th className="px-6 py-4">{ar() ? "الخدمة" : "Service"}</th>
                 <th className="px-6 py-4">{ar() ? "تاريخ الموعد" : "Scheduled At"}</th>
+                <th className="px-6 py-4">{ar() ? "حالة الجلسة" : "Combined Status"}</th>
                 <th className="px-6 py-4">{ar() ? "الحالة" : "Status"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-100">
-              {sessions.length === 0 ? (
+              {filteredSessions.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-10 text-center text-surface-500">
+                  <td colSpan={6} className="px-6 py-10 text-center text-surface-500">
                     {ar() ? "لا توجد جلسات." : "No sessions found."}
                   </td>
                 </tr>
               ) : (
-                sessions.map((s) => {
+                filteredSessions.map((s) => {
                   const clinic = apiClinics.find(c => String(c.id || c._id) === String(s.clinicId));
                   const clinicName = ar() ? clinic?.nameAr : clinic?.nameEn;
                   
@@ -211,6 +237,16 @@ export default function AdminSessionsLogTab() {
                       <td className="px-6 py-4">
                         <div className="font-bold text-surface-900">{fmtDate(s.scheduledAt)}</div>
                         <div className="text-xs text-surface-500">{new Date(s.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide
+                          ${s.combinedSessionStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700' : ''}
+                          ${s.combinedSessionStatus === 'Missing POS' ? 'bg-amber-50 text-amber-700' : ''}
+                          ${s.combinedSessionStatus === 'Missing Came' ? 'bg-amber-50 text-amber-700' : ''}
+                          ${s.combinedSessionStatus === 'Missing Both' ? 'bg-red-50 text-red-700' : ''}
+                        `}>
+                          {s.combinedSessionStatus}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide

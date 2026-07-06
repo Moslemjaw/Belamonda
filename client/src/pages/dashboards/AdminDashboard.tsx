@@ -18,7 +18,7 @@ import { PromotionsManager } from "../../components/PromotionsManager";
 import ChatWidget from "../../components/ChatWidget";
 import AdminBookingsMonitor from "../../components/AdminBookingsMonitor";
 import ShareLinkPage from "../../components/ShareLinkPage";
-import { fmtDate } from "../../lib/dateFormat";
+import { fmtDate, fmtDateTime } from "../../lib/dateFormat";
 import NotificationSettingsPanel from "../../features/admin/NotificationSettingsPanel";
 import QRCodeCanvas from "../../components/QRCodeCanvas";
 import { KpiCard } from "../../components/KpiCard";
@@ -72,7 +72,7 @@ function AdminCustomerCard({ userId }: { userId: string }) {
                   <h3 className="text-lg font-black">{data.card.displayName}</h3>
                   {data.card.memberSince && (
                     <div className="text-xs text-brand-pink-200 mt-0.5">
-                      {ar() ? "عضو منذ" : "Member since"} {new Date(data.card.memberSince).toLocaleDateString("en-KW", { month: "long", year: "numeric" })}
+                      {ar() ? "عضو منذ" : "Member since"} {fmtDate(data.card.memberSince)}
                     </div>
                   )}
                   <div className="mt-3 flex items-center gap-1.5">
@@ -1689,7 +1689,7 @@ function ComplaintModal({ id, onClose, onUpdated }: { id: string, onClose: () =>
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div><span className="text-surface-500 block text-xs">{ar() ? "المرسل" : "From"}</span><span className="font-bold">{data.userName || data.userId}</span></div>
-            <div><span className="text-surface-500 block text-xs">{ar() ? "التاريخ" : "Date"}</span><span className="font-bold">{new Date(data.createdAt).toLocaleString()}</span></div>
+            <div><span className="text-surface-500 block text-xs">{ar() ? "التاريخ" : "Date"}</span><span className="font-bold">{fmtDateTime(data.createdAt)}</span></div>
             <div><span className="text-surface-500 block text-xs">{ar() ? "الفئة" : "Category"}</span><span className="badge-sage">{data.category}</span></div>
             <div><span className="text-surface-500 block text-xs">{ar() ? "الحالة الحالية" : "Current Status"}</span><span className="font-bold">{translateComplaintStatus(data.status)}</span></div>
           </div>
@@ -1710,7 +1710,7 @@ function ComplaintModal({ id, onClose, onUpdated }: { id: string, onClose: () =>
                   <div key={u.id} className="bg-surface-50 p-3 rounded-lg border border-surface-100 text-sm">
                     <div className="flex justify-between items-start mb-1 text-xs text-surface-500">
                       <span className="font-bold font-mono text-surface-700">{u.by}</span>
-                      <span>{new Date(u.createdAt).toLocaleString()}</span>
+                      <span>{fmtDateTime(u.createdAt)}</span>
                     </div>
                     <div><span className="font-bold mr-2">[{translateComplaintStatus(u.status)}]</span>{u.note}</div>
                   </div>
@@ -4952,7 +4952,7 @@ export default function AdminDashboard() {
                       </div>
                       {log.metadata?.username && <div className="text-[10px] text-surface-500 mt-0.5">@{log.metadata.username}</div>}
                     </div>
-                    <div className="text-[10px] text-surface-400 whitespace-nowrap shrink-0">{new Date(log.createdAt).toLocaleString()}</div>
+                    <div className="text-[10px] text-surface-400 whitespace-nowrap shrink-0">{fmtDateTime(log.createdAt)}</div>
                   </div>
                 ))}
               </div>

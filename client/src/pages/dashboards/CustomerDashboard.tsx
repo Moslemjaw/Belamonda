@@ -716,7 +716,7 @@ function MyFormsSection() {
               <div key={s.id} className="p-4 flex items-center justify-between gap-3">
                 <div>
                   <div className="font-bold text-surface-900 text-sm">{s.formTitle}</div>
-                  <div className="text-xs text-surface-400">{s.createdAt ? new Date(s.createdAt).toLocaleString() : ""} • v{s.formVersion}</div>
+                  <div className="text-xs text-surface-400">{s.createdAt ? fmtDateTime(s.createdAt) : ""} • v{s.formVersion}</div>
                 </div>
                 <button className="btn-secondary btn-sm text-xs" onClick={() => downloadPdf(s)}>{ar() ? "تنزيل PDF" : "Download PDF"}</button>
               </div>
@@ -1554,7 +1554,7 @@ export default function CustomerDashboard() {
       const member = data.memberData || (cardData?.card ? {
         displayName: cardData.card.displayName,
         memberSince: cardData.card.memberSince
-          ? new Date(cardData.card.memberSince).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+          ? fmtDate(cardData.card.memberSince)
           : null,
         kycVerified: cardData.card.kycVerified,
         publicToken: cardData.card.publicToken,
@@ -1575,7 +1575,7 @@ export default function CustomerDashboard() {
           const member = {
             displayName: cardData.card.displayName,
             memberSince: cardData.card.memberSince
-              ? new Date(cardData.card.memberSince).toLocaleDateString("en-US", { month: "long", year: "numeric" })
+              ? fmtDate(cardData.card.memberSince)
               : null,
             kycVerified: cardData.card.kycVerified,
             publicToken: cardData.card.publicToken,
@@ -1779,7 +1779,7 @@ export default function CustomerDashboard() {
             <div className="relative z-10 flex items-center justify-between mb-5">
               <div>
                 <div className={`${dateCls} text-xs font-bold uppercase tracking-widest mb-0.5`}>
-                  {new Date().toLocaleDateString(ar() ? "ar-KW" : "en-KW", { weekday: "long", month: "long", day: "numeric" })}
+                  {fmtDate(new Date())}
                 </div>
                 <div className={`text-2xl font-black ${titleCls} leading-tight`}>
                   {ar() ? "مرحباً" : "Welcome back"}{cardData?.card?.displayName ? `, ${cardData.card.displayName}` : ''} 👋
@@ -2157,9 +2157,9 @@ export default function CustomerDashboard() {
                           if (new Date() < nextEligible) {
                             coolingActive = true;
                             bookingLocked = true;
-                            const fmtDate = nextEligible.toLocaleDateString(ar() ? "ar-KW" : "en-US", { month: "short", day: "numeric" });
-                            rebookDateStr = fmtDate;
-                            lockedReason = ar() ? `إعادة الحجز في ${fmtDate}` : `Rebook at ${fmtDate}`;
+                            const formattedDate = fmtDate(nextEligible);
+                            rebookDateStr = formattedDate;
+                            lockedReason = ar() ? `إعادة الحجز في ${formattedDate}` : `Rebook at ${formattedDate}`;
                           }
                         }
 
@@ -2911,7 +2911,7 @@ export default function CustomerDashboard() {
                             {uo.status === "reserved" && uo.reservationExpiresAt && (
                               <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs">
                                 <div className="font-bold text-blue-900">
-                                  {ar() ? "محجوز حتى" : "Reserved until"} {new Date(uo.reservationExpiresAt).toLocaleString()}
+                                  {ar() ? "محجوز حتى" : "Reserved until"} {fmtDateTime(uo.reservationExpiresAt)}
                                 </div>
                                 <div className="text-blue-700 mt-0.5">
                                   {ar() ? "أكملي الرصيد لتفعيل العرض." : "Complete the balance to activate this offer."}
@@ -3020,8 +3020,8 @@ export default function CustomerDashboard() {
                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${meta.color}`}>{ar() ? meta.labelAr : meta.label}</span>
                                 </div>
                                 <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold text-surface-700">{clinicName}</span></div>
-                                {r.preferredAt && <div className="text-xs text-surface-400 mt-0.5">{ar() ? "الوقت المفضل:" : "Preferred:"} {new Date(r.preferredAt).toLocaleString()}</div>}
-                                {r.proposedAt && (r.status === "slot_proposed" || r.status === "confirmed") && <div className="text-xs text-blue-600 mt-0.5 font-medium">{ar() ? (r.status === "confirmed" ? "وقت الموعد:" : "الوقت المقترح:") : (r.status === "confirmed" ? "Scheduled time:" : "Proposed time:")} {new Date(r.proposedAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>}
+                                {r.preferredAt && <div className="text-xs text-surface-400 mt-0.5">{ar() ? "الوقت المفضل:" : "Preferred:"} {fmtDateTime(r.preferredAt)}</div>}
+                                {r.proposedAt && (r.status === "slot_proposed" || r.status === "confirmed") && <div className="text-xs text-blue-600 mt-0.5 font-medium">{ar() ? (r.status === "confirmed" ? "وقت الموعد:" : "الوقت المقترح:") : (r.status === "confirmed" ? "Scheduled time:" : "Proposed time:")} {fmtDateTime(r.proposedAt)}</div>}
                                 {r.rejectionReason && <div className="text-xs text-red-500 mt-0.5">{ar() ? "السبب:" : "Reason:"} {r.rejectionReason}</div>}
                               </div>
                             </div>
@@ -3095,7 +3095,7 @@ export default function CustomerDashboard() {
                             </div>
                             <div className="flex sm:flex-col items-center sm:items-end justify-between">
                               <div className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{b.status}</div>
-                              <div className="text-[10px] text-surface-400 mt-1">{new Date(b.scheduledAt).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}</div>
+                              <div className="text-[10px] text-surface-400 mt-1">{fmtDateTime(b.scheduledAt)}</div>
                             </div>
                           </div>
                         );
@@ -3732,7 +3732,7 @@ export default function CustomerDashboard() {
                         <div>
                           {cardData.card.memberSince && (
                             <div className="text-[10px] uppercase tracking-wider text-brand-pink-200/80 mb-1">
-                              {ar() ? "عضو منذ" : "Member Since"} {new Date(cardData.card.memberSince).toLocaleDateString(ar() ? "ar-KW" : "en-KW", { month: "short", year: "numeric" })}
+                              {ar() ? "عضو منذ" : "Member Since"} {fmtDate(cardData.card.memberSince)}
                             </div>
                           )}
                           <div className="flex items-center gap-2">

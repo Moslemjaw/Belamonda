@@ -37,7 +37,7 @@ import { apiFetch, API_BASE_URL } from "../../lib/api";
 import i18n from "../../app/i18n";
 import { UserProfilePanel, UsersManager } from "./AdminDashboard";
 import { KpiCard } from "../../components/KpiCard";
-import { fmtDate } from "../../lib/dateFormat";
+import { fmtDate, fmtDateTime } from "../../lib/dateFormat";
 
 const ar = () => i18n.language === "ar";
 
@@ -2015,7 +2015,7 @@ function EFormsViewer({ from, to }: { from: string; to: string }) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold text-surface-900 truncate">{s.formTitle || "Untitled Form"}</div>
-                <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العميل:" : "Customer:"} <span className="font-semibold text-surface-700">{s.userName || s.userId}</span> {s.userPhone && `(${s.userPhone})`} • {new Date(s.createdAt).toLocaleString()}</div>
+                <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العميل:" : "Customer:"} <span className="font-semibold text-surface-700">{s.userName || s.userId}</span> {s.userPhone && `(${s.userPhone})`} • {fmtDateTime(s.createdAt)}</div>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {s.signatureRef && <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">{ar() ? "موقّع" : "Signed"}</span>}
@@ -2040,7 +2040,7 @@ function EFormsViewer({ from, to }: { from: string; to: string }) {
             <div className="overflow-y-auto flex-1 p-6 space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "العميل" : "Customer"}</span><span className="font-bold text-surface-900">{selectedSub.userName || selectedSub.userId}<br/><span className="text-xs font-normal text-surface-500">{selectedSub.userPhone}</span></span></div>
-                <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "التاريخ" : "Date"}</span><span className="font-bold text-surface-900">{new Date(selectedSub.createdAt).toLocaleString()}</span></div>
+                <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "التاريخ" : "Date"}</span><span className="font-bold text-surface-900">{fmtDateTime(selectedSub.createdAt)}</span></div>
                 <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "إصدار النموذج" : "Form Version"}</span><span className="font-bold text-surface-900">v{selectedSub.formVersion}</span></div>
                 <div className="bg-surface-50 p-3 rounded-xl"><span className="text-surface-400 block text-xs mb-1">{ar() ? "الحالة" : "Status"}</span><span className="font-bold text-emerald-600">{selectedSub.signatureRef ? (ar() ? "موقّع" : "Signed") : (ar() ? "مقدم" : "Submitted")}</span></div>
               </div>
