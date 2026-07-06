@@ -111,8 +111,16 @@ function SessionCard({ session, onMark, onMarkPaid, onSelectUser }: { session: a
 
       <div className="mt-auto pl-2">
         {session.status === "scheduled" && (
-          <div className={`text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border bg-blue-50 text-blue-600 border-blue-200`}>
-            {session.status.replace("_", " ")}
+          <div className="flex gap-2">
+            <div className={`flex-1 text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border bg-blue-50 text-blue-600 border-blue-200`}>
+              {session.status.replace("_", " ")}
+            </div>
+            <button
+              onClick={() => onMark(session.id, "rescheduled")}
+              className="flex-1 text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100 transition-colors shadow-sm"
+            >
+              {ar() ? "إعادة جدولة" : "Reschedule"}
+            </button>
           </div>
         )}
         {session.status !== "scheduled" && (
@@ -238,6 +246,16 @@ function ScheduleTable({
             <span className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-${color}-50 text-${color}-700 border border-${color}-100`}>
               {s.status.replace(/_/g, " ")}
             </span>
+            
+            {s.status === "scheduled" && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMark(s.id, "rescheduled"); }}
+                className="px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100 transition-colors"
+              >
+                {ar() ? "إعادة جدولة" : "Reschedule"}
+              </button>
+            )}
             
             <span className={`px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider ${
               s.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" :
