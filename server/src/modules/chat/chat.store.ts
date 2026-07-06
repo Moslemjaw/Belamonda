@@ -41,7 +41,8 @@ export type MessageRecord = {
     | "slot_accepted"
     | "booking_confirmed"
     | "booking_rejected"
-    | "booking_cancelled";
+    | "booking_cancelled"
+    | "booking_reverted";
   systemPayload?: Record<string, unknown>;
   createdAt: string;
 };

@@ -3130,7 +3130,38 @@ export function UserProfilePanel({
                       <div className="text-xs font-mono text-surface-400 mt-0.5" title="Session ID">{s.shortId || s.id}</div>
                       <div className="text-xs text-surface-500 mt-0.5">{ar() ? "الموعد" : "Scheduled"}: {fmt(s.scheduledAt)}</div>
                     </div>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${statusBadge(s.status)}`}>{s.status}</span>
+                    <div className="flex items-center gap-2">
+                      {s.bookingRequestId && (isAdmin || isCS) && (s.status === "scheduled" || s.status === "completed" || s.status === "no_show") && (
+                        <button
+                          className="btn-secondary btn-sm flex items-center gap-1.5 text-amber-700 border-amber-200 hover:bg-amber-50 shrink-0"
+                          onClick={async () => {
+                            const ok = window.confirm(
+                              ar()
+                                ? "هل أنت متأكد من إرجاع هذا الطلب إلى حالة الانتظار؟ سيتم حذف الجلسة وتقليل عدد الجلسات المستخدمة."
+                                : "Are you sure you want to revert this booking back to pending? The session will be deleted and sessions used will be decremented."
+                            );
+                            if (!ok) return;
+                            try {
+                              await apiFetch(`/scheduling/admin/requests/${s.bookingRequestId}/revert`, {
+                                method: "POST",
+                                headers: getAuthHeader(),
+                              });
+                              // Refresh profile
+                              const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
+                              setProfile(d);
+                            } catch (e: any) {
+                              alert(e.message || "Failed to revert booking");
+                            }
+                          }}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a5 5 0 015 5v2M3 10l4-4m-4 4l4 4" />
+                          </svg>
+                          {ar() ? "إرجاع للانتظار" : "Revert to Pending"}
+                        </button>
+                      )}
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${statusBadge(s.status)}`}>{s.status}</span>
+                    </div>
                   </div>
                 ))}
               </div>

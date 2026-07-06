@@ -2367,6 +2367,66 @@ schedulingRouter.post("/admin/requests/:requestId/change-clinic", authRequired, 
   }
 });
 
+// ── Admin reverts a booking request back to under_review ────────────────────
+schedulingRouter.post("/admin/requests/:requestId/revert", authRequired, requireRole(["cs", "legal", "admin", "cs_director"]), async (req, res, next) => {
+  try {
+    const breq = await bookingRequestsStore.get(req.params.requestId);
+    if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
+
+    // Delete the associated session if one was created
+    if (breq.scheduledSessionId && mongoose.isValidObjectId(breq.scheduledSessionId)) {
+      await BookingSessionModel.findByIdAndDelete(breq.scheduledSessionId);
+
+      // Decrement sessionsUsed on the user offer (only for non-standalone)
+      if (!breq.isStandalone && breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
+        const uo = await UserOfferModel.findById(breq.userOfferId);
+        if (uo && (uo.sessionsUsed ?? 0) > 0) {
+          await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { sessionsUsed: -1 } });
+        }
+      }
+    }
+
+    // Refund cashback if it was deducted
+    if (breq.cashbackDeductedKwd && parseFloat(breq.cashbackDeductedKwd) > 0) {
+      const refund = parseFloat(breq.cashbackDeductedKwd);
+      if (breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
+        await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { cashbackBalanceKwd: refund } });
+      }
+      await kycStore.adjustUnlocked({
+        userId: breq.userId,
+        amountKwd: refund.toFixed(3),
+        reason: "Refund from reverted booking",
+        createdById: req.auth!.userId
+      });
+    }
+
+    // Revert the request status back to under_review
+    const updated = await bookingRequestsStore.update(breq.id, {
+      status: "under_review",
+      confirmedAt: undefined,
+      confirmedBy: undefined,
+      scheduledSessionId: undefined,
+      clinicPaymentStatus: undefined,
+      clinicPaymentMarkedAt: undefined,
+      clinicPaymentMarkedBy: undefined,
+    });
+
+    if (updated?.conversationId) {
+      postSystemMessage(
+        updated.conversationId,
+        "booking_reverted",
+        `Booking reverted to pending by admin.`,
+        { bookingRequestId: updated.id },
+        req.auth!.userId
+      );
+    }
+
+    return res.json({ ok: true, request: updated });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // `resolveUserOffer` retained for backwards compatibility — exposed for any
 // downstream callers that depend on the richer UserOfferRecord shape.
 export { resolveUserOffer };

@@ -163,17 +163,45 @@ export default function AdminSessionsLogTab() {
                             {clinicName || s.clinicId}
                           </span>
                           {['pending', 'under_review', 'slot_proposed', 'slot_accepted', 'scheduled'].includes(s.status) && (
-                            <button 
-                              onClick={() => {
-                                setChangeClinicTarget(s);
-                                setNewClinicSelection("");
-                                setChangeIsPaid(false);
-                                setChangeFee("5.000");
-                              }}
-                              className="text-[10px] font-bold bg-brand-pink-50 text-brand-pink-600 hover:bg-brand-pink-100 px-2 py-1 rounded transition-colors"
-                            >
-                              {ar() ? "تغيير" : "Change"}
-                            </button>
+                            <>
+                              <button 
+                                onClick={() => {
+                                  setChangeClinicTarget(s);
+                                  setNewClinicSelection("");
+                                  setChangeIsPaid(false);
+                                  setChangeFee("5.000");
+                                }}
+                                className="text-[10px] font-bold bg-brand-pink-50 text-brand-pink-600 hover:bg-brand-pink-100 px-2 py-1 rounded transition-colors"
+                              >
+                                {ar() ? "تغيير" : "Change"}
+                              </button>
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm(ar() ? "هل أنت متأكد من الإلغاء؟" : "Are you sure you want to cancel this?")) return;
+                                  try {
+                                    if (s.type === "session") {
+                                      await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
+                                        method: "POST",
+                                        headers: getAuthHeader(),
+                                        body: JSON.stringify({ status: "cancelled", notes: "Cancelled by admin" })
+                                      });
+                                    } else {
+                                      await apiFetch(`/scheduling/requests/${s.id}/reject`, {
+                                        method: "POST",
+                                        headers: getAuthHeader(),
+                                        body: JSON.stringify({ reason: "Cancelled by admin" })
+                                      });
+                                    }
+                                    fetchSessions();
+                                  } catch (err: any) {
+                                    alert(err.message || "Failed to cancel");
+                                  }
+                                }}
+                                className="text-[10px] font-bold bg-surface-100 text-surface-600 hover:bg-red-50 hover:text-red-600 px-2 py-1 rounded transition-colors ml-2"
+                              >
+                                {ar() ? "إلغاء" : "Cancel"}
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
