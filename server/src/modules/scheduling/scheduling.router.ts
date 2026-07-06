@@ -502,13 +502,14 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     let uoId = parsed.data.userOfferId;
     let overrideClinicId = parsed.data.clinicId;
 
+    const globalBookingRoute: "clinic" | "cs" =
+      parsed.data.schedulingMode === "belamonda_cs" ? "cs" : "clinic";
+
     if (parsed.data.isStandalone && uoId.startsWith("temp_")) {
        if (!parsed.data.standaloneName) return res.status(400).json({ error: "MISSING_STANDALONE_NAME" });
        if (!overrideClinicId) return res.status(400).json({ error: "MISSING_CLINIC_ID" });
-       const bookingRoute: "clinic" | "cs" =
-         parsed.data.schedulingMode === "belamonda_cs" ? "cs" : "clinic";
 
-       const openStatuses = ["request_received", "slot_assigned"];
+       const openStatuses = ["request_received", "slot_assigned", "scheduled"];
        const existingStandalone = await BookingRequestModel.findOne({
          userId: req.auth!.userId,
          isStandalone: true,
@@ -525,7 +526,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
          userId: req.auth!.userId,
          clinicId: overrideClinicId,
          isStandalone: true,
-         bookingRoute,
+         bookingRoute: globalBookingRoute,
          standaloneName: parsed.data.standaloneName,
          membershipType: "none",
          hadCashback: false,
@@ -544,7 +545,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
        }
        notifyBookingUnderReview(req.auth!.userId, breq.id);
        const [csIds, financeIds] = await Promise.all([findCsUserIds(), findFinanceUserIds()]);
-       const additionalNotifyIds = bookingRoute === "clinic" ? await findClinicStaffUserIds(breq.clinicId) : csIds;
+       const additionalNotifyIds = globalBookingRoute === "clinic" ? await findClinicStaffUserIds(breq.clinicId) : csIds;
        notifyChatRelatedUsers({
          userIds: Array.from(new Set([...additionalNotifyIds, ...financeIds])),
          kind: "booking_under_review",
@@ -556,7 +557,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
            membershipType: "none",
            cashbackDeductedKwd: "0.000",
            isStandalone: true,
-           bookingRoute
+           bookingRoute: globalBookingRoute
          }
        });
        return res.status(201).json({ request: breq, conversationId: conv?.id ?? null });
@@ -613,7 +614,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     }
 
     // Gate: prevent multiple open booking requests for the same membership
-    const openStatuses = ["request_received", "slot_assigned"];
+    const openStatuses = ["request_received", "slot_assigned", "scheduled"];
     const existingReq = await BookingRequestModel.findOne({
       userOfferId: uo.id,
       userId: req.auth!.userId,
@@ -652,7 +653,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         offerId: uo.offerId,
         clinicId: uo.clinicId,
         isStandalone: !!parsed.data.isStandalone,
-        bookingRoute: "cs",
+        bookingRoute: globalBookingRoute,
         membershipType: uo.membershipType ?? "none",
         hadCashback: cashbackDeducted > 0,
         standaloneName: parsed.data.standaloneName,
@@ -694,12 +695,43 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         throw payErr;
       }
       const finalBreq = await bookingRequestsStore.update(breq.id, { sessionPaymentId: sessionPayment.id });
+
+      // Create conversation and notify clinic/CS so the request is visible
+      const [{ conv: payConv, csIds: payCsIds }, payFinanceIds] = await Promise.all([
+        ensureConversationFor(breq.id),
+        findFinanceUserIds()
+      ]);
+      if (payConv) {
+        postSystemMessage(
+          payConv.id,
+          "booking_requested",
+          `Customer requested a booking (payment pending: ${amountToPay} KWD).${parsed.data.preferredAt ? ` Preferred: ${parsed.data.preferredAt}` : ""}`,
+          { bookingRequestId: breq.id, preferredAt: parsed.data.preferredAt }
+        );
+      }
+      notifyBookingUnderReview(req.auth!.userId, breq.id);
+      const payNotifyIds = globalBookingRoute === "clinic"
+        ? await findClinicStaffUserIds(breq.clinicId)
+        : (payCsIds.length ? payCsIds : await findCsUserIds());
+      notifyChatRelatedUsers({
+        userIds: Array.from(new Set([...payNotifyIds, ...payFinanceIds])),
+        kind: "booking_under_review",
+        body: `Booking request ${breq.id}: clinic=${breq.clinicId}, payment pending ${amountToPay} KWD`,
+        payload: {
+          bookingRequestId: breq.id,
+          clinicId: breq.clinicId,
+          sessionPriceKwd: amountToPay,
+          membershipType: breq.membershipType ?? "none",
+          isStandalone: false
+        }
+      });
+
       return res.status(201).json({
         request: finalBreq,
         sessionPaymentRequired: true,
         sessionPaymentId: sessionPayment.id,
         sessionPriceKwd: amountToPay,
-        conversationId: null
+        conversationId: payConv?.id ?? null
       });
     }
     // Compute session gross price for display on clinic/CS dashboards
@@ -727,7 +759,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       offerId: uo.offerId,
       clinicId: uo.clinicId,
       isStandalone: !!parsed.data.isStandalone,
-      bookingRoute: "cs",
+      bookingRoute: globalBookingRoute,
       membershipType: uo.membershipType ?? "none",
       hadCashback: cashbackDeducted > 0 || !!parsed.data.cashbackAppliedKwd,
       sessionPriceKwd: sessionGross,
@@ -2208,7 +2240,10 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     let requestDocs: any[] = [];
     const isRequestStatus = !status || status === "all" || ["request_received", "slot_assigned", "scheduled", "cancelled", "no_show", "checked_in"].includes(status as string);
     if (isRequestStatus) {
-      requestDocs = await BookingRequestModel.find(requestQuery).sort({ createdAt: -1 }).limit(300).lean();
+      const rawRequestDocs = await BookingRequestModel.find(requestQuery).sort({ createdAt: -1 }).limit(300).lean();
+      // Filter out requests that have an associated session, because the session itself will be returned in sessionDocs
+      // This prevents the UI from showing duplicate rows for the same scheduled booking.
+      requestDocs = rawRequestDocs.filter((r: any) => !r.scheduledSessionId);
     }
 
     const userIds = [

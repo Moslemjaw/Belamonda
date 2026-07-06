@@ -1094,11 +1094,11 @@ function ClinicsTab({ from, to }: { from: string; to: string }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <KpiCard label={ar() ? "إجمالي العيادات" : "Total Clinics"} value={String(data?.items.length ?? 0)} color="text-indigo-600" icon="🏥" />
-        <KpiCard label={ar() ? "إجمالي الجلسات" : "Total Sessions"} value={String(totalSessions)} color="text-blue-600" icon="📅" />
-        <KpiCard label={ar() ? "متوسط الاستخدام" : "Avg Utilization"} value={`${avgUtilization.toFixed(1)}%`} color="text-emerald-600" icon="📈" />
-        <KpiCard label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={`${fmt(totalRevenue)} KWD`} color="text-brand-pink-600" icon="💰" />
-        <KpiCard label={ar() ? "إيرادات مؤجلة (مقدرة)" : "Deferred (Est.)"} value={`${fmt(totalDeferred)} KWD`} color="text-amber-600" icon="⏳" />
+        <KpiCard label={ar() ? "إجمالي العيادات" : "Total Clinics"} value={String(data?.items.length ?? 0)} accent="indigo" icon="🏥" />
+        <KpiCard label={ar() ? "إجمالي الجلسات" : "Total Sessions"} value={String(totalSessions)} accent="blue" icon="📅" />
+        <KpiCard label={ar() ? "متوسط الاستخدام" : "Avg Utilization"} value={`${avgUtilization.toFixed(1)}%`} accent="emerald" icon="📈" />
+        <KpiCard label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={`${fmt(totalRevenue)} KWD`} accent="pink" icon="💰" />
+        <KpiCard label={ar() ? "إيرادات مؤجلة (مقدرة)" : "Deferred (Est.)"} value={`${fmt(totalDeferred)} KWD`} accent="amber" icon="⏳" />
       </div>
 
       <div className="card-elevated border border-surface-200 shadow-sm overflow-hidden">
@@ -1220,25 +1220,25 @@ function ReliefTab({ from, to }: { from: string; to: string }) {
         <KpiCard
           label={ar() ? "إجمالي المستردّ" : "Total Refunded"}
           value={`${fmt(totalRefundedMils)} KWD`}
-          color="text-rose-600"
+          accent="rose"
           icon="↩️"
         />
         <KpiCard
           label={ar() ? "عدد الاستردادات" : "Refund Count"}
           value={String(items.length)}
-          color="text-red-600"
+          accent="red"
           icon="🔄"
         />
         <KpiCard
           label={ar() ? "متوسط الاسترداد" : "Avg Refund"}
           value={`${fmt(avgRefund)} KWD`}
-          color="text-amber-600"
+          accent="amber"
           icon="📊"
         />
         <KpiCard
           label={ar() ? "طرق مختلفة" : "Methods Used"}
           value={String(byMethodSorted.length)}
-          color="text-indigo-600"
+          accent="indigo"
           icon="💳"
         />
       </div>
@@ -1649,12 +1649,12 @@ function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
 
       {/* Header KPI */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <KpiCard label={ar() ? "إجمالي القيود المسجّلة" : "Total Manual Entries"} value={String(entries.length)} color="text-brand-pink-600" icon="📋" />
-        <KpiCard label={ar() ? "إجمالي المبالغ المكتملة" : "Total Completed Amount"} value={`${fmt(totalCompleted / 1000)} KWD`} color="text-emerald-600" icon="✅" />
+        <KpiCard label={ar() ? "إجمالي القيود المسجّلة" : "Total Manual Entries"} value={String(entries.length)} accent="pink" icon="📋" />
+        <KpiCard label={ar() ? "إجمالي المبالغ المكتملة" : "Total Completed Amount"} value={`${fmt(totalCompleted / 1000)} KWD`} accent="emerald" icon="✅" />
         <KpiCard
           label={ar() ? "معلّقة" : "Pending Entries"}
           value={String(entries.filter(e => e.status === "pending").length)}
-          color="text-amber-600"
+          accent="amber"
           icon="⏳"
         />
       </div>
