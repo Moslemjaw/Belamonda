@@ -19,6 +19,25 @@ import { UserProfilePanel } from "./AdminDashboard";
 
 const ar = () => i18n.language === "ar";
 
+export const SESSION_STATUS_STYLE: Record<string, string> = {
+  completed: "bg-emerald-50 text-emerald-700",
+  scheduled: "bg-indigo-50 text-indigo-700",
+  no_show:   "bg-red-50 text-red-700",
+  cancelled: "bg-surface-100 text-surface-600",
+  request_received: "bg-amber-50 text-amber-700",
+  slot_assigned: "bg-brand-pink-50 text-brand-pink-700",
+  checked_in: "bg-teal-50 text-teal-700",
+  in_progress: "bg-purple-50 text-purple-700",
+  rescheduled: "bg-orange-50 text-orange-700",
+  // Legacy statuses
+  awaiting_session_payment: "bg-amber-50 text-amber-700",
+  under_review: "bg-amber-50 text-amber-700",
+  slot_proposed: "bg-blue-50 text-blue-700",
+  slot_accepted: "bg-teal-50 text-teal-700",
+  confirmed: "bg-indigo-50 text-indigo-700",
+  rejected: "bg-red-50 text-red-700",
+  pending: "bg-amber-50 text-amber-700",
+};
 
 function SessionCard({ session, onMark, onMarkPaid, onSelectUser }: { session: any; onMark: (id: string, status: string) => void; onMarkPaid: (id: string) => void; onSelectUser?: (userId: string) => void }) {
   const { getAuthHeader } = useAuth();
@@ -387,17 +406,7 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                       {inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}
                     </td>
                     <td>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide
-                        ${inv.status === 'scheduled' ? 'bg-indigo-50 text-indigo-700' : ''}
-                        ${inv.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : ''}
-                        ${inv.status === 'no_show' ? 'bg-red-50 text-red-700' : ''}
-                        ${inv.status === 'cancelled' ? 'bg-surface-100 text-surface-600' : ''}
-                        ${inv.status === 'request_received' ? 'bg-amber-50 text-amber-700' : ''}
-                        ${inv.status === 'slot_assigned' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
-                        ${inv.status === 'checked_in' ? 'bg-teal-50 text-teal-700' : ''}
-                        ${inv.status === 'in_progress' ? 'bg-purple-50 text-purple-700' : ''}
-                        ${inv.status === 'rescheduled' ? 'bg-orange-50 text-orange-700' : ''}
-                      `}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${SESSION_STATUS_STYLE[inv.status] ?? "bg-surface-100 text-surface-500"}`}>
                         {inv.status.replace(/_/g, ' ')}
                       </span>
                     </td>
@@ -536,17 +545,7 @@ function ClinicReportsTab({ clinicId: _clinicId }: { clinicId: string }) {
   );
 }
 
-const SESSION_STATUS_STYLE: Record<string, string> = {
-  completed: "bg-emerald-50 text-emerald-700",
-  scheduled: "bg-blue-50 text-blue-700",
-  no_show:   "bg-red-50 text-red-700",
-  cancelled: "bg-surface-100 text-surface-600",
-  request_received: "bg-amber-50 text-amber-700",
-  slot_assigned: "bg-brand-pink-50 text-brand-pink-700",
-  checked_in: "bg-teal-50 text-teal-700",
-  in_progress: "bg-purple-50 text-purple-700",
-  rescheduled: "bg-orange-50 text-orange-700",
-};
+// using SESSION_STATUS_STYLE from top of file
 
 function ClinicReportTable({ data, loading, from, to }: {
   data: { sessions?: any[]; invoices?: any[] } | null;

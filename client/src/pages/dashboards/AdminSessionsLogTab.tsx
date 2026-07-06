@@ -8,6 +8,26 @@ import { fmtDate } from "../../lib/dateFormat";
 
 const ar = () => i18n.language === "ar";
 
+const SESSION_STATUS_STYLE: Record<string, string> = {
+  completed: "bg-emerald-50 text-emerald-700",
+  scheduled: "bg-indigo-50 text-indigo-700",
+  no_show:   "bg-red-50 text-red-700",
+  cancelled: "bg-surface-100 text-surface-600",
+  request_received: "bg-amber-50 text-amber-700",
+  slot_assigned: "bg-brand-pink-50 text-brand-pink-700",
+  checked_in: "bg-teal-50 text-teal-700",
+  in_progress: "bg-purple-50 text-purple-700",
+  rescheduled: "bg-orange-50 text-orange-700",
+  // Legacy statuses
+  awaiting_session_payment: "bg-amber-50 text-amber-700",
+  under_review: "bg-amber-50 text-amber-700",
+  slot_proposed: "bg-blue-50 text-blue-700",
+  slot_accepted: "bg-teal-50 text-teal-700",
+  confirmed: "bg-indigo-50 text-indigo-700",
+  rejected: "bg-red-50 text-red-700",
+  pending: "bg-amber-50 text-amber-700",
+};
+
 export default function AdminSessionsLogTab() {
   const { getAuthHeader } = useAuth();
   const { data: clinicsData } = useApi<{ items: any[] }>("/clinics/admin");
@@ -274,17 +294,7 @@ export default function AdminSessionsLogTab() {
                       </td>
                       {/* Appointment Status */}
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide
-                          ${s.status === 'scheduled' ? 'bg-indigo-50 text-indigo-700' : ''}
-                          ${s.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : ''}
-                          ${s.status === 'no_show' ? 'bg-red-50 text-red-700' : ''}
-                          ${s.status === 'cancelled' ? 'bg-surface-100 text-surface-600' : ''}
-                          ${s.status === 'request_received' ? 'bg-amber-50 text-amber-700' : ''}
-                          ${s.status === 'slot_assigned' ? 'bg-brand-pink-50 text-brand-pink-700' : ''}
-                          ${s.status === 'checked_in' ? 'bg-teal-50 text-teal-700' : ''}
-                          ${s.status === 'in_progress' ? 'bg-purple-50 text-purple-700' : ''}
-                          ${s.status === 'rescheduled' ? 'bg-orange-50 text-orange-700' : ''}
-                        `}>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${SESSION_STATUS_STYLE[s.status] ?? "bg-surface-100 text-surface-500"}`}>
                           {s.status.replace(/_/g, ' ')}
                         </span>
                       </td>
