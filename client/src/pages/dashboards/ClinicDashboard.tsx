@@ -314,9 +314,9 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                   <th>{ar() ? "العميل" : "Customer"}</th>
                   <th>{ar() ? "نوع العضوية" : "Membership Type"}</th>
                   <th>{ar() ? "سعر الجلسة" : "Session Price"}</th>
-                  <th>{ar() ? "دفعة العيادة" : "Clinic Payment"}</th>
-                  <th>{ar() ? "حالة الجلسة" : "Session Status"}</th>
-                  <th>{ar() ? "حالة الفاتورة" : "Invoice Status"}</th>
+                  <th>{ar() ? "حالة الموعد" : "Appointment"}</th>
+                  <th>{ar() ? "حالة الدفع" : "Payment"}</th>
+                  <th>{ar() ? "حالة الحضور" : "Attendance"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -332,23 +332,8 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                       {inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}
                     </td>
                     <td>
-                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${inv.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                        {inv.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع" : "Paid") : (ar() ? "معلق" : "Pending")}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide
-                        ${inv.combinedSessionStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700' : ''}
-                        ${inv.combinedSessionStatus === 'Missing POS' ? 'bg-amber-50 text-amber-700' : ''}
-                        ${inv.combinedSessionStatus === 'Missing Came' ? 'bg-amber-50 text-amber-700' : ''}
-                        ${inv.combinedSessionStatus === 'Missing Both' ? 'bg-red-50 text-red-700' : ''}
-                      `}>
-                        {inv.combinedSessionStatus}
-                      </span>
-                    </td>
-                    <td>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide
-                        ${inv.status === 'scheduled' ? 'bg-blue-50 text-blue-700' : ''}
+                        ${inv.status === 'scheduled' ? 'bg-indigo-50 text-indigo-700' : ''}
                         ${inv.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : ''}
                         ${inv.status === 'no_show' ? 'bg-red-50 text-red-700' : ''}
                         ${inv.status === 'cancelled' ? 'bg-surface-100 text-surface-600' : ''}
@@ -358,6 +343,39 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                       `}>
                         {inv.status.replace(/_/g, ' ')}
                       </span>
+                    </td>
+                    <td>
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${inv.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                        {inv.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع" : "Paid") : (ar() ? "معلق" : "Pending")}
+                      </span>
+                    </td>
+                    <td>
+                      {(() => {
+                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled'].includes(inv.status)
+                          ? 'awaiting'
+                          : inv.status === 'checked_in' ? 'checked_in'
+                          : inv.status === 'completed' ? 'attended'
+                          : inv.status === 'no_show' ? 'no_show'
+                          : 'n_a';
+                        
+                        const attendanceLabel = attendanceStatus === 'awaiting' ? (ar() ? 'في الانتظار' : 'Awaiting')
+                          : attendanceStatus === 'checked_in' ? (ar() ? 'وصل' : 'Checked In')
+                          : attendanceStatus === 'attended' ? (ar() ? 'حضر' : 'Attended')
+                          : attendanceStatus === 'no_show' ? (ar() ? 'لم يحضر' : 'No Show')
+                          : '—';
+                        
+                        const attendanceStyle = attendanceStatus === 'awaiting' ? 'bg-blue-50 text-blue-700'
+                          : attendanceStatus === 'checked_in' ? 'bg-teal-50 text-teal-700'
+                          : attendanceStatus === 'attended' ? 'bg-emerald-50 text-emerald-700'
+                          : attendanceStatus === 'no_show' ? 'bg-red-50 text-red-700'
+                          : 'bg-surface-100 text-surface-500';
+                          
+                        return (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${attendanceStyle}`}>
+                            {attendanceLabel}
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}
@@ -531,7 +549,7 @@ function ClinicReportTable({ data, loading, from, to }: {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="bg-surface-50 border-b border-surface-100">
-                  {["#", ar() ? "العميل" : "Customer", ar() ? "الهاتف" : "Phone", ar() ? "التاريخ" : "Date", ar() ? "الوقت" : "Time", ar() ? "الحالة" : "Status", ar() ? "الكاشباك (KWD)" : "Cashback (KWD)"].map(h => (
+                  {["#", ar() ? "العميل" : "Customer", ar() ? "الهاتف" : "Phone", ar() ? "التاريخ" : "Date", ar() ? "الوقت" : "Time", ar() ? "حالة الموعد" : "Appointment", ar() ? "حالة الحضور" : "Attendance", ar() ? "الكاشباك (KWD)" : "Cashback (KWD)"].map(h => (
                     <th key={h} className="text-left text-[10px] font-bold uppercase tracking-wider text-surface-400 px-4 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -549,6 +567,31 @@ function ClinicReportTable({ data, loading, from, to }: {
                         {s.status?.replace("_", " ")}
                       </span>
                     </td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled'].includes(s.status)
+                          ? 'awaiting'
+                          : s.status === 'checked_in' ? 'checked_in'
+                          : s.status === 'completed' ? 'attended'
+                          : s.status === 'no_show' ? 'no_show'
+                          : 'n_a';
+                        const attendanceLabel = attendanceStatus === 'awaiting' ? (ar() ? 'في الانتظار' : 'Awaiting')
+                          : attendanceStatus === 'checked_in' ? (ar() ? 'وصل' : 'Checked In')
+                          : attendanceStatus === 'attended' ? (ar() ? 'حضر' : 'Attended')
+                          : attendanceStatus === 'no_show' ? (ar() ? 'لم يحضر' : 'No Show')
+                          : '—';
+                        const attendanceStyle = attendanceStatus === 'awaiting' ? 'bg-blue-50 text-blue-700'
+                          : attendanceStatus === 'checked_in' ? 'bg-teal-50 text-teal-700'
+                          : attendanceStatus === 'attended' ? 'bg-emerald-50 text-emerald-700'
+                          : attendanceStatus === 'no_show' ? 'bg-red-50 text-red-700'
+                          : 'bg-surface-100 text-surface-500';
+                        return (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${attendanceStyle}`}>
+                            {attendanceLabel}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-emerald-700 font-bold">{s.cashbackUnlockedKwd ? `${s.cashbackUnlockedKwd} KWD` : "—"}</td>
                   </tr>
                 ))}
@@ -564,7 +607,7 @@ function ClinicReportTable({ data, loading, from, to }: {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="bg-surface-50 border-b border-surface-100">
-                  {["#", ar() ? "العميل" : "Customer", ar() ? "الهاتف" : "Phone", ar() ? "التاريخ" : "Date", ar() ? "العضوية" : "Membership", ar() ? "السعر (KWD)" : "Price (KWD)", ar() ? "الكاشباك (KWD)" : "Cashback (KWD)", ar() ? "حالة الفاتورة" : "Invoice", ar() ? "حالة الدفع" : "Payment"].map(h => (
+                  {["#", ar() ? "العميل" : "Customer", ar() ? "الهاتف" : "Phone", ar() ? "التاريخ" : "Date", ar() ? "العضوية" : "Membership", ar() ? "السعر (KWD)" : "Price (KWD)", ar() ? "الكاشباك (KWD)" : "Cashback (KWD)", ar() ? "حالة الموعد" : "Appointment", ar() ? "حالة الدفع" : "Payment", ar() ? "حالة الحضور" : "Attendance"].map(h => (
                     <th key={h} className="text-left text-[10px] font-bold uppercase tracking-wider text-surface-400 px-4 py-3 whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -588,6 +631,31 @@ function ClinicReportTable({ data, loading, from, to }: {
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${inv.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
                         {inv.clinicPaymentStatus}
                       </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled'].includes(inv.status)
+                          ? 'awaiting'
+                          : inv.status === 'checked_in' ? 'checked_in'
+                          : inv.status === 'completed' ? 'attended'
+                          : inv.status === 'no_show' ? 'no_show'
+                          : 'n_a';
+                        const attendanceLabel = attendanceStatus === 'awaiting' ? (ar() ? 'في الانتظار' : 'Awaiting')
+                          : attendanceStatus === 'checked_in' ? (ar() ? 'وصل' : 'Checked In')
+                          : attendanceStatus === 'attended' ? (ar() ? 'حضر' : 'Attended')
+                          : attendanceStatus === 'no_show' ? (ar() ? 'لم يحضر' : 'No Show')
+                          : '—';
+                        const attendanceStyle = attendanceStatus === 'awaiting' ? 'bg-blue-50 text-blue-700'
+                          : attendanceStatus === 'checked_in' ? 'bg-teal-50 text-teal-700'
+                          : attendanceStatus === 'attended' ? 'bg-emerald-50 text-emerald-700'
+                          : attendanceStatus === 'no_show' ? 'bg-red-50 text-red-700'
+                          : 'bg-surface-100 text-surface-500';
+                        return (
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${attendanceStyle}`}>
+                            {attendanceLabel}
+                          </span>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}

@@ -97,9 +97,13 @@ export async function computePaymentsBreakdown(filters: {
 
   const [offerDocs, breqDocs, userDocs] = await Promise.all([
     offerIds.length ? OfferModel.find({ _id: { $in: offerIds } }).select("name membershipType").lean() : Promise.resolve([]),
-    brIds.length ? BookingRequestModel.find({ _id: { $in: brIds } }).select("clinicId membershipType extraItems isStandalone standaloneName").lean().catch(() => []) : Promise.resolve([]),
+    brIds.length ? BookingRequestModel.find({ _id: { $in: brIds } }).select("clinicId membershipType extraItems isStandalone standaloneName scheduledSessionId").lean().catch(() => []) : Promise.resolve([]),
     userIds.length ? UserModel.find({ _id: { $in: userIds } }).select("fullName phone").lean() : Promise.resolve([]),
   ]);
+
+  const sessionIds = [...new Set((breqDocs as any[]).map((b) => b.scheduledSessionId?.toString()).filter(Boolean))];
+  const sessionDocs = sessionIds.length ? await BookingSessionModel.find({ _id: { $in: sessionIds } }).select("status").lean() : [];
+  const sessionMap = new Map((sessionDocs as any[]).map((s) => [s._id.toString(), s.status]));
 
   const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), { name: o.name as string, membershipType: o.membershipType as string }]));
   const breqMap = new Map(breqDocs.map((b: any) => [b._id.toString(), { 
@@ -108,6 +112,7 @@ export async function computePaymentsBreakdown(filters: {
     extraItems: b.extraItems as any[],
     isStandalone: !!b.isStandalone,
     standaloneName: b.standaloneName as string,
+    sessionStatus: b.scheduledSessionId ? sessionMap.get(b.scheduledSessionId.toString()) : undefined,
   }]));
   const userMap = new Map(userDocs.map((u: any) => [u._id.toString(), { fullName: u.fullName as string, phone: u.phone as string }]));
 
@@ -148,6 +153,7 @@ export async function computePaymentsBreakdown(filters: {
       sessionType,
       additionalTreatments: additionalTreatmentsArr.join(", "),
       _treatmentsArr: additionalTreatmentsArr,
+      sessionStatus: breq?.sessionStatus,
     };
   });
 
@@ -165,6 +171,9 @@ export async function computePaymentsBreakdown(filters: {
     const netMils = parseKwd(p.amountKwd);
     if (p.status === "payment_pending") { pendingCount++; continue; }
     if (p.status !== "paid") continue;
+
+    if (p.purpose === "session_payment" && p.sessionStatus !== "completed") continue;
+
 
     const cbMils = parseKwd(p.cashbackAppliedKwd || "0.000");
     const grossMils = p.grossAmountKwd ? parseKwd(p.grossAmountKwd) : netMils + cbMils;
@@ -1535,10 +1544,29 @@ export async function computeClinicSummaries(filters: { from?: string; to?: stri
   const invoiceAgg = await BookingRequestModel.aggregate([
     ...(Object.keys(brMatchStage).length ? [{ $match: brMatchStage }] : []),
     {
+      $lookup: {
+        from: "bookingsessions",
+        localField: "scheduledSessionId",
+        foreignField: "_id",
+        as: "session"
+      }
+    },
+    { $unwind: { path: "$session", preserveNullAndEmptyArrays: true } },
+    {
       $group: {
         _id: "$clinicId",
         totalInvoices: { $sum: 1 },
-        paidInvoices: { $sum: { $cond: [{ $eq: ["$clinicPaymentStatus", "paid"] }, 1, 0] } },
+        paidInvoices: { 
+          $sum: { 
+            $cond: [
+              { $and: [
+                { $eq: ["$clinicPaymentStatus", "paid"] },
+                { $eq: ["$session.status", "completed"] }
+              ]}, 
+              1, 0
+            ] 
+          } 
+        },
       },
     },
   ]);
@@ -1619,20 +1647,6 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
     };
   };
 
-  // Revenue from session prices
-  let sessionRevenueMils = 0;
-  let paidRevenueMils = 0;
-  let cashbackTotalMils = 0;
-  for (const br of bookingReqs as any[]) {
-    if (br.sessionPriceKwd) {
-      sessionRevenueMils += parseKwd(br.sessionPriceKwd);
-      if (br.clinicPaymentStatus === "paid") paidRevenueMils += parseKwd(br.sessionPriceKwd);
-    }
-    if (br.cashbackDeductedKwd) {
-      cashbackTotalMils += parseKwd(br.cashbackDeductedKwd);
-    }
-  }
-
   const completed = (sessions as any[]).filter((s) => s.status === "completed").length;
   const noShow = (sessions as any[]).filter((s) => s.status === "no_show").length;
   const scheduled = (sessions as any[]).filter((s) => s.status === "scheduled").length;
@@ -1641,6 +1655,23 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
   const brSessionIds = (bookingReqs as any[]).map(br => br.scheduledSessionId).filter(Boolean);
   const brSessions = await BookingSessionModel.find({ _id: { $in: brSessionIds } }).select("status").lean();
   const brSessionMap = new Map(brSessions.map((s: any) => [s._id.toString(), s.status]));
+
+  // Revenue from session prices
+  let sessionRevenueMils = 0;
+  let paidRevenueMils = 0;
+  let cashbackTotalMils = 0;
+  for (const br of bookingReqs as any[]) {
+    const sStatus = br.scheduledSessionId ? brSessionMap.get(br.scheduledSessionId.toString()) : null;
+    if (sStatus === "completed") {
+      if (br.sessionPriceKwd) {
+        sessionRevenueMils += parseKwd(br.sessionPriceKwd);
+        if (br.clinicPaymentStatus === "paid") paidRevenueMils += parseKwd(br.sessionPriceKwd);
+      }
+      if (br.cashbackDeductedKwd) {
+        cashbackTotalMils += parseKwd(br.cashbackDeductedKwd);
+      }
+    }
+  }
 
   return {
     clinic: clinic ? { nameEn: (clinic as any).nameEn ?? "", nameAr: (clinic as any).nameAr ?? "" } : null,

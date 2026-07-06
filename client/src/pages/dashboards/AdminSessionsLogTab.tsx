@@ -155,18 +155,19 @@ export default function AdminSessionsLogTab() {
           <table className="w-full text-left text-sm text-surface-600">
             <thead className="bg-surface-50 border-b border-surface-200 text-surface-700 uppercase font-bold text-[11px] tracking-wider">
               <tr>
-                <th className="px-6 py-4">{ar() ? "العميل" : "Customer"}</th>
-                <th className="px-6 py-4">{ar() ? "العيادة" : "Clinic"}</th>
-                <th className="px-6 py-4">{ar() ? "الخدمة" : "Service"}</th>
-                <th className="px-6 py-4">{ar() ? "تاريخ الموعد" : "Scheduled At"}</th>
-                <th className="px-6 py-4">{ar() ? "حالة الجلسة" : "Combined Status"}</th>
-                <th className="px-6 py-4">{ar() ? "الحالة" : "Status"}</th>
+                <th className="px-5 py-4">{ar() ? "العميل" : "Customer"}</th>
+                <th className="px-5 py-4">{ar() ? "العيادة" : "Clinic"}</th>
+                <th className="px-5 py-4">{ar() ? "الخدمة" : "Service"}</th>
+                <th className="px-5 py-4">{ar() ? "تاريخ الموعد" : "Scheduled At"}</th>
+                <th className="px-5 py-4">{ar() ? "حالة الموعد" : "Appointment"}</th>
+                <th className="px-5 py-4">{ar() ? "حالة الدفع" : "Payment"}</th>
+                <th className="px-5 py-4">{ar() ? "حالة الحضور" : "Attendance"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-100">
               {filteredSessions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-10 text-center text-surface-500">
+                  <td colSpan={7} className="px-6 py-10 text-center text-surface-500">
                     {ar() ? "لا توجد جلسات." : "No sessions found."}
                   </td>
                 </tr>
@@ -174,14 +175,37 @@ export default function AdminSessionsLogTab() {
                 filteredSessions.map((s) => {
                   const clinic = apiClinics.find(c => String(c.id || c._id) === String(s.clinicId));
                   const clinicName = ar() ? clinic?.nameAr : clinic?.nameEn;
+
+                  // Derive attendance status from appointment status
+                  const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled'].includes(s.status)
+                    ? 'awaiting'
+                    : s.status === 'checked_in' ? 'checked_in'
+                    : s.status === 'completed' ? 'attended'
+                    : s.status === 'no_show' ? 'no_show'
+                    : 'n_a';
+
+                  const attendanceLabel = attendanceStatus === 'awaiting' ? (ar() ? 'في الانتظار' : 'Awaiting')
+                    : attendanceStatus === 'checked_in' ? (ar() ? 'وصل' : 'Checked In')
+                    : attendanceStatus === 'attended' ? (ar() ? 'حضر' : 'Attended')
+                    : attendanceStatus === 'no_show' ? (ar() ? 'لم يحضر' : 'No Show')
+                    : '—';
+
+                  const attendanceStyle = attendanceStatus === 'awaiting' ? 'bg-blue-50 text-blue-700'
+                    : attendanceStatus === 'checked_in' ? 'bg-teal-50 text-teal-700'
+                    : attendanceStatus === 'attended' ? 'bg-emerald-50 text-emerald-700'
+                    : attendanceStatus === 'no_show' ? 'bg-red-50 text-red-700'
+                    : 'bg-surface-100 text-surface-500';
+
+                  const paymentLabel = s.clinicPaymentStatus === 'paid' ? (ar() ? 'مدفوع' : 'Paid') : (ar() ? 'معلق' : 'Pending');
+                  const paymentStyle = s.clinicPaymentStatus === 'paid' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700';
                   
                   return (
                     <tr key={s.id} className="hover:bg-surface-50 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-4">
                         <div className="font-bold text-surface-900">{s.customerName || "—"}</div>
                         <div className="text-xs text-surface-500">{s.customerPhone || "—"}</div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-100 text-surface-800">
                             {clinicName || s.clinicId}
@@ -229,26 +253,17 @@ export default function AdminSessionsLogTab() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 font-medium text-surface-700">
+                      <td className="px-5 py-4 font-medium text-surface-700">
                         {s.offerName}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-5 py-4">
                         <div className="font-bold text-surface-900">{fmtDate(s.scheduledAt)}</div>
                         <div className="text-xs text-surface-500">{new Date(s.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide
-                          ${s.combinedSessionStatus === 'Completed' ? 'bg-emerald-50 text-emerald-700' : ''}
-                          ${s.combinedSessionStatus === 'Missing POS' ? 'bg-amber-50 text-amber-700' : ''}
-                          ${s.combinedSessionStatus === 'Missing Came' ? 'bg-amber-50 text-amber-700' : ''}
-                          ${s.combinedSessionStatus === 'Missing Both' ? 'bg-red-50 text-red-700' : ''}
-                        `}>
-                          {s.combinedSessionStatus}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
+                      {/* Appointment Status */}
+                      <td className="px-5 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide
-                          ${s.status === 'scheduled' ? 'bg-blue-50 text-blue-700' : ''}
+                          ${s.status === 'scheduled' ? 'bg-indigo-50 text-indigo-700' : ''}
                           ${s.status === 'completed' ? 'bg-emerald-50 text-emerald-700' : ''}
                           ${s.status === 'no_show' ? 'bg-red-50 text-red-700' : ''}
                           ${s.status === 'cancelled' ? 'bg-surface-100 text-surface-600' : ''}
@@ -257,6 +272,18 @@ export default function AdminSessionsLogTab() {
                           ${s.status === 'checked_in' ? 'bg-teal-50 text-teal-700' : ''}
                         `}>
                           {s.status.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      {/* Payment Status */}
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${paymentStyle}`}>
+                          {paymentLabel}
+                        </span>
+                      </td>
+                      {/* Attendance Status */}
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${attendanceStyle}`}>
+                          {attendanceLabel}
                         </span>
                       </td>
                     </tr>
