@@ -1710,7 +1710,7 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
         id: br._id.toString(),
         userId: br.userId,
         ...resolveUser(br.userId),
-        status: br.status,
+        status: sStatus || br.status,
         sessionPriceKwd: br.sessionPriceKwd ?? null,
         cashbackDeductedKwd: br.cashbackDeductedKwd ?? null,
         clinicPaymentStatus: br.clinicPaymentStatus ?? "payment_pending",
