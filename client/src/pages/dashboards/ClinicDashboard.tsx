@@ -40,7 +40,52 @@ export const SESSION_STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700",
 };
 
-function SessionCard({ session, onMark, onMarkPaid, onSelectUser }: { session: any; onMark: (id: string, status: string) => void; onMarkPaid: (id: string) => void; onSelectUser?: (userId: string) => void }) {
+function RescheduleModal({ isOpen, onClose, onSubmit }: { isOpen: boolean; onClose: () => void; onSubmit: (scheduledAt: string) => void }) {
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("09:00");
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async () => {
+    if (!date) return;
+    setSubmitting(true);
+    try {
+      const dt = new Date(`${date}T${time}:00`);
+      onSubmit(dt.toISOString());
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4 space-y-5" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-black text-surface-900">{ar() ? "إعادة جدولة الموعد" : "Reschedule Appointment"}</h3>
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-bold text-surface-600 mb-1">{ar() ? "التاريخ" : "Date"}</label>
+            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full border border-surface-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-pink-400 focus:border-brand-pink-400 outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-surface-600 mb-1">{ar() ? "الوقت" : "Time"}</label>
+            <input type="time" value={time} onChange={e => setTime(e.target.value)} className="w-full border border-surface-300 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-brand-pink-400 focus:border-brand-pink-400 outline-none" />
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-surface-600 bg-surface-100 hover:bg-surface-200 transition-colors">
+            {ar() ? "إلغاء" : "Cancel"}
+          </button>
+          <button onClick={handleSubmit} disabled={!date || submitting} className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 transition-all disabled:opacity-50 shadow-md">
+            {submitting ? "..." : (ar() ? "تأكيد" : "Confirm")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SessionCard({ session, onMark, onMarkPaid, onSelectUser, onReschedule }: { session: any; onMark: (id: string, status: string) => void; onMarkPaid: (id: string) => void; onSelectUser?: (userId: string) => void; onReschedule?: (id: string) => void }) {
   const { getAuthHeader } = useAuth();
   
   const isPast = session.status !== "scheduled";
@@ -111,14 +156,15 @@ function SessionCard({ session, onMark, onMarkPaid, onSelectUser }: { session: a
 
       <div className="mt-auto pl-2">
         {session.status === "scheduled" && (
-          <div className="flex gap-2">
-            <div className={`flex-1 text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border bg-blue-50 text-blue-600 border-blue-200`}>
+          <div className="space-y-2">
+            <div className={`text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border bg-blue-50 text-blue-600 border-blue-200`}>
               {session.status.replace("_", " ")}
             </div>
             <button
-              onClick={() => onMark(session.id, "rescheduled")}
-              className="flex-1 text-center py-2.5 rounded-xl text-xs font-black uppercase tracking-wider border bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100 transition-colors shadow-sm"
+              onClick={() => onReschedule?.(session.id)}
+              className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold text-orange-700 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 hover:from-orange-100 hover:to-amber-100 hover:shadow-sm transition-all"
             >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
               {ar() ? "إعادة جدولة" : "Reschedule"}
             </button>
           </div>
@@ -144,11 +190,13 @@ function ScheduleTable({
   onMark,
   onMarkPaid,
   onSelectUser,
+  onReschedule,
 }: {
   sessions: any[];
   onMark: (id: string, status: string) => void;
   onMarkPaid: (bookingRequestId: string) => void;
   onSelectUser?: (userId: string) => void;
+  onReschedule?: (id: string) => void;
 }) {
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const today = startOfDay(new Date());
@@ -250,9 +298,10 @@ function ScheduleTable({
             {s.status === "scheduled" && (
               <button
                 type="button"
-                onClick={(e) => { e.stopPropagation(); onMark(s.id, "rescheduled"); }}
-                className="px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider bg-orange-50 text-orange-600 border border-orange-200 hover:bg-orange-100 transition-colors"
+                onClick={(e) => { e.stopPropagation(); onReschedule?.(s.id); }}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-bold text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-sm hover:shadow transition-all"
               >
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 {ar() ? "إعادة جدولة" : "Reschedule"}
               </button>
             )}
@@ -1691,6 +1740,20 @@ export default function ClinicDashboard() {
     } catch (e: any) { alert(e.message); }
   };
 
+  const [rescheduleSessionId, setRescheduleSessionId] = useState<string | null>(null);
+
+  const rescheduleSession = async (sessionId: string, scheduledAt: string) => {
+    try {
+      await apiFetch(`/scheduling/clinic/sessions/${sessionId}/reschedule`, {
+        method: "POST", headers: getAuthHeader(),
+        body: JSON.stringify({ scheduledAt }),
+      });
+      invalidateCache("/scheduling/clinic/");
+      void refetch(true);
+      setRescheduleSessionId(null);
+    } catch (e: any) { alert(e.message); }
+  };
+
   const saveClinicSettings = async () => {
     setClinicSaving(true);
     setClinicSaveMsg(null);
@@ -1798,7 +1861,7 @@ export default function ClinicDashboard() {
                     })
                     .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
                     .map(s => (
-                    <SessionCard key={s.id} session={s} onMark={markSession} onMarkPaid={markPaidFromSchedule} />
+                    <SessionCard key={s.id} session={s} onMark={markSession} onMarkPaid={markPaidFromSchedule} onReschedule={(id) => setRescheduleSessionId(id)} />
                   ))}
                   {sessions.filter(s => {
                       if (dateFilter === "all") return true;
@@ -1830,7 +1893,7 @@ export default function ClinicDashboard() {
                 ↻ {ar() ? "تحديث" : "Refresh"}
               </button>
             </div>
-            <ScheduleTable sessions={sessions} onMark={markSession} onMarkPaid={markPaidFromSchedule} onSelectUser={(userId) => setSelectedUser({ id: userId })} />
+            <ScheduleTable sessions={sessions} onMark={markSession} onMarkPaid={markPaidFromSchedule} onSelectUser={(userId) => setSelectedUser({ id: userId })} onReschedule={(id) => setRescheduleSessionId(id)} />
           </div>
         )}
 
@@ -2057,6 +2120,11 @@ export default function ClinicDashboard() {
           </div>
         </div>
       )}
+      <RescheduleModal
+        isOpen={!!rescheduleSessionId}
+        onClose={() => setRescheduleSessionId(null)}
+        onSubmit={(scheduledAt) => { if (rescheduleSessionId) rescheduleSession(rescheduleSessionId, scheduledAt); }}
+      />
     </DashboardShell>
   );
 }
