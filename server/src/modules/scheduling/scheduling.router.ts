@@ -2158,10 +2158,6 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
     const session = await sessionsStore.get(req.params.sessionId);
     if (!session) return res.status(404).json({ error: "NOT_FOUND" });
 
-    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, session.clinicId))) {
-      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
-    }
-
     if (session.status !== "scheduled" && session.status !== "no_show") {
       return res.status(409).json({ error: "INVALID_STATE", detail: "Only scheduled or missed sessions can be rescheduled" });
     }
