@@ -1944,15 +1944,19 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     if (updated?.status === "completed") {
       notifySessionCompletedCashback(uo.userId, updated.id, cashbackUnlocked);
 
-      // Auto-mark the associated booking request as paid
+      // Auto-sync the associated booking request status + payment
       const breq = await bookingRequestsStore.findBySessionId(session.id);
-      if (breq && breq.clinicPaymentStatus !== "paid") {
-        await bookingRequestsStore.update(breq.id, {
-          clinicPaymentStatus: "paid",
-          clinicPaymentMarkedAt: new Date().toISOString(),
-          clinicPaymentMarkedBy: req.auth!.userId,
-          sessionPriceKwd: finalPaidKwd || totalBillKwd || breq.sessionPriceKwd
-        });
+      if (breq) {
+        const breqUpdate: Record<string, unknown> = {
+          status: "completed",
+        };
+        if (breq.clinicPaymentStatus !== "paid") {
+          breqUpdate.clinicPaymentStatus = "paid";
+          breqUpdate.clinicPaymentMarkedAt = new Date().toISOString();
+          breqUpdate.clinicPaymentMarkedBy = req.auth!.userId;
+          breqUpdate.sessionPriceKwd = finalPaidKwd || totalBillKwd || breq.sessionPriceKwd;
+        }
+        await bookingRequestsStore.update(breq.id, breqUpdate);
       }
     }
     if (updated?.status === "cancelled") {
@@ -1963,6 +1967,9 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
       );
     }
     const breq = await bookingRequestsStore.findBySessionId(session.id);
+    if (breq) {
+      await bookingRequestsStore.update(breq.id, { status: "cancelled" });
+    }
     const csIds = await findCsUserIds();
     const financeIds = await findFinanceUserIds();
     notifyChatRelatedUsers({
@@ -1972,6 +1979,12 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
       payload: { bookingRequestId: breq?.id, sessionId: session.id }
     });
       notifyBookingCancelled(uo.userId, updated.id);
+    }
+    if (updated?.status === "no_show") {
+      const breq = await bookingRequestsStore.findBySessionId(session.id);
+      if (breq) {
+        await bookingRequestsStore.update(breq.id, { status: "no_show" });
+      }
     }
     return res.json({ session: updated });
   } catch (e) {
