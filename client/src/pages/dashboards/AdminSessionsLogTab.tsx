@@ -179,7 +179,7 @@ export default function AdminSessionsLogTab() {
                   const clinicName = ar() ? clinic?.nameAr : clinic?.nameEn;
 
                   // Derive attendance status from appointment status
-                  const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled'].includes(s.status)
+                  const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status)
                     ? 'awaiting'
                     : ['checked_in', 'in_progress'].includes(s.status) ? 'checked_in'
                     : s.status === 'completed' ? 'attended'

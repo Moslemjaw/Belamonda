@@ -408,7 +408,7 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                     </td>
                     <td>
                       {(() => {
-                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled'].includes(inv.status)
+                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(inv.status)
                           ? 'awaiting'
                           : ['checked_in', 'in_progress'].includes(inv.status) ? 'checked_in'
                           : inv.status === 'completed' ? 'attended'
@@ -628,7 +628,7 @@ function ClinicReportTable({ data, loading, from, to }: {
                     </td>
                     <td className="px-4 py-3">
                       {(() => {
-                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled'].includes(s.status)
+                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status)
                           ? 'awaiting'
                           : ['checked_in', 'in_progress'].includes(s.status) ? 'checked_in'
                           : s.status === 'completed' ? 'attended'
@@ -693,7 +693,7 @@ function ClinicReportTable({ data, loading, from, to }: {
                     </td>
                     <td className="px-4 py-3">
                       {(() => {
-                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled'].includes(inv.status)
+                        const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(inv.status)
                           ? 'awaiting'
                           : ['checked_in', 'in_progress'].includes(inv.status) ? 'checked_in'
                           : inv.status === 'completed' ? 'attended'
