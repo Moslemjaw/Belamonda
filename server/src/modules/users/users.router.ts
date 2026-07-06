@@ -718,6 +718,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
     });
 
     const parsed = z.object({
+      userId: z.string().optional(),
       phone: z.string().min(1, "Phone is required"),
       fullName: z.string().min(1, "Name is required"),
       email: z.string().optional().or(z.literal("")),
@@ -738,7 +739,13 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
     const d = parsed.data;
 
-    let user = await UserModel.findOne({ phone: d.phone }).lean<UserLean>();
+    let user: UserLean | null = null;
+    if (d.userId && mongoose.isValidObjectId(d.userId)) {
+      user = await UserModel.findById(d.userId).lean<UserLean>();
+    }
+    if (!user && d.phone) {
+      user = await UserModel.findOne({ phone: d.phone }).lean<UserLean>();
+    }
     if (!user) {
       const passwordHash = d.password
         ? await bcrypt.hash(d.password, 10)

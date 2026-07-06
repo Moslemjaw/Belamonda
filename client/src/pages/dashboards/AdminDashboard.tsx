@@ -2215,6 +2215,7 @@ export function UserProfilePanel({
         method: "POST",
         headers: getAuthHeader(),
         body: JSON.stringify({ 
+          userId: user.id || user._id,
           phone: user.phone || user.username || `phone_${user.id}`, 
           fullName: user.fullName || "Customer", 
           email: user.email,
