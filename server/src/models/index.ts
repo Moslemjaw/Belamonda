@@ -14,3 +14,4 @@ export { FormReminderLogModel } from "./formReminderLog.model.js";
 export { KycSubmissionModel, WalletModel, WalletTxnModel, type KycSubmissionDoc, type WalletDoc, type WalletTxnDoc } from "./kyc.model.js";
 export { CounterModel } from "./counter.model.js";
 export { PromotionModel, type PromotionDoc } from "./promotion.model.js";
+export { PromotionSubmissionModel, type PromotionSubmissionDoc } from "./promotionSubmission.model.js";

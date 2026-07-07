@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useApi } from "../hooks/useApi";
 import PublicLayout from "../components/PublicLayout";
 import { useAuth } from "../app/AuthContext";
+import { SurveyRenderer } from "../components/SurveyRenderer";
 
 export default function PromoPage() {
   const { slug } = useParams();
@@ -42,6 +43,21 @@ export default function PromoPage() {
             <button onClick={() => navigate("/")} className="btn-primary w-full">{ar() ? "العودة للرئيسية" : "Back to Home"}</button>
           </div>
         </div>
+      </PublicLayout>
+    );
+  }
+
+  if (promo.type === "survey") {
+    return (
+      <PublicLayout>
+        <main className="pt-24 pb-20 px-4 max-w-3xl mx-auto animate-fade-in">
+          <SurveyRenderer 
+            slug={promo.slug}
+            title={promo.title}
+            description={promo.description}
+            questions={promo.surveyQuestions || []}
+          />
+        </main>
       </PublicLayout>
     );
   }
