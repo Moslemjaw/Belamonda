@@ -40,7 +40,6 @@ export default function AdminSessionsLogTab() {
   const [status, setStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClinic, setFilterClinic] = useState("all");
-  const [showManual, setShowManual] = useState(false);
 
   const [changeClinicTarget, setChangeClinicTarget] = useState<any>(null);
   const [newClinicSelection, setNewClinicSelection] = useState("");
@@ -81,8 +80,6 @@ export default function AdminSessionsLogTab() {
 
   const filteredSessions = sessions.filter(s => {
     if (filterClinic !== "all" && String(s.clinicId) !== filterClinic) return false;
-    const isManualEntry = s.offerName === "Standalone Booking" || s.offerName === "حجز فردي" || s.isHistorical;
-    if (!showManual && isManualEntry) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     const name = (s.customerName || "").toLowerCase();
@@ -136,62 +133,62 @@ export default function AdminSessionsLogTab() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h3 className="text-xl font-bold text-surface-900">{ar() ? "سجل الجلسات" : "Sessions Log"}</h3>
+          <h3 className="text-2xl font-bold text-surface-900">{ar() ? "سجل الجلسات" : "Sessions Log"}</h3>
           <p className="text-sm text-surface-500 mt-1">
             {ar() ? "عرض جميع الجلسات والطلبات في العيادات" : "View all sessions and pending requests across clinics"}
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2">
-            <select value={filterClinic} onChange={e => setFilterClinic(e.target.value)} className="input-field py-1.5 text-sm">
-              <option value="all">{ar() ? "جميع العيادات" : "All Clinics"}</option>
-              {apiClinics.map(c => (
-                <option key={c.id || c._id} value={c.id || c._id}>
-                  {ar() ? c.nameAr || c.nameEn : c.nameEn}
-                </option>
-              ))}
-            </select>
-            <select value={status} onChange={e => setStatus(e.target.value)} className="input-field py-1.5 text-sm">
-              <option value="all">{ar() ? "الكل" : "All Statuses"}</option>
-              <option value="scheduled">{ar() ? "مجدول" : "Scheduled"}</option>
-              <option value="completed">{ar() ? "مكتمل" : "Completed"}</option>
-              <option value="no_show">{ar() ? "لم يحضر" : "No Show"}</option>
-              <option value="cancelled">{ar() ? "ملغي" : "Cancelled"}</option>
-              <option value="request_received">{ar() ? "تم استلام الطلب" : "Request Received"}</option>
-              <option value="slot_assigned">{ar() ? "تم تحديد الوقت" : "Slot Assigned"}</option>
-              <option value="in_progress">{ar() ? "قيد التنفيذ" : "In Progress"}</option>
-              <option value="rescheduled">{ar() ? "إعادة جدولة" : "Rescheduled"}</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <input 
-              type="text" 
-              placeholder={ar() ? "بحث بالاسم او الهاتف..." : "Search name or phone..."}
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="input-field py-1.5 text-sm w-48"
-            />
+        <button onClick={fetchSessions} className="btn-secondary shrink-0 hidden sm:flex items-center gap-2">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          {ar() ? "تحديث السجل" : "Refresh Log"}
+        </button>
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-surface-200 flex flex-wrap gap-3 items-center">
+        <div className="flex-1 min-w-[240px] relative">
+          <svg className={`w-5 h-5 text-surface-400 absolute top-1/2 -translate-y-1/2 ${ar() ? 'right-3' : 'left-3'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <input 
+            type="text" 
+            placeholder={ar() ? "بحث بالاسم او الهاتف..." : "Search customer name or phone..."}
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className={`input-field w-full ${ar() ? 'pr-10' : 'pl-10'}`}
+          />
+        </div>
+        <div className="w-full md:w-auto flex flex-wrap md:flex-nowrap gap-3">
+          <select value={filterClinic} onChange={e => setFilterClinic(e.target.value)} className="input-field w-full md:w-40 font-medium text-surface-700">
+            <option value="all">{ar() ? "جميع العيادات" : "All Clinics"}</option>
+            {apiClinics.map(c => (
+              <option key={c.id || c._id} value={c.id || c._id}>
+                {ar() ? c.nameAr || c.nameEn : c.nameEn}
+              </option>
+            ))}
+          </select>
+          <select value={status} onChange={e => setStatus(e.target.value)} className="input-field w-full md:w-40 font-medium text-surface-700">
+            <option value="all">{ar() ? "جميع الحالات" : "All Statuses"}</option>
+            <option value="scheduled">{ar() ? "مجدول" : "Scheduled"}</option>
+            <option value="completed">{ar() ? "مكتمل" : "Completed"}</option>
+            <option value="no_show">{ar() ? "لم يحضر" : "No Show"}</option>
+            <option value="cancelled">{ar() ? "ملغي" : "Cancelled"}</option>
+            <option value="request_received">{ar() ? "تم استلام الطلب" : "Request Received"}</option>
+            <option value="slot_assigned">{ar() ? "تم تحديد الوقت" : "Slot Assigned"}</option>
+            <option value="in_progress">{ar() ? "قيد التنفيذ" : "In Progress"}</option>
+            <option value="rescheduled">{ar() ? "إعادة جدولة" : "Rescheduled"}</option>
+          </select>
+          <div className="w-full md:w-40 shrink-0">
             <DatePicker 
               value={filterDate} 
               onChange={e => setFilterDate(e.target.value)} 
-              className="input-field py-1.5 text-sm w-36" 
+              className="input-field w-full font-medium text-surface-700" 
             />
-            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-surface-600 bg-white border border-surface-200 px-3 py-1.5 rounded-lg shadow-sm hover:bg-surface-50 transition-colors">
-              <input 
-                type="checkbox" 
-                checked={showManual} 
-                onChange={e => setShowManual(e.target.checked)} 
-                className="w-4 h-4 rounded border-surface-300 text-brand-pink-500 focus:ring-brand-pink-500" 
-              />
-              {ar() ? "عرض الإدخال اليدوي" : "Show Manual"}
-            </label>
           </div>
-          <button onClick={fetchSessions} className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg">
-            ↻ {ar() ? "تحديث" : "Refresh"}
-          </button>
         </div>
+        <button onClick={fetchSessions} className="btn-secondary w-full sm:hidden flex justify-center items-center gap-2">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          {ar() ? "تحديث السجل" : "Refresh Log"}
+        </button>
       </div>
 
       <div className="card-elevated overflow-hidden border border-surface-200">
