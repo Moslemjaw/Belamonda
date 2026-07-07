@@ -1007,8 +1007,8 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
                   <div className="space-y-3">
                      <div>
                        <label className="block text-[11px] font-bold text-blue-800 mb-1">{ar() ? "وقت وتاريخ الموعد" : "Date & Time"}</label>
-                       <input 
-                         type="datetime-local" 
+                       <DatePicker 
+                         showTimeSelect
                          className="w-full bg-white border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                          value={scheduleForm.scheduledAt}
                          onChange={e => setScheduleForm(prev => ({ ...prev, scheduledAt: e.target.value }))}
@@ -1470,9 +1470,9 @@ function SchedulingTool() {
 
         <div>
            <label className="text-xs font-bold text-surface-700 mb-1.5 block uppercase tracking-wider">{ar() ? "الموعد" : "Date & Time"}</label>
-           <input 
-             className="input-field bg-surface-50 focus:bg-white" 
-             type="datetime-local" 
+           <DatePicker 
+             showTimeSelect
+             className="input-field bg-surface-50 focus:bg-white w-full" 
              value={form.scheduledAt} 
              onChange={e => setForm({ ...form, scheduledAt: e.target.value })} 
            />

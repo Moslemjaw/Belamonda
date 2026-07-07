@@ -655,7 +655,7 @@ commerceRouter.post("/admin/user-offers/:uoId/adjust-installments", authRequired
           amountKwd: schedule[idx].amountKwd,
           grossAmountKwd: schedule[idx].amountKwd,
           cashbackAppliedKwd: "0.000",
-          status: "completed",
+          status: "paid",
           method: method,
           purpose: "installment",
           provider: "manual",

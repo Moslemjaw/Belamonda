@@ -115,7 +115,7 @@ export async function getReferralStats(referrerId: string) {
   }) as string[];
 
   const paymentAgg = await PaymentModel.aggregate([
-    { $match: { userId: { $in: referredIds }, status: "completed" } },
+    { $match: { userId: { $in: referredIds }, status: "paid" } },
     {
       $group: {
         _id: null,
@@ -208,7 +208,7 @@ export async function getAllStaffReferralStats(): Promise<StaffReferralRow[]> {
   interface PayByUserAgg { _id: string; total: number }
   const payByUserAgg = allReferredIds.length
     ? await PaymentModel.aggregate<PayByUserAgg>([
-        { $match: { userId: { $in: allReferredIds }, status: "completed" } },
+        { $match: { userId: { $in: allReferredIds }, status: "paid" } },
         {
           $group: {
             _id: "$userId",
@@ -286,7 +286,7 @@ export async function handleFirstPurchaseReferral(userId: string): Promise<void>
       // The notification fires only after the offer reaches active/expired status,
       // so at that point the latest payment IS the activation/conversion payment.
       const activationPayment = userOffer
-        ? await PaymentModel.findOne({ userOfferId: userOffer._id, status: "completed" })
+        ? await PaymentModel.findOne({ userOfferId: userOffer._id, status: "paid" })
             .select("amountKwd")
             .sort({ createdAt: -1 })
             .lean<PaymentLean>()

@@ -3,7 +3,7 @@ import { useAuth } from "../app/AuthContext";
 import { API_BASE_URL, apiFetch } from "../lib/api";
 import { getChatSocket, type ChatConversation, type ChatMessage, type BookingRequest } from "../lib/chatSocket";
 import i18n from "../app/i18n";
-
+import DatePicker from "./DatePicker";
 const ar = () => i18n.language === "ar";
 
 /** Format a date/ISO string in Kuwait time (UTC+3). */
@@ -488,8 +488,8 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                     {/* Staff propose / confirm / reject */}
                     {!adminMode && showBookingActions && isStaff && !["scheduled", "cancelled", "checked_in", "in_progress", "completed", "no_show", "rescheduled"].includes(bookingRequest.status) && (
                       <div className="flex flex-wrap items-center gap-2">
-                        <input
-                          type="datetime-local"
+                        <DatePicker
+                          showTimeSelect
                           className="input-field text-sm"
                           value={proposeAt}
                           onChange={(e) => setProposeAt(e.target.value)}

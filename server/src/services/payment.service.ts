@@ -20,7 +20,7 @@ export async function createCompletedEnrollmentPayment(input: {
     amountKwd: input.amountKwd,
     currency: "KWD",
     method: input.method,
-    status: "completed",
+    status: "paid",
     proofRef: input.proofRef,
     confirmedBy: input.confirmedBy,
     confirmedAt: new Date()
@@ -71,7 +71,7 @@ export async function createSessionPayment(input: {
 export async function confirmSessionPayment(paymentId: string) {
   const doc = await PaymentModel.findOneAndUpdate(
     { _id: paymentId, status: "pending" },
-    { status: "completed", confirmedAt: new Date(), confirmedBy: "customer" },
+    { status: "paid", confirmedAt: new Date(), confirmedBy: "customer" },
     { new: true }
   ).lean();
   if (!doc) throw new Error("Session payment not found or already processed");
@@ -101,7 +101,7 @@ export async function linkPaymentToBookingIfFirst(userOfferId: string, bookingId
   if (!mongoose.isValidObjectId(userOfferId) || !mongoose.isValidObjectId(bookingId)) return;
   const pay = await PaymentModel.findOne({
     userOfferId: new mongoose.Types.ObjectId(userOfferId),
-    status: "completed",
+    status: "paid",
     $or: [{ bookingId: { $exists: false } }, { bookingId: null }]
   });
   if (!pay) return;
@@ -158,7 +158,7 @@ export async function sumCompletedPaymentsKwd() {
   if (_sumCompletedPromise) return _sumCompletedPromise;
 
   const promise = (async () => {
-    const all = await PaymentModel.find({ status: "completed" }).select("amountKwd cashbackAppliedKwd grossAmountKwd").lean();
+    const all = await PaymentModel.find({ status: "paid" }).select("amountKwd cashbackAppliedKwd grossAmountKwd").lean();
     let totalMils = 0;
     for (const p of all) {
       const net = parseKwdMils(p.amountKwd);

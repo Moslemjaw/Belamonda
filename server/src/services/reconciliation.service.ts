@@ -22,7 +22,7 @@ export async function reconcileMetrics() {
   const totalSessionsCompleted = await BookingSessionModel.countDocuments({ status: "completed" });
   
   // 3. Reconcile Payments (Global)
-  const payments = await PaymentModel.find({ status: "completed" })
+  const payments = await PaymentModel.find({ status: "paid" })
     .select("amountKwd grossAmountKwd cashbackAppliedKwd purpose createdAt")
     .lean();
     

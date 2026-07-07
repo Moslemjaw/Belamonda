@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../app/AuthContext";
 import { apiFetch } from "../../lib/api";
 import i18n from "../../app/i18n";
-
+import DatePicker from "../../components/DatePicker";
 const ar = () => i18n.language === "ar";
 
 export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: string }) {
@@ -134,8 +134,8 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
                   {selectedRequest === r.id ? (
                     <div className="bg-surface-50 p-3 rounded-xl border border-surface-200 flex flex-col gap-2">
                       <label className="text-xs font-bold text-surface-700">{ar() ? "اختر موعداً جديداً:" : "Select new date:"}</label>
-                      <input
-                        type="datetime-local"
+                      <DatePicker
+                        showTimeSelect
                         className="w-full bg-white border border-surface-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-pink-500"
                         value={scheduleForm.scheduledAt}
                         onChange={e => setScheduleForm({ ...scheduleForm, scheduledAt: e.target.value })}

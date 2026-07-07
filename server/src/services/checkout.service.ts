@@ -254,7 +254,7 @@ async function createPayment(input: {
   provider: "mock" | "enet" | "manual" | string;
   providerRef: string;
   installmentNumber?: number;
-  status: "completed" | "failed" | "pending";
+  status: "paid" | "failed" | "payment_pending";
   failureReason?: string;
 }) {
   const doc = await PaymentModel.create({
@@ -272,11 +272,11 @@ async function createPayment(input: {
     installmentNumber: input.installmentNumber,
     status: input.status,
     failureReason: input.failureReason,
-    confirmedAt: input.status === "completed" ? new Date() : undefined,
-    confirmedBy: input.status === "completed" ? "system_checkout" : undefined
+    confirmedAt: input.status === "paid" ? new Date() : undefined,
+    confirmedBy: input.status === "paid" ? "system_checkout" : undefined
   });
   
-  if (input.status === "completed") {
+  if (input.status === "paid") {
     const netKwd = parseFloat(input.amountKwd) || 0;
     const cbKwd = parseFloat(input.cashbackAppliedKwd) || 0;
     const grossKwdStr = input.grossAmountKwd;
@@ -454,7 +454,7 @@ export async function checkoutFull(input: {
       purpose: "enrollment_full",
       provider: "mock",
       providerRef: "cashback_full_coverage",
-      status: "completed"
+      status: "paid"
     });
     await UserOfferModel.findByIdAndUpdate(uo._id, {
       $set: {
@@ -580,7 +580,7 @@ export async function checkoutInstallments(input: {
       purpose: "enrollment_full",
       provider: "mock",
       providerRef: "cashback_full_coverage",
-      status: "completed"
+      status: "paid"
     });
     const paidSchedule = schedule.map(s => ({ ...s, paid: true, paidAt: now, paymentId: payment._id }));
     await UserOfferModel.findByIdAndUpdate(uo._id, {
@@ -644,7 +644,7 @@ export async function payNextInstallment(input: { userId: string; userOfferId: s
       provider: "manual",
       providerRef: input.proofRef,
       installmentNumber: entry.number,
-      status: "pending"
+      status: "payment_pending"
     });
     return { pending: true, payment: serializePayment(payment.toObject()) };
   }
@@ -766,7 +766,7 @@ export async function checkoutEnet4(input: {
     purpose: "enrollment_enet",
     provider: "enet",
     providerRef: result.providerRef,
-    status: "completed"
+    status: "paid"
   });
 
   await UserOfferModel.findByIdAndUpdate(uo._id, {
@@ -978,7 +978,7 @@ export async function convertReservation(input: {
       purpose: "enrollment_enet",
       provider: "enet",
       providerRef: result.providerRef,
-      status: "completed"
+      status: "paid"
     });
     await UserOfferModel.findByIdAndUpdate(uo._id, {
       $set: {
@@ -1044,7 +1044,7 @@ export async function convertReservation(input: {
       purpose: "deposit_balance",
       provider: "mock",
       providerRef: result.providerRef,
-      status: "completed"
+      status: "paid"
     });
     await UserOfferModel.findByIdAndUpdate(uo._id, {
       $set: {
@@ -1117,7 +1117,7 @@ export async function convertReservation(input: {
     provider: "mock",
     providerRef: result.providerRef,
     installmentNumber: 1,
-    status: "completed"
+    status: "paid"
   });
   schedule[0].paid = true;
   schedule[0].paidAt = new Date();

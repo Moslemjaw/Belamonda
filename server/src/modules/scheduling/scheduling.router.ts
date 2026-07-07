@@ -1432,13 +1432,13 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
 
   if (breq.sessionPaymentId) {
     const oldPay = await PaymentModel.findByIdAndUpdate(breq.sessionPaymentId, {
-      status: "completed",
+      status: "paid",
       confirmedAt: new Date(),
       confirmedBy: req.auth!.userId,
       method: "cash" // or pos, we default to cash for clinic side payments
     }).lean();
     
-    if (oldPay && (oldPay as any).status !== "completed") {
+    if (oldPay && (oldPay as any).status !== "paid") {
       const netKwd = parseFloat((oldPay as any).amountKwd) || 0;
       const cbKwd = parseFloat((oldPay as any).cashbackAppliedKwd) || 0;
       const grossKwdStr = (oldPay as any).grossAmountKwd;
@@ -1471,7 +1471,7 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
       currency: "KWD",
       method: "cash",
       purpose: "session_payment",
-      status: "completed",
+      status: "paid",
       provider: "manual",
       bookingRequestId: breq.id,
       confirmedAt: new Date(),
