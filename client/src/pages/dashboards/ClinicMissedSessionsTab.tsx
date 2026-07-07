@@ -140,12 +140,30 @@ export default function ClinicMissedSessionsTab({ clinicId }: { clinicId: string
                     <span>{fmtDate(s.scheduledAt)} {new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                 </div>
-                <div className="w-full sm:w-auto">
+                <div className="w-full sm:w-auto flex gap-2">
                   <button 
                     onClick={() => setRescheduleSession(s)} 
-                    className="w-full sm:w-auto text-xs font-bold px-4 py-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
+                    className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
                   >
                     {ar() ? "إعادة جدولة" : "Reschedule"}
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      if (!window.confirm(ar() ? "هل أنت متأكد من حذف هذه الجلسة؟" : "Are you sure you want to delete this session?")) return;
+                      try {
+                        await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
+                          method: "POST",
+                          headers: getAuthHeader(),
+                          body: JSON.stringify({ status: "cancelled", notes: "Deleted from Missed Sessions" })
+                        });
+                        await fetchMissedSessions();
+                      } catch (e: any) {
+                        alert(e.message || "Failed to delete");
+                      }
+                    }}
+                    className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-colors"
+                  >
+                    {ar() ? "حذف" : "Delete"}
                   </button>
                 </div>
               </div>
