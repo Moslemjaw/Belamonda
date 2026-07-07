@@ -2334,7 +2334,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
         createdAt: doc.createdAt.toISOString(),
         combinedSessionStatus: combinedStatus,
         clinicPaymentStatus: pStatus,
-        sessionPriceKwd: doc.sessionPriceKwd || req?.sessionPriceKwd || null
+        sessionPriceKwd: doc.sessionPriceKwd || null
       };
     });
 
