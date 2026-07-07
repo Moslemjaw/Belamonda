@@ -39,6 +39,7 @@ function buildDateFilter(from?: string, to?: string) {
     const d = new Date(from);
     if (!isNaN(d.getTime())) {
       d.setUTCHours(0, 0, 0, 0);
+      d.setUTCHours(d.getUTCHours() - 3);
       f.$gte = d;
     }
   }
@@ -46,6 +47,7 @@ function buildDateFilter(from?: string, to?: string) {
     const d = new Date(to);
     if (!isNaN(d.getTime())) {
       d.setUTCHours(23, 59, 59, 999);
+      d.setUTCHours(d.getUTCHours() - 3);
       f.$lte = d;
     }
   }

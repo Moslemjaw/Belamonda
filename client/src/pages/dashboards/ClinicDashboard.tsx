@@ -409,16 +409,29 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
   const [to, setTo] = useState(() => {
     const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10);
   });
+  const [search, setSearch] = useState("");
   const { data, loading } = useMyClinicReport({ from, to });
 
   const invoices = data?.invoices ?? [];
   const s = data?.summary;
+  
+  const filteredInvoices = invoices.filter(inv =>
+    !search || inv.customerName?.toLowerCase().includes(search.toLowerCase()) ||
+    inv.customerPhone?.includes(search) || inv.status?.includes(search.toLowerCase())
+  );
 
   return (
     <div className="space-y-5 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h3 className="text-xl font-bold text-surface-900">{ar() ? "الفواتير" : "Invoices"}</h3>
         <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-xs text-surface-500 font-medium">{ar() ? "بحث" : "Search"}</label>
+          <input
+            className="input-field text-sm py-1.5 px-3 w-36"
+            placeholder={ar() ? "بحث..." : "Search..."}
+            value={search} onChange={e => setSearch(e.target.value)}
+          />
+          <div className="w-px h-6 bg-surface-200 mx-2" />
           <label className="text-xs text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
           <DatePicker value={from} onChange={e => setFrom(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
           <label className="text-xs text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
@@ -445,8 +458,8 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
       <div className="card-elevated border border-surface-200 shadow-sm overflow-hidden rounded-xl">
         {loading ? (
           <div className="py-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>
-        ) : invoices.length === 0 ? (
-          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "لا توجد فواتير في هذه الفترة" : "No invoices in this period"}</div>
+        ) : filteredInvoices.length === 0 ? (
+          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "لا توجد فواتير في هذه الفترة" : "No invoices found"}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="data-table text-sm">
@@ -462,7 +475,7 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
                 </tr>
               </thead>
               <tbody>
-                {invoices.map(inv => (
+                {filteredInvoices.map(inv => (
                   <tr key={inv.id}>
                     <td className="text-surface-500 whitespace-nowrap">{fmtDate(inv.createdAt)}</td>
                     <td>
