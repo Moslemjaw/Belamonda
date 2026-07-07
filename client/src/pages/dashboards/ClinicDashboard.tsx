@@ -642,6 +642,7 @@ function ClinicCompletedSessionsTab({ clinicId: _clinicId }: { clinicId: string 
                   <th>{ar() ? "العميل" : "Customer"}</th>
                   <th>{ar() ? "نوع العضوية" : "Membership Type"}</th>
                   <th>{ar() ? "سعر الجلسة" : "Session Price"}</th>
+                  <th>{ar() ? "حالة الموعد" : "Appointment"}</th>
                   <th>{ar() ? "حالة الدفع" : "Payment"}</th>
                   <th>{ar() ? "حالة الحضور" : "Attendance"}</th>
                 </tr>
@@ -657,6 +658,18 @@ function ClinicCompletedSessionsTab({ clinicId: _clinicId }: { clinicId: string 
                     <td className="capitalize text-surface-600">{inv.membershipType ?? "—"}</td>
                     <td className="font-bold text-surface-900">
                       {inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}
+                    </td>
+                    <td>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
+                        inv.status === 'completed' && inv.clinicPaymentStatus !== 'paid'
+                          ? "bg-amber-50 text-amber-700"
+                          : SESSION_STATUS_STYLE[inv.status] ?? "bg-surface-100 text-surface-500"
+                      }`}>
+                        {inv.status === 'completed' && inv.clinicPaymentStatus !== 'paid'
+                          ? (ar() ? "بانتظار الدفع" : "AWAITING SESSION PAYMENT")
+                          : inv.status === 'slot_accepted' ? (ar() ? "مجدول" : "SCHEDULED")
+                          : inv.status.replace(/_/g, ' ')}
+                      </span>
                     </td>
                     <td>
                       <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${inv.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
