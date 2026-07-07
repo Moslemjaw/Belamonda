@@ -887,23 +887,8 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
         await UserOfferModel.findByIdAndUpdate(uo._id, { $set: { paymentId: payment._id } });
       }
 
-      if (en.historicalSessions && en.historicalSessions.length > 0) {
-        const { BookingSessionModel } = await import("../../models/bookingSession.model.js");
-        for (const hs of en.historicalSessions) {
-          await BookingSessionModel.create({
-            userOfferId: uo._id,
-            userId: String(user._id),
-            offerId: offer._id,
-            clinicId: en.clinicId || offer.clinicIds?.[0] || offer.clinicId,
-            scheduledAt: new Date(hs.date),
-            status: "completed",
-            scheduledBy: req.auth!.userId,
-            completedAt: new Date(hs.date),
-            markedBy: req.auth!.userId,
-            notes: "Historical session logged during enrollment",
-          });
-        }
-      }
+      // Historical sessions: only the sessionsUsed counter on UserOffer matters.
+      // We no longer create BookingSession documents for historical sessions.
 
       await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
 

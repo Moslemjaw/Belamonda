@@ -2214,7 +2214,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
   try {
     const { from, to, status } = req.query;
 
-    const sessionQuery: any = {};
+    const sessionQuery: any = { notes: { $ne: "Historical session logged during enrollment" } };
     if (from || to) {
       sessionQuery.scheduledAt = {};
       if (from) sessionQuery.scheduledAt.$gte = new Date(from as string);
@@ -2613,6 +2613,18 @@ schedulingRouter.post("/admin/requests/:requestId/revert", authRequired, require
     }
 
     return res.json({ ok: true, request: updated });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ── Admin: Delete all historical session documents ──────────────────────────
+schedulingRouter.delete("/admin/historical-sessions", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const result = await BookingSessionModel.deleteMany({
+      notes: "Historical session logged during enrollment"
+    });
+    return res.json({ ok: true, deletedCount: result.deletedCount });
   } catch (e) {
     next(e);
   }
