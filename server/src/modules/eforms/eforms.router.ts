@@ -219,21 +219,25 @@ export async function listRequiredFormsForUser(
   if (!filtered.length) return [] as any[];
   const ids = filtered.map((f) => f._id);
   const targetRefIds = targets.map((t) => t.refId);
-  const orConditions: any[] = [
-    { targetRefId: { $in: targetRefIds } }
-  ];
-  if (userOfferId) {
-    orConditions.push({ userOfferId });
-  }
   const submissions = await EFormSubmissionModel.find({ 
     formId: { $in: ids }, 
-    userId,
-    $or: orConditions
+    userId
   })
     .select("formId")
     .lean<{ formId: mongoose.Types.ObjectId }[]>();
   const signed = new Set(submissions.map((s) => String(s.formId)));
-  return filtered.filter((f) => !signed.has(String(f._id))).map((f) => serializeForm(f as EFormDoc));
+  
+  const result = filtered.filter((f) => !signed.has(String(f._id))).map((f) => serializeForm(f as EFormDoc));
+  console.log("[DEBUG] listRequiredFormsForUser", {
+    userId,
+    targetRefIds,
+    userOfferId,
+    formIdsToCheck: ids.map(id => String(id)),
+    submissionsFound: submissions.map(s => String(s.formId)),
+    returningForms: result.map(f => f.id)
+  });
+  
+  return result;
 }
 
 export const eformsRouter = Router();

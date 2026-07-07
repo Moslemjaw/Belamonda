@@ -201,10 +201,7 @@ async function assertRequiredEForm(userId: string, eFormId?: string | mongoose.T
   const form = await EFormModel.findById(formStr).lean();
   if (!form) return;
   
-  const query: any = { formId: formStr, userId };
-  if (userOfferId) {
-    query.userOfferId = userOfferId;
-  }
+  const query: any = { formId: new mongoose.Types.ObjectId(formStr), userId };
   const signed = await EFormSubmissionModel.exists(query);
   if (!signed) {
     throw httpErr(409, "EFORMS_REQUIRED", { forms: [{ id: formStr, title: (form as any).title }] });
