@@ -400,7 +400,7 @@ function ClinicPerformanceTab({ sessions, completed, noShows, scheduled }: {
 }
 
 // ===========================================================================
-// INVOICES TAB
+// SESSIONS LOG TAB
 // ===========================================================================
 function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
   const [from, setFrom] = useState(() => {
@@ -421,28 +421,41 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
   );
 
   return (
-    <div className="space-y-5 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h3 className="text-xl font-bold text-surface-900">{ar() ? "الفواتير" : "Invoices"}</h3>
-        <div className="flex items-center gap-2 flex-wrap">
-          <label className="text-xs text-surface-500 font-medium">{ar() ? "بحث" : "Search"}</label>
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-2xl font-bold text-surface-900">{ar() ? "سجل الجلسات" : "Sessions Log"}</h3>
+          <p className="text-sm text-surface-500 mt-1">
+            {ar() ? "عرض جميع الجلسات والفواتير في العيادة" : "View all sessions and invoices for your clinic"}
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-surface-200 flex flex-wrap gap-3 items-center">
+        <div className="flex-1 min-w-[200px] relative">
+          <svg className={`w-5 h-5 text-surface-400 absolute top-1/2 -translate-y-1/2 ${ar() ? 'right-3' : 'left-3'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input
-            className="input-field text-sm py-1.5 px-3 w-36"
-            placeholder={ar() ? "بحث..." : "Search..."}
+            className={`input-field w-full ${ar() ? 'pr-10' : 'pl-10'}`}
+            placeholder={ar() ? "بحث بالاسم او الهاتف..." : "Search customer name or phone..."}
             value={search} onChange={e => setSearch(e.target.value)}
           />
-          <div className="w-px h-6 bg-surface-200 mx-2" />
-          <label className="text-xs text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
-          <DatePicker value={from} onChange={e => setFrom(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
-          <label className="text-xs text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
-          <DatePicker value={to} onChange={e => setTo(e.target.value)} className="input-field text-sm py-1.5 px-3 w-36" />
+        </div>
+        <div className="w-full md:w-auto flex flex-wrap md:flex-nowrap gap-3 items-center">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-surface-500 font-bold uppercase tracking-wider whitespace-nowrap">{ar() ? "من" : "From"}</label>
+            <DatePicker value={from} onChange={e => setFrom(e.target.value)} className="input-field w-full md:w-36 font-medium text-surface-700" />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-surface-500 font-bold uppercase tracking-wider whitespace-nowrap">{ar() ? "إلى" : "To"}</label>
+            <DatePicker value={to} onChange={e => setTo(e.target.value)} className="input-field w-full md:w-36 font-medium text-surface-700" />
+          </div>
         </div>
       </div>
 
       {s && (
         <div className="grid gap-3 sm:grid-cols-4">
           {[
-            { label: ar() ? "إجمالي الفواتير" : "Total Invoices", value: s.totalInvoices, color: "text-surface-900" },
+            { label: ar() ? "إجمالي الجلسات" : "Total Sessions", value: s.totalInvoices, color: "text-surface-900" },
             { label: ar() ? "مدفوعة" : "Paid", value: s.paidInvoices, color: "text-emerald-700" },
             { label: ar() ? "معلقة" : "Pending", value: s.pendingInvoices, color: "text-amber-700" },
             { label: ar() ? "الإيرادات المدفوعة" : "Paid Revenue", value: `${s.paidRevenueKwd} KWD`, color: "text-emerald-700" },
@@ -1815,7 +1828,7 @@ export default function ClinicDashboard() {
     { key: "booking_requests", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>, label: ar() ? "طلبات الحجز" : "Booking Requests" },
     { key: "schedule", icon: Icons.calendar, label: t("schedule") },
     { key: "missed_sessions", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, label: ar() ? "الجلسات الفائتة" : "Missed Sessions" },
-    { key: "invoices", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>, label: ar() ? "الفواتير" : "Invoices" },
+    { key: "invoices", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>, label: ar() ? "سجل الجلسات" : "Sessions Log" },
     { key: "reports", icon: Icons.report, label: ar() ? "التقارير" : "Reports" },
     { key: "performance", icon: Icons.chart, label: ar() ? "الأداء" : "Performance" },
     { key: "complaints", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>, label: ar() ? "الشكاوى والدعم" : "Complaints & Support" },
