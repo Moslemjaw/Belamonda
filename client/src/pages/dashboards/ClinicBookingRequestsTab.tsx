@@ -17,7 +17,7 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const res: any = await apiFetch(`/scheduling/clinic/requests?clinicId=${clinicId}&status=slot_assigned`, {
+      const res: any = await apiFetch(`/scheduling/clinic/requests?clinicId=${clinicId}&status=open`, {
         headers: getAuthHeader()
       });
       setRequests(res.items || []);
@@ -74,7 +74,7 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
         <div>
           <h3 className="text-xl font-bold text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
           <p className="text-sm text-surface-500 mt-1">
-            {ar() ? "مراجعة وتأكيد المواعيد المقترحة من الإدارة" : "Review and confirm dates proposed by Admin"}
+            {ar() ? "مراجعة وتأكيد طلبات الحجز والمواعيد المقترحة" : "Review and confirm booking requests and proposed dates"}
           </p>
         </div>
         <button onClick={fetchRequests} className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg">
@@ -90,7 +90,7 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
             </svg>
           </div>
           <h4 className="text-lg font-bold text-surface-700 mb-1">{ar() ? "لا توجد طلبات حجز" : "No Pending Requests"}</h4>
-          <p className="text-sm text-surface-500">{ar() ? "ستظهر هنا طلبات الحجز المقترحة من الإدارة." : "Booking requests proposed by Admin will appear here."}</p>
+          <p className="text-sm text-surface-500">{ar() ? "ستظهر هنا طلبات الحجز الجديدة والمقترحة." : "New and proposed booking requests will appear here."}</p>
         </div>
       ) : (
         <div className="grid gap-4">
@@ -114,13 +114,23 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
                     {r.offerName || (ar() ? "حجز مستقل" : "Standalone Booking")}
                   </div>
 
-                  <div className="bg-amber-50 text-amber-800 px-3 py-2 rounded-lg text-sm border border-amber-100 flex gap-2 items-center">
-                    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <div>
-                      <span className="font-bold">{ar() ? "الموعد المقترح:" : "Suggested Date:"}</span>{" "}
-                      {r.proposedAt ? fmtDateTime(r.proposedAt) : "—"}
+                  {r.proposedAt ? (
+                    <div className="bg-amber-50 text-amber-800 px-3 py-2 rounded-lg text-sm border border-amber-100 flex gap-2 items-center">
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      <div>
+                        <span className="font-bold">{ar() ? "الموعد المقترح:" : "Suggested Date:"}</span>{" "}
+                        {fmtDateTime(r.proposedAt)}
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="bg-blue-50 text-blue-800 px-3 py-2 rounded-lg text-sm border border-blue-100 flex gap-2 items-center">
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <div>
+                        <span className="font-bold">{ar() ? "طلب جديد" : "New Request"}</span>{" "}
+                        {r.preferredAt && <span className="block text-xs mt-0.5 opacity-90">{ar() ? "الوقت المفضل:" : "Preferred:"} {fmtDateTime(r.preferredAt)}</span>}
+                      </div>
+                    </div>
+                  )}
 
                   {r.notes && (
                     <div className="mt-2 text-sm text-surface-600 bg-surface-50 p-2.5 rounded-lg border border-surface-100">
@@ -158,20 +168,22 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
                     </div>
                   ) : (
                     <>
-                      <button
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
-                        disabled={processing === r.id}
-                        onClick={() => confirmDate(r.id)}
-                      >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                        {processing === r.id ? "..." : ar() ? "تأكيد الموعد المقترح" : "Confirm Suggested Date"}
-                      </button>
+                      {r.proposedAt && (
+                        <button
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-xl text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                          disabled={processing === r.id}
+                          onClick={() => confirmDate(r.id)}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                          {processing === r.id ? "..." : ar() ? "تأكيد الموعد المقترح" : "Confirm Suggested Date"}
+                        </button>
+                      )}
                       <button
                         className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-2.5 rounded-xl text-sm transition-colors border border-blue-200 flex items-center justify-center gap-2"
                         onClick={() => setSelectedRequest(r.id)}
                       >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        {ar() ? "تغيير الموعد وتأكيد" : "Change Date & Confirm"}
+                        {ar() ? (r.proposedAt ? "تغيير الموعد وتأكيد" : "تحديد موعد وتأكيد") : (r.proposedAt ? "Change Date & Confirm" : "Set Date & Confirm")}
                       </button>
                     </>
                   )}
