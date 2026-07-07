@@ -449,7 +449,22 @@ export async function checkoutFull(input: {
       { new: true }
     ).lean() as any;
   } else {
-    uo = await UserOfferModel.create(uoData) as any;
+    const existingPending = await UserOfferModel.findOne({
+      userId: input.userId,
+      offerId: offer._id,
+      purchaseMode: uoData.purchaseMode,
+      status: { $in: ["pending_payment", "enet_pending"] }
+    }).sort({ createdAt: -1 }).lean() as any;
+
+    if (existingPending) {
+      uo = await UserOfferModel.findOneAndUpdate(
+        { _id: existingPending._id },
+        { $set: uoData },
+        { new: true }
+      ).lean() as any;
+    } else {
+      uo = await UserOfferModel.create(uoData) as any;
+    }
   }
 
   try {
@@ -587,7 +602,22 @@ export async function checkoutInstallments(input: {
       { new: true }
     ).lean() as any;
   } else {
-    uo = await UserOfferModel.create(uoData) as any;
+    const existingPending = await UserOfferModel.findOne({
+      userId: input.userId,
+      offerId: offer._id,
+      purchaseMode: uoData.purchaseMode,
+      status: { $in: ["pending_payment", "enet_pending"] }
+    }).sort({ createdAt: -1 }).lean() as any;
+
+    if (existingPending) {
+      uo = await UserOfferModel.findOneAndUpdate(
+        { _id: existingPending._id },
+        { $set: uoData },
+        { new: true }
+      ).lean() as any;
+    } else {
+      uo = await UserOfferModel.create(uoData) as any;
+    }
   }
 
   try {
@@ -751,7 +781,22 @@ export async function checkoutEnet4(input: {
       { new: true }
     ).lean() as any;
   } else {
-    uo = await UserOfferModel.create(uoData) as any;
+    const existingPending = await UserOfferModel.findOne({
+      userId: input.userId,
+      offerId: offer._id,
+      purchaseMode: uoData.purchaseMode,
+      status: { $in: ["pending_payment", "enet_pending"] }
+    }).sort({ createdAt: -1 }).lean() as any;
+
+    if (existingPending) {
+      uo = await UserOfferModel.findOneAndUpdate(
+        { _id: existingPending._id },
+        { $set: uoData },
+        { new: true }
+      ).lean() as any;
+    } else {
+      uo = await UserOfferModel.create(uoData) as any;
+    }
   }
 
   try {
@@ -923,7 +968,22 @@ export async function reserveWithDeposit(input: {
       { new: true }
     ).lean() as any;
   } else {
-    uo = await UserOfferModel.create(uoData) as any;
+    const existingPending = await UserOfferModel.findOne({
+      userId: input.userId,
+      offerId: offer._id,
+      purchaseMode: uoData.purchaseMode,
+      status: { $in: ["pending_payment", "enet_pending"] }
+    }).sort({ createdAt: -1 }).lean() as any;
+
+    if (existingPending) {
+      uo = await UserOfferModel.findOneAndUpdate(
+        { _id: existingPending._id },
+        { $set: uoData },
+        { new: true }
+      ).lean() as any;
+    } else {
+      uo = await UserOfferModel.create(uoData) as any;
+    }
   }
 
   const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
