@@ -195,15 +195,15 @@ function httpErr(status: number, code: string, data?: any): HttpError {
   return e;
 }
 
-async function assertRequiredEForm(userId: string, eFormId?: string | mongoose.Types.ObjectId | null, targetRefId?: string) {
+async function assertRequiredEForm(userId: string, eFormId?: string | mongoose.Types.ObjectId | null, userOfferId?: string) {
   if (!eFormId) return;
   const formStr = String(eFormId);
   const form = await EFormModel.findById(formStr).lean();
   if (!form) return;
   
   const query: any = { formId: formStr, userId };
-  if (targetRefId) {
-    query.targetRefId = targetRefId;
+  if (userOfferId) {
+    query.userOfferId = userOfferId;
   }
   const signed = await EFormSubmissionModel.exists(query);
   if (!signed) {
@@ -411,14 +411,6 @@ export async function checkoutFull(input: {
   await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
-  await assertRequiredEForm(input.userId, offer.fullPaymentEFormId, String(offer._id));
-  await assertNoPendingForms(input.userId, [
-    { kind: "offer", refId: String(offer._id) },
-    { kind: "installment_plan", refId: "full" }
-  ], [
-    offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
-  ]);
-
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
   const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);
 
@@ -458,6 +450,21 @@ export async function checkoutFull(input: {
     ).lean() as any;
   } else {
     uo = await UserOfferModel.create(uoData) as any;
+  }
+
+  try {
+    await assertRequiredEForm(input.userId, offer.fullPaymentEFormId, String(uo._id));
+    await assertNoPendingForms(input.userId, [
+      { kind: "offer", refId: String(offer._id) },
+      { kind: "installment_plan", refId: "full" }
+    ], [
+      offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
+    ]);
+  } catch (e: any) {
+    if (e.status === 409 && e.data?.forms) {
+      e.data.userOfferId = String(uo._id);
+    }
+    throw e;
   }
 
   // Fast-path: cashback covers 100% — activate immediately without waiting for CS
@@ -522,14 +529,6 @@ export async function checkoutInstallments(input: {
   await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
-  await assertRequiredEForm(input.userId, offer.installmentsEFormId, String(offer._id));
-  await assertNoPendingForms(input.userId, [
-    { kind: "offer", refId: String(offer._id) },
-    { kind: "installment_plan", refId: String(input.count) }
-  ], [
-    offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
-  ]);
-
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
   const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);
 
@@ -589,6 +588,21 @@ export async function checkoutInstallments(input: {
     ).lean() as any;
   } else {
     uo = await UserOfferModel.create(uoData) as any;
+  }
+
+  try {
+    await assertRequiredEForm(input.userId, offer.installmentsEFormId, String(uo._id));
+    await assertNoPendingForms(input.userId, [
+      { kind: "offer", refId: String(offer._id) },
+      { kind: "installment_plan", refId: String(input.count) }
+    ], [
+      offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
+    ]);
+  } catch (e: any) {
+    if (e.status === 409 && e.data?.forms) {
+      e.data.userOfferId = String(uo._id);
+    }
+    throw e;
   }
 
   // Fast-path: cashback covers 100% — activate immediately without waiting for CS
@@ -699,12 +713,6 @@ export async function checkoutEnet4(input: {
   await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
-  await assertRequiredEForm(input.userId, offer.enetEFormId, String(offer._id));
-  await assertNoPendingForms(input.userId, [
-    { kind: "offer", refId: String(offer._id) },
-    { kind: "installment_plan", refId: "4_enet" }
-  ]);
-
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
   const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);
 
@@ -744,6 +752,19 @@ export async function checkoutEnet4(input: {
     ).lean() as any;
   } else {
     uo = await UserOfferModel.create(uoData) as any;
+  }
+
+  try {
+    await assertRequiredEForm(input.userId, offer.enetEFormId, String(uo._id));
+    await assertNoPendingForms(input.userId, [
+      { kind: "offer", refId: String(offer._id) },
+      { kind: "installment_plan", refId: "4_enet" }
+    ]);
+  } catch (e: any) {
+    if (e.status === 409 && e.data?.forms) {
+      e.data.userOfferId = String(uo._id);
+    }
+    throw e;
   }
 
   const provider = getProviderForMethod("enet");

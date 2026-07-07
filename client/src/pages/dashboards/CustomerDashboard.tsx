@@ -259,10 +259,11 @@ function PurchaseModal({ pkg, onClose, inviteCode }: { pkg: any; onClose: () => 
        const msg = e instanceof Error ? e.message : "Error";
        const data = (e as any)?.data as { forms?: any[] } | undefined;
        if (msg === "EFORMS_REQUIRED" && data?.forms?.[0]) {
-         const first = data.forms[0];
-         onClose();
-         navigate(`/forms/fill/${first.id || first.formId}?offerId=${pkg.id || pkg._id}&return=/dashboard`);
-       } else {
+          const first = data.forms[0];
+          onClose();
+          const uoIdParam = (data as any).userOfferId ? `&userOfferId=${(data as any).userOfferId}` : "";
+          navigate(`/forms/fill/${first.id || first.formId}?offerId=${pkg.id || pkg._id}${uoIdParam}&return=/dashboard`);
+        } else {
          setErrorMsg(msg);
        }
      } finally {
