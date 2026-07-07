@@ -52,7 +52,19 @@ export function invalidateCache(pathPrefix: string) {
   for (const key of _cache.keys()) {
     if (key.startsWith(pathPrefix)) _cache.delete(key);
   }
-  persistCache();
+  // Persist synchronously so a subsequent page reload won't restore stale data
+  try {
+    const now = Date.now();
+    const toSave: Record<string, any> = {};
+    for (const [key, val] of _cache.entries()) {
+      if (now - val.ts < 7 * 24 * 60 * 60 * 1000) {
+        toSave[key] = val;
+      }
+    }
+    localStorage.setItem("belamonda_api_cache", JSON.stringify(toSave));
+  } catch (e) {
+    // Ignore quota exceeded
+  }
 }
 
 /** Generic fetch hook — calls an API endpoint and manages loading/error/data state */

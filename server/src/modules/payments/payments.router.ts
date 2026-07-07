@@ -6,6 +6,7 @@ import { requireRole } from "../../middlewares/requireRole.js";
 import * as userOfferService from "../../services/userOffer.service.js";
 import * as offerService from "../../services/offer.service.js";
 import * as paymentService from "../../services/payment.service.js";
+import { getEffectiveSignupCashback } from "../../services/checkout.service.js";
 import { notifyPaymentConfirmed, notifyMembershipActivated } from "../notifications/notifications.service.js";
 import { kycStore } from "../kyc/kyc.store.js";
 import { PaymentModel } from "../../models/payment.model.js";
@@ -177,7 +178,8 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin", "le
     //   Full / ENET → 100% cashback unlocked immediately
     //   Installments → even split (e.g. 50/50 for 2, 33/33/33 for 3)
     //   Deposit → NO cashback until converted to full/installments
-    const signupBonus = (offer as { signupCashbackKwd?: string }).signupCashbackKwd ?? "0.000";
+    // For group offers, split cashback equally among group members
+    const signupBonus = getEffectiveSignupCashback(offer as any);
     const [ia, ib = "000"] = signupBonus.split(".");
     const signupBonusMils = Number(ia) * 1000 + Number(ib.padEnd(3, "0").slice(0, 3));
     const isCashbackOnly = !!(offer as { isCashbackOnly?: boolean }).isCashbackOnly;

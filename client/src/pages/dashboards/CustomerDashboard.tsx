@@ -248,6 +248,9 @@ function PurchaseModal({ pkg, onClose, inviteCode }: { pkg: any; onClose: () => 
          headers: getAuthHeader(),
          body: JSON.stringify(body)
        });
+       invalidateCache("/commerce/me/offers");
+       invalidateCache("/wallet");
+       invalidateCache("/checkout");
        alert(ar() ? "تم الاشتراك بنجاح!" : "Subscribed successfully!");
        onClose();
        window.location.reload();
@@ -1221,6 +1224,8 @@ export default function CustomerDashboard() {
             headers: getAuthHeader(),
             body: JSON.stringify({ inviteCode: urlInviteCode })
           }).then(() => {
+            invalidateCache("/commerce/me/offers");
+            refetchMyOffers(true);
             window.history.replaceState({}, document.title, window.location.pathname);
             setSysAlert(ar() ? "تم الانضمام إلى المجموعة بنجاح! يمكنك الآن تتبع تقدم المجموعة هنا." : "Successfully joined the group! You can track its progress here.");
             setActiveTab("my-purchases");
@@ -4680,7 +4685,8 @@ export default function CustomerDashboard() {
                         body: JSON.stringify({ offerId: groupModal.pkg.id || groupModal.pkg._id }),
                       })
                         .then((data: any) => {
-                          refetchMyOffers().then(() => {
+                          invalidateCache("/commerce/me/offers");
+                          refetchMyOffers(true).then(() => {
                             setActiveTab("my-purchases");
                             setPurchasesSubTab("packages");
                             setGroupModal(prev => prev ? {
@@ -4866,7 +4872,10 @@ export default function CustomerDashboard() {
           onComplete={async () => {
             setCheckoutPkg(null);
             setPendingInviteCode(null);
-            await refetchMyOffers();
+            invalidateCache("/commerce/me/offers");
+            invalidateCache("/wallet");
+            invalidateCache("/checkout");
+            await refetchMyOffers(true);
             setActiveTab("my-purchases");
             setSysAlert(ar() ? "تم بنجاح! راجع اشتراكاتك." : "Done! Check 'My Memberships'.");
             setTimeout(() => setSysAlert(null), 5000);

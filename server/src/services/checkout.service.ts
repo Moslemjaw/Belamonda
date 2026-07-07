@@ -135,6 +135,18 @@ export function getEffectiveSubscriptionPrice(offer: OfferDoc, clinicId?: unknow
   return priceKwd;
 }
 
+/** Resolves the effective signup cashback per member — splits by groupSizeRequired for group offers. */
+export function getEffectiveSignupCashback(offer: OfferDoc | { signupCashbackKwd?: string; isGroupOffer?: boolean; groupSizeRequired?: number; groupRewardType?: string }): string {
+  const raw = (offer as any).signupCashbackKwd ?? "0.000";
+  const totalCb = mils(raw);
+  if (totalCb <= 0) return "0.000";
+  const isGroup = (offer as any).isGroupOffer || (offer as any).membershipType === "group";
+  if (isGroup && (offer as any).groupSizeRequired && (offer as any).groupSizeRequired > 1) {
+    return fmt(Math.floor(totalCb / (offer as any).groupSizeRequired));
+  }
+  return raw;
+}
+
 
 /** Customer must be KYC-approved before purchasing. */
 async function assertCustomerCanPurchase(userId: string) {
@@ -335,7 +347,9 @@ export async function grantCashbackForPayment(
   installmentNumber: number,
   totalInstallments: number
 ) {
-  const totalCashback = mils((offer as any).signupCashbackKwd ?? "0.000");
+  // For group offers, split cashback equally among members
+  const effectiveCashbackKwd = getEffectiveSignupCashback(offer);
+  const totalCashback = mils(effectiveCashbackKwd);
   if (totalCashback <= 0) return;
 
   // Step 1: Credit full amount to wallet locked pool on first payment
@@ -408,8 +422,14 @@ export async function checkoutFull(input: {
 
   const pendingExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
+  let existingUo = null;
+  if (input.userOfferId) {
+    existingUo = await UserOfferModel.findOne({ _id: input.userOfferId, userId: input.userId }).lean() as any;
+    if (!existingUo) throw httpErr(400, "INVALID_USER_OFFER_ID");
+  }
+
   const isGroup = offer.isGroupOffer || offer.membershipType === "group";
-  const groupInviteCode = isGroup ? (input.groupInviteCode || crypto.randomBytes(4).toString("hex").toUpperCase()) : undefined;
+  const groupInviteCode = isGroup ? (input.groupInviteCode || existingUo?.groupInviteCode || crypto.randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
   const uoData = {
     userId: input.userId,
@@ -427,13 +447,11 @@ export async function checkoutFull(input: {
 
   let uo: UserOfferDoc;
   if (input.userOfferId) {
-    const updated = await UserOfferModel.findOneAndUpdate(
+    uo = await UserOfferModel.findOneAndUpdate(
       { _id: input.userOfferId, userId: input.userId },
       { $set: uoData },
       { new: true }
-    ).lean<UserOfferDoc | null>();
-    if (!updated) throw httpErr(400, "INVALID_USER_OFFER_ID");
-    uo = updated as any;
+    ).lean() as any;
   } else {
     uo = await UserOfferModel.create(uoData) as any;
   }
@@ -531,8 +549,14 @@ export async function checkoutInstallments(input: {
 
   const pendingExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
+  let existingUo = null;
+  if (input.userOfferId) {
+    existingUo = await UserOfferModel.findOne({ _id: input.userOfferId, userId: input.userId }).lean() as any;
+    if (!existingUo) throw httpErr(400, "INVALID_USER_OFFER_ID");
+  }
+
   const isGroup = offer.isGroupOffer || offer.membershipType === "group";
-  const groupInviteCode = isGroup ? (input.groupInviteCode || crypto.randomBytes(4).toString("hex").toUpperCase()) : undefined;
+  const groupInviteCode = isGroup ? (input.groupInviteCode || existingUo?.groupInviteCode || crypto.randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
   const uoData = {
     userId: input.userId,
@@ -554,13 +578,11 @@ export async function checkoutInstallments(input: {
 
   let uo: UserOfferDoc;
   if (input.userOfferId) {
-    const updated = await UserOfferModel.findOneAndUpdate(
+    uo = await UserOfferModel.findOneAndUpdate(
       { _id: input.userOfferId, userId: input.userId },
       { $set: uoData },
       { new: true }
-    ).lean<UserOfferDoc | null>();
-    if (!updated) throw httpErr(400, "INVALID_USER_OFFER_ID");
-    uo = updated as any;
+    ).lean() as any;
   } else {
     uo = await UserOfferModel.create(uoData) as any;
   }
@@ -687,7 +709,14 @@ export async function checkoutEnet4(input: {
   const expiresAt = new Date(now.getTime() + offer.validityDays * 24 * 60 * 60 * 1000);
 
   const isGroup = offer.isGroupOffer || offer.membershipType === "group";
-  const groupInviteCode = isGroup ? (input.groupInviteCode || crypto.randomBytes(4).toString("hex").toUpperCase()) : undefined;
+  
+  let existingUo = null;
+  if (input.userOfferId) {
+    existingUo = await UserOfferModel.findOne({ _id: input.userOfferId, userId: input.userId }).lean() as any;
+    if (!existingUo) throw httpErr(400, "INVALID_USER_OFFER_ID");
+  }
+  
+  const groupInviteCode = isGroup ? (input.groupInviteCode || existingUo?.groupInviteCode || crypto.randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
   const uoData = {
     userId: input.userId,
@@ -704,13 +733,11 @@ export async function checkoutEnet4(input: {
 
   let uo: UserOfferDoc;
   if (input.userOfferId) {
-    const updated = await UserOfferModel.findOneAndUpdate(
+    uo = await UserOfferModel.findOneAndUpdate(
       { _id: input.userOfferId, userId: input.userId },
       { $set: uoData },
       { new: true }
-    ).lean<UserOfferDoc | null>();
-    if (!updated) throw httpErr(400, "INVALID_USER_OFFER_ID");
-    uo = updated as any;
+    ).lean() as any;
   } else {
     uo = await UserOfferModel.create(uoData) as any;
   }
@@ -831,8 +858,14 @@ export async function reserveWithDeposit(input: {
   const reservationExpires = new Date(now.getTime() + reservationDays * 24 * 60 * 60 * 1000);
   const pendingExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
+  let existingUo = null;
+  if (input.userOfferId) {
+    existingUo = await UserOfferModel.findOne({ _id: input.userOfferId, userId: input.userId }).lean() as any;
+    if (!existingUo) throw httpErr(400, "INVALID_USER_OFFER_ID");
+  }
+
   const isGroup = offer.isGroupOffer || offer.membershipType === "group";
-  const groupInviteCode = isGroup ? (input.groupInviteCode || crypto.randomBytes(4).toString("hex").toUpperCase()) : undefined;
+  const groupInviteCode = isGroup ? (input.groupInviteCode || existingUo?.groupInviteCode || crypto.randomBytes(4).toString("hex").toUpperCase()) : undefined;
 
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
   const effectivePrice = getEffectiveSubscriptionPrice(offer, finalClinicId);
@@ -859,13 +892,11 @@ export async function reserveWithDeposit(input: {
 
   let uo: UserOfferDoc;
   if (input.userOfferId) {
-    const updated = await UserOfferModel.findOneAndUpdate(
+    uo = await UserOfferModel.findOneAndUpdate(
       { _id: input.userOfferId, userId: input.userId },
       { $set: uoData },
       { new: true }
-    ).lean<UserOfferDoc | null>();
-    if (!updated) throw httpErr(400, "INVALID_USER_OFFER_ID");
-    uo = updated as any;
+    ).lean() as any;
   } else {
     uo = await UserOfferModel.create(uoData) as any;
   }
