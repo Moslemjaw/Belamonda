@@ -2355,8 +2355,8 @@ export default function CustomerDashboard() {
                               );
                             })()}
 
-                            {/* Booking Button (for non-cashback-only memberships) */}
-                            {!isCashback && ((o as any).allowAppointmentBooking ?? true) && (() => {
+                            {/* Booking Button */}
+                            {((o as any).allowAppointmentBooking ?? true) && (() => {
                               const isUnlockMembershipPending = (o as any).isGroupOffer && (o.status === 'pending_payment' || o.status === 'pending payment');
                               if (isUnlockMembershipPending) return null;
                               return (
