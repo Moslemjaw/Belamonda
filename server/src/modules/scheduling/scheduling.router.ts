@@ -2304,6 +2304,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
         createdAt: doc.createdAt.toISOString(),
         combinedSessionStatus: combinedStatus,
         clinicPaymentStatus: pStatus,
+        requestId: req?._id?.toString(),
         isHistorical: doc.notes === "Historical session logged during enrollment"
       };
     });

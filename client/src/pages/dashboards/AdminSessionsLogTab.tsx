@@ -319,9 +319,32 @@ export default function AdminSessionsLogTab() {
                       </td>
                       {/* Payment Status */}
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${paymentStyle}`}>
-                          {paymentLabel}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${paymentStyle}`}>
+                            {paymentLabel}
+                          </span>
+                          {s.clinicPaymentStatus !== 'paid' && (s.type === 'request' || s.requestId) && (
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(ar() ? "تأكيد الدفع؟" : "Confirm payment?")) return;
+                                try {
+                                  const reqId = s.type === 'request' ? s.id : s.requestId;
+                                  await apiFetch(`/scheduling/requests/${reqId}/mark-paid`, {
+                                    method: "POST",
+                                    headers: getAuthHeader(),
+                                    body: JSON.stringify({})
+                                  });
+                                  fetchSessions();
+                                } catch (err: any) {
+                                  alert(err.message || "Failed to mark as paid");
+                                }
+                              }}
+                              className="text-[10px] font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-2 py-1 rounded transition-colors"
+                            >
+                              {ar() ? "دفع" : "Paid"}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       {/* Attendance Status */}
                       <td className="px-5 py-4">
