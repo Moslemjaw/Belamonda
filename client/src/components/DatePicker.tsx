@@ -42,20 +42,23 @@ export default function DatePicker({ value, onChange, className, showTimeSelect,
   const isAr = i18n.language === 'ar';
 
   return (
-    <ReactDatePicker
-      selected={dateValue}
-      onChange={handleChange}
-      dateFormat={showTimeSelect ? "dd/MM/yyyy h:mm aa" : "dd/MM/yyyy"}
-      className={className}
-      placeholderText={isAr ? (showTimeSelect ? 'يوم/شهر/سنة س:د م' : 'يوم/شهر/سنة') : (showTimeSelect ? 'dd/mm/yyyy hh:mm aa' : 'dd/mm/yyyy')}
-      locale={isAr ? 'ar' : 'en'}
-      showTimeSelect={showTimeSelect}
-      timeFormat="h:mm aa"
-      timeIntervals={15}
-      showMonthDropdown
-      showYearDropdown
-      dropdownMode="select"
-      {...(props as any)}
-    />
+    <div className="w-full">
+      <ReactDatePicker
+        selected={dateValue}
+        onChange={handleChange}
+        dateFormat={showTimeSelect ? "dd/MM/yyyy h:mm aa" : "dd/MM/yyyy"}
+        className={className}
+        wrapperClassName="w-full"
+        placeholderText={isAr ? (showTimeSelect ? 'يوم/شهر/سنة س:د م' : 'يوم/شهر/سنة') : (showTimeSelect ? 'dd/mm/yyyy hh:mm aa' : 'dd/mm/yyyy')}
+        locale={isAr ? 'ar' : 'en'}
+        showTimeSelect={showTimeSelect}
+        timeFormat="h:mm aa"
+        timeIntervals={15}
+        showMonthDropdown
+        showYearDropdown
+        dropdownMode="select"
+        {...(props as any)}
+      />
+    </div>
   );
 }
