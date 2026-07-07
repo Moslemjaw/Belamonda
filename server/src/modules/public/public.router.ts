@@ -249,7 +249,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
 
     // All memberships (not just active)
     const { OfferModel } = await import("../../models/offer.model.js");
-    const allOffers = await UserOfferModel.find({ $or: [{ userId }, { sharedWith: userId }] })
+    const allOffers = await UserOfferModel.find({ userId })
       .sort({ createdAt: -1 }).lean();
     const offerIds = [...new Set(allOffers.map((o: any) => String(o.offerId)).filter(Boolean))];
     const offers = offerIds.length ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr cashbackPerSessionKwd").lean() : [];

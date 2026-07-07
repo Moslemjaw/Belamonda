@@ -126,7 +126,7 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES,
       WalletModel.findOne({ userId: id }).lean(),
       WalletTxnModel.find({ userId: id }).sort({ createdAt: -1 }).limit(200).lean(),
       KycSubmissionModel.find({ userId: id }).sort({ createdAt: -1 }).limit(5).lean(),
-      UserOfferModel.find({ $or: [{ userId: id }, { sharedWith: id }] }).sort({ createdAt: -1 }).lean(),
+      UserOfferModel.find({ userId: id }).sort({ createdAt: -1 }).lean(),
       PaymentModel.find({ userId: id }).sort({ createdAt: -1 }).limit(200).lean(),
       BookingRequestModel.find({ userId: id }).sort({ createdAt: -1 }).limit(200).lean(),
       BookingSessionModel.find({ userId: id }).sort({ scheduledAt: -1 }).lean()
@@ -326,7 +326,7 @@ usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "financ
 
     const [user, memberships, payments, txns, bookingSessions, bookingRequests] = await Promise.all([
       UserModel.findById(id).lean<UserLean>(),
-      UserOfferModel.find({ $or: [{ userId: id }, { sharedWith: id }] }).sort({ createdAt: -1 }).lean(),
+      UserOfferModel.find({ userId: id }).sort({ createdAt: -1 }).lean(),
       PaymentModel.find({ userId: id }).sort({ createdAt: -1 }).lean(),
       WalletTxnModel.find({ userId: id }).sort({ createdAt: -1 }).lean(),
       BookingSessionModel.find({ userId: id }).sort({ scheduledAt: -1 }).lean(),

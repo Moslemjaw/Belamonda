@@ -102,7 +102,7 @@ export async function getUserOffer(id: string) {
 
 export async function listUserOffersByUser(userId: string) {
   await expireStalePendingPayments();
-  const rows = await UserOfferModel.find({ $or: [{ userId }, { sharedWith: userId }] }).sort({ createdAt: -1 }).lean();
+  const rows = await UserOfferModel.find({ userId }).sort({ createdAt: -1 }).lean();
   const serialized = rows.map((r) => serializeUserOffer(r as any));
   return attachOfferNames(serialized);
 }
