@@ -2214,11 +2214,26 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
   try {
     const { from, to, status } = req.query;
 
-    const sessionQuery: any = { notes: { $ne: "Historical session logged during enrollment" } };
+    const sessionQuery: any = {
+      $and: [
+        { notes: { $ne: "Historical session logged during enrollment" } },
+        { scheduledAt: { $gte: new Date("2026-07-01T00:00:00Z") } }
+      ]
+    };
     if (from || to) {
-      sessionQuery.scheduledAt = {};
-      if (from) sessionQuery.scheduledAt.$gte = new Date(from as string);
-      if (to) sessionQuery.scheduledAt.$lte = new Date(to as string);
+      const dateFilter: any = {};
+      if (from) dateFilter.$gte = new Date(from as string);
+      if (to) dateFilter.$lte = new Date(to as string);
+      
+      // Merge user date filter with our base >= 2026-07-01 rule
+      if (dateFilter.$gte) {
+        const userFrom = dateFilter.$gte.getTime();
+        const baseFrom = sessionQuery.$and[1].scheduledAt.$gte.getTime();
+        sessionQuery.$and[1].scheduledAt.$gte = new Date(Math.max(userFrom, baseFrom));
+      }
+      if (dateFilter.$lte) {
+        sessionQuery.$and[1].scheduledAt.$lte = dateFilter.$lte;
+      }
     }
     if (status && status !== "all") {
       sessionQuery.status = status;
@@ -2230,12 +2245,32 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
       sessionDocs = await BookingSessionModel.find(sessionQuery).sort({ scheduledAt: -1 }).limit(300).lean();
     }
 
-    const requestQuery: any = { status: { $ne: "confirmed" } };
+    const requestQuery: any = {
+      $and: [
+        { status: { $ne: "confirmed" } },
+        { 
+          $or: [
+            { proposedAt: { $gte: new Date("2026-07-01T00:00:00Z") } },
+            { preferredAt: { $gte: new Date("2026-07-01T00:00:00Z") } },
+            { createdAt: { $gte: new Date("2026-07-01T00:00:00Z") } }
+          ]
+        }
+      ]
+    };
     if (from || to) {
       const dateFilter: any = {};
       if (from) dateFilter.$gte = new Date(from as string);
       if (to) dateFilter.$lte = new Date(to as string);
-      requestQuery.$or = [
+      
+      if (dateFilter.$gte) {
+        const userFrom = dateFilter.$gte.getTime();
+        const baseFrom = new Date("2026-07-01T00:00:00Z").getTime();
+        dateFilter.$gte = new Date(Math.max(userFrom, baseFrom));
+      } else {
+        dateFilter.$gte = new Date("2026-07-01T00:00:00Z");
+      }
+      
+      requestQuery.$and[1].$or = [
         { proposedAt: dateFilter },
         { preferredAt: dateFilter },
         { createdAt: dateFilter }
@@ -2622,7 +2657,10 @@ schedulingRouter.post("/admin/requests/:requestId/revert", authRequired, require
 schedulingRouter.delete("/admin/historical-sessions", authRequired, requireRole(["admin"]), async (req, res, next) => {
   try {
     const result = await BookingSessionModel.deleteMany({
-      notes: "Historical session logged during enrollment"
+      $or: [
+        { notes: "Historical session logged during enrollment" },
+        { scheduledAt: { $lt: new Date("2026-07-01T00:00:00Z") } }
+      ]
     });
     return res.json({ ok: true, deletedCount: result.deletedCount });
   } catch (e) {
