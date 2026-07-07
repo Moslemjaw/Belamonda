@@ -425,8 +425,8 @@ export function useClinicSchedule(clinicId: string) {
   });
 }
 
-export function useBookingRequests(status: "pending" | "open" | "scheduled" | "cancelled" | "all" = "pending") {
-  const normalizedStatus = status === "pending" ? "open" : status;
+export function useBookingRequests(status: "pending" | "open" | "scheduled" | "cancelled" | "all" | "request_received" = "pending") {
+  const normalizedStatus = status === "pending" ? "request_received" : status;
   const q = `?status=${encodeURIComponent(normalizedStatus)}`;
   return useApi<{
     items: Array<{
