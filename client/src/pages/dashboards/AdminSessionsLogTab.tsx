@@ -40,6 +40,7 @@ export default function AdminSessionsLogTab() {
   const [status, setStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClinic, setFilterClinic] = useState("all");
+  const [showManual, setShowManual] = useState(false);
 
   const [changeClinicTarget, setChangeClinicTarget] = useState<any>(null);
   const [newClinicSelection, setNewClinicSelection] = useState("");
@@ -80,6 +81,7 @@ export default function AdminSessionsLogTab() {
 
   const filteredSessions = sessions.filter(s => {
     if (filterClinic !== "all" && String(s.clinicId) !== filterClinic) return false;
+    if (!showManual && (s.offerName === "Standalone Booking" || s.offerName === "حجز فردي")) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     const name = (s.customerName || "").toLowerCase();
@@ -175,6 +177,15 @@ export default function AdminSessionsLogTab() {
               onChange={e => setFilterDate(e.target.value)} 
               className="input-field py-1.5 text-sm w-36" 
             />
+            <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-surface-600 bg-white border border-surface-200 px-3 py-1.5 rounded-lg shadow-sm hover:bg-surface-50 transition-colors">
+              <input 
+                type="checkbox" 
+                checked={showManual} 
+                onChange={e => setShowManual(e.target.checked)} 
+                className="w-4 h-4 rounded border-surface-300 text-brand-pink-500 focus:ring-brand-pink-500" 
+              />
+              {ar() ? "عرض الإدخال اليدوي" : "Show Manual"}
+            </label>
           </div>
           <button onClick={fetchSessions} className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg">
             ↻ {ar() ? "تحديث" : "Refresh"}
