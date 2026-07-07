@@ -81,7 +81,8 @@ export default function AdminSessionsLogTab() {
 
   const filteredSessions = sessions.filter(s => {
     if (filterClinic !== "all" && String(s.clinicId) !== filterClinic) return false;
-    if (!showManual && (s.offerName === "Standalone Booking" || s.offerName === "حجز فردي")) return false;
+    const isManualEntry = s.offerName === "Standalone Booking" || s.offerName === "حجز فردي" || s.isHistorical;
+    if (!showManual && isManualEntry) return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     const name = (s.customerName || "").toLowerCase();

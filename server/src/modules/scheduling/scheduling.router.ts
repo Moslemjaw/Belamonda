@@ -2291,7 +2291,8 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
         offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
         createdAt: doc.createdAt.toISOString(),
         combinedSessionStatus: combinedStatus,
-        clinicPaymentStatus: pStatus
+        clinicPaymentStatus: pStatus,
+        isHistorical: doc.notes === "Historical session logged during enrollment"
       };
     });
 
