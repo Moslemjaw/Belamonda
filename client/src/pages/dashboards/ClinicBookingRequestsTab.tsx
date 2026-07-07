@@ -17,7 +17,7 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const res: any = await apiFetch(`/scheduling/clinic/requests?clinicId=${clinicId}&status=slot_proposed`, {
+      const res: any = await apiFetch(`/scheduling/clinic/requests?clinicId=${clinicId}&status=slot_assigned`, {
         headers: getAuthHeader()
       });
       setRequests(res.items || []);
