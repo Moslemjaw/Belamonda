@@ -217,7 +217,12 @@ export async function listRequiredFormsForUser(
   });
   if (!filtered.length) return [] as any[];
   const ids = filtered.map((f) => f._id);
-  const submissions = await EFormSubmissionModel.find({ formId: { $in: ids }, userId })
+  const targetRefIds = targets.map((t) => t.refId);
+  const submissions = await EFormSubmissionModel.find({ 
+    formId: { $in: ids }, 
+    userId,
+    targetRefId: { $in: targetRefIds }
+  })
     .select("formId")
     .lean<{ formId: mongoose.Types.ObjectId }[]>();
   const signed = new Set(submissions.map((s) => String(s.formId)));

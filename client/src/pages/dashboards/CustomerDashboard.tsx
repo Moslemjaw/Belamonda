@@ -231,7 +231,8 @@ function PurchaseModal({ pkg, onClose, inviteCode }: { pkg: any; onClose: () => 
      try {
        let endpoint = "";
        let body: any = { offerId: pkg.id || pkg._id };
-       if (inviteCode) body.groupInviteCode = inviteCode;
+       if (inviteCode || pkg.groupInviteCode) body.groupInviteCode = inviteCode || pkg.groupInviteCode;
+       if (pkg.userOfferId) body.userOfferId = pkg.userOfferId;
        if (paymentOption === "full") {
           endpoint = "/checkout/full";
        } else if (paymentOption === "installments") {

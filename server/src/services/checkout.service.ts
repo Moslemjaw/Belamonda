@@ -195,13 +195,17 @@ function httpErr(status: number, code: string, data?: any): HttpError {
   return e;
 }
 
-async function assertRequiredEForm(userId: string, eFormId?: string | mongoose.Types.ObjectId | null) {
+async function assertRequiredEForm(userId: string, eFormId?: string | mongoose.Types.ObjectId | null, targetRefId?: string) {
   if (!eFormId) return;
   const formStr = String(eFormId);
   const form = await EFormModel.findById(formStr).lean();
   if (!form) return;
   
-  const signed = await EFormSubmissionModel.exists({ formId: formStr, userId });
+  const query: any = { formId: formStr, userId };
+  if (targetRefId) {
+    query.targetRefId = targetRefId;
+  }
+  const signed = await EFormSubmissionModel.exists(query);
   if (!signed) {
     throw httpErr(409, "EFORMS_REQUIRED", { forms: [{ id: formStr, title: (form as any).title }] });
   }
@@ -407,7 +411,7 @@ export async function checkoutFull(input: {
   await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
-  await assertRequiredEForm(input.userId, offer.fullPaymentEFormId);
+  await assertRequiredEForm(input.userId, offer.fullPaymentEFormId, String(offer._id));
   await assertNoPendingForms(input.userId, [
     { kind: "offer", refId: String(offer._id) },
     { kind: "installment_plan", refId: "full" }
@@ -518,7 +522,7 @@ export async function checkoutInstallments(input: {
   await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
-  await assertRequiredEForm(input.userId, offer.installmentsEFormId);
+  await assertRequiredEForm(input.userId, offer.installmentsEFormId, String(offer._id));
   await assertNoPendingForms(input.userId, [
     { kind: "offer", refId: String(offer._id) },
     { kind: "installment_plan", refId: String(input.count) }
@@ -695,7 +699,7 @@ export async function checkoutEnet4(input: {
   await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
-  await assertRequiredEForm(input.userId, offer.enetEFormId);
+  await assertRequiredEForm(input.userId, offer.enetEFormId, String(offer._id));
   await assertNoPendingForms(input.userId, [
     { kind: "offer", refId: String(offer._id) },
     { kind: "installment_plan", refId: "4_enet" }

@@ -6,8 +6,8 @@ async function run() {
     await mongoose.connect(process.env.MONGODB_URI);
     const db = mongoose.connection.db;
     
-    const offer = await db.collection('offers').findOne({ name: 'Naumi Plus (Female)' });
-    console.log("Offer:", offer);
+    const form = await db.collection('eforms').findOne({ _id: new mongoose.Types.ObjectId('6a2db8bb4ba4fee087ad9e77') });
+    console.log("Form:", form);
   } catch (err) {
     console.error(err);
   } finally {
