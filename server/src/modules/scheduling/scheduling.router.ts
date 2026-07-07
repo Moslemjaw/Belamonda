@@ -1987,7 +1987,7 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     if (!session) return res.status(404).json({ error: "NOT_FOUND" });
 
     const uo = await loadUserOffer(session.userOfferId);
-    if (!uo || uo.status !== "active") return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
+    if (!uo || (uo.status !== "active" && parsed.data.status !== "cancelled")) return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
 
     const offer = await loadOffer(uo.offerId);
     if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
