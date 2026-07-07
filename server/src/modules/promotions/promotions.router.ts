@@ -171,8 +171,8 @@ router.post("/public/:slug/submit", async (req, res, next) => {
     let userId: string | undefined;
     if (authHeader && authHeader.startsWith("Bearer ")) {
       try {
-        const { verifyToken } = await import("../../lib/jwt.js");
-        const payload = verifyToken(authHeader.substring(7));
+        const { verifyAccessToken } = await import("../auth/token.js");
+        const payload = verifyAccessToken(authHeader.substring(7));
         if (payload?.userId) userId = payload.userId;
       } catch (err) {
         // ignore invalid token for public submit
