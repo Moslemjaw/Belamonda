@@ -126,8 +126,8 @@ export default function ClinicMissedSessionsTab({ clinicId }: { clinicId: string
               <div key={s.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-surface-50/80 rounded-[20px] border border-red-100 gap-4 transition-all hover:border-red-200">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-1">
-                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border bg-red-50 text-red-600 border-red-200">
-                      {ar() ? "لم يحضر" : "No Show"}
+                    <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${s.status === "no_show" ? "bg-red-50 text-red-600 border-red-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                      {s.status === "no_show" ? (ar() ? "لم يحضر" : "No Show") : (ar() ? "موعد فائت" : "Past Date")}
                     </span>
                     <span className="font-bold text-surface-900">{s.customerName || "—"}</span>
                   </div>

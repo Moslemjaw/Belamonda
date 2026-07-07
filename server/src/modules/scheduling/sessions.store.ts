@@ -67,7 +67,13 @@ export const sessionsStore = {
   async listMissedByClinic(clinicId: string): Promise<SessionRecord[]> {
     const docs = await BookingSessionModel.find({
       clinicId,
-      status: "no_show"
+      $or: [
+        { status: "no_show" },
+        { 
+          status: { $in: ["scheduled", "slot_assigned", "request_received"] },
+          scheduledAt: { $lt: new Date() }
+        }
+      ]
     }).sort({ scheduledAt: -1 });
     return docs.map(mapDoc);
   },
