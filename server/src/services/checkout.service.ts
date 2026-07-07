@@ -211,8 +211,8 @@ async function assertRequiredEForm(userId: string, eFormId?: string | mongoose.T
   }
 }
 
-async function assertNoPendingForms(userId: string, targets: Array<{ kind: string; refId: string }>, excludeIds: any[] = []) {
-  let pending = await listRequiredFormsForUser(userId, targets, "first_payment");
+async function assertNoPendingForms(userId: string, targets: Array<{ kind: string; refId: string }>, excludeIds: any[] = [], userOfferId?: string) {
+  let pending = await listRequiredFormsForUser(userId, targets, "first_payment", userOfferId);
   if (excludeIds.length > 0) {
     const excludeSet = new Set(excludeIds.filter(Boolean).map(String));
     pending = pending.filter(f => !excludeSet.has(String(f.id)));
@@ -474,7 +474,7 @@ export async function checkoutFull(input: {
       { kind: "installment_plan", refId: "full" }
     ], [
       offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
-    ]);
+    ], String(uo._id));
   } catch (e: any) {
     if (e.status === 409 && e.data?.forms) {
       e.data.userOfferId = String(uo._id);
@@ -627,7 +627,7 @@ export async function checkoutInstallments(input: {
       { kind: "installment_plan", refId: String(input.count) }
     ], [
       offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
-    ]);
+    ], String(uo._id));
   } catch (e: any) {
     if (e.status === 409 && e.data?.forms) {
       e.data.userOfferId = String(uo._id);
@@ -804,7 +804,9 @@ export async function checkoutEnet4(input: {
     await assertNoPendingForms(input.userId, [
       { kind: "offer", refId: String(offer._id) },
       { kind: "installment_plan", refId: "4_enet" }
-    ]);
+    ], [
+      offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
+    ], String(uo._id));
   } catch (e: any) {
     if (e.status === 409 && e.data?.forms) {
       e.data.userOfferId = String(uo._id);
@@ -917,11 +919,6 @@ export async function reserveWithDeposit(input: {
   const depositAmt = offer.depositAmountKwd ?? "0.000";
   if (mils(depositAmt) <= 0) throw httpErr(400, "DEPOSIT_AMOUNT_INVALID");
 
-  await assertNoPendingForms(input.userId, [
-    { kind: "offer", refId: String(offer._id) },
-    { kind: "installment_plan", refId: "deposit" }
-  ]);
-
   const cb = await applyCashback(depositAmt, input.applyCashbackKwd ?? "0.000", input.userId, { eligible: offer.cashbackEligible !== false, capKwd: offer.maxCashbackPerPurchaseKwd });
   const now = new Date();
   const reservationDays = Math.max(1, Math.min(60, input.reservationDays ?? 14));
@@ -984,6 +981,20 @@ export async function reserveWithDeposit(input: {
     } else {
       uo = await UserOfferModel.create(uoData) as any;
     }
+  }
+
+  try {
+    await assertNoPendingForms(input.userId, [
+      { kind: "offer", refId: String(offer._id) },
+      { kind: "installment_plan", refId: "deposit" }
+    ], [
+      offer.fullPaymentEFormId, offer.installmentsEFormId, offer.depositEFormId, offer.enetEFormId
+    ], String(uo._id));
+  } catch (e: any) {
+    if (e.status === 409 && e.data?.forms) {
+      e.data.userOfferId = String(uo._id);
+    }
+    throw e;
   }
 
   const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();

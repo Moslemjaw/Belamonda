@@ -207,7 +207,8 @@ async function listFormsForTargets(targets: Array<{ kind: string; refId: string 
 export async function listRequiredFormsForUser(
   userId: string,
   targets: Array<{ kind: string; refId: string }>,
-  gate: "booking" | "first_payment" | "any" = "any"
+  gate: "booking" | "first_payment" | "any" = "any",
+  userOfferId?: string
 ) {
   const forms = await listFormsForTargets(targets);
   const filtered = forms.filter((f) => {
@@ -218,10 +219,16 @@ export async function listRequiredFormsForUser(
   if (!filtered.length) return [] as any[];
   const ids = filtered.map((f) => f._id);
   const targetRefIds = targets.map((t) => t.refId);
+  const orConditions: any[] = [
+    { targetRefId: { $in: targetRefIds } }
+  ];
+  if (userOfferId) {
+    orConditions.push({ userOfferId });
+  }
   const submissions = await EFormSubmissionModel.find({ 
     formId: { $in: ids }, 
     userId,
-    targetRefId: { $in: targetRefIds }
+    $or: orConditions
   })
     .select("formId")
     .lean<{ formId: mongoose.Types.ObjectId }[]>();
