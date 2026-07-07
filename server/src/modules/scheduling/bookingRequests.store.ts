@@ -117,7 +117,7 @@ export const bookingRequestsStore = {
     
     if (filter?.status && filter.status !== "all") {
       if (filter.status === "open") {
-        query.status = { $in: ["request_received", "slot_assigned"] };
+        query.status = { $in: ["request_received", "slot_assigned", "slot_proposed"] };
       } else {
         query.status = filter.status;
       }
