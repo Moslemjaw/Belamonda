@@ -556,6 +556,130 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
 }
 
 // ===========================================================================
+// COMPLETED SESSIONS TAB
+// ===========================================================================
+function ClinicCompletedSessionsTab({ clinicId: _clinicId }: { clinicId: string }) {
+  const [from, setFrom] = useState(() => {
+    const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10);
+  });
+  const [search, setSearch] = useState("");
+  const { data, loading } = useMyClinicReport({ from, to });
+
+  const invoices = data?.invoices ?? [];
+  // Filter to only completed sessions
+  const completedInvoices = invoices.filter(inv => inv.status === 'completed');
+  
+  const filteredInvoices = completedInvoices.filter(inv =>
+    !search || inv.customerName?.toLowerCase().includes(search.toLowerCase()) ||
+    inv.customerPhone?.includes(search)
+  );
+
+  const totalRevenue = completedInvoices.reduce((sum, inv) => sum + parseFloat(inv.sessionPriceKwd || "0"), 0);
+  const paidCount = completedInvoices.filter(inv => inv.clinicPaymentStatus === "paid").length;
+  const pendingCount = completedInvoices.length - paidCount;
+  const paidRevenue = completedInvoices.filter(inv => inv.clinicPaymentStatus === "paid").reduce((sum, inv) => sum + parseFloat(inv.sessionPriceKwd || "0"), 0);
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h3 className="text-2xl font-bold text-surface-900">{ar() ? "الجلسات المكتملة" : "Completed Sessions"}</h3>
+          <p className="text-sm text-surface-500 mt-1">
+            {ar() ? "عرض جميع الجلسات المكتملة في العيادة" : "View all completed sessions for your clinic"}
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-surface-200 flex flex-wrap gap-3 items-center">
+        <div className="flex-1 min-w-[200px] relative">
+          <svg className={`w-5 h-5 text-surface-400 absolute top-1/2 -translate-y-1/2 ${ar() ? 'right-3' : 'left-3'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+          <input
+            className={`input-field w-full ${ar() ? 'pr-10' : 'pl-10'}`}
+            placeholder={ar() ? "بحث بالاسم او الهاتف..." : "Search customer name or phone..."}
+            value={search} onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="w-full md:w-auto flex flex-wrap md:flex-nowrap gap-3 items-center">
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-surface-500 font-bold uppercase tracking-wider whitespace-nowrap">{ar() ? "من" : "From"}</label>
+            <DatePicker value={from} onChange={e => setFrom(e.target.value)} className="input-field w-full md:w-36 font-medium text-surface-700" />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-surface-500 font-bold uppercase tracking-wider whitespace-nowrap">{ar() ? "إلى" : "To"}</label>
+            <DatePicker value={to} onChange={e => setTo(e.target.value)} className="input-field w-full md:w-36 font-medium text-surface-700" />
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-4">
+        {[
+          { label: ar() ? "الجلسات المكتملة" : "Completed Sessions", value: completedInvoices.length, color: "text-emerald-700" },
+          { label: ar() ? "مدفوعة" : "Paid", value: paidCount, color: "text-emerald-700" },
+          { label: ar() ? "معلقة" : "Pending", value: pendingCount, color: "text-amber-700" },
+          { label: ar() ? "الإيرادات المدفوعة" : "Paid Revenue", value: `${paidRevenue.toFixed(3)} KWD`, color: "text-emerald-700" },
+        ].map(k => (
+          <div key={k.label} className="card-elevated border border-surface-200 p-4 shadow-sm rounded-xl">
+            <div className="text-[10px] uppercase tracking-wider text-surface-500 font-bold mb-1">{k.label}</div>
+            <div className={`text-2xl font-black ${k.color}`}>{k.value}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="card-elevated border border-surface-200 shadow-sm overflow-hidden rounded-xl">
+        {loading ? (
+          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>
+        ) : filteredInvoices.length === 0 ? (
+          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "لا توجد جلسات مكتملة في هذه الفترة" : "No completed sessions found"}</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="data-table text-sm">
+              <thead>
+                <tr className="bg-surface-50">
+                  <th>{ar() ? "التاريخ" : "Date"}</th>
+                  <th>{ar() ? "العميل" : "Customer"}</th>
+                  <th>{ar() ? "نوع العضوية" : "Membership Type"}</th>
+                  <th>{ar() ? "سعر الجلسة" : "Session Price"}</th>
+                  <th>{ar() ? "حالة الدفع" : "Payment"}</th>
+                  <th>{ar() ? "حالة الحضور" : "Attendance"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredInvoices.map(inv => (
+                  <tr key={inv.id}>
+                    <td className="text-surface-500 whitespace-nowrap">{fmtDate(inv.createdAt)}</td>
+                    <td>
+                      <div className="font-medium text-surface-900">{inv.customerName}</div>
+                      {inv.customerPhone && <div className="text-xs text-surface-400">{inv.customerPhone}</div>}
+                    </td>
+                    <td className="capitalize text-surface-600">{inv.membershipType ?? "—"}</td>
+                    <td className="font-bold text-surface-900">
+                      {inv.sessionPriceKwd ? `${inv.sessionPriceKwd} KWD` : "—"}
+                    </td>
+                    <td>
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${inv.clinicPaymentStatus === "paid" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
+                        {inv.clinicPaymentStatus === "paid" ? (ar() ? "مدفوع" : "Paid") : (ar() ? "معلق" : "Pending")}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide bg-emerald-50 text-emerald-700">
+                        {ar() ? "حضر" : "Attended"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===========================================================================
 // REPORTS TAB
 // ===========================================================================
 function ClinicReportsTab({ clinicId: _clinicId }: { clinicId: string }) {
@@ -1829,6 +1953,7 @@ export default function ClinicDashboard() {
     { key: "schedule", icon: Icons.calendar, label: t("schedule") },
     { key: "missed_sessions", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, label: ar() ? "الجلسات الفائتة" : "Missed Sessions" },
     { key: "invoices", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>, label: ar() ? "سجل الجلسات" : "Sessions Log" },
+    { key: "completed_sessions", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>, label: ar() ? "الجلسات المكتملة" : "Completed Sessions" },
     { key: "reports", icon: Icons.report, label: ar() ? "التقارير" : "Reports" },
     { key: "performance", icon: Icons.chart, label: ar() ? "الأداء" : "Performance" },
     { key: "complaints", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>, label: ar() ? "الشكاوى والدعم" : "Complaints & Support" },
@@ -1945,6 +2070,10 @@ export default function ClinicDashboard() {
 
         {activeNav === "invoices" && (
           <ClinicInvoicesTab clinicId={CLINIC_ID} />
+        )}
+
+        {activeNav === "completed_sessions" && (
+          <ClinicCompletedSessionsTab clinicId={CLINIC_ID} />
         )}
 
         {activeNav === "scanner" && (
