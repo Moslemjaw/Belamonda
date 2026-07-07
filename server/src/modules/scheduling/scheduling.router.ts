@@ -1987,7 +1987,19 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     if (!session) return res.status(404).json({ error: "NOT_FOUND" });
 
     const uo = await loadUserOffer(session.userOfferId);
-    if (!uo || (uo.status !== "active" && parsed.data.status !== "cancelled")) return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
+    
+    // For cancellations, skip offer validation — allow cancelling orphaned or expired sessions
+    if (parsed.data.status === "cancelled") {
+      const result = await sessionsStore.mark({
+        sessionId: req.params.sessionId,
+        status: "cancelled",
+        markedBy: req.auth!.userId,
+        notes: parsed.data.notes
+      });
+      return res.json({ session: result });
+    }
+
+    if (!uo || uo.status !== "active") return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
 
     const offer = await loadOffer(uo.offerId);
     if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
