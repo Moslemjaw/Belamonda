@@ -173,7 +173,7 @@ router.post("/public/:slug/submit", async (req, res, next) => {
       try {
         const { verifyAccessToken } = await import("../auth/token.js");
         const payload = verifyAccessToken(authHeader.substring(7));
-        if (payload?.userId) userId = payload.userId;
+        if (payload?.sub) userId = payload.sub;
       } catch (err) {
         // ignore invalid token for public submit
       }
