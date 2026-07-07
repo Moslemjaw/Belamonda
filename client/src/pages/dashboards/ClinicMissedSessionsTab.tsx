@@ -44,7 +44,7 @@ function RescheduleModal({ isOpen, session, onClose, onSubmit }: {
           </div>
           <div>
             <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "الوقت الجديد" : "New Time"}</label>
-            <input type="time" value={time} onChange={e => setTime(e.target.value)} className="input-field w-full" />
+            <DatePicker showTimeSelectOnly value={time} onChange={e => setTime(e.target.value)} className="input-field w-full" />
           </div>
           <button 
             disabled={loading || !date || !time} 

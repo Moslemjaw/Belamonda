@@ -12,11 +12,21 @@ interface DatePickerProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
   value?: string;
   onChange?: (e: { target: { value: string; name?: string } }) => void;
   showTimeSelect?: boolean;
+  showTimeSelectOnly?: boolean;
 }
 
-export default function DatePicker({ value, onChange, className, showTimeSelect, ...props }: DatePickerProps) {
+export default function DatePicker({ value, onChange, className, showTimeSelect, showTimeSelectOnly, ...props }: DatePickerProps) {
   // If the string is empty or invalid, dateValue will be null
-  const dateValue = value && !isNaN(new Date(value).getTime()) ? new Date(value) : null;
+  let parsedDate: Date | null = null;
+  if (value) {
+    if (showTimeSelectOnly && value.includes(':') && value.length <= 5) {
+      // It's just a time like "08:20", prepend a dummy date to parse it
+      parsedDate = new Date(`1970-01-01T${value}:00`);
+    } else {
+      parsedDate = new Date(value);
+    }
+  }
+  const dateValue = parsedDate && !isNaN(parsedDate.getTime()) ? parsedDate : null;
 
   const handleChange = (date: Date | null) => {
     if (onChange) {
@@ -29,7 +39,11 @@ export default function DatePicker({ value, onChange, className, showTimeSelect,
       const month = String(date.getMonth() + 1).padStart(2, '0');
       const day = String(date.getDate()).padStart(2, '0');
       
-      if (showTimeSelect) {
+      if (showTimeSelectOnly) {
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        onChange({ target: { value: `${hours}:${minutes}`, name: props.name } });
+      } else if (showTimeSelect) {
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
         onChange({ target: { value: `${year}-${month}-${day}T${hours}:${minutes}`, name: props.name } });
@@ -46,16 +60,17 @@ export default function DatePicker({ value, onChange, className, showTimeSelect,
       <ReactDatePicker
         selected={dateValue}
         onChange={handleChange}
-        dateFormat={showTimeSelect ? "dd/MM/yyyy h:mm aa" : "dd/MM/yyyy"}
+        dateFormat={showTimeSelectOnly ? "h:mm aa" : showTimeSelect ? "dd/MM/yyyy h:mm aa" : "dd/MM/yyyy"}
         className={className}
         wrapperClassName="w-full"
-        placeholderText={isAr ? (showTimeSelect ? 'يوم/شهر/سنة س:د م' : 'يوم/شهر/سنة') : (showTimeSelect ? 'dd/mm/yyyy hh:mm aa' : 'dd/mm/yyyy')}
+        placeholderText={isAr ? (showTimeSelectOnly ? 'س:د م' : showTimeSelect ? 'يوم/شهر/سنة س:د م' : 'يوم/شهر/سنة') : (showTimeSelectOnly ? 'hh:mm aa' : showTimeSelect ? 'dd/mm/yyyy hh:mm aa' : 'dd/mm/yyyy')}
         locale={isAr ? 'ar' : 'en'}
-        showTimeSelect={showTimeSelect}
+        showTimeSelect={showTimeSelect || showTimeSelectOnly}
+        showTimeSelectOnly={showTimeSelectOnly}
         timeFormat="h:mm aa"
         timeIntervals={15}
-        showMonthDropdown
-        showYearDropdown
+        showMonthDropdown={!showTimeSelectOnly}
+        showYearDropdown={!showTimeSelectOnly}
         dropdownMode="select"
         {...(props as any)}
       />
