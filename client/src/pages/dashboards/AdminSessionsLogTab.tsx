@@ -345,6 +345,11 @@ export default function AdminSessionsLogTab() {
                             </button>
                           )}
                         </div>
+                        {s.sessionPriceKwd && parseFloat(s.sessionPriceKwd) > 0 && (
+                          <div className="mt-1 text-xs font-medium text-surface-500">
+                            {parseFloat(s.sessionPriceKwd).toFixed(3)} {ar() ? "د.ك" : "KWD"}
+                          </div>
+                        )}
                       </td>
                       {/* Attendance Status */}
                       <td className="px-5 py-4">
