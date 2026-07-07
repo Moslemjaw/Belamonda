@@ -61,7 +61,7 @@ export async function createSessionPayment(input: {
     currency: "KWD",
     method: "card_mock",
     purpose: "session_payment",
-    status: "pending",
+    status: "payment_pending",
     provider: "mock",
     bookingRequestId: input.bookingRequestId
   });
@@ -70,7 +70,7 @@ export async function createSessionPayment(input: {
 
 export async function confirmSessionPayment(paymentId: string) {
   const doc = await PaymentModel.findOneAndUpdate(
-    { _id: paymentId, status: "pending" },
+    { _id: paymentId, status: "payment_pending" },
     { status: "paid", confirmedAt: new Date(), confirmedBy: "customer" },
     { new: true }
   ).lean();
