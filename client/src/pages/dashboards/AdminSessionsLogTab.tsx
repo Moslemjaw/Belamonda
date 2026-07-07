@@ -254,7 +254,7 @@ export default function AdminSessionsLogTab() {
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-100 text-surface-800">
                             {clinicName || s.clinicId}
                           </span>
-                          {['request_received', 'slot_assigned', 'scheduled', 'rescheduled'].includes(s.status) && (
+                          {['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'slot_proposed', 'under_review', 'pending'].includes(s.status) && (
                             <>
                               <button 
                                 onClick={() => {
