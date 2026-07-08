@@ -4,6 +4,7 @@ import { useAuth } from "../app/AuthContext";
 import LoginPage from "../pages/LoginPage";
 import HomePage from "../pages/HomePage";
 import SignupPage from "../pages/SignupPage";
+import RecoverAccountPage from "../pages/RecoverAccountPage";
 
 import OfferDetailPage from "../pages/OfferDetailPage";
 import MembershipPage from "../pages/MembershipPage";
@@ -112,6 +113,7 @@ export default function App() {
       <Route path="/clinics" element={<ClinicsPage />} />
       <Route path="/signup" element={<AuthRedirect><SignupPage /></AuthRedirect>} />
       <Route path="/login" element={<AuthRedirect><LoginPage /></AuthRedirect>} />
+      <Route path="/recover-account" element={<AuthRedirect><RecoverAccountPage /></AuthRedirect>} />
       <Route
         path="/dashboard"
         element={

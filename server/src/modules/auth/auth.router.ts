@@ -157,3 +157,41 @@ authRouter.post("/admin/impersonate", authRequired, requireRole(["admin"]), asyn
     next(e);
   }
 });
+
+const RecoverAccountSchema = z.object({
+  token: z.string().min(1),
+  newPassword: z.string().min(8)
+});
+
+authRouter.post("/recover-account", async (req, res, next) => {
+  try {
+    const parsed = RecoverAccountSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+
+    const jwt = await import("jsonwebtoken");
+    const secret = process.env.JWT_SECRET || "fallback_secret_change_me";
+    
+    let decoded: any;
+    try {
+      decoded = jwt.verify(parsed.data.token, secret);
+    } catch (err) {
+      return res.status(400).json({ error: "INVALID_OR_EXPIRED_TOKEN" });
+    }
+
+    if (decoded.purpose !== "recovery" || !decoded.userId) {
+      return res.status(400).json({ error: "INVALID_TOKEN_PURPOSE" });
+    }
+
+    const bcrypt = await import("bcryptjs");
+    const passwordHash = await bcrypt.default.hash(parsed.data.newPassword, 10);
+    
+    const { UserModel } = await import("../../models/user.model.js");
+    const user = await UserModel.findByIdAndUpdate(decoded.userId, { passwordHash });
+    
+    if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
+
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});

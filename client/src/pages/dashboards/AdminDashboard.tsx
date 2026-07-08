@@ -2119,7 +2119,7 @@ function AdminSettings() {
 }
 
 // ── User Profile Panel (tabbed) ──────────────────────────────────────────────
-export type ProfileTab = "overview" | "memberships" | "cashback" | "requests" | "sessions" | "payments" | "kyc" | "notes";
+export type ProfileTab = "overview" | "memberships" | "cashback" | "requests" | "sessions" | "payments" | "kyc" | "notes" | "recovery";
 
 export function UserProfilePanel({
   user,
@@ -2168,6 +2168,29 @@ export function UserProfilePanel({
 
   const [newNote, setNewNote] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
+
+  const [recoveryLink, setRecoveryLink] = useState<string | null>(null);
+  const [generatingRecovery, setGeneratingRecovery] = useState(false);
+  const [recoveryError, setRecoveryError] = useState<string | null>(null);
+
+  const handleGenerateRecoveryLink = async () => {
+    setGeneratingRecovery(true);
+    setRecoveryError(null);
+    setRecoveryLink(null);
+    try {
+      const res = await apiFetch(`/users/admin/${user._id || user.id}/recovery-link`, {
+        method: "POST",
+        headers: getAuthHeader(),
+      }) as any;
+      if (res.url) {
+        setRecoveryLink(res.url);
+      }
+    } catch (e: any) {
+      setRecoveryError(e.message || "Failed to generate link");
+    } finally {
+      setGeneratingRecovery(false);
+    }
+  };
 
   const defaultGrantEnrollment = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "bank_transfer", isVerified: true, installmentCount: 2, customInstallments: [], historicalSessions: [] };
   const [grantEnrollments, setGrantEnrollments] = useState<any[]>([{ ...defaultGrantEnrollment }]);
@@ -2465,10 +2488,11 @@ export function UserProfilePanel({
     { key: "payments", label: "Payments", labelAr: "الدفعات" },
     { key: "kyc", label: "KYC / Civil ID", labelAr: "الهوية" },
     { key: "notes", label: "Notes", labelAr: "الملاحظات" },
+    { key: "recovery", label: "Account Recovery", labelAr: "استعادة الحساب" },
   ];
 
   const tabs = allTabs.filter(t => {
-    if (t.key === "notes" || t.key === "payments") return isAdmin || isFinance || isCS;
+    if (t.key === "notes" || t.key === "payments" || t.key === "recovery") return isAdmin || isFinance || isCS;
     return true;
   });
 
@@ -3331,6 +3355,71 @@ export function UserProfilePanel({
                     <div className="text-center py-8 text-surface-400 text-sm">
                       <svg className="w-10 h-10 mx-auto mb-2 text-surface-200" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                       {ar() ? "لا توجد ملاحظات بعد" : "No notes yet"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── RECOVERY ── */}
+            {tab === "recovery" && (
+              <div className="space-y-4">
+                <div className="bg-white rounded-xl border border-surface-200 p-5 text-center">
+                  <div className="w-16 h-16 bg-brand-pink-50 rounded-full flex items-center justify-center mx-auto mb-4 text-brand-pink-500">
+                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                  </div>
+                  <h4 className="font-bold text-surface-900 mb-2">{ar() ? "استعادة الحساب" : "Account Recovery"}</h4>
+                  <p className="text-sm text-surface-500 mb-6 max-w-md mx-auto">
+                    {ar() 
+                      ? "قم بإنشاء رابط آمن ومؤقت (صالح لمدة 24 ساعة) لمشاركته مع العميل حتى يتمكن من تعيين كلمة مرور جديدة لحسابه بسهولة وبدون تعقيدات."
+                      : "Generate a secure, temporary link (valid for 24 hours) to share with the customer so they can set a new password."}
+                  </p>
+
+                  {recoveryError && (
+                    <div className="mb-4 text-sm text-red-600 bg-red-50 p-3 rounded-xl border border-red-200">
+                      {recoveryError}
+                    </div>
+                  )}
+
+                  {!recoveryLink ? (
+                    <button
+                      className="btn-primary px-6 py-3 rounded-xl font-bold transition-all disabled:opacity-50"
+                      onClick={handleGenerateRecoveryLink}
+                      disabled={generatingRecovery}
+                    >
+                      {generatingRecovery 
+                        ? (ar() ? "جاري الإنشاء..." : "Generating...") 
+                        : (ar() ? "إنشاء رابط استعادة جديد" : "Generate Recovery Link")}
+                    </button>
+                  ) : (
+                    <div className="bg-surface-50 p-4 rounded-xl border border-surface-200 mt-4 text-left">
+                      <label className="block text-xs font-bold text-surface-500 mb-2 uppercase tracking-wide">
+                        {ar() ? "رابط الاستعادة للعميل" : "Customer Recovery Link"}
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          readOnly
+                          value={recoveryLink}
+                          className="input-field w-full text-xs font-mono py-2 px-3 bg-white"
+                          dir="ltr"
+                          onClick={(e) => e.currentTarget.select()}
+                        />
+                        <button
+                          className="btn-primary whitespace-nowrap px-4 py-2 text-sm flex items-center gap-2"
+                          onClick={() => {
+                            navigator.clipboard.writeText(recoveryLink);
+                            alert(ar() ? "تم النسخ" : "Copied to clipboard");
+                          }}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                          </svg>
+                          {ar() ? "نسخ الرابط" : "Copy"}
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

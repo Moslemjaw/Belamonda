@@ -1090,3 +1090,28 @@ usersRouter.delete("/:id/all-data", authRequired, requireRole(["admin", "cs", "l
     next(e);
   }
 });
+
+usersRouter.post("/admin/:id/recovery-link", authRequired, requireRole(["admin", "cs", "cs_director", "legal"]), async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: "INVALID_ID" });
+    }
+
+    const user = await UserModel.findById(id).lean();
+    if (!user) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const jwt = await import("jsonwebtoken");
+    const payload = { userId: id, purpose: "recovery" };
+    // Using a strong secret from env or fallback
+    const secret = process.env.JWT_SECRET || "fallback_secret_change_me";
+    const token = jwt.sign(payload, secret, { expiresIn: "24h" });
+
+    const clientOrigin = process.env.CLIENT_ORIGIN || "https://belamonda.com";
+    const recoveryUrl = `${clientOrigin}/recover-account?token=${token}`;
+
+    return res.json({ success: true, url: recoveryUrl });
+  } catch (e) {
+    next(e);
+  }
+});
