@@ -1424,7 +1424,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                       {s.status === "scheduled" && (
                         <div className="flex gap-2 w-full sm:w-auto">
                           <button disabled={markingId === s.id} onClick={() => {
-                            void handleMarkSession(s.id, "completed");
+                            void onMarkSession(s.id, "completed");
                           }} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 shadow-sm transition-colors">{markingId === s.id ? "…" : "✓ " + (ar() ? "حضر" : "Came")}</button>
                           <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "no_show")} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 disabled:opacity-50 transition-colors">{markingId === s.id ? "…" : "✗ " + (ar() ? "لم يحضر" : "No Show")}</button>
                         </div>
