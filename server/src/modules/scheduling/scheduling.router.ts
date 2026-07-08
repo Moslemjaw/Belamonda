@@ -1573,6 +1573,25 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
   return res.json({ request: updated });
 });
 
+// ── Admin marks booking as unpaid ──────────────────────────────────────────
+schedulingRouter.post("/requests/:id/mark-unpaid", authRequired, requireRole(["admin"]), async (req, res) => {
+  try {
+    const breq = await bookingRequestsStore.get(req.params.id);
+    if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
+    if (breq.clinicPaymentStatus !== "paid") return res.status(409).json({ error: "NOT_PAID" });
+
+    const updated = await bookingRequestsStore.update(breq.id, {
+      clinicPaymentStatus: "pending" as any,
+      clinicPaymentMarkedAt: new Date().toISOString(),
+      clinicPaymentMarkedBy: req.auth!.userId,
+    });
+
+    return res.json({ request: updated });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || "INTERNAL_ERROR" });
+  }
+});
+
 // ── Clinic staff / CS rejects the booking ──────────────────────────────────
 schedulingRouter.post("/requests/:id/reject", authRequired, requireRole(["clinicStaff", "cs", "legal", "admin", "cs_director"]), async (req, res) => {
   const parsed = RejectSchema.safeParse(req.body);

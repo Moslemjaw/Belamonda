@@ -341,6 +341,27 @@ export default function AdminSessionsLogTab() {
                               {ar() ? "دفع" : "Paid"}
                             </button>
                           )}
+                          {s.clinicPaymentStatus === 'paid' && (s.type === 'request' || s.requestId) && (
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(ar() ? "هل تريد إلغاء الدفع؟" : "Mark as unpaid?")) return;
+                                try {
+                                  const reqId = s.type === 'request' ? s.id : s.requestId;
+                                  await apiFetch(`/scheduling/requests/${reqId}/mark-unpaid`, {
+                                    method: "POST",
+                                    headers: getAuthHeader(),
+                                    body: JSON.stringify({})
+                                  });
+                                  fetchSessions();
+                                } catch (err: any) {
+                                  alert(err.message || "Failed to mark as unpaid");
+                                }
+                              }}
+                              className="text-[10px] font-bold bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1 rounded transition-colors"
+                            >
+                              {ar() ? "غير مدفوع" : "Unpaid"}
+                            </button>
+                          )}
                         </div>
                         {s.sessionPriceKwd && parseFloat(s.sessionPriceKwd) > 0 && (
                           <div className="mt-1 text-xs font-medium text-surface-500">
