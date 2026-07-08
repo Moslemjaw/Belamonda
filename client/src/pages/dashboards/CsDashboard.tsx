@@ -219,9 +219,15 @@ export function PaymentQueue() {
           amountKwd: uo.amount || uo.paymentAmountKwd || "99.000"
         })
       });
-      refetch();
-    } catch (e: any) { alert(e.message); }
-    finally { setProcessing(null); }
+    } catch (e: any) {
+      // If already confirmed/processed, just silently refresh
+      if (!e.message?.includes("NOT_PENDING_PAYMENT")) alert(e.message);
+    } finally {
+      invalidateCache("/payments");
+      refetch(true);
+      setProcessing(null);
+      setSelectedPayment(null);
+    }
   };
 
   const rejectPayment = async (uo: any, reason: string) => {
@@ -235,9 +241,15 @@ export function PaymentQueue() {
           reason
         })
       });
-      refetch();
-    } catch (e: any) { alert(e.message); }
-    finally { setProcessing(null); }
+    } catch (e: any) {
+      if (!e.message?.includes("NOT_PENDING_PAYMENT")) alert(e.message);
+    } finally {
+      invalidateCache("/payments");
+      refetch(true);
+      setProcessing(null);
+      setRejectingPayment(null);
+      setRejectReason("");
+    }
   };
 
   const printReceipt = (p: any) => {
