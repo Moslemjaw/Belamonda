@@ -74,6 +74,47 @@ function fmtKwd(mils: number): string {
   return `${Math.floor(mils / 1000)}.${String(mils % 1000).padStart(3, "0")}`;
 }
 
+function friendlyCheckoutError(raw: string, isAr: boolean): string {
+  const code = raw.split("|")[0];
+  const map: Record<string, [string, string]> = {
+    ALREADY_ENROLLED: [
+      "You already have an active or pending membership for this package. Please check your dashboard.",
+      "لديك عضوية فعّالة أو قيد الانتظار لهذه الباقة. يرجى مراجعة لوحة التحكم."
+    ],
+    ENROLLMENT_CAP_REACHED: [
+      "This package has reached its enrollment limit.",
+      "وصلت هذه الباقة إلى الحد الأقصى للتسجيل."
+    ],
+    KYC_REQUIRED: [
+      "Please complete your identity verification before purchasing.",
+      "يرجى إكمال التحقق من الهوية قبل الشراء."
+    ],
+    OFFER_INACTIVE: [
+      "This offer is no longer available.",
+      "هذا العرض لم يعد متاحاً."
+    ],
+    OFFER_OUTSIDE_WINDOW: [
+      "This offer is outside its availability window.",
+      "هذا العرض خارج فترة التوفر."
+    ],
+    CLINIC_CHOICE_REQUIRED: [
+      "Please select a clinic to continue.",
+      "يرجى اختيار عيادة للمتابعة."
+    ],
+    NO_WALLET: [
+      "Wallet not found. Please contact support.",
+      "المحفظة غير موجودة. يرجى التواصل مع الدعم."
+    ],
+    CASHBACK_NOT_ELIGIBLE: [
+      "Cashback cannot be applied to this offer.",
+      "لا يمكن تطبيق الكاشباك على هذا العرض."
+    ],
+  };
+  const pair = map[code];
+  if (pair) return isAr ? pair[1] : pair[0];
+  return raw;
+}
+
 export default function CheckoutModal({
   offer,
   onClose,
@@ -401,19 +442,19 @@ export default function CheckoutModal({
       // Store success result — onComplete will be called when user clicks "Done"
       successResultRef.current = { ok: true, userOffer: result.userOffer };
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Payment failed";
+      const rawMsg = e instanceof Error ? e.message : "Payment failed";
       const data = (e as any)?.data as { forms?: Array<{ id?: string; formId?: string; title: string }> } | undefined;
-      if (msg === "EFORMS_REQUIRED" && data?.forms?.[0]) {
+      if (rawMsg === "EFORMS_REQUIRED" && data?.forms?.[0]) {
         const first = data.forms[0];
         const resolvedFormId = first.id ?? first.formId ?? null;
-        if (!resolvedFormId) { setError(msg); setStep("result"); return; }
+        if (!resolvedFormId) { setError(rawMsg); setStep("result"); return; }
         // Save a ref to submit so the eform step can retry after signing
         submitRef.current = submit;
         setPendingFormId(resolvedFormId);
         setStep("eform");
         return;
       }
-      setError(msg);
+      setError(friendlyCheckoutError(rawMsg, ar));
       setStep("result");
     }
   }

@@ -156,19 +156,36 @@ async function assertCustomerCanPurchase(userId: string) {
   }
 }
 
-/** Cap concurrent active/pending purchases of the same offer per user (1). */
-async function assertNotAlreadyEnrolled(userId: string, offerId: string, excludeUserOfferId?: string) {
-  const query: any = {
+/** Cap concurrent active/pending purchases of the same offer (or same membership type) per user. */
+async function assertNotAlreadyEnrolled(userId: string, offer: OfferDoc, excludeUserOfferId?: string) {
+  // If the offer is a membership (has a defined membershipType), block any other active membership of the SAME type.
+  // Otherwise, fallback to blocking the exact same offerId.
+  const baseQuery: any = {
     userId,
-    offerId: new mongoose.Types.ObjectId(offerId),
     status: { $in: ["pending_payment", "active", "reserved", "enet_pending"] }
   };
   if (excludeUserOfferId) {
-    query._id = { $ne: new mongoose.Types.ObjectId(excludeUserOfferId) };
+    baseQuery._id = { $ne: new mongoose.Types.ObjectId(excludeUserOfferId) };
   }
-  const existing = await UserOfferModel.countDocuments(query);
-  if (existing > 0) {
-    throw httpErr(409, `ALREADY_ENROLLED|uid:${userId}|oid:${offerId}|excl:${excludeUserOfferId || 'none'}`);
+
+  // 1. Check if they already have THIS EXACT offer
+  const exactOfferQuery = { ...baseQuery, offerId: offer._id };
+  const exactExisting = await UserOfferModel.countDocuments(exactOfferQuery);
+  if (exactExisting > 0) {
+    throw httpErr(409, `ALREADY_ENROLLED|uid:${userId}|oid:${offer._id}|excl:${excludeUserOfferId || 'none'}`);
+  }
+
+  // 2. If it's a membership, check if they already have ANY offer with the SAME membershipType
+  if (offer.offerKind === "membership" || offer.membershipType) {
+    // If the offer has a membershipType, look for other userOffers with the same membershipType.
+    // We only enforce this for actual memberships, to prevent having NGOLD and NSILVER active at once.
+    if (offer.membershipType) {
+      const typeQuery = { ...baseQuery, membershipType: offer.membershipType };
+      const typeExisting = await UserOfferModel.countDocuments(typeQuery);
+      if (typeExisting > 0) {
+        throw httpErr(409, `ALREADY_ENROLLED|uid:${userId}|type:${offer.membershipType}|excl:${excludeUserOfferId || 'none'}`);
+      }
+    }
   }
 }
 
@@ -405,7 +422,7 @@ export async function checkoutFull(input: {
   await assertCustomerCanPurchase(input.userId);
   const offer = await loadOfferOrThrow(input.offerId);
   if (!offer.allowFullPayment) throw httpErr(400, "FULL_PAYMENT_NOT_ALLOWED");
-  await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
+  await assertNotAlreadyEnrolled(input.userId, offer, input.userOfferId);
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
@@ -544,7 +561,7 @@ export async function checkoutInstallments(input: {
   const offer = await loadOfferOrThrow(input.offerId);
   if (!offer.allowInstallments) throw httpErr(400, "INSTALLMENTS_NOT_ALLOWED");
   if (input.count > (offer.maxInstallments ?? 1)) throw httpErr(400, "PLAN_NOT_ALLOWED");
-  await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
+  await assertNotAlreadyEnrolled(input.userId, offer, input.userOfferId);
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
@@ -748,7 +765,7 @@ export async function checkoutEnet4(input: {
   const offer = await loadOfferOrThrow(input.offerId);
   if (!offer.allowInstallments) throw httpErr(400, "INSTALLMENTS_NOT_ALLOWED");
   if ((offer.maxInstallments ?? 1) < 4) throw httpErr(400, "PLAN_NOT_ALLOWED");
-  await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
+  await assertNotAlreadyEnrolled(input.userId, offer, input.userOfferId);
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
 
   const finalClinicId = resolvePurchaseClinicObjectId(offer, input.clinicId);
@@ -927,7 +944,7 @@ export async function reserveWithDeposit(input: {
   await assertCustomerCanPurchase(input.userId);
   const offer = await loadOfferOrThrow(input.offerId);
   if (!offer.allowDeposit) throw httpErr(400, "DEPOSIT_NOT_ALLOWED");
-  await assertNotAlreadyEnrolled(input.userId, input.offerId, input.userOfferId);
+  await assertNotAlreadyEnrolled(input.userId, offer, input.userOfferId);
   await assertEnrollmentCap(offer, input.offerId, input.userOfferId);
   const depositAmt = offer.depositAmountKwd ?? "0.000";
   if (mils(depositAmt) <= 0) throw httpErr(400, "DEPOSIT_AMOUNT_INVALID");
@@ -1039,14 +1056,23 @@ export async function convertReservation(input: {
   // Re-validate offer + clinic are active and within the sales window.
   const offer = await loadOfferOrThrow(String(uo.offerId));
 
-  // Block if the user has *another* active/pending enrollment for the same offer.
   const dupes = await UserOfferModel.countDocuments({
     _id: { $ne: uo._id },
     userId: input.userId,
     offerId: offer._id,
     status: { $in: ["pending_payment", "active", "reserved", "enet_pending"] }
   });
-  if (dupes > 0) throw httpErr(409, "ALREADY_ENROLLED");
+  if (dupes > 0) throw httpErr(409, `ALREADY_ENROLLED|uid:${input.userId}|oid:${offer._id}|excl:${uo._id}`);
+
+  if (offer.membershipType || offer.offerKind === "membership") {
+    const typeDupes = await UserOfferModel.countDocuments({
+      _id: { $ne: uo._id },
+      userId: input.userId,
+      membershipType: offer.membershipType,
+      status: { $in: ["pending_payment", "active", "reserved", "enet_pending"] }
+    });
+    if (typeDupes > 0) throw httpErr(409, `ALREADY_ENROLLED|uid:${input.userId}|type:${offer.membershipType}|excl:${uo._id}`);
+  }
 
   // Validate the chosen plan against the offer's allowances.
   if (input.payMode === "full" && !offer.allowFullPayment) throw httpErr(400, "FULL_PAYMENT_NOT_ALLOWED");
