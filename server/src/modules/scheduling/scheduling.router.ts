@@ -2063,18 +2063,14 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     if (updated?.status === "completed") {
       notifySessionCompletedCashback(uo.userId, updated.id, cashbackUnlocked);
 
-      // Auto-sync the associated booking request status + payment
+      // Auto-sync the associated booking request status
       const breq = await bookingRequestsStore.findBySessionId(session.id);
       if (breq) {
         const breqUpdate: Record<string, unknown> = {
           status: "completed",
         };
-        if (breq.clinicPaymentStatus !== "paid") {
-          breqUpdate.clinicPaymentStatus = "paid";
-          breqUpdate.clinicPaymentMarkedAt = new Date().toISOString();
-          breqUpdate.clinicPaymentMarkedBy = req.auth!.userId;
-          breqUpdate.sessionPriceKwd = finalPaidKwd || totalBillKwd || breq.sessionPriceKwd;
-        }
+        // We no longer automatically mark the booking as "paid" here.
+        // The clinic must explicitly use the POS checkout to mark it as paid.
         await bookingRequestsStore.update(breq.id, breqUpdate);
       }
     }
