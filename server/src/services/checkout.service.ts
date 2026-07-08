@@ -449,7 +449,6 @@ export async function checkoutFull(input: {
     const existingPending = await UserOfferModel.findOne({
       userId: input.userId,
       offerId: offer._id,
-      purchaseMode: uoData.purchaseMode,
       status: { $in: ["pending_payment", "enet_pending"] }
     }).sort({ createdAt: -1 }).lean() as any;
 
@@ -459,6 +458,13 @@ export async function checkoutFull(input: {
         { $set: uoData },
         { new: true }
       ).lean() as any;
+      // Clean up any stale duplicate pending entries for same user+offer
+      await UserOfferModel.deleteMany({
+        userId: input.userId,
+        offerId: offer._id,
+        status: { $in: ["pending_payment", "enet_pending"] },
+        _id: { $ne: existingPending._id }
+      });
     } else {
       uo = await UserOfferModel.create(uoData) as any;
     }
@@ -602,7 +608,6 @@ export async function checkoutInstallments(input: {
     const existingPending = await UserOfferModel.findOne({
       userId: input.userId,
       offerId: offer._id,
-      purchaseMode: uoData.purchaseMode,
       status: { $in: ["pending_payment", "enet_pending"] }
     }).sort({ createdAt: -1 }).lean() as any;
 
@@ -612,6 +617,12 @@ export async function checkoutInstallments(input: {
         { $set: uoData },
         { new: true }
       ).lean() as any;
+      await UserOfferModel.deleteMany({
+        userId: input.userId,
+        offerId: offer._id,
+        status: { $in: ["pending_payment", "enet_pending"] },
+        _id: { $ne: existingPending._id }
+      });
     } else {
       uo = await UserOfferModel.create(uoData) as any;
     }
@@ -781,7 +792,6 @@ export async function checkoutEnet4(input: {
     const existingPending = await UserOfferModel.findOne({
       userId: input.userId,
       offerId: offer._id,
-      purchaseMode: uoData.purchaseMode,
       status: { $in: ["pending_payment", "enet_pending"] }
     }).sort({ createdAt: -1 }).lean() as any;
 
@@ -791,6 +801,12 @@ export async function checkoutEnet4(input: {
         { $set: uoData },
         { new: true }
       ).lean() as any;
+      await UserOfferModel.deleteMany({
+        userId: input.userId,
+        offerId: offer._id,
+        status: { $in: ["pending_payment", "enet_pending"] },
+        _id: { $ne: existingPending._id }
+      });
     } else {
       uo = await UserOfferModel.create(uoData) as any;
     }
@@ -965,7 +981,6 @@ export async function reserveWithDeposit(input: {
     const existingPending = await UserOfferModel.findOne({
       userId: input.userId,
       offerId: offer._id,
-      purchaseMode: uoData.purchaseMode,
       status: { $in: ["pending_payment", "enet_pending"] }
     }).sort({ createdAt: -1 }).lean() as any;
 
@@ -975,6 +990,12 @@ export async function reserveWithDeposit(input: {
         { $set: uoData },
         { new: true }
       ).lean() as any;
+      await UserOfferModel.deleteMany({
+        userId: input.userId,
+        offerId: offer._id,
+        status: { $in: ["pending_payment", "enet_pending"] },
+        _id: { $ne: existingPending._id }
+      });
     } else {
       uo = await UserOfferModel.create(uoData) as any;
     }
