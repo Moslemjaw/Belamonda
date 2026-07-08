@@ -793,7 +793,8 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
         body: JSON.stringify({ scheduledAt: iso, notes: scheduleForm.notes || undefined })
       });
       setScheduleForm({ scheduledAt: "", notes: "" });
-      await refetch();
+      invalidateCache("/scheduling/cs/requests");
+      await refetch(true);
       setSelectedBooking(null);
     } catch (e: any) {
       const code = e.message || "UNKNOWN_ERROR";
@@ -821,7 +822,8 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
         body: JSON.stringify({ reason: "Cancelled by customer service" })
       });
       if (selectedBooking?.id === requestId) setSelectedBooking(null);
-      await refetch();
+      invalidateCache("/scheduling/cs/requests");
+      await refetch(true);
     } finally {
       setProcessing(null);
     }
