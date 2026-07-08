@@ -1406,7 +1406,28 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                   <div key={s.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-surface-50/80 rounded-[20px] border border-surface-100/80 gap-4 transition-all hover:border-surface-300">
                     <div className="flex-1 min-w-0 w-full sm:w-auto">
                       <div className="flex items-center justify-between sm:justify-start gap-3 mb-2 sm:mb-0">
-                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200"}`}>{s.status === 'slot_accepted' ? (ar() ? "مجدول" : "SCHEDULED") : s.status?.replace("_", " ")}</span>
+                        {(() => {
+                          const b = clinicBookings.find((bk: any) => bk.scheduledSessionId === s.id);
+                          const isPaid = b?.clinicPaymentStatus === "paid";
+                          const isCompleted = s.status === "completed";
+                          
+                          let displayStatus = s.status === 'slot_accepted' ? (ar() ? "مجدول" : "SCHEDULED") : s.status?.replace("_", " ");
+                          let colorClass = SESSION_STATUS_COLORS[s.status] ?? "bg-surface-100 text-surface-500 border-surface-200";
+
+                          if (isCompleted) {
+                            if (!isPaid) {
+                              displayStatus = ar() ? "بانتظار الدفع" : "Await Session Payment";
+                              colorClass = "bg-amber-50 text-amber-700 border-amber-200";
+                            } else {
+                              displayStatus = ar() ? "مكتمل" : "Completed";
+                              colorClass = SESSION_STATUS_COLORS.completed;
+                            }
+                          }
+
+                          return (
+                            <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${colorClass}`}>{displayStatus}</span>
+                          );
+                        })()}
                         <div className="text-sm font-bold text-surface-900 sm:hidden">
                           {new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                         </div>
@@ -1428,6 +1449,16 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                           }} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 disabled:opacity-50 shadow-sm transition-colors">{markingId === s.id ? "…" : "✓ " + (ar() ? "حضر" : "Came")}</button>
                           <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "no_show")} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 disabled:opacity-50 transition-colors">{markingId === s.id ? "…" : "✗ " + (ar() ? "لم يحضر" : "No Show")}</button>
                         </div>
+                      )}
+                      {(s.status === "scheduled" || s.status === "completed") && (
+                        <button onClick={() => {
+                          const linkedBooking = clinicBookings.find((b: any) => b.scheduledSessionId === s.id);
+                          const owesMoney = linkedBooking && linkedBooking.clinicPaymentStatus !== "paid";
+                          const baseAmount = owesMoney ? (linkedBooking.clinicTakeKwd || linkedBooking.sessionPriceKwd || "0") : "0";
+                          setCheckoutSession({ ...s, baseAmount });
+                        }} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-orange-500 text-white hover:bg-orange-600 shadow-sm transition-colors ml-2">
+                          {ar() ? "الدفع / الإضافات" : "Pay / Extras"}
+                        </button>
                       )}
                     </div>
                   </div>
