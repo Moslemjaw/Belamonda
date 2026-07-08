@@ -1592,6 +1592,29 @@ schedulingRouter.post("/requests/:id/mark-unpaid", authRequired, requireRole(["a
   }
 });
 
+// ── Clinic staff / admin updates session price ─────────────────────────────
+schedulingRouter.post("/requests/:id/update-price", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res) => {
+  try {
+    const { sessionPriceKwd } = req.body;
+    if (!sessionPriceKwd || isNaN(parseFloat(sessionPriceKwd)) || parseFloat(sessionPriceKwd) < 0) {
+      return res.status(400).json({ error: "INVALID_PRICE" });
+    }
+    const breq = await bookingRequestsStore.get(req.params.id);
+    if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
+    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
+      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+    }
+
+    const updated = await bookingRequestsStore.update(breq.id, {
+      sessionPriceKwd: parseFloat(sessionPriceKwd).toFixed(3),
+    });
+
+    return res.json({ request: updated });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || "INTERNAL_ERROR" });
+  }
+});
+
 // ── Clinic staff / CS rejects the booking ──────────────────────────────────
 schedulingRouter.post("/requests/:id/reject", authRequired, requireRole(["clinicStaff", "cs", "legal", "admin", "cs_director"]), async (req, res) => {
   const parsed = RejectSchema.safeParse(req.body);

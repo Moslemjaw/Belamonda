@@ -316,7 +316,7 @@ export default function AdminSessionsLogTab() {
                       </td>
                       {/* Payment Status */}
                       <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${paymentStyle}`}>
                             {paymentLabel}
                           </span>
@@ -362,8 +362,37 @@ export default function AdminSessionsLogTab() {
                               {ar() ? "غير مدفوع" : "Unpaid"}
                             </button>
                           )}
+                          {(s.type === 'request' || s.requestId) && (
+                            <button
+                              onClick={async () => {
+                                const currentPrice = s.sessionPriceKwd || "0.000";
+                                const newPrice = prompt(ar() ? "أدخل السعر الجديد (د.ك):" : "Enter new price (KWD):", currentPrice);
+                                if (newPrice !== null && newPrice.trim() !== "") {
+                                  const parsed = parseFloat(newPrice);
+                                  if (!isNaN(parsed)) {
+                                    try {
+                                      const reqId = s.type === 'request' ? s.id : s.requestId;
+                                      await apiFetch(`/scheduling/requests/${reqId}/update-price`, {
+                                        method: "POST",
+                                        headers: getAuthHeader(),
+                                        body: JSON.stringify({ sessionPriceKwd: parsed.toFixed(3) })
+                                      });
+                                      fetchSessions();
+                                    } catch (err: any) {
+                                      alert(err.message || "Failed to update price");
+                                    }
+                                  } else {
+                                    alert(ar() ? "سعر غير صالح" : "Invalid price");
+                                  }
+                                }
+                              }}
+                              className="text-[10px] font-bold bg-surface-100 text-surface-600 hover:bg-surface-200 px-2 py-1 rounded transition-colors"
+                            >
+                              {ar() ? "تعديل السعر" : "Edit Price"}
+                            </button>
+                          )}
                         </div>
-                        {s.sessionPriceKwd && parseFloat(s.sessionPriceKwd) > 0 && (
+                        {s.sessionPriceKwd !== undefined && s.sessionPriceKwd !== null && (
                           <div className="mt-1 text-xs font-medium text-surface-500">
                             {parseFloat(s.sessionPriceKwd).toFixed(3)} {ar() ? "د.ك" : "KWD"}
                           </div>

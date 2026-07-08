@@ -1248,7 +1248,7 @@ function AdjustCashbackModal({ isOpen, onClose, maxCashbackKwd, onAdjust }: {
   );
 }
 
-function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBookings, markingId, onMarkSession, onMarkPaid, maxCashbackKwd, clinicProducts }: {
+function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBookings, markingId, onMarkSession, onMarkPaid, onUpdatePrice, maxCashbackKwd, clinicProducts }: {
   tabs: { key: string; label: string }[];
   kyc: any;
   memberships: any[];
@@ -1258,6 +1258,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
   markingId: string | null;
   onMarkSession: (id: string, status: string, posData?: any) => Promise<void>;
   onMarkPaid: (id: string, posData?: any) => Promise<void>;
+  onUpdatePrice?: (bookingId: string, newPriceKwd: string) => Promise<void>;
   maxCashbackKwd: string;
   clinicProducts?: {name: string; nameAr?: string; nameEn?: string; priceKwd: string; cashbackDeductionKwd?: string}[];
 }) {
@@ -1265,6 +1266,8 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
   const [payingBookingId, setPayingBookingId] = useState<string | null>(null);
   const [checkoutSession, setCheckoutSession] = useState<any | null>(null);
   const [checkoutBooking, setCheckoutBooking] = useState<any | null>(null);
+  const [editingPriceId, setEditingPriceId] = useState<string | null>(null);
+  const [editPriceValue, setEditPriceValue] = useState("");
 
   return (
     <div className="space-y-4">
@@ -1372,7 +1375,53 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                 {clinicBookings.filter((b: any) => b.clinicPaymentStatus !== "paid").map((b: any) => (
                   <div key={b.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-white/60 backdrop-blur-md rounded-[20px] border border-orange-100 gap-4">
                     <div>
-                      <div className="text-lg font-black text-orange-900 mb-1">{b.clinicTakeKwd || b.sessionPriceKwd || "0.000"} KWD</div>
+                      {editingPriceId === b.id ? (
+                        <div className="flex items-center gap-2 mb-1">
+                          <input
+                            type="number"
+                            step="0.001"
+                            min="0"
+                            className="border border-orange-300 rounded-lg py-1 px-2 text-lg font-black text-orange-900 w-28 focus:ring-orange-400 focus:border-orange-400 bg-white"
+                            value={editPriceValue}
+                            onChange={e => setEditPriceValue(e.target.value)}
+                            onKeyDown={async e => {
+                              if (e.key === "Enter" && onUpdatePrice) {
+                                await onUpdatePrice(b.id, editPriceValue);
+                                setEditingPriceId(null);
+                              }
+                              if (e.key === "Escape") setEditingPriceId(null);
+                            }}
+                            autoFocus
+                            dir="ltr"
+                          />
+                          <span className="text-lg font-black text-orange-900">KWD</span>
+                          <button
+                            onClick={async () => {
+                              if (onUpdatePrice) {
+                                await onUpdatePrice(b.id, editPriceValue);
+                              }
+                              setEditingPriceId(null);
+                            }}
+                            className="text-xs font-bold px-2 py-1 rounded-lg bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+                          >✓</button>
+                          <button
+                            onClick={() => setEditingPriceId(null)}
+                            className="text-xs font-bold px-2 py-1 rounded-lg bg-surface-200 text-surface-600 hover:bg-surface-300 transition-colors"
+                          >✗</button>
+                        </div>
+                      ) : (
+                        <div
+                          className="text-lg font-black text-orange-900 mb-1 cursor-pointer hover:text-orange-700 inline-flex items-center gap-1.5 group"
+                          onClick={() => {
+                            setEditingPriceId(b.id);
+                            setEditPriceValue(b.clinicTakeKwd || b.sessionPriceKwd || "0.000");
+                          }}
+                          title={ar() ? "انقر لتعديل السعر" : "Click to edit price"}
+                        >
+                          {b.clinicTakeKwd || b.sessionPriceKwd || "0.000"} KWD
+                          <svg className="w-3.5 h-3.5 text-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                        </div>
+                      )}
                       <div className="text-[10px] font-bold text-orange-700/60 uppercase tracking-wider">{ar() ? "الخدمة / الموعد" : "Service / Date"}</div>
                       <div className="text-xs font-semibold text-orange-800 mt-1">
                         {b.standaloneName || b.offerName || "Session"}
@@ -1828,7 +1877,16 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
           </div>
 
           {/* Tabs */}
-          <ScanTabs maxCashbackKwd={card.cashbackUnlockedKwd ?? "0.000"} clinicProducts={result?.clinicProducts ?? []} tabs={SCAN_TABS} kyc={scanKyc} memberships={scanMemberships} payments={scanPayments} clinicSessions={clinicSessions} clinicBookings={scanBookings} markingId={markingId} onMarkSession={handleMarkSession} onMarkPaid={async (id: string, posData?: any) => {
+          <ScanTabs maxCashbackKwd={card.cashbackUnlockedKwd ?? "0.000"} clinicProducts={result?.clinicProducts ?? []} tabs={SCAN_TABS} kyc={scanKyc} memberships={scanMemberships} payments={scanPayments} clinicSessions={clinicSessions} clinicBookings={scanBookings} markingId={markingId} onMarkSession={handleMarkSession} onUpdatePrice={async (bookingId: string, newPriceKwd: string) => {
+            try {
+              await apiFetch(`/scheduling/requests/${bookingId}/update-price`, {
+                method: "POST",
+                headers: getAuthHeader(),
+                body: JSON.stringify({ sessionPriceKwd: newPriceKwd })
+              });
+              await handleScan();
+            } catch (e: any) { alert(e.message); }
+          }} onMarkPaid={async (id: string, posData?: any) => {
             try {
               await apiFetch(`/scheduling/requests/${id}/mark-paid`, { 
                 method: "POST", 
