@@ -1,4 +1,5 @@
 import { Router } from "express";
+import jwt from "jsonwebtoken";
 import { z } from "zod";
 import mongoose from "mongoose";
 import * as XLSX from "xlsx";
@@ -1101,7 +1102,6 @@ usersRouter.post("/admin/:id/recovery-link", authRequired, requireRole(["admin",
     const user = await UserModel.findById(id).lean();
     if (!user) return res.status(404).json({ error: "NOT_FOUND" });
 
-    const jwt = await import("jsonwebtoken");
     const payload = { userId: id, purpose: "recovery" };
     // Using a strong secret from env or fallback
     const secret = process.env.JWT_SECRET || "fallback_secret_change_me";

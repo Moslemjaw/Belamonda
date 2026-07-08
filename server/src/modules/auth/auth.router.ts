@@ -1,4 +1,5 @@
 import { Router } from "express";
+import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
@@ -168,7 +169,6 @@ authRouter.post("/recover-account", async (req, res, next) => {
     const parsed = RecoverAccountSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
 
-    const jwt = await import("jsonwebtoken");
     const secret = process.env.JWT_SECRET || "fallback_secret_change_me";
     
     let decoded: any;
