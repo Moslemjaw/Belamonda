@@ -56,6 +56,18 @@ export async function registerCustomer(input: {
   }
 
   try {
+    const searchConditions: any[] = [];
+    if (input.username) searchConditions.push({ username: normUsername(input.username) });
+    if (input.email) searchConditions.push({ email: normEmail(input.email) });
+    if (input.phone) searchConditions.push({ phone: normIdentifier(input.phone) });
+
+    if (searchConditions.length > 0) {
+      const existingUser = await UserModel.findOne({ $or: searchConditions }).select("_id").lean();
+      if (existingUser) {
+        return { error: "DUPLICATE_IDENTIFIER" as const };
+      }
+    }
+
     const doc = await UserModel.create({
       username: input.username ? normUsername(input.username) : undefined,
       email: input.email ? normEmail(input.email) : undefined,
