@@ -2545,6 +2545,23 @@ schedulingRouter.post("/admin/grant-session", authRequired, requireRole(["cs", "
       scheduledBy: req.auth!.userId,
     });
 
+    const { BookingRequestModel } = await import("../../models/bookingRequest.model.js");
+    await BookingRequestModel.create({
+      userOfferId: String(uo._id),
+      userId,
+      offerId: String(offer._id),
+      clinicId: clinicId,
+      status: "confirmed",
+      scheduledSessionId: String(session._id),
+      clinicPaymentStatus: isPaid ? "paid" : "payment_pending",
+      sessionPriceKwd: priceKwd,
+      isStandalone: true,
+      standaloneName: treatmentName,
+      preferredAt: schedDate,
+      confirmedAt: now,
+      confirmedBy: req.auth!.userId
+    });
+
     return res.status(201).json({ ok: true, userOfferId: String(uo._id), sessionId: String(session._id) });
   } catch (e) {
     next(e);
