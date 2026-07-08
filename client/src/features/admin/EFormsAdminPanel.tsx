@@ -300,6 +300,20 @@ export function EFormsAdminPanel() {
     });
     setShowEditor(true);
   };
+  const duplicateForm = (f: FormItem) => {
+    setEditingId(null);
+    setDraft({
+      title: f.title + " (Copy)",
+      titleAr: f.titleAr ? f.titleAr + " (نسخة)" : "",
+      description: f.description ?? "",
+      descriptionAr: f.descriptionAr ?? "",
+      fields: f.fields.length ? f.fields.map((field) => ({ ...field, key: newFieldKey() })) : [blankField()],
+      targets: f.targets ? f.targets.map((t) => ({ ...t })) : [],
+      requireBeforeBooking: f.requireBeforeBooking,
+      requireBeforeFirstPayment: f.requireBeforeFirstPayment
+    });
+    setShowEditor(true);
+  };
 
   const updateField = (idx: number, patch: Partial<FieldDraft>) => {
     setDraft((d) => ({ ...d, fields: d.fields.map((f, i) => (i === idx ? { ...f, ...patch } : f)) }));
@@ -679,6 +693,9 @@ export function EFormsAdminPanel() {
                   </button>
                   <button type="button" className="btn-secondary btn-sm text-xs border-fuchsia-200 text-fuchsia-700 hover:bg-fuchsia-50" onClick={() => setSendFormModal(f)}>
                     {ar() ? "إرسال لعميل" : "Send to Customer"}
+                  </button>
+                  <button type="button" className="btn-secondary btn-sm text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => duplicateForm(f)}>
+                    {ar() ? "نسخ" : "Duplicate"}
                   </button>
                   {f.archived ? (
                     <button type="button" className="btn-secondary btn-sm text-xs text-sky-600 border-sky-200 hover:bg-sky-50" onClick={() => unarchive(f)}>{ar() ? "استعادة" : "Unarchive"}</button>
