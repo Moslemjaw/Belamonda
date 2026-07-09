@@ -47,6 +47,10 @@ export default function AdminSessionsLogTab() {
   const [changeFee, setChangeFee] = useState("5.000");
   const [changeSubmitting, setChangeSubmitting] = useState(false);
 
+  const [rescheduleTarget, setRescheduleTarget] = useState<any>(null);
+  const [newDateStr, setNewDateStr] = useState("");
+  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
+
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
@@ -117,6 +121,34 @@ export default function AdminSessionsLogTab() {
       alert(err.message || "Failed to change clinic");
     } finally {
       setChangeSubmitting(false);
+    }
+  };
+
+  const submitReschedule = async () => {
+    if (!newDateStr) return;
+    setRescheduleSubmitting(true);
+    try {
+      const scheduledAtIso = new Date(newDateStr).toISOString();
+      if (rescheduleTarget.type === "session") {
+        await apiFetch(`/scheduling/clinic/sessions/${rescheduleTarget.id}/reschedule`, {
+          method: "POST",
+          headers: getAuthHeader(),
+          body: JSON.stringify({ scheduledAt: scheduledAtIso })
+        });
+      } else {
+        await apiFetch(`/scheduling/requests/${rescheduleTarget.id}/propose`, {
+          method: "POST",
+          headers: getAuthHeader(),
+          body: JSON.stringify({ scheduledAt: scheduledAtIso })
+        });
+      }
+      alert(ar() ? "تم تغيير الموعد بنجاح" : "Rescheduled successfully");
+      setRescheduleTarget(null);
+      fetchSessions();
+    } catch (err: any) {
+      alert(err.message || "Failed to reschedule");
+    } finally {
+      setRescheduleSubmitting(false);
     }
   };
 
@@ -298,8 +330,25 @@ export default function AdminSessionsLogTab() {
                         {s.offerName}
                       </td>
                       <td className="px-5 py-4">
-                        <div className="font-bold text-surface-900">{fmtDate(s.scheduledAt)}</div>
-                        <div className="text-xs text-surface-500">{new Date(s.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="font-bold text-surface-900">{fmtDate(s.scheduledAt)}</div>
+                            <div className="text-xs text-surface-500">{new Date(s.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                          </div>
+                          {['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'slot_proposed', 'under_review', 'pending'].includes(s.status) && (
+                            <button
+                              onClick={() => {
+                                setRescheduleTarget(s);
+                                const d = new Date(s.scheduledAt);
+                                d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+                                setNewDateStr(d.toISOString().slice(0, 16));
+                              }}
+                              className="ml-2 text-[10px] font-bold bg-surface-100 text-surface-600 hover:bg-surface-200 px-2 py-1 rounded transition-colors"
+                            >
+                              {ar() ? "تعديل الوقت" : "Edit Date"}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       {/* Appointment Status */}
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
@@ -429,22 +478,34 @@ export default function AdminSessionsLogTab() {
                 >
                   <option value="">{ar() ? "-- اختر العيادة --" : "-- Select Clinic --"}</option>
                   {apiClinics.map(c => (
-                    <option key={c.id || c._id} value={c.id || c._id}>
-                      {ar() ? c.nameAr || c.nameEn : c.nameEn}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.nameEn} - {c.nameAr}</option>
                   ))}
                 </select>
               </div>
-
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4 rounded border-surface-300 text-brand-pink-600 focus:ring-brand-pink-600" checked={changeIsPaid} onChange={e => setChangeIsPaid(e.target.checked)} />
-                <span className="text-sm font-medium text-surface-700">{ar() ? "تطبيق رسوم تغيير" : "Apply Change Fee"}</span>
-              </label>
+              
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  id="mark-paid-checkbox" 
+                  checked={changeIsPaid} 
+                  onChange={e => setChangeIsPaid(e.target.checked)} 
+                  className="w-4 h-4 text-brand-pink-500 rounded border-surface-300"
+                />
+                <label htmlFor="mark-paid-checkbox" className="text-sm font-medium text-surface-700">
+                  {ar() ? "تحديد كمدفوع مسبقاً؟ (اختياري)" : "Mark as paid? (optional)"}
+                </label>
+              </div>
 
               {changeIsPaid && (
                 <div>
-                  <label className="block text-sm font-bold text-surface-700 mb-1">{ar() ? "قيمة الرسوم (د.ك)" : "Fee Amount (KWD)"}</label>
-                  <input type="number" step="0.001" className="input-field w-full" value={changeFee} onChange={e => setChangeFee(e.target.value)} />
+                  <label className="block text-sm font-bold text-surface-700 mb-1">{ar() ? "المبلغ المدفوع (د.ك)" : "Paid Amount (KWD)"}</label>
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    className="input-field w-full"
+                    value={changeFee}
+                    onChange={e => setChangeFee(e.target.value)}
+                  />
                 </div>
               )}
             </div>
@@ -463,6 +524,44 @@ export default function AdminSessionsLogTab() {
                 disabled={changeSubmitting || !newClinicSelection || newClinicSelection === changeClinicTarget.clinicId}
               >
                 {changeSubmitting ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "تأكيد" : "Confirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rescheduleTarget && (
+        <div className="fixed inset-0 z-[100] bg-surface-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 animate-slide-up relative">
+            <button className="absolute top-4 right-4 text-surface-400 hover:text-surface-900" onClick={() => setRescheduleTarget(null)}>✕</button>
+            <h3 className="text-xl font-bold text-surface-900 mb-4">{ar() ? "تعديل الموعد" : "Reschedule Appointment"}</h3>
+            
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="block text-sm font-bold text-surface-700 mb-1">{ar() ? "الموعد الجديد" : "New Date & Time"}</label>
+                <input 
+                  type="datetime-local" 
+                  className="input-field w-full"
+                  value={newDateStr}
+                  onChange={e => setNewDateStr(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setRescheduleTarget(null)}
+                className="flex-1 px-4 py-2 bg-surface-100 text-surface-600 rounded-xl font-bold hover:bg-surface-200 transition-colors"
+                disabled={rescheduleSubmitting}
+              >
+                {ar() ? "إلغاء" : "Cancel"}
+              </button>
+              <button 
+                onClick={submitReschedule}
+                className="flex-1 px-4 py-2 bg-brand-pink-500 text-white rounded-xl font-bold hover:bg-brand-pink-600 transition-colors"
+                disabled={rescheduleSubmitting || !newDateStr}
+              >
+                {rescheduleSubmitting ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "تأكيد" : "Confirm")}
               </button>
             </div>
           </div>

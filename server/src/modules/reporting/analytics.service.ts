@@ -1545,6 +1545,14 @@ export async function computeClinicSummaries(filters: { from?: string; to?: stri
   if (dateFilter) brMatchStage.createdAt = dateFilter;
   const invoiceAgg = await BookingRequestModel.aggregate([
     ...(Object.keys(brMatchStage).length ? [{ $match: brMatchStage }] : []),
+    { $sort: { createdAt: -1 } },
+    {
+      $group: {
+        _id: { clinicId: "$clinicId", sessionId: { $ifNull: ["$scheduledSessionId", "$_id"] } },
+        doc: { $first: "$$ROOT" }
+      }
+    },
+    { $replaceRoot: { newRoot: "$doc" } },
     {
       $lookup: {
         from: "bookingsessions",
@@ -1619,7 +1627,17 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
   // Booking requests (invoices)
   const brQ: Record<string, unknown> = { clinicId };
   if (dateFilter) brQ.createdAt = dateFilter;
-  const bookingReqs = await BookingRequestModel.find(brQ).sort({ createdAt: -1 }).limit(300).lean();
+  let bookingReqs = await BookingRequestModel.find(brQ).sort({ createdAt: -1 }).limit(300).lean();
+
+  const seenBrSessions = new Set<string>();
+  bookingReqs = bookingReqs.filter(br => {
+    if (br.scheduledSessionId) {
+      const sid = br.scheduledSessionId.toString();
+      if (seenBrSessions.has(sid)) return false;
+      seenBrSessions.add(sid);
+    }
+    return true;
+  });
 
   // Enrich with user names
   const allUserIds = [
