@@ -652,7 +652,7 @@ function ClinicCompletedSessionsTab({ clinicId: _clinicId }: { clinicId: string 
               <tbody>
                 {filteredInvoices.map(inv => (
                   <tr key={inv.id}>
-                    <td className="text-surface-500 whitespace-nowrap">{fmtDate(inv.createdAt)}</td>
+                    <td className="text-surface-500 whitespace-nowrap">{fmtDate(inv.scheduledAt || inv.createdAt)}</td>
                     <td>
                       <div className="font-medium text-surface-900">{inv.customerName}</div>
                       {inv.customerPhone && <div className="text-xs text-surface-400">{inv.customerPhone}</div>}

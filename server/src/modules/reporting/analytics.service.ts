@@ -1673,15 +1673,16 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
 
   // Find sessions for these bookingReqs
   const brSessionIds = (bookingReqs as any[]).map(br => br.scheduledSessionId).filter(Boolean);
-  const brSessions = await BookingSessionModel.find({ _id: { $in: brSessionIds } }).select("status").lean();
-  const brSessionMap = new Map(brSessions.map((s: any) => [s._id.toString(), s.status]));
+  const brSessions = await BookingSessionModel.find({ _id: { $in: brSessionIds } }).select("status scheduledAt").lean();
+  const brSessionMap = new Map(brSessions.map((s: any) => [s._id.toString(), s]));
 
   // Revenue from session prices
   let sessionRevenueMils = 0;
   let paidRevenueMils = 0;
   let cashbackTotalMils = 0;
   for (const br of bookingReqs as any[]) {
-    const sStatus = br.scheduledSessionId ? brSessionMap.get(br.scheduledSessionId.toString()) : null;
+    const brSession = br.scheduledSessionId ? brSessionMap.get(br.scheduledSessionId.toString()) : null;
+    const sStatus = brSession?.status;
     if (sStatus === "completed") {
       if (br.sessionPriceKwd) {
         sessionRevenueMils += parseKwd(br.sessionPriceKwd);
@@ -1719,7 +1720,8 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
       cashbackUnlockedKwd: s.cashbackUnlockedKwd ?? null,
     })),
     invoices: (bookingReqs as any[]).map((br) => {
-      const sStatus = br.scheduledSessionId ? brSessionMap.get(br.scheduledSessionId.toString()) : null;
+      const brSession = br.scheduledSessionId ? brSessionMap.get(br.scheduledSessionId.toString()) : null;
+      const sStatus = brSession?.status;
       let combinedStatus = "";
       if (br.clinicPaymentStatus === "paid" && sStatus === "completed") combinedStatus = "Completed";
       else if (br.clinicPaymentStatus !== "paid" && sStatus === "completed") combinedStatus = "Missing POS";
@@ -1736,6 +1738,7 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
         clinicPaymentStatus: br.clinicPaymentStatus ?? "payment_pending",
         membershipType: br.membershipType ?? null,
         createdAt: br.createdAt,
+        scheduledAt: brSession?.scheduledAt ?? br.createdAt,
         confirmedAt: br.confirmedAt ?? null,
         combinedSessionStatus: combinedStatus,
       };
