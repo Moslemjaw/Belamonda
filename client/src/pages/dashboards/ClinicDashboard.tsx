@@ -569,6 +569,24 @@ function ClinicCompletedSessionsTab({ clinicId: _clinicId }: { clinicId: string 
   });
   const [search, setSearch] = useState("");
   const { data, loading } = useMyClinicReport({ from, to });
+  const { getAuthHeader } = useAuth();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (invoiceId: string) => {
+    if (!window.confirm(ar() ? "هل أنت متأكد من حذف هذه الجلسة؟ لا يمكن التراجع عن هذا الإجراء." : "Are you sure you want to delete this session? This cannot be undone.")) return;
+    setDeletingId(invoiceId);
+    try {
+      await apiFetch(`/scheduling/admin/requests/${invoiceId}`, {
+        method: "DELETE",
+        headers: getAuthHeader()
+      });
+      window.location.reload();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete");
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const invoices = data?.invoices ?? [];
   // Filter to only completed sessions
@@ -647,6 +665,7 @@ function ClinicCompletedSessionsTab({ clinicId: _clinicId }: { clinicId: string 
                   <th>{ar() ? "حالة الموعد" : "Appointment"}</th>
                   <th>{ar() ? "حالة الدفع" : "Payment"}</th>
                   <th>{ar() ? "حالة الحضور" : "Attendance"}</th>
+                  <th className="text-right">{ar() ? "إجراءات" : "Actions"}</th>
                 </tr>
               </thead>
               <tbody>
@@ -682,6 +701,15 @@ function ClinicCompletedSessionsTab({ clinicId: _clinicId }: { clinicId: string 
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide bg-emerald-50 text-emerald-700">
                         {ar() ? "حضر" : "Attended"}
                       </span>
+                    </td>
+                    <td className="text-right">
+                      <button
+                        onClick={() => handleDelete(inv.id)}
+                        disabled={deletingId === inv.id}
+                        className="text-xs font-bold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        {deletingId === inv.id ? (ar() ? "جاري الحذف..." : "Deleting...") : (ar() ? "حذف" : "Delete")}
+                      </button>
                     </td>
                   </tr>
                 ))}
