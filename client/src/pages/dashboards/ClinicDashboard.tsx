@@ -2094,93 +2094,139 @@ export default function ClinicDashboard() {
       <div className="space-y-6 animate-fade-in">
         {activeNav === "home" && (
           <>
-            {/* Stats */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4 mb-8">
+            {/* Stats Row */}
+            <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 mb-10">
               <KpiCard icon={Icons.calendar} label={ar() ? "إجمالي المواعيد" : "Total Sessions"} value={sessions.length} isHighlighted accent="pink" />
-              <KpiCard icon={Icons.calendar} label={ar() ? "مجدولة" : "Scheduled"} value={scheduled.length} accent="blue" />
-              <KpiCard icon={Icons.calendar} label={ar() ? "مكتملة" : "Completed"} value={completed.length} accent="emerald" />
-              <KpiCard icon={Icons.calendar} label={ar() ? "لم يحضر" : "No Show"} value={noShows.length} accent="red" />
+              <KpiCard icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label={ar() ? "مجدولة" : "Scheduled"} value={scheduled.length} accent="blue" />
+              <KpiCard icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label={ar() ? "مكتملة" : "Completed"} value={completed.length} accent="emerald" />
+              <KpiCard icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label={ar() ? "لم يحضر" : "No Show"} value={noShows.length} accent="red" />
             </div>
-            {/* Dashboard Content */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 sm:gap-8">
-              {/* Main Content: Appointments */}
+
+            {/* Dashboard 3-Column Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6">
+
+              {/* ── Column 1: Appointments (2 cols) ── */}
               <div className="lg:col-span-2 xl:col-span-2 min-w-0">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <h3 className="text-xl font-bold text-surface-900 flex items-center gap-3">
-                  {ar() ? "المواعيد" : "Appointments"}
-                </h3>
-                <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1 sm:pb-0">
-                  <div className="flex bg-surface-100/50 p-1 rounded-xl">
-                    <button onClick={() => setDateFilter("today")} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${dateFilter === "today" ? "bg-white text-brand-pink-600 shadow-sm" : "text-surface-500 hover:text-surface-900"}`}>{ar() ? "اليوم" : "Today"}</button>
-                    <button onClick={() => setDateFilter("tomorrow")} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${dateFilter === "tomorrow" ? "bg-white text-brand-pink-600 shadow-sm" : "text-surface-500 hover:text-surface-900"}`}>{ar() ? "غداً" : "Tomorrow"}</button>
-                    <button onClick={() => setDateFilter("all")} className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${dateFilter === "all" ? "bg-white text-brand-pink-600 shadow-sm" : "text-surface-500 hover:text-surface-900"}`}>{ar() ? "الكل" : "All Upcoming"}</button>
-                  </div>
-                  <button className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-xl shrink-0" onClick={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }}>↻ {ar() ? "تحديث" : "Refresh"}</button>
-                </div>
-              </div>
-              {loading ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">{[1,2,3,4].map(i => <div key={i} className="shimmer h-64 rounded-3xl" />)}</div>
-              ) : sessions.length === 0 ? (
-                <div className="card-elevated p-12 text-center flex flex-col items-center justify-center border-dashed border-2 border-surface-200 bg-surface-50/50 min-h-[300px]">
-                  <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl shadow-sm mb-4">📅</div>
-                  <h3 className="text-lg font-bold text-surface-900 mb-1">{ar() ? "الجدول فارغ" : "Your schedule is clear"}</h3>
-                  <div className="text-sm text-surface-500">{ar() ? "لا توجد مواعيد مجدولة لهذه العيادة حالياً." : "No appointments scheduled for this clinic at the moment."}</div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  {sessions
-                    .filter(s => {
-                      if (dateFilter === "all") return true;
-                      const d = new Date(s.scheduledAt);
-                      const today = new Date();
-                      if (dateFilter === "today") return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
-                      if (dateFilter === "tomorrow") {
-                        const tomorrow = new Date(today);
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        return d.getDate() === tomorrow.getDate() && d.getMonth() === tomorrow.getMonth() && d.getFullYear() === tomorrow.getFullYear();
-                      }
-                      return true;
-                    })
-                    .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
-                    .map(s => (
-                    <SessionCard key={s.id} session={s} onMark={markSession} onMarkPaid={markPaidFromSchedule} onReschedule={(id) => setRescheduleSessionId(id)} />
-                  ))}
-                  {sessions.filter(s => {
-                      if (dateFilter === "all") return true;
-                      const d = new Date(s.scheduledAt);
-                      const today = new Date();
-                      if (dateFilter === "today") return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
-                      if (dateFilter === "tomorrow") {
-                        const tomorrow = new Date(today);
-                        tomorrow.setDate(tomorrow.getDate() + 1);
-                        return d.getDate() === tomorrow.getDate() && d.getMonth() === tomorrow.getMonth() && d.getFullYear() === tomorrow.getFullYear();
-                      }
-                      return true;
-                    }).length === 0 && (
-                      <div className="col-span-full py-12 text-center text-surface-500 bg-surface-50/50 rounded-3xl border border-dashed border-surface-200">
-                        {ar() ? "لا توجد مواعيد مطابقة للفلتر" : "No appointments match the selected filter"}
+                <div className="bg-white rounded-[28px] border border-surface-200/80 shadow-sm overflow-hidden h-full flex flex-col">
+                  {/* Section header */}
+                  <div className="px-5 sm:px-6 pt-5 pb-4 border-b border-surface-100 bg-gradient-to-r from-white to-surface-50/50">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-2xl bg-brand-pink-50 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        </div>
+                        <div>
+                          <h3 className="text-base font-black text-surface-900">{ar() ? "المواعيد" : "Appointments"}</h3>
+                          <p className="text-[11px] text-surface-400 font-medium mt-0.5">{ar() ? "إدارة المواعيد المجدولة" : "Manage your scheduled sessions"}</p>
+                        </div>
                       </div>
-                  )}
+                      <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar">
+                        <div className="flex bg-surface-100/60 p-0.5 rounded-xl border border-surface-200/50">
+                          <button onClick={() => setDateFilter("today")} className={`px-3 py-1.5 rounded-[10px] text-[11px] font-bold whitespace-nowrap transition-all ${dateFilter === "today" ? "bg-white text-brand-pink-600 shadow-sm border border-surface-200/50" : "text-surface-500 hover:text-surface-700"}`}>{ar() ? "اليوم" : "Today"}</button>
+                          <button onClick={() => setDateFilter("tomorrow")} className={`px-3 py-1.5 rounded-[10px] text-[11px] font-bold whitespace-nowrap transition-all ${dateFilter === "tomorrow" ? "bg-white text-brand-pink-600 shadow-sm border border-surface-200/50" : "text-surface-500 hover:text-surface-700"}`}>{ar() ? "غداً" : "Tomorrow"}</button>
+                          <button onClick={() => setDateFilter("all")} className={`px-3 py-1.5 rounded-[10px] text-[11px] font-bold whitespace-nowrap transition-all ${dateFilter === "all" ? "bg-white text-brand-pink-600 shadow-sm border border-surface-200/50" : "text-surface-500 hover:text-surface-700"}`}>{ar() ? "الكل" : "All"}</button>
+                        </div>
+                        <button className="p-2 bg-white border border-surface-200 shadow-sm rounded-xl hover:bg-surface-50 transition-colors shrink-0" onClick={() => { invalidateCache("/scheduling/clinic/"); void refetch(true); }} title="Refresh">
+                          <svg className="w-3.5 h-3.5 text-surface-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Section body */}
+                  <div className="p-4 sm:p-5 flex-1 overflow-y-auto" style={{ maxHeight: '700px' }}>
+                    {loading ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{[1,2,3,4].map(i => <div key={i} className="shimmer h-56 rounded-2xl" />)}</div>
+                    ) : sessions.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-16 text-center">
+                        <div className="w-16 h-16 bg-surface-50 rounded-2xl flex items-center justify-center text-3xl mb-4 border border-surface-100">📅</div>
+                        <h4 className="text-sm font-bold text-surface-700 mb-1">{ar() ? "الجدول فارغ" : "Your schedule is clear"}</h4>
+                        <p className="text-xs text-surface-400 max-w-[200px]">{ar() ? "لا توجد مواعيد مجدولة لهذه العيادة حالياً." : "No appointments scheduled for this clinic."}</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {sessions
+                          .filter(s => {
+                            if (dateFilter === "all") return true;
+                            const d = new Date(s.scheduledAt);
+                            const today = new Date();
+                            if (dateFilter === "today") return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+                            if (dateFilter === "tomorrow") {
+                              const tomorrow = new Date(today);
+                              tomorrow.setDate(tomorrow.getDate() + 1);
+                              return d.getDate() === tomorrow.getDate() && d.getMonth() === tomorrow.getMonth() && d.getFullYear() === tomorrow.getFullYear();
+                            }
+                            return true;
+                          })
+                          .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
+                          .map(s => (
+                          <SessionCard key={s.id} session={s} onMark={markSession} onMarkPaid={markPaidFromSchedule} onReschedule={(id) => setRescheduleSessionId(id)} />
+                        ))}
+                        {sessions.filter(s => {
+                            if (dateFilter === "all") return true;
+                            const d = new Date(s.scheduledAt);
+                            const today = new Date();
+                            if (dateFilter === "today") return d.getDate() === today.getDate() && d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
+                            if (dateFilter === "tomorrow") {
+                              const tomorrow = new Date(today);
+                              tomorrow.setDate(tomorrow.getDate() + 1);
+                              return d.getDate() === tomorrow.getDate() && d.getMonth() === tomorrow.getMonth() && d.getFullYear() === tomorrow.getFullYear();
+                            }
+                            return true;
+                          }).length === 0 && (
+                            <div className="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                              <div className="w-12 h-12 bg-surface-50 rounded-xl flex items-center justify-center text-2xl mb-3 border border-surface-100">🔍</div>
+                              <p className="text-xs font-medium text-surface-400">{ar() ? "لا توجد مواعيد مطابقة للفلتر" : "No appointments match the selected filter"}</p>
+                            </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* Sidebar: Requests */}
-            <div className="lg:col-span-1 xl:col-span-1 min-w-0">
-              <div className="bg-surface-50/50 p-1 rounded-[32px] border border-surface-100/50 h-full">
-                <ClinicBookingRequestsTab clinicId={CLINIC_ID} />
               </div>
-            </div>
 
-            {/* Sidebar: Missed */}
-            <div className="lg:col-span-1 xl:col-span-1 min-w-0">
-              <div className="bg-surface-50/50 p-1 rounded-[32px] border border-surface-100/50 h-full">
-                <ClinicMissedSessionsTab clinicId={CLINIC_ID} />
+              {/* ── Column 2: Booking Requests ── */}
+              <div className="lg:col-span-1 xl:col-span-1 min-w-0">
+                <div className="bg-white rounded-[28px] border border-surface-200/80 shadow-sm overflow-hidden h-full flex flex-col">
+                  <div className="px-5 pt-5 pb-4 border-b border-surface-100 bg-gradient-to-r from-white to-blue-50/30">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-2xl bg-blue-50 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
+                        <p className="text-[11px] text-surface-400 font-medium mt-0.5">{ar() ? "مراجعة وتأكيد الطلبات" : "Review & confirm requests"}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto" style={{ maxHeight: '700px' }}>
+                    <ClinicBookingRequestsTab clinicId={CLINIC_ID} />
+                  </div>
+                </div>
               </div>
+
+              {/* ── Column 3: Missed Sessions ── */}
+              <div className="lg:col-span-1 xl:col-span-1 min-w-0">
+                <div className="bg-white rounded-[28px] border border-surface-200/80 shadow-sm overflow-hidden h-full flex flex-col">
+                  <div className="px-5 pt-5 pb-4 border-b border-surface-100 bg-gradient-to-r from-white to-red-50/30">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-2xl bg-red-50 flex items-center justify-center">
+                        <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </div>
+                      <div>
+                        <h3 className="text-base font-black text-surface-900">{ar() ? "الجلسات الفائتة" : "Missed Sessions"}</h3>
+                        <p className="text-[11px] text-surface-400 font-medium mt-0.5">{ar() ? "إعادة جدولة أو حذف" : "Reschedule or remove"}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto" style={{ maxHeight: '700px' }}>
+                    <ClinicMissedSessionsTab clinicId={CLINIC_ID} />
+                  </div>
+                </div>
+              </div>
+
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
 
         {activeNav === "schedule" && (
           <div className="space-y-6">

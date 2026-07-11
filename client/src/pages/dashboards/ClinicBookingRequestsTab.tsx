@@ -69,31 +69,15 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-xl font-bold text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
-          <p className="text-sm text-surface-500 mt-1">
-            {ar() ? "مراجعة وتأكيد طلبات الحجز والمواعيد المقترحة" : "Review and confirm booking requests and proposed dates"}
-          </p>
-        </div>
-        <button onClick={fetchRequests} className="btn-ghost btn-sm bg-white border border-surface-200 shadow-sm rounded-lg">
-          ↻ {ar() ? "تحديث" : "Refresh"}
-        </button>
-      </div>
-
+    <div className="p-4 sm:p-5 space-y-4 animate-fade-in">
       {requests.length === 0 ? (
-        <div className="card-elevated p-16 text-center border-dashed border-2 border-surface-200 bg-surface-50/50">
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-sm mx-auto mb-4">
-            <svg className="w-10 h-10 text-surface-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h4 className="text-lg font-bold text-surface-700 mb-1">{ar() ? "لا توجد طلبات حجز" : "No Pending Requests"}</h4>
-          <p className="text-sm text-surface-500">{ar() ? "ستظهر هنا طلبات الحجز الجديدة والمقترحة." : "New and proposed booking requests will appear here."}</p>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <div className="w-14 h-14 bg-surface-50 rounded-2xl flex items-center justify-center text-2xl mb-3 border border-surface-100">📋</div>
+          <h4 className="text-sm font-bold text-surface-700 mb-1">{ar() ? "لا توجد طلبات حجز" : "No Pending Requests"}</h4>
+          <p className="text-[11px] text-surface-400 max-w-[180px]">{ar() ? "ستظهر هنا طلبات الحجز الجديدة" : "New booking requests will appear here"}</p>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="space-y-3">
           {requests.map((r: any) => (
             <div key={r.id} className="card-elevated p-5 border border-surface-200 hover:shadow-md transition-shadow">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -192,6 +176,11 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
             </div>
           ))}
         </div>
+      )}
+      {requests.length > 0 && (
+        <button onClick={fetchRequests} className="w-full py-2 text-[11px] font-bold text-surface-400 hover:text-surface-600 transition-colors">
+          ↻ {ar() ? "تحديث" : "Refresh"}
+        </button>
       )}
     </div>
   );
