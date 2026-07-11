@@ -70,11 +70,11 @@ function RescheduleModal({ isOpen, session, onClose, onSubmit }: {
   );
 }
 
-export default function ClinicMissedSessionsTab({ clinicId }: { clinicId: string }) {
-  const { getAuthHeader } = useAuth();
+export default function ClinicMissedSessionsTab({ clinicId, onCountLoaded }: { clinicId: string, onCountLoaded?: (count: number) => void }) {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [rescheduleSession, setRescheduleSession] = useState<any | null>(null);
+  const { getAuthHeader } = useAuth();
 
   const fetchMissedSessions = async () => {
     try {
@@ -83,6 +83,7 @@ export default function ClinicMissedSessionsTab({ clinicId }: { clinicId: string
         headers: getAuthHeader()
       });
       setSessions(res.items || []);
+      if (onCountLoaded) onCountLoaded(res.items?.length || 0);
     } catch (e: any) {
       console.error(e);
     } finally {
@@ -118,9 +119,6 @@ export default function ClinicMissedSessionsTab({ clinicId }: { clinicId: string
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-50 text-red-600">{sessions.length} {ar() ? "جلسة فائتة" : "missed"}</span>
-          </div>
           {sessions.map(s => (
             <div key={s.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-surface-50/80 rounded-[20px] border border-red-100 gap-4 transition-all hover:border-red-200">
               <div className="flex-1">

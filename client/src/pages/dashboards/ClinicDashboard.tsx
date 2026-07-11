@@ -1962,6 +1962,7 @@ export default function ClinicDashboard() {
   const [complaintForm, setComplaintForm] = useState({ category: "other", subject: "", description: "" });
   const [sysAlert, setSysAlert] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [missedCount, setMissedCount] = useState(0);
   
   // Clinic staff accounts are linked to a clinicId from backend auth.
   // Fall back to the old demo clinic ids only if missing.
@@ -2208,18 +2209,25 @@ export default function ClinicDashboard() {
               <div className="lg:col-span-1 xl:col-span-1 min-w-0">
                 <div className="bg-white rounded-[28px] border border-surface-200/80 shadow-sm overflow-hidden h-full flex flex-col">
                   <div className="px-5 pt-5 pb-4 border-b border-surface-100 bg-gradient-to-r from-white to-red-50/30">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-2xl bg-red-50 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-2xl bg-red-50 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <div>
+                          <h3 className="text-base font-black text-surface-900">{ar() ? "الجلسات الفائتة" : "Missed Sessions"}</h3>
+                          <p className="text-[11px] text-surface-400 font-medium mt-0.5">{ar() ? "إعادة جدولة أو حذف" : "Reschedule or remove"}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-base font-black text-surface-900">{ar() ? "الجلسات الفائتة" : "Missed Sessions"}</h3>
-                        <p className="text-[11px] text-surface-400 font-medium mt-0.5">{ar() ? "إعادة جدولة أو حذف" : "Reschedule or remove"}</p>
-                      </div>
+                      {missedCount > 0 && (
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-100">
+                          {missedCount} {ar() ? "فائتة" : "missed"}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex-1 overflow-y-auto" style={{ maxHeight: '700px' }}>
-                    <ClinicMissedSessionsTab clinicId={CLINIC_ID} />
+                    <ClinicMissedSessionsTab clinicId={CLINIC_ID} onCountLoaded={setMissedCount} />
                   </div>
                 </div>
               </div>
