@@ -66,6 +66,53 @@ router.post("/admin", authRequired, async (req, res, next) => {
   }
 });
 
+router.put("/admin/:id", authRequired, async (req, res, next) => {
+  try {
+    if (req.auth!.role !== "admin" && req.auth!.role !== "finance") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+
+    const d = z.object({
+      title: z.string().min(1),
+      description: z.string().min(1),
+      slug: z.string().min(1).regex(/^[a-z0-9-]+$/i, "Slug must be alphanumeric and dashes only"),
+      type: z.enum(["packages", "survey"]).optional().default("packages"),
+      offerIds: z.array(z.string()).optional().default([]),
+      surveyQuestions: z.array(z.object({
+        key: z.string(),
+        type: z.enum(["short_text", "long_text", "single_choice", "multi_choice"]),
+        labelEn: z.string(),
+        labelAr: z.string().optional(),
+        options: z.array(z.string()).optional(),
+        required: z.boolean().optional()
+      })).optional().default([])
+    }).safeParse(req.body);
+
+    if (!d.success) return res.status(400).json({ error: d.error.issues[0].message });
+
+    const p = await PromotionModel.findById(req.params.id);
+    if (!p) return res.status(404).json({ error: "Not found" });
+
+    // Check slug uniqueness
+    if (p.slug !== d.data.slug.toLowerCase()) {
+      const existing = await PromotionModel.findOne({ slug: d.data.slug.toLowerCase() });
+      if (existing) return res.status(400).json({ error: "Slug already in use" });
+    }
+
+    p.title = d.data.title;
+    p.description = d.data.description;
+    p.slug = d.data.slug.toLowerCase();
+    p.type = d.data.type as any;
+    p.offerIds = d.data.type === "packages" ? d.data.offerIds : [];
+    p.surveyQuestions = d.data.type === "survey" ? d.data.surveyQuestions as any : [];
+
+    await p.save();
+    res.json(p);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.patch("/admin/:id/toggle", authRequired, async (req, res, next) => {
   try {
     if (req.auth!.role !== "admin" && req.auth!.role !== "finance") {

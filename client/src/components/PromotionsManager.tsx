@@ -19,14 +19,9 @@ export function PromotionsManager() {
   const promos = promosData?.items || [];
 
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ 
-    title: "", 
-    description: "", 
-    slug: "", 
-    type: "packages" as "packages" | "survey",
-    offerIds: [] as string[],
-    surveyQuestions: [] as SurveyQuestion[]
-  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const emptyForm = { title: "", description: "", slug: "", type: "packages" as "packages" | "survey", offerIds: [] as string[], surveyQuestions: [] as SurveyQuestion[] };
+  const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,21 +29,44 @@ export function PromotionsManager() {
 
   const SITE_BASE_URL = window.location.origin;
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleEdit = (p: any) => {
+    setEditingId(p._id || p.id);
+    setForm({
+      title: p.title || "",
+      description: p.description || "",
+      slug: p.slug || "",
+      type: p.type || "packages",
+      offerIds: (p.offerIds || []).map((o: any) => o._id || o.id || o),
+      surveyQuestions: p.surveyQuestions || []
+    });
+    setShowForm(true);
+    setError(null);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
     try {
-      await apiFetch("/promotions/admin", {
-        method: "POST",
-        headers: getAuthHeader(),
-        body: JSON.stringify(form)
-      });
+      if (editingId) {
+        await apiFetch(`/promotions/admin/${editingId}`, {
+          method: "PUT",
+          headers: getAuthHeader(),
+          body: JSON.stringify(form)
+        });
+      } else {
+        await apiFetch("/promotions/admin", {
+          method: "POST",
+          headers: getAuthHeader(),
+          body: JSON.stringify(form)
+        });
+      }
       setShowForm(false);
+      setEditingId(null);
       refetchPromos();
-      setForm({ title: "", description: "", slug: "", type: "packages", offerIds: [], surveyQuestions: [] });
+      setForm(emptyForm);
     } catch (err: any) {
-      setError(err.message || "Failed to create promotion");
+      setError(err.message || "Failed to save promotion");
     } finally {
       setSaving(false);
     }
@@ -80,7 +98,7 @@ export function PromotionsManager() {
           <h2 className="text-2xl font-bold text-surface-900">{ar() ? "العروض الترويجية (Promotions)" : "Promotions Manager"}</h2>
           <p className="text-sm text-surface-500 mt-1">{ar() ? "إدارة روابط العروض الخاصة للشركات والجهات الخارجية" : "Manage special promo links and QR codes for external companies"}</p>
         </div>
-        <button className="btn-primary flex items-center gap-2" onClick={() => setShowForm(true)}>
+        <button className="btn-primary flex items-center gap-2" onClick={() => { setEditingId(null); setForm(emptyForm); setShowForm(true); setError(null); }}>
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
           {ar() ? "إنشاء رابط جديد" : "Create Promo Link"}
         </button>
@@ -88,8 +106,8 @@ export function PromotionsManager() {
 
       {showForm && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-brand-pink-100">
-          <h3 className="text-lg font-bold text-surface-900 mb-4">{ar() ? "رابط ترويجي جديد" : "New Promo Link"}</h3>
-          <form onSubmit={handleCreate} className="space-y-4">
+          <h3 className="text-lg font-bold text-surface-900 mb-4">{editingId ? (ar() ? "تعديل الرابط الترويجي" : "Edit Promo Link") : (ar() ? "رابط ترويجي جديد" : "New Promo Link")}</h3>
+          <form onSubmit={handleSave} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "نوع الرابط" : "Promo Type"}</label>
@@ -198,13 +216,13 @@ export function PromotionsManager() {
             {error && <div className="text-xs text-red-600 font-bold">{error}</div>}
             
             <div className="flex gap-3 justify-end pt-2">
-              <button type="button" onClick={() => setShowForm(false)} className="btn-ghost">{ar() ? "إلغاء" : "Cancel"}</button>
+              <button type="button" onClick={() => { setShowForm(false); setEditingId(null); setForm(emptyForm); }} className="btn-ghost">{ar() ? "إلغاء" : "Cancel"}</button>
               <button 
                 type="submit" 
                 disabled={saving || (form.type === "packages" && form.offerIds.length === 0) || (form.type === "survey" && form.surveyQuestions.length === 0)} 
                 className="btn-primary"
               >
-                {saving ? "..." : (ar() ? "إنشاء الرابط" : "Create Link")}
+                {saving ? "..." : editingId ? (ar() ? "حفظ التعديلات" : "Save Changes") : (ar() ? "إنشاء الرابط" : "Create Link")}
               </button>
             </div>
           </form>
@@ -273,6 +291,9 @@ export function PromotionsManager() {
                   </button>
                 </div>
                 <div className="flex items-center gap-2">
+                  <button onClick={() => handleEdit(p)} className="btn-sm btn-secondary text-blue-600 hover:bg-blue-50">
+                    {ar() ? "تعديل" : "Edit"}
+                  </button>
                   <button onClick={() => handleToggleActive(p._id || p.id)} className={`btn-sm ${p.isActive ? "btn-secondary text-amber-600 hover:bg-amber-50" : "btn-secondary text-emerald-600 hover:bg-emerald-50"}`}>
                     {p.isActive ? (ar() ? "تعطيل" : "Disable") : (ar() ? "تفعيل" : "Enable")}
                   </button>
