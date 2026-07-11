@@ -1860,6 +1860,34 @@ schedulingRouter.post(
   }
 );
 
+// ── All-time session stats for KPI cards ───────────────────────────────────
+schedulingRouter.get("/clinic/:clinicId/stats", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
+  try {
+    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.clinicId))) {
+      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+    }
+    const clinicId = req.params.clinicId;
+
+    const statsAgg = await BookingSessionModel.aggregate([
+      { $match: { clinicId } },
+      { $group: { _id: "$status", count: { $sum: 1 } } }
+    ]);
+
+    const stats = { total: 0, scheduled: 0, completed: 0, no_show: 0, cancelled: 0 };
+    for (const s of statsAgg) {
+      if (s._id === "scheduled") stats.scheduled = s.count;
+      else if (s._id === "completed") stats.completed = s.count;
+      else if (s._id === "no_show") stats.no_show = s.count;
+      else if (s._id === "cancelled") stats.cancelled = s.count;
+      stats.total += s.count;
+    }
+
+    return res.json({ stats });
+  } catch (e) {
+    next(e);
+  }
+});
+
 schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.clinicId))) {
