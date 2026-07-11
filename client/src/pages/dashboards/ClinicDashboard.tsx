@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
 import { useAuth } from "../../app/AuthContext";
-import { useClinicSchedule, useMyClinicReport, invalidateCache } from "../../hooks/useApi";
+import { useClinicSchedule, useClinicStats, useMyClinicReport, invalidateCache } from "../../hooks/useApi";
 import { apiFetch, API_BASE_URL } from "../../lib/api";
 import { sharedClinics } from "../../lib/clinics";
 import { fmtDate, fmtDateTime } from "../../lib/dateFormat";
@@ -1995,7 +1995,7 @@ export default function ClinicDashboard() {
     contactEmail: `contact@clinic.com`
   });
   const { data, loading, refetch } = useClinicSchedule(CLINIC_ID);
-
+  const { data: statsData } = useClinicStats(CLINIC_ID, { enabled: activeNav === "home" });
   useEffect(() => {
     const t = window.setInterval(() => {
       void refetch();
@@ -2096,10 +2096,10 @@ export default function ClinicDashboard() {
           <>
             {/* Stats Row */}
             <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4 mb-10">
-              <KpiCard icon={Icons.calendar} label={ar() ? "إجمالي المواعيد" : "Total Sessions"} value={sessions.length} isHighlighted accent="pink" />
-              <KpiCard icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label={ar() ? "مجدولة" : "Scheduled"} value={scheduled.length} accent="blue" />
-              <KpiCard icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label={ar() ? "مكتملة" : "Completed"} value={completed.length} accent="emerald" />
-              <KpiCard icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label={ar() ? "لم يحضر" : "No Show"} value={noShows.length} accent="red" />
+              <KpiCard icon={Icons.calendar} label={ar() ? "إجمالي المواعيد" : "Total Sessions"} value={statsData?.stats?.total ?? "-"} isHighlighted accent="pink" />
+              <KpiCard icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label={ar() ? "مجدولة" : "Scheduled"} value={statsData?.stats?.scheduled ?? "-"} accent="blue" />
+              <KpiCard icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label={ar() ? "مكتملة" : "Completed"} value={statsData?.stats?.completed ?? "-"} accent="emerald" />
+              <KpiCard icon={<svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} label={ar() ? "لم يحضر" : "No Show"} value={statsData?.stats?.no_show ?? "-"} accent="red" />
             </div>
 
             {/* Dashboard 3-Column Grid */}

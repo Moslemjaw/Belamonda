@@ -403,6 +403,18 @@ export function useProducts(opts?: { lazy?: boolean }) {
   }>("/products", opts);
 }
 
+export function useClinicStats(clinicId: string, opts?: { enabled?: boolean }) {
+  return useApi<{
+    stats: {
+      total: number;
+      scheduled: number;
+      completed: number;
+      no_show: number;
+      cancelled: number;
+    }
+  }>(`/scheduling/clinic/${clinicId}/stats`, opts);
+}
+
 export function useClinicSchedule(clinicId: string) {
   const [dates] = useState(() => ({
     from: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
