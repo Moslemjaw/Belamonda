@@ -92,6 +92,19 @@ export function PromotionsManager() {
     }
   };
 
+  const downloadQR = (slug: string, title: string) => {
+    const canvas = document.getElementById(`qr-${slug}`) as HTMLCanvasElement;
+    if (canvas) {
+      const pngUrl = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+      let downloadLink = document.createElement("a");
+      downloadLink.href = pngUrl;
+      downloadLink.download = `${title.replace(/\s+/g, '-').toLowerCase()}-qr.png`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-slide-up">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -284,10 +297,15 @@ export function PromotionsManager() {
                 </div>
                 
                 <div className="flex flex-col items-center gap-2 shrink-0 bg-surface-50 p-2 rounded-xl">
-                  <QRCodeCanvas value={link} size={100} className="rounded-lg" />
-                  <a href={link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-brand-pink-600 font-bold hover:underline">
-                    {ar() ? "فتح الرابط" : "Open Link"}
-                  </a>
+                  <QRCodeCanvas id={`qr-${p.slug}`} value={link} size={100} className="rounded-lg" />
+                  <div className="flex gap-2">
+                    <a href={link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-brand-pink-600 font-bold hover:underline">
+                      {ar() ? "فتح الرابط" : "Open Link"}
+                    </a>
+                    <button onClick={() => downloadQR(p.slug, p.title)} className="text-[10px] text-brand-pink-600 font-bold hover:underline">
+                      {ar() ? "تحميل" : "Download"}
+                    </button>
+                  </div>
                 </div>
               </div>
               
