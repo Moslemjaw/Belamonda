@@ -1866,28 +1866,24 @@ schedulingRouter.get("/clinic/:clinicId/stats", authRequired, requireRole(["clin
     if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.clinicId))) {
       return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
     }
-    const clinicId = new mongoose.Types.ObjectId(req.params.clinicId);
+    const clinicId = req.params.clinicId;
 
     // Current month boundaries
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
-    const statsAgg = await BookingSessionModel.aggregate([
-      { $match: { clinicId, scheduledAt: { $gte: startOfMonth, $lt: endOfMonth } } },
-      { $group: { _id: "$status", count: { $sum: 1 } } }
+    const baseFilter: any = { clinicId, scheduledAt: { $gte: startOfMonth, $lt: endOfMonth } };
+
+    const [total, scheduled, completed, no_show, cancelled] = await Promise.all([
+      BookingSessionModel.countDocuments(baseFilter),
+      BookingSessionModel.countDocuments({ ...baseFilter, status: "scheduled" }),
+      BookingSessionModel.countDocuments({ ...baseFilter, status: "completed" }),
+      BookingSessionModel.countDocuments({ ...baseFilter, status: "no_show" }),
+      BookingSessionModel.countDocuments({ ...baseFilter, status: "cancelled" }),
     ]);
 
-    const stats = { total: 0, scheduled: 0, completed: 0, no_show: 0, cancelled: 0 };
-    for (const s of statsAgg) {
-      if (s._id === "scheduled") stats.scheduled = s.count;
-      else if (s._id === "completed") stats.completed = s.count;
-      else if (s._id === "no_show") stats.no_show = s.count;
-      else if (s._id === "cancelled") stats.cancelled = s.count;
-      stats.total += s.count;
-    }
-
-    return res.json({ stats });
+    return res.json({ stats: { total, scheduled, completed, no_show, cancelled } });
   } catch (e) {
     next(e);
   }
