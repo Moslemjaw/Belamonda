@@ -2162,6 +2162,14 @@ export default function ClinicDashboard() {
                 </div>
               )}
             </div>
+
+            <div className="mt-12">
+              <ClinicBookingRequestsTab clinicId={CLINIC_ID} />
+            </div>
+
+            <div className="mt-12">
+              <ClinicMissedSessionsTab clinicId={CLINIC_ID} />
+            </div>
           </>
         )}
 
