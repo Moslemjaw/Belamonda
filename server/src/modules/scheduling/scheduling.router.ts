@@ -1860,52 +1860,6 @@ schedulingRouter.post(
   }
 );
 
-// ── Clinic schedule view (Mongo-aware) ─────────────────────────────────────
-schedulingRouter.get("/clinic/:clinicId/stats", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
-  try {
-    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.clinicId))) {
-      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
-    }
-    const clinicId = req.params.clinicId;
-    
-    // Filter to current month
-    const startOfMonth = new Date();
-    startOfMonth.setDate(1);
-    startOfMonth.setHours(0, 0, 0, 0);
-    
-    const endOfMonth = new Date(startOfMonth);
-    endOfMonth.setMonth(endOfMonth.getMonth() + 1);
-
-    const statsAgg = await BookingSessionModel.aggregate([
-      { 
-        $match: { 
-          clinicId,
-          scheduledAt: { $gte: startOfMonth, $lt: endOfMonth }
-        } 
-      },
-      {
-        $group: {
-          _id: "$status",
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    const stats = { total: 0, scheduled: 0, completed: 0, no_show: 0, cancelled: 0 };
-    for (const s of statsAgg) {
-      if (s._id === "scheduled") stats.scheduled = s.count;
-      else if (s._id === "completed") stats.completed = s.count;
-      else if (s._id === "no_show") stats.no_show = s.count;
-      else if (s._id === "cancelled") stats.cancelled = s.count;
-      stats.total += s.count;
-    }
-
-    return res.json({ stats });
-  } catch (e) {
-    next(e);
-  }
-});
-
 schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.clinicId))) {
