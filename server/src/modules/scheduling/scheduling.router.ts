@@ -1868,8 +1868,21 @@ schedulingRouter.get("/clinic/:clinicId/stats", authRequired, requireRole(["clin
     }
     const clinicId = req.params.clinicId;
     
+    // Filter to current month
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    
+    const endOfMonth = new Date(startOfMonth);
+    endOfMonth.setMonth(endOfMonth.getMonth() + 1);
+
     const statsAgg = await BookingSessionModel.aggregate([
-      { $match: { clinicId } },
+      { 
+        $match: { 
+          clinicId,
+          scheduledAt: { $gte: startOfMonth, $lt: endOfMonth }
+        } 
+      },
       {
         $group: {
           _id: "$status",
