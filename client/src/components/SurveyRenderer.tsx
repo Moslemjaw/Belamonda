@@ -110,8 +110,10 @@ export function SurveyRenderer({ slug, title, description, questions, onSuccess 
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-6 sm:p-10 shadow-sm border border-surface-100 space-y-8">
-        
-
+        {/* Form Header */}
+        <div className="pb-6 border-b border-surface-100 mb-6">
+          <h3 className="text-lg font-bold text-surface-900">{ar() ? "يرجى تعبئة النموذج أدناه" : "Please fill out the form below"}</h3>
+        </div>
 
         {/* Survey Questions */}
         <div className="space-y-8">
