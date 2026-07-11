@@ -6,7 +6,7 @@ import i18n from "../../app/i18n";
 import DatePicker from "../../components/DatePicker";
 const ar = () => i18n.language === "ar";
 
-export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: string }) {
+export default function ClinicBookingRequestsTab({ clinicId, onCountLoaded }: { clinicId: string, onCountLoaded?: (count: number) => void }) {
   const { getAuthHeader } = useAuth();
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,8 +21,10 @@ export default function ClinicBookingRequestsTab({ clinicId }: { clinicId: strin
         headers: getAuthHeader()
       });
       setRequests(res.items || []);
+      if (onCountLoaded) onCountLoaded(res.items?.length || 0);
     } catch {
       setRequests([]);
+      if (onCountLoaded) onCountLoaded(0);
     } finally {
       setLoading(false);
     }

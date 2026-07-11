@@ -1963,6 +1963,7 @@ export default function ClinicDashboard() {
   const [sysAlert, setSysAlert] = useState<string | null>(null);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [missedCount, setMissedCount] = useState(0);
+  const [requestsCount, setRequestsCount] = useState(0);
   
   // Clinic staff accounts are linked to a clinicId from backend auth.
   // Fall back to the old demo clinic ids only if missing.
@@ -2188,18 +2189,25 @@ export default function ClinicDashboard() {
               <div className="lg:col-span-1 xl:col-span-1 min-w-0">
                 <div className="bg-white rounded-[28px] border border-surface-200/80 shadow-sm overflow-hidden h-full flex flex-col">
                   <div className="px-5 pt-5 pb-4 border-b border-surface-100 bg-gradient-to-r from-white to-blue-50/30">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-2xl bg-blue-50 flex items-center justify-center">
-                        <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-2xl bg-blue-50 flex items-center justify-center">
+                          <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                        </div>
+                        <div>
+                          <h3 className="text-base font-black text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
+                          <p className="text-[11px] text-surface-400 font-medium mt-0.5">{ar() ? "مراجعة وتأكيد الطلبات" : "Review & confirm requests"}</p>
+                        </div>
                       </div>
-                      <div>
-                        <h3 className="text-base font-black text-surface-900">{ar() ? "طلبات الحجز" : "Booking Requests"}</h3>
-                        <p className="text-[11px] text-surface-400 font-medium mt-0.5">{ar() ? "مراجعة وتأكيد الطلبات" : "Review & confirm requests"}</p>
-                      </div>
+                      {requestsCount > 0 && (
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100">
+                          {requestsCount} {ar() ? "طلب جديد" : "new"}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="flex-1 overflow-y-auto" style={{ maxHeight: '700px' }}>
-                    <ClinicBookingRequestsTab clinicId={CLINIC_ID} />
+                    <ClinicBookingRequestsTab clinicId={CLINIC_ID} onCountLoaded={setRequestsCount} />
                   </div>
                 </div>
               </div>
