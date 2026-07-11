@@ -31,7 +31,8 @@ router.post("/admin", authRequired, async (req, res, next) => {
 
     const d = z.object({
       title: z.string().min(1),
-      description: z.string().min(1),
+      descriptionEn: z.string().optional().default(""),
+      descriptionAr: z.string().optional().default(""),
       slug: z.string().min(1).regex(/^[a-z0-9-]+$/i, "Slug must be alphanumeric and dashes only"),
       type: z.enum(["packages", "survey"]).optional().default("packages"),
       offerIds: z.array(z.string()).optional().default([]),
@@ -52,7 +53,9 @@ router.post("/admin", authRequired, async (req, res, next) => {
 
     const promo = await PromotionModel.create({
       title: d.data.title,
-      description: d.data.description,
+      description: d.data.descriptionEn || d.data.descriptionAr,
+      descriptionEn: d.data.descriptionEn,
+      descriptionAr: d.data.descriptionAr,
       slug: d.data.slug.toLowerCase(),
       type: d.data.type,
       offerIds: d.data.type === "packages" ? d.data.offerIds : [],
@@ -74,7 +77,8 @@ router.put("/admin/:id", authRequired, async (req, res, next) => {
 
     const d = z.object({
       title: z.string().min(1),
-      description: z.string().min(1),
+      descriptionEn: z.string().optional().default(""),
+      descriptionAr: z.string().optional().default(""),
       slug: z.string().min(1).regex(/^[a-z0-9-]+$/i, "Slug must be alphanumeric and dashes only"),
       type: z.enum(["packages", "survey"]).optional().default("packages"),
       offerIds: z.array(z.string()).optional().default([]),
@@ -100,7 +104,9 @@ router.put("/admin/:id", authRequired, async (req, res, next) => {
     }
 
     p.title = d.data.title;
-    p.description = d.data.description;
+    p.description = d.data.descriptionEn || d.data.descriptionAr;
+    p.descriptionEn = d.data.descriptionEn;
+    p.descriptionAr = d.data.descriptionAr;
     p.slug = d.data.slug.toLowerCase();
     p.type = d.data.type as any;
     p.offerIds = d.data.type === "packages" ? d.data.offerIds : [];

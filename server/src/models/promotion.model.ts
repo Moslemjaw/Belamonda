@@ -3,7 +3,9 @@ import mongoose, { Schema } from "mongoose";
 const PromotionSchema = new Schema(
   {
     title: { type: String, required: true, trim: true },
-    description: { type: String, required: true, trim: true },
+    description: { type: String, default: "", trim: true },
+    descriptionEn: { type: String, default: "", trim: true },
+    descriptionAr: { type: String, default: "", trim: true },
     slug: { type: String, required: true, trim: true, unique: true },
     isActive: { type: Boolean, default: true },
     type: { type: String, enum: ["packages", "survey"], default: "packages" },

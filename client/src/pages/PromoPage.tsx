@@ -54,7 +54,7 @@ export default function PromoPage() {
           <SurveyRenderer 
             slug={promo.slug}
             title={promo.title}
-            description={promo.description}
+            description={ar() ? (promo.descriptionAr || promo.description) : (promo.descriptionEn || promo.description)}
             questions={promo.surveyQuestions || []}
           />
         </main>
@@ -70,7 +70,7 @@ export default function PromoPage() {
             {ar() ? "عرض حصري" : "Exclusive Offer"}
           </span>
           <h1 className="text-3xl sm:text-4xl font-black text-surface-900 mb-4">{promo.title}</h1>
-          <p className="text-base sm:text-lg text-surface-600 max-w-2xl mx-auto leading-relaxed">{promo.description}</p>
+          <p className="text-base sm:text-lg text-surface-600 max-w-2xl mx-auto leading-relaxed">{ar() ? (promo.descriptionAr || promo.description) : (promo.descriptionEn || promo.description)}</p>
         </div>
 
         <div className="space-y-4">

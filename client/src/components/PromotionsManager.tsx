@@ -20,7 +20,7 @@ export function PromotionsManager() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const emptyForm = { title: "", description: "", slug: "", type: "packages" as "packages" | "survey", offerIds: [] as string[], surveyQuestions: [] as SurveyQuestion[] };
+  const emptyForm = { title: "", descriptionEn: "", descriptionAr: "", slug: "", type: "packages" as "packages" | "survey", offerIds: [] as string[], surveyQuestions: [] as SurveyQuestion[] };
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,8 @@ export function PromotionsManager() {
     setEditingId(p._id || p.id);
     setForm({
       title: p.title || "",
-      description: p.description || "",
+      descriptionEn: p.descriptionEn || p.description || "",
+      descriptionAr: p.descriptionAr || "",
       slug: p.slug || "",
       type: p.type || "packages",
       offerIds: (p.offerIds || []).map((o: any) => o._id || o.id || o),
@@ -164,14 +165,25 @@ export function PromotionsManager() {
                   />
                 </div>
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "الوصف" : "Description"}</label>
+              <div>
+                <label className="block text-xs font-bold text-surface-700 mb-1.5">Description (English)</label>
                 <textarea 
                   className="input-field w-full" 
                   rows={2} 
-                  required 
-                  value={form.description} 
-                  onChange={e => setForm(p => ({ ...p, description: e.target.value }))} 
+                  value={form.descriptionEn} 
+                  onChange={e => setForm(p => ({ ...p, descriptionEn: e.target.value }))} 
+                  placeholder="English description..."
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-surface-700 mb-1.5">الوصف (عربي)</label>
+                <textarea 
+                  className="input-field w-full" 
+                  rows={2} 
+                  dir="rtl"
+                  value={form.descriptionAr} 
+                  onChange={e => setForm(p => ({ ...p, descriptionAr: e.target.value }))} 
+                  placeholder="الوصف بالعربي..."
                 />
               </div>
 
@@ -245,7 +257,7 @@ export function PromotionsManager() {
                       {p.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
-                  <p className="text-sm text-surface-600 mb-4">{p.description}</p>
+                  <p className="text-sm text-surface-600 mb-4">{ar() ? (p.descriptionAr || p.description) : (p.descriptionEn || p.description)}</p>
                   
                   {p.type === "packages" ? (
                     <div className="space-y-1 mb-4">
