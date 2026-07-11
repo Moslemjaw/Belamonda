@@ -2102,9 +2102,9 @@ export default function ClinicDashboard() {
               <KpiCard icon={Icons.calendar} label={ar() ? "لم يحضر" : "No Show"} value={noShows.length} accent="red" />
             </div>
             {/* Dashboard Content */}
-            <div className="flex flex-col xl:flex-row gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 sm:gap-8">
               {/* Main Content: Appointments */}
-              <div className="flex-1 min-w-0">
+              <div className="lg:col-span-2 xl:col-span-2 min-w-0">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <h3 className="text-xl font-bold text-surface-900 flex items-center gap-3">
                   {ar() ? "المواعيد" : "Appointments"}
@@ -2127,7 +2127,7 @@ export default function ClinicDashboard() {
                   <div className="text-sm text-surface-500">{ar() ? "لا توجد مواعيد مجدولة لهذه العيادة حالياً." : "No appointments scheduled for this clinic at the moment."}</div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                   {sessions
                     .filter(s => {
                       if (dateFilter === "all") return true;
@@ -2165,12 +2165,16 @@ export default function ClinicDashboard() {
               )}
             </div>
 
-            {/* Sidebar: Requests & Missed */}
-            <div className="w-full xl:w-[480px] shrink-0 space-y-8">
-              <div className="bg-surface-50/50 p-1 rounded-[32px] border border-surface-100/50">
+            {/* Sidebar: Requests */}
+            <div className="lg:col-span-1 xl:col-span-1 min-w-0">
+              <div className="bg-surface-50/50 p-1 rounded-[32px] border border-surface-100/50 h-full">
                 <ClinicBookingRequestsTab clinicId={CLINIC_ID} />
               </div>
-              <div className="bg-surface-50/50 p-1 rounded-[32px] border border-surface-100/50">
+            </div>
+
+            {/* Sidebar: Missed */}
+            <div className="lg:col-span-1 xl:col-span-1 min-w-0">
+              <div className="bg-surface-50/50 p-1 rounded-[32px] border border-surface-100/50 h-full">
                 <ClinicMissedSessionsTab clinicId={CLINIC_ID} />
               </div>
             </div>
