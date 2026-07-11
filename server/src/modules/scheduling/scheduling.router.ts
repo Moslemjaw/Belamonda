@@ -1860,16 +1860,21 @@ schedulingRouter.post(
   }
 );
 
-// ── All-time session stats for KPI cards ───────────────────────────────────
+// ── Monthly session stats for KPI cards ────────────────────────────────────
 schedulingRouter.get("/clinic/:clinicId/stats", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.clinicId))) {
       return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
     }
-    const clinicId = req.params.clinicId;
+    const clinicId = new mongoose.Types.ObjectId(req.params.clinicId);
+
+    // Current month boundaries
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
 
     const statsAgg = await BookingSessionModel.aggregate([
-      { $match: { clinicId } },
+      { $match: { clinicId, scheduledAt: { $gte: startOfMonth, $lt: endOfMonth } } },
       { $group: { _id: "$status", count: { $sum: 1 } } }
     ]);
 
