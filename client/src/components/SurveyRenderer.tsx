@@ -111,20 +111,7 @@ export function SurveyRenderer({ slug, title, description, questions, onSuccess 
 
       <form onSubmit={handleSubmit} className="bg-white rounded-3xl p-6 sm:p-10 shadow-sm border border-surface-100 space-y-8">
         
-        {/* Contact Info (Optional) */}
-        <div className="space-y-4 pb-6 border-b border-surface-100">
-          <h3 className="text-lg font-bold text-surface-900">{ar() ? "معلومات التواصل (اختياري)" : "Contact Info (Optional)"}</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "الاسم" : "Name"}</label>
-              <input type="text" className="input-field w-full" value={guestName} onChange={e => setGuestName(e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "رقم الهاتف" : "Phone"}</label>
-              <input type="text" className="input-field w-full" value={guestPhone} onChange={e => setGuestPhone(e.target.value)} />
-            </div>
-          </div>
-        </div>
+
 
         {/* Survey Questions */}
         <div className="space-y-8">
