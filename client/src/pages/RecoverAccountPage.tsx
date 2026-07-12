@@ -3,6 +3,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { BelamondaLogo } from "../components/BelamondaLogo";
 
+import { API_BASE_URL } from "../lib/api";
+
 export default function RecoverAccountPage() {
   const { i18n } = useTranslation();
   const nav = useNavigate();
@@ -38,7 +40,7 @@ export default function RecoverAccountPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/auth/recover-account", {
+      const res = await fetch(`${API_BASE_URL}/auth/recover-account`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, newPassword: password })
