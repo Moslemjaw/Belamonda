@@ -1107,7 +1107,7 @@ usersRouter.post("/admin/:id/recovery-link", authRequired, requireRole(["admin",
     const secret = process.env.JWT_SECRET || "fallback_secret_change_me";
     const token = jwt.sign(payload, secret, { expiresIn: "24h" });
 
-    const clientOrigin = process.env.CLIENT_ORIGIN || "https://belamonda.onrender.com";
+    const clientOrigin = process.env.CLIENT_ORIGIN || "https://belamonda.vercel.app";
     const recoveryUrl = `${clientOrigin}/recover-account?token=${token}`;
 
     return res.json({ success: true, url: recoveryUrl });
