@@ -102,6 +102,9 @@ export function createApp() {
           if (/\.pike\.replit\.dev(:\d+)?$/.test(origin)) return cb(null, true);
         }
 
+        // Allow Vercel deployments natively
+        if (/\.vercel\.app$/.test(origin)) return cb(null, true);
+
         if (allowedOrigins.includes(origin)) return cb(null, true);
         return cb(new Error("Not allowed by CORS"));
       },
