@@ -1,15 +1,21 @@
 import { useTranslation } from "react-i18next";
+import { useLocation } from "react-router-dom";
 
 export function WhatsAppButton() {
   const { i18n } = useTranslation();
+  const location = useLocation();
   const isAr = i18n.language === "ar";
+
+  // Only use the high bottom padding if we are on the dashboard (where the mobile bottom nav exists)
+  const isDashboard = location.pathname.startsWith("/dashboard");
+  const bottomClass = isDashboard ? "bottom-24 md:bottom-6" : "bottom-6";
 
   return (
     <a
       href="https://wa.me/message/WD4JDMKTWBX3I1"
       target="_blank"
       rel="noopener noreferrer"
-      className={`fixed bottom-24 md:bottom-6 z-50 flex items-center justify-center w-14 h-14 bg-green-500 rounded-full shadow-lg shadow-green-500/30 hover:bg-green-600 hover:scale-110 transition-all duration-300 ${isAr ? "left-6" : "right-6"}`}
+      className={`fixed ${bottomClass} z-50 flex items-center justify-center w-14 h-14 bg-green-500 rounded-full shadow-lg shadow-green-500/30 hover:bg-green-600 hover:scale-110 transition-all duration-300 ${isAr ? "left-6" : "right-6"}`}
       aria-label="Contact Customer Service on WhatsApp"
       title={isAr ? "تواصل مع خدمة العملاء" : "Contact Customer Service"}
     >
