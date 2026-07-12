@@ -1,4 +1,5 @@
 import path from "node:path";
+import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
@@ -161,12 +162,23 @@ export function createApp() {
 
   // Same-origin SPA (Render / single-service deploy): `dist` is next to `server/dist` after build.
   if (env.NODE_ENV === "production") {
-    const clientDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../client/dist");
+    const __dir = path.dirname(fileURLToPath(import.meta.url));
+    // Try two possible paths depending on build structure
+    const clientDist1 = path.resolve(__dir, "../../client/dist");
+    const clientDist2 = path.resolve(__dir, "../../../client/dist");
+    const clientDist = fs.existsSync(path.join(clientDist1, "index.html")) ? clientDist1 : clientDist2;
+    console.log("[SPA] Serving client from:", clientDist);
     app.use(express.static(clientDist, { index: false, maxAge: "1h" }));
     app.get("*", (req, res, next) => {
       const seg = firstPathSegment(req.path);
       if (seg && RESERVED_FIRST_SEGMENTS.has(seg)) return next();
-      res.sendFile(path.join(clientDist, "index.html"), (err) => next(err));
+      const indexPath = path.join(clientDist, "index.html");
+      res.sendFile(indexPath, (err) => {
+        if (err) {
+          console.error("[SPA] Failed to send index.html:", err.message, "| path:", indexPath);
+          res.status(200).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Belamonda</title></head><body><script>window.location.href="/login";</script></body></html>`);
+        }
+      });
     });
   }
 
