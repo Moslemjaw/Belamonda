@@ -1,5 +1,4 @@
 import path from "node:path";
-import fs from "node:fs";
 import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express from "express";
@@ -162,52 +161,12 @@ export function createApp() {
 
   // Same-origin SPA (Render / single-service deploy): `dist` is next to `server/dist` after build.
   if (env.NODE_ENV === "production") {
-    const __dir = path.dirname(fileURLToPath(import.meta.url));
-    // Try two possible paths depending on build structure
-    const clientDist1 = path.resolve(__dir, "../../client/dist");
-    const clientDist2 = path.resolve(__dir, "../../../client/dist");
-    const clientDist = fs.existsSync(path.join(clientDist1, "index.html")) ? clientDist1 : clientDist2;
-    console.log("[SPA] Serving client from:", clientDist);
+    const clientDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../client/dist");
     app.use(express.static(clientDist, { index: false, maxAge: "1h" }));
     app.get("*", (req, res, next) => {
       const seg = firstPathSegment(req.path);
       if (seg && RESERVED_FIRST_SEGMENTS.has(seg)) return next();
-      const indexPath = path.join(clientDist, "index.html");
-      res.sendFile(indexPath, (err) => {
-        if (err) {
-          console.error("[SPA] Failed to send index.html:", err.message, "| path:", indexPath);
-          
-          let debugInfo = "";
-          try {
-            const up1 = path.resolve(__dir, "..");
-            const up2 = path.resolve(__dir, "../..");
-            const clientDir = path.resolve(up2, "client");
-            const up3 = path.resolve(__dir, "../../..");
-            debugInfo += `__dir: ${__dir} (Contents: ${fs.readdirSync(__dir).join(', ')})<br><br>`;
-            debugInfo += `up1: ${up1} (Contents: ${fs.readdirSync(up1).join(', ')})<br><br>`;
-            debugInfo += `up2: ${up2} (Contents: ${fs.readdirSync(up2).join(', ')})<br><br>`;
-            debugInfo += `client: ${clientDir} (Contents: ${fs.existsSync(clientDir) ? fs.readdirSync(clientDir).join(', ') : 'MISSING'})<br><br>`;
-            debugInfo += `up3: ${up3} (Contents: ${fs.readdirSync(up3).join(', ')})<br><br>`;
-          } catch(e: any) {
-            debugInfo += `Error reading dirs: ${e.message}`;
-          }
-
-          res.status(200).send(`
-            <!DOCTYPE html>
-            <html>
-              <head><meta charset="utf-8"><title>Belamonda Setup</title></head>
-              <body style="font-family: sans-serif; padding: 2rem;">
-                <h2>Frontend Build Missing</h2>
-                <p>The server is running, but the frontend React application was not found.</p>
-                <p>Path checked: <code>${indexPath}</code></p>
-                <hr>
-                <h3>Debug Info</h3>
-                <pre style="white-space: pre-wrap; font-size: 12px; background: #eee; padding: 1rem;">${debugInfo}</pre>
-              </body>
-            </html>
-          `);
-        }
-      });
+      res.sendFile(path.join(clientDist, "index.html"), (err) => next(err));
     });
   }
 
