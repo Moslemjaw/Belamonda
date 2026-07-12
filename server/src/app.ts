@@ -176,7 +176,20 @@ export function createApp() {
       res.sendFile(indexPath, (err) => {
         if (err) {
           console.error("[SPA] Failed to send index.html:", err.message, "| path:", indexPath);
-          // Return a simple HTML page instead of redirecting to avoid infinite redirect loop
+          
+          let debugInfo = "";
+          try {
+            const up1 = path.resolve(__dir, "..");
+            const up2 = path.resolve(__dir, "../..");
+            const up3 = path.resolve(__dir, "../../..");
+            debugInfo += `__dir: ${__dir} (Contents: ${fs.readdirSync(__dir).join(', ')})<br><br>`;
+            debugInfo += `up1: ${up1} (Contents: ${fs.readdirSync(up1).join(', ')})<br><br>`;
+            debugInfo += `up2: ${up2} (Contents: ${fs.readdirSync(up2).join(', ')})<br><br>`;
+            debugInfo += `up3: ${up3} (Contents: ${fs.readdirSync(up3).join(', ')})<br><br>`;
+          } catch(e: any) {
+            debugInfo += `Error reading dirs: ${e.message}`;
+          }
+
           res.status(200).send(`
             <!DOCTYPE html>
             <html>
@@ -185,7 +198,9 @@ export function createApp() {
                 <h2>Frontend Build Missing</h2>
                 <p>The server is running, but the frontend React application was not found.</p>
                 <p>Path checked: <code>${indexPath}</code></p>
-                <p>Check the Render build logs to ensure the client build succeeded.</p>
+                <hr>
+                <h3>Debug Info</h3>
+                <pre style="white-space: pre-wrap; font-size: 12px; background: #eee; padding: 1rem;">${debugInfo}</pre>
               </body>
             </html>
           `);
