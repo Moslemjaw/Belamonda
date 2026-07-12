@@ -5,6 +5,7 @@ import LoginPage from "../pages/LoginPage";
 import HomePage from "../pages/HomePage";
 import SignupPage from "../pages/SignupPage";
 import RecoverAccountPage from "../pages/RecoverAccountPage";
+import { WhatsAppButton } from "../components/WhatsAppButton";
 
 import OfferDetailPage from "../pages/OfferDetailPage";
 import MembershipPage from "../pages/MembershipPage";
@@ -97,7 +98,7 @@ function AuthRedirect({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-import { WhatsAppButton } from "../components/WhatsAppButton";
+
 
 export default function App() {
   const { auth } = useAuth();
