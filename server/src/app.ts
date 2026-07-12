@@ -176,7 +176,8 @@ export function createApp() {
       res.sendFile(indexPath, (err) => {
         if (err) {
           console.error("[SPA] Failed to send index.html:", err.message, "| path:", indexPath);
-          res.status(200).send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Belamonda</title></head><body><script>window.location.href="/login";</script></body></html>`);
+          // Use HTTP redirect instead of inline script to avoid CSP violations
+          res.redirect(302, "/login");
         }
       });
     });
