@@ -181,10 +181,12 @@ export function createApp() {
           try {
             const up1 = path.resolve(__dir, "..");
             const up2 = path.resolve(__dir, "../..");
+            const clientDir = path.resolve(up2, "client");
             const up3 = path.resolve(__dir, "../../..");
             debugInfo += `__dir: ${__dir} (Contents: ${fs.readdirSync(__dir).join(', ')})<br><br>`;
             debugInfo += `up1: ${up1} (Contents: ${fs.readdirSync(up1).join(', ')})<br><br>`;
             debugInfo += `up2: ${up2} (Contents: ${fs.readdirSync(up2).join(', ')})<br><br>`;
+            debugInfo += `client: ${clientDir} (Contents: ${fs.existsSync(clientDir) ? fs.readdirSync(clientDir).join(', ') : 'MISSING'})<br><br>`;
             debugInfo += `up3: ${up3} (Contents: ${fs.readdirSync(up3).join(', ')})<br><br>`;
           } catch(e: any) {
             debugInfo += `Error reading dirs: ${e.message}`;
