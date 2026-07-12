@@ -176,8 +176,19 @@ export function createApp() {
       res.sendFile(indexPath, (err) => {
         if (err) {
           console.error("[SPA] Failed to send index.html:", err.message, "| path:", indexPath);
-          // Use HTTP redirect instead of inline script to avoid CSP violations
-          res.redirect(302, "/login");
+          // Return a simple HTML page instead of redirecting to avoid infinite redirect loop
+          res.status(200).send(`
+            <!DOCTYPE html>
+            <html>
+              <head><meta charset="utf-8"><title>Belamonda Setup</title></head>
+              <body style="font-family: sans-serif; padding: 2rem;">
+                <h2>Frontend Build Missing</h2>
+                <p>The server is running, but the frontend React application was not found.</p>
+                <p>Path checked: <code>${indexPath}</code></p>
+                <p>Check the Render build logs to ensure the client build succeeded.</p>
+              </body>
+            </html>
+          `);
         }
       });
     });
