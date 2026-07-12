@@ -9,7 +9,7 @@ export function WhatsAppButton() {
       href="https://wa.me/message/WD4JDMKTWBX3I1"
       target="_blank"
       rel="noopener noreferrer"
-      className={`fixed bottom-6 z-50 flex items-center justify-center w-14 h-14 bg-green-500 rounded-full shadow-lg shadow-green-500/30 hover:bg-green-600 hover:scale-110 transition-all duration-300 ${isAr ? "left-6" : "right-6"}`}
+      className={`fixed bottom-24 md:bottom-6 z-50 flex items-center justify-center w-14 h-14 bg-green-500 rounded-full shadow-lg shadow-green-500/30 hover:bg-green-600 hover:scale-110 transition-all duration-300 ${isAr ? "left-6" : "right-6"}`}
       aria-label="Contact Customer Service on WhatsApp"
       title={isAr ? "تواصل مع خدمة العملاء" : "Contact Customer Service"}
     >

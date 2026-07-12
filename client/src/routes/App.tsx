@@ -145,7 +145,7 @@ export default function App() {
         />
         <Route path="*" element={<Navigate to={auth ? "/dashboard" : "/"} replace />} />
       </Routes>
-      <WhatsAppButton />
+      {(!auth || auth.role === "customer") && <WhatsAppButton />}
     </>
   );
 }
