@@ -1527,16 +1527,7 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                           <button disabled={markingId === s.id} onClick={() => onMarkSession(s.id, "no_show")} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 disabled:opacity-50 transition-colors">{markingId === s.id ? "…" : "✗ " + (ar() ? "لم يحضر" : "No Show")}</button>
                         </div>
                       )}
-                      {(s.status === "scheduled" || s.status === "completed") && (
-                        <button onClick={() => {
-                          const linkedBooking = clinicBookings.find((b: any) => b.scheduledSessionId === s.id);
-                          const owesMoney = linkedBooking && linkedBooking.clinicPaymentStatus !== "paid";
-                          const baseAmount = owesMoney ? (linkedBooking.clinicTakeKwd || linkedBooking.sessionPriceKwd || "0") : "0";
-                          setCheckoutSession({ ...s, baseAmount });
-                        }} className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-orange-500 text-white hover:bg-orange-600 shadow-sm transition-colors ml-2">
-                          {ar() ? "الدفع / الإضافات" : "Pay / Extras"}
-                        </button>
-                      )}
+
                     </div>
                   </div>
                 ))}
