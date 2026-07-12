@@ -97,50 +97,55 @@ function AuthRedirect({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+import { WhatsAppButton } from "../components/WhatsAppButton";
+
 export default function App() {
   const { auth } = useAuth();
 
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/offers" element={<Navigate to="/memberships" replace />} />
-      <Route path="/membership" element={<Navigate to="/memberships" replace />} />
-      <Route path="/memberships" element={<MembershipPage />} />
-      <Route path="/offers/:id" element={<OfferRedirect />} />
-      <Route path="/memberships/:id" element={<OfferDetailPage />} />
-      <Route path="/promo/:slug" element={<PromoPage />} />
-      
-      <Route path="/clinics" element={<ClinicsPage />} />
-      <Route path="/signup" element={<AuthRedirect><SignupPage /></AuthRedirect>} />
-      <Route path="/login" element={<AuthRedirect><LoginPage /></AuthRedirect>} />
-      <Route path="/recover-account" element={<AuthRedirect><RecoverAccountPage /></AuthRedirect>} />
-      <Route
-        path="/dashboard"
-        element={
-          <RequireAuth>
-            <RoleDashboard />
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/forms/fill/:formId"
-        element={
-          <RequireAuth>
+    <>
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/offers" element={<Navigate to="/memberships" replace />} />
+        <Route path="/membership" element={<Navigate to="/memberships" replace />} />
+        <Route path="/memberships" element={<MembershipPage />} />
+        <Route path="/offers/:id" element={<OfferRedirect />} />
+        <Route path="/memberships/:id" element={<OfferDetailPage />} />
+        <Route path="/promo/:slug" element={<PromoPage />} />
+        
+        <Route path="/clinics" element={<ClinicsPage />} />
+        <Route path="/signup" element={<AuthRedirect><SignupPage /></AuthRedirect>} />
+        <Route path="/login" element={<AuthRedirect><LoginPage /></AuthRedirect>} />
+        <Route path="/recover-account" element={<AuthRedirect><RecoverAccountPage /></AuthRedirect>} />
+        <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <RoleDashboard />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/forms/fill/:formId"
+          element={
+            <RequireAuth>
+              <Suspense fallback={<DashboardFallback />}>
+                <EFormFillPage />
+              </Suspense>
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/verify/:token"
+          element={
             <Suspense fallback={<DashboardFallback />}>
-              <EFormFillPage />
+              <VerifyPage />
             </Suspense>
-          </RequireAuth>
-        }
-      />
-      <Route
-        path="/verify/:token"
-        element={
-          <Suspense fallback={<DashboardFallback />}>
-            <VerifyPage />
-          </Suspense>
-        }
-      />
-      <Route path="*" element={<Navigate to={auth ? "/dashboard" : "/"} replace />} />
-    </Routes>
+          }
+        />
+        <Route path="*" element={<Navigate to={auth ? "/dashboard" : "/"} replace />} />
+      </Routes>
+      <WhatsAppButton />
+    </>
   );
 }
