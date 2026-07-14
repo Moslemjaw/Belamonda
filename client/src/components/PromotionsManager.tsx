@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useApi } from "../hooks/useApi";
-import { apiFetch } from "../lib/api";
+import { apiFetch, API_BASE_URL } from "../lib/api";
 import { useAuth } from "../app/AuthContext";
 import { QRCodeCanvas } from "qrcode.react";
 import { SurveyBuilder } from "./SurveyBuilder";
@@ -31,14 +31,14 @@ export function PromotionsManager() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const res = await fetch("/api/chat/uploads", {
+      const res = await fetch(`${API_BASE_URL}/chat/uploads`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: formData
       });
       const data = await res.json();
-      if (data.url) {
-        setForm(p => ({ ...p, imageUrl: data.url }));
+      if (data.attachment?.url) {
+        setForm(p => ({ ...p, imageUrl: data.attachment.url }));
       }
     } catch (err) {
       console.error(err);
@@ -188,7 +188,7 @@ export function PromotionsManager() {
                 </div>
                 {form.imageUrl && (
                   <div className="mt-2 relative inline-block">
-                    <img src={process.env.NEXT_PUBLIC_API_URL + form.imageUrl} alt="Promo" className="h-20 object-contain rounded border border-surface-200 bg-white p-1" />
+                    <img src={API_BASE_URL + form.imageUrl} alt="Promo" className="h-20 object-contain rounded border border-surface-200 bg-white p-1" />
                     <button type="button" onClick={() => setForm(p => ({ ...p, imageUrl: "" }))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow hover:bg-red-600">×</button>
                   </div>
                 )}
