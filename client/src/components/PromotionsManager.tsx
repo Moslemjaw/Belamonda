@@ -20,8 +20,17 @@ export function PromotionsManager() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const emptyForm = { title: "", descriptionEn: "", descriptionAr: "", slug: "", type: "packages" as "packages" | "survey", offerIds: [] as string[], surveyQuestions: [] as SurveyQuestion[] };
+  const emptyForm = { title: "", descriptionEn: "", descriptionAr: "", slug: "", imageUrl: "", type: "packages" as "packages" | "survey", offerIds: [] as string[], surveyQuestions: [] as SurveyQuestion[] };
   const [form, setForm] = useState(emptyForm);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const r = new FileReader();
+      r.onloadend = () => setForm(p => ({ ...p, imageUrl: r.result as string }));
+      r.readAsDataURL(file);
+    }
+  };
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +45,7 @@ export function PromotionsManager() {
       descriptionEn: p.descriptionEn || p.description || "",
       descriptionAr: p.descriptionAr || "",
       slug: p.slug || "",
+      imageUrl: p.imageUrl || "",
       type: p.type || "packages",
       offerIds: (p.offerIds || []).map((o: any) => o._id || o.id || o),
       surveyQuestions: p.surveyQuestions || []
@@ -146,6 +156,14 @@ export function PromotionsManager() {
                     />
                     <span className="text-sm font-bold">{ar() ? "استبيان وتسجيل بيانات" : "Lead Form / Survey"}</span>
                   </label>
+                </div>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "صورة العرض" : "Promo Image"}</label>
+                <div className="border-2 border-dashed border-surface-200 rounded-xl p-4 flex items-center justify-center bg-surface-50 relative group hover:border-brand-pink-300 min-h-[100px]">
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                  {form.imageUrl ? <img src={form.imageUrl} alt="" className="h-24 rounded-lg object-cover" /> : <span className="text-sm text-surface-400">{ar() ? "اضغط لرفع صورة" : "Click to upload"}</span>}
                 </div>
               </div>
 
@@ -270,6 +288,11 @@ export function PromotionsManager() {
                       {p.isActive ? "Active" : "Inactive"}
                     </span>
                   </div>
+                  {p.imageUrl && (
+                    <div className="mb-3">
+                      <img src={p.imageUrl} alt="" className="w-full h-32 object-cover rounded-lg shadow-sm" />
+                    </div>
+                  )}
                   <p className="text-sm text-surface-600 mb-4">{ar() ? (p.descriptionAr || p.description) : (p.descriptionEn || p.description)}</p>
                   
                   {p.type === "packages" ? (

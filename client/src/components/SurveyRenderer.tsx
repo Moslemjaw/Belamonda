@@ -15,11 +15,12 @@ interface SurveyRendererProps {
   slug: string;
   title: string;
   description?: string;
+  imageUrl?: string;
   questions: SurveyQuestion[];
   onSuccess?: () => void;
 }
 
-export function SurveyRenderer({ slug, title, description, questions, onSuccess }: SurveyRendererProps) {
+export function SurveyRenderer({ slug, title, description, imageUrl, questions, onSuccess }: SurveyRendererProps) {
   const { t, i18n } = useTranslation();
   const ar = () => i18n.language === "ar";
   
@@ -106,6 +107,9 @@ export function SurveyRenderer({ slug, title, description, questions, onSuccess 
           {ar() ? "استبيان" : "Survey"}
         </span>
         <h1 className="text-3xl sm:text-4xl font-black text-surface-900 mb-4">{title}</h1>
+        {imageUrl && (
+          <img src={imageUrl} alt={title} className="max-w-full h-auto mx-auto rounded-2xl shadow-sm mb-6" style={{ maxHeight: '300px' }} />
+        )}
         <p className="text-base sm:text-lg text-surface-600 leading-relaxed">{description}</p>
       </div>
 
