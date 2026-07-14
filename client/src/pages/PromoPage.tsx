@@ -72,7 +72,9 @@ export default function PromoPage() {
           </span>
           <h1 className="text-3xl sm:text-4xl font-black text-surface-900 mb-4">{promo.title}</h1>
           {promo.imageUrl && (
-            <img src={promo.imageUrl} alt={promo.title} className="max-w-full h-auto mx-auto rounded-2xl shadow-sm mb-6" style={{ maxHeight: '300px' }} />
+            <div className="w-full max-w-xl mx-auto mb-8 rounded-[2rem] overflow-hidden shadow-2xl border-4 border-white bg-white">
+              <img src={promo.imageUrl} alt={promo.title} className="w-full h-auto object-contain" />
+            </div>
           )}
           <p className="text-base sm:text-lg text-surface-600 max-w-2xl mx-auto leading-relaxed">{ar() ? (promo.descriptionAr || promo.description) : (promo.descriptionEn || promo.description)}</p>
         </div>
