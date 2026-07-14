@@ -2085,7 +2085,7 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
         body: `Clinic cancelled session ${session.id}. Session quota restored for customer.`,
         payload: { bookingRequestId: breq?.id, sessionId: session.id }
       });
-      notifyBookingCancelled(session.userId, result.id);
+      notifyBookingCancelled(session.userId, result!.id);
 
       return res.json({ session: result });
     }
