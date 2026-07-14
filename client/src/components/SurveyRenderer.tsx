@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { apiFetch, API_BASE_URL } from "../lib/api";
+import { apiFetch } from "../lib/api";
 
 export interface SurveyQuestion {
   key: string;
@@ -14,13 +14,12 @@ export interface SurveyQuestion {
 interface SurveyRendererProps {
   slug: string;
   title: string;
-  description: string;
-  imageUrl?: string;
+  description?: string;
   questions: SurveyQuestion[];
   onSuccess?: () => void;
 }
 
-export function SurveyRenderer({ slug, title, description, imageUrl, questions, onSuccess }: SurveyRendererProps) {
+export function SurveyRenderer({ slug, title, description, questions, onSuccess }: SurveyRendererProps) {
   const { t, i18n } = useTranslation();
   const ar = () => i18n.language === "ar";
   
@@ -107,9 +106,6 @@ export function SurveyRenderer({ slug, title, description, imageUrl, questions, 
           {ar() ? "استبيان" : "Survey"}
         </span>
         <h1 className="text-3xl sm:text-4xl font-black text-surface-900 mb-4">{title}</h1>
-        {imageUrl && (
-          <img src={API_BASE_URL + imageUrl} alt={title} className="max-w-full h-auto mx-auto rounded-2xl shadow-sm mb-6" style={{ maxHeight: '300px' }} />
-        )}
         <p className="text-base sm:text-lg text-surface-600 leading-relaxed">{description}</p>
       </div>
 

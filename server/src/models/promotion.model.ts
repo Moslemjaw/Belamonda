@@ -8,7 +8,6 @@ const PromotionSchema = new Schema(
     descriptionAr: { type: String, default: "", trim: true },
     slug: { type: String, required: true, trim: true, unique: true },
     isActive: { type: Boolean, default: true },
-    imageUrl: { type: String },
     type: { type: String, enum: ["packages", "survey"], default: "packages" },
     offerIds: [{ type: Schema.Types.ObjectId, ref: "Offer" }],
     surveyQuestions: {
