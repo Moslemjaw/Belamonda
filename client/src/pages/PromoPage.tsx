@@ -55,6 +55,7 @@ export default function PromoPage() {
             slug={promo.slug}
             title={promo.title}
             description={ar() ? (promo.descriptionAr || promo.description) : (promo.descriptionEn || promo.description)}
+            imageUrl={promo.imageUrl}
             questions={promo.surveyQuestions || []}
           />
         </main>
@@ -70,6 +71,9 @@ export default function PromoPage() {
             {ar() ? "عرض حصري" : "Exclusive Offer"}
           </span>
           <h1 className="text-3xl sm:text-4xl font-black text-surface-900 mb-4">{promo.title}</h1>
+          {promo.imageUrl && (
+            <img src={process.env.NEXT_PUBLIC_API_URL + promo.imageUrl} alt={promo.title} className="max-w-full h-auto mx-auto rounded-2xl shadow-sm mb-6" style={{ maxHeight: '300px' }} />
+          )}
           <p className="text-base sm:text-lg text-surface-600 max-w-2xl mx-auto leading-relaxed">{ar() ? (promo.descriptionAr || promo.description) : (promo.descriptionEn || promo.description)}</p>
         </div>
 

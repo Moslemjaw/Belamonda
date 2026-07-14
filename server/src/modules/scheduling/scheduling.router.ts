@@ -2066,6 +2066,27 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
         markedBy: req.auth!.userId,
         notes: parsed.data.notes
       });
+      
+      if (session.userOfferId && mongoose.isValidObjectId(session.userOfferId)) {
+        await UserOfferModel.findOneAndUpdate(
+          { _id: session.userOfferId, sessionsUsed: { $gt: 0 } },
+          { $inc: { sessionsUsed: -1 } }
+        );
+      }
+      const breq = await bookingRequestsStore.findBySessionId(session.id);
+      if (breq) {
+        await bookingRequestsStore.update(breq.id, { status: "cancelled" });
+      }
+      const csIds = await findCsUserIds();
+      const financeIds = await findFinanceUserIds();
+      notifyChatRelatedUsers({
+        userIds: Array.from(new Set([...csIds, ...financeIds])),
+        kind: "booking_cancelled",
+        body: `Clinic cancelled session ${session.id}. Session quota restored for customer.`,
+        payload: { bookingRequestId: breq?.id, sessionId: session.id }
+      });
+      notifyBookingCancelled(session.userId, result.id);
+
       return res.json({ session: result });
     }
 
@@ -2144,27 +2165,7 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
         await bookingRequestsStore.update(breq.id, breqUpdate);
       }
     }
-    if (updated?.status === "cancelled") {
-    if (session.userOfferId && mongoose.isValidObjectId(session.userOfferId)) {
-      await UserOfferModel.findOneAndUpdate(
-        { _id: session.userOfferId, sessionsUsed: { $gt: 0 } },
-        { $inc: { sessionsUsed: -1 } }
-      );
-    }
-    const breq = await bookingRequestsStore.findBySessionId(session.id);
-    if (breq) {
-      await bookingRequestsStore.update(breq.id, { status: "cancelled" });
-    }
-    const csIds = await findCsUserIds();
-    const financeIds = await findFinanceUserIds();
-    notifyChatRelatedUsers({
-      userIds: Array.from(new Set([...csIds, ...financeIds])),
-      kind: "booking_cancelled",
-      body: `Clinic cancelled session ${session.id}. Session quota restored for customer.`,
-      payload: { bookingRequestId: breq?.id, sessionId: session.id }
-    });
-      notifyBookingCancelled(uo.userId, updated.id);
-    }
+
     if (updated?.status === "no_show") {
       const breq = await bookingRequestsStore.findBySessionId(session.id);
       if (breq) {

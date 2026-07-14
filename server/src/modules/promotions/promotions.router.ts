@@ -34,6 +34,7 @@ router.post("/admin", authRequired, async (req, res, next) => {
       descriptionEn: z.string().optional().default(""),
       descriptionAr: z.string().optional().default(""),
       slug: z.string().min(1).regex(/^[a-z0-9-]+$/i, "Slug must be alphanumeric and dashes only"),
+      imageUrl: z.string().optional(),
       type: z.enum(["packages", "survey"]).optional().default("packages"),
       offerIds: z.array(z.string()).optional().default([]),
       surveyQuestions: z.array(z.object({
@@ -57,6 +58,7 @@ router.post("/admin", authRequired, async (req, res, next) => {
       descriptionEn: d.data.descriptionEn,
       descriptionAr: d.data.descriptionAr,
       slug: d.data.slug.toLowerCase(),
+      imageUrl: d.data.imageUrl,
       type: d.data.type,
       offerIds: d.data.type === "packages" ? d.data.offerIds : [],
       surveyQuestions: d.data.type === "survey" ? d.data.surveyQuestions : [],
@@ -80,6 +82,7 @@ router.put("/admin/:id", authRequired, async (req, res, next) => {
       descriptionEn: z.string().optional().default(""),
       descriptionAr: z.string().optional().default(""),
       slug: z.string().min(1).regex(/^[a-z0-9-]+$/i, "Slug must be alphanumeric and dashes only"),
+      imageUrl: z.string().optional(),
       type: z.enum(["packages", "survey"]).optional().default("packages"),
       offerIds: z.array(z.string()).optional().default([]),
       surveyQuestions: z.array(z.object({
@@ -108,6 +111,7 @@ router.put("/admin/:id", authRequired, async (req, res, next) => {
     p.descriptionEn = d.data.descriptionEn;
     p.descriptionAr = d.data.descriptionAr;
     p.slug = d.data.slug.toLowerCase();
+    p.imageUrl = d.data.imageUrl;
     p.type = d.data.type as any;
     p.offerIds = d.data.type === "packages" ? d.data.offerIds : [];
     p.surveyQuestions = d.data.type === "survey" ? d.data.surveyQuestions as any : [];

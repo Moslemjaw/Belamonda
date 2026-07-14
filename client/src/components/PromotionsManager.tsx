@@ -20,8 +20,32 @@ export function PromotionsManager() {
 
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const emptyForm = { title: "", descriptionEn: "", descriptionAr: "", slug: "", type: "packages" as "packages" | "survey", offerIds: [] as string[], surveyQuestions: [] as SurveyQuestion[] };
+  const emptyForm = { title: "", descriptionEn: "", descriptionAr: "", slug: "", imageUrl: "", type: "packages" as "packages" | "survey", offerIds: [] as string[], surveyQuestions: [] as SurveyQuestion[] };
   const [form, setForm] = useState(emptyForm);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/chat/uploads", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.url) {
+        setForm(p => ({ ...p, imageUrl: data.url }));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +60,7 @@ export function PromotionsManager() {
       descriptionEn: p.descriptionEn || p.description || "",
       descriptionAr: p.descriptionAr || "",
       slug: p.slug || "",
+      imageUrl: p.imageUrl || "",
       type: p.type || "packages",
       offerIds: (p.offerIds || []).map((o: any) => o._id || o.id || o),
       surveyQuestions: p.surveyQuestions || []
@@ -149,6 +174,25 @@ export function PromotionsManager() {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "صورة العرض" : "Promo Image"}</label>
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleImageUpload} 
+                    className="text-sm"
+                    disabled={uploadingImage}
+                  />
+                  {uploadingImage && <span className="text-xs text-brand-pink-500">Uploading...</span>}
+                </div>
+                {form.imageUrl && (
+                  <div className="mt-2 relative inline-block">
+                    <img src={process.env.NEXT_PUBLIC_API_URL + form.imageUrl} alt="Promo" className="h-20 object-contain rounded border border-surface-200 bg-white p-1" />
+                    <button type="button" onClick={() => setForm(p => ({ ...p, imageUrl: "" }))} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs shadow hover:bg-red-600">×</button>
+                  </div>
+                )}
+              </div>
               <div>
                 <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "العنوان" : "Title"}</label>
                 <input 
