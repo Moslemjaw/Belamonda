@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useApi } from "../hooks/useApi";
-import { apiFetch } from "../lib/api";
+import { apiFetch, API_BASE_URL } from "../lib/api";
 import { useAuth } from "../app/AuthContext";
 import { QRCodeCanvas } from "qrcode.react";
 import { SurveyBuilder } from "./SurveyBuilder";
@@ -24,12 +24,27 @@ export function PromotionsManager() {
   const [form, setForm] = useState(emptyForm);
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const r = new FileReader();
-      r.onloadend = () => setForm(p => ({ ...p, imageUrl: r.result as string }));
-      r.readAsDataURL(file);
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const token = localStorage.getItem("belamonda_auth") || sessionStorage.getItem("belamonda_auth");
+      const res = await fetch(`${API_BASE_URL}/chat/uploads`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+      const data = await res.json();
+      if (data.attachment?.url) {
+        setForm(p => ({ ...p, imageUrl: data.attachment.url }));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploadingImage(false);
     }
   };
   const [saving, setSaving] = useState(false);
@@ -160,11 +175,17 @@ export function PromotionsManager() {
                 </div>
               </div>
 
-              <div>
+              <div className="md:col-span-2">
                 <label className="text-xs font-medium text-surface-500 mb-1.5 block">{ar() ? "صورة العرض" : "Promo Image"}</label>
                 <div className="border-2 border-dashed border-surface-200 rounded-xl p-4 flex items-center justify-center bg-surface-50 relative group hover:border-brand-pink-300 min-h-[100px]">
                   <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                  {form.imageUrl ? <img src={form.imageUrl} alt="" className="h-24 rounded-lg object-cover" /> : <span className="text-sm text-surface-400">{ar() ? "اضغط لرفع صورة" : "Click to upload"}</span>}
+                  {uploadingImage ? (
+                    <span className="text-sm text-brand-pink-500 font-medium">Uploading...</span>
+                  ) : form.imageUrl ? (
+                    <img src={API_BASE_URL + form.imageUrl} alt="" className="h-24 rounded-lg object-cover" />
+                  ) : (
+                    <span className="text-sm text-surface-400">{ar() ? "اضغط لرفع صورة" : "Click to upload"}</span>
+                  )}
                 </div>
               </div>
               <div>
