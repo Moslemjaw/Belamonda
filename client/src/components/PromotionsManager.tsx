@@ -277,8 +277,8 @@ export function PromotionsManager() {
           const link = `${SITE_BASE_URL}/promo/${p.slug}`;
           return (
             <div key={p._id || p.id} className={`card-elevated bg-white rounded-2xl p-5 border-2 ${p.isActive ? "border-brand-pink-200" : "border-surface-200 opacity-75"}`}>
-              <div className="flex justify-between items-start gap-4">
-                <div className="flex-1">
+              <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-4 sm:gap-6">
+                <div className="flex-1 w-full">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="inline-block px-2 py-0.5 bg-brand-pink-100 text-brand-pink-700 text-[10px] font-bold rounded-md uppercase tracking-wider">
                       {p.type === "survey" ? (ar() ? "استبيان" : "Survey") : (ar() ? "باقات" : "Packages")}
@@ -289,8 +289,8 @@ export function PromotionsManager() {
                     </span>
                   </div>
                   {p.imageUrl && (
-                    <div className="mb-3">
-                      <img src={p.imageUrl} alt="" className="w-full h-32 object-cover rounded-lg shadow-sm" />
+                    <div className="mb-4">
+                      <img src={p.imageUrl} alt="" className="w-full h-auto max-h-64 object-contain rounded-xl shadow-sm border border-surface-100 bg-surface-50" />
                     </div>
                   )}
                   <p className="text-sm text-surface-600 mb-4">{ar() ? (p.descriptionAr || p.description) : (p.descriptionEn || p.description)}</p>
@@ -319,7 +319,7 @@ export function PromotionsManager() {
                   )}
                 </div>
                 
-                <div className="flex flex-col items-center gap-2 shrink-0 bg-surface-50 p-2 rounded-xl">
+                <div className="flex flex-col items-center gap-3 shrink-0 bg-surface-50 p-4 rounded-xl self-stretch sm:self-start w-full sm:w-auto">
                   <QRCodeCanvas id={`qr-${p.slug}`} value={link} size={100} className="rounded-lg" />
                   <div className="flex gap-2">
                     <a href={link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-brand-pink-600 font-bold hover:underline">
@@ -332,8 +332,8 @@ export function PromotionsManager() {
                 </div>
               </div>
               
-              <div className="flex items-center justify-between border-t border-surface-100 mt-4 pt-4">
-                <div className="flex items-center gap-2 max-w-[60%]">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-t border-surface-100 mt-4 pt-4 gap-4">
+                <div className="flex items-center gap-2 w-full sm:max-w-[60%]">
                   <input type="text" readOnly value={link} className="input-field text-xs py-1.5 px-2 w-full bg-surface-50 text-surface-500" dir="ltr" />
                   <button 
                     onClick={() => navigator.clipboard.writeText(link)} 
@@ -343,7 +343,7 @@ export function PromotionsManager() {
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto sm:justify-end">
                   <button onClick={() => handleEdit(p)} className="btn-sm btn-secondary text-blue-600 hover:bg-blue-50">
                     {ar() ? "تعديل" : "Edit"}
                   </button>
