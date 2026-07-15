@@ -923,26 +923,19 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
 usersRouter.patch("/admin/:id", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
-    const parsed = z
-      .object({
-        role: z.enum(["customer", "admin", "cs", "finance", "clinicStaff", "legal", "cs_director"]).optional(),
-        isActive: z.boolean().optional(),
-        clinicId: z.string().optional(),
-        isConfirmationCallDone: z.boolean().optional()
-      })
-    const before = await UserModel.findById(req.params.id)
-      .select("_id username email phone role clinicId isActive isConfirmationCallDone fullName").lean<UserLean>();
-    if (!before) return res.status(404).json({ error: "NOT_FOUND" });
-
     const schema = z.object({
-      role: z.string().optional(),
+      role: z.enum(["customer", "admin", "cs", "finance", "clinicStaff", "legal", "cs_director"]).optional(),
       isActive: z.boolean().optional(),
-      isConfirmationCallDone: z.boolean().optional(),
       clinicId: z.string().nullable().optional(),
+      isConfirmationCallDone: z.boolean().optional(),
       fullName: z.string().optional()
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
+
+    const before = await UserModel.findById(req.params.id)
+      .select("_id username email phone role clinicId isActive isConfirmationCallDone fullName").lean<UserLean>();
+    if (!before) return res.status(404).json({ error: "NOT_FOUND" });
 
     interface UserPatch {
       role?: string;
