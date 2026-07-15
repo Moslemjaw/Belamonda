@@ -136,6 +136,22 @@ export default function ClinicMissedSessionsTab({ clinicId, onCountLoaded }: { c
                   <span className="text-surface-300">•</span>
                   <span>{fmtDate(s.scheduledAt)} {new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
+                {(s.adminSuggestedAt || s.notes) && (
+                  <div className="mt-3 p-2.5 rounded-xl bg-amber-50/50 border border-amber-100/50 flex flex-col gap-1.5">
+                    {s.adminSuggestedAt && (
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="font-bold text-amber-700">{ar() ? "اقتراح الإدارة:" : "Admin Suggested:"}</span>
+                        <span className="text-amber-900 font-semibold">{fmtDate(s.adminSuggestedAt)} {new Date(s.adminSuggestedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )}
+                    {s.notes && (
+                      <div className="flex items-start gap-2 text-[11px]">
+                        <span className="font-bold text-amber-700 shrink-0">{ar() ? "ملاحظات الإدارة:" : "Admin Notes:"}</span>
+                        <span className="text-amber-900 leading-relaxed italic">{s.notes}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="w-full sm:w-auto flex gap-2">
                 <button 
