@@ -2164,6 +2164,9 @@ export function UserProfilePanel({
   const [installmentAdjustingId, setInstallmentAdjustingId] = useState<string | null>(null);
   const [editingDateId, setEditingDateId] = useState<string | null>(null);
   const [editingDateValue, setEditingDateValue] = useState("");
+
+  const [editingAmountId, setEditingAmountId] = useState<string | null>(null);
+  const [editingAmountValue, setEditingAmountValue] = useState("");
   const [editingClinicId, setEditingClinicId] = useState<string | null>(null);
   const [editingClinicValue, setEditingClinicValue] = useState("");
 
@@ -2381,6 +2384,22 @@ export function UserProfilePanel({
       alert(e.message);
     } finally {
       setEditingDateId(null);
+    }
+  };
+
+  const handleUpdateAmount = async (membershipId: string) => {
+    try {
+      await apiFetch(`/commerce/admin/user-offers/${membershipId}`, {
+        method: "PATCH",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ paymentAmountKwd: editingAmountValue }),
+      });
+      const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
+      setProfile(d);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setEditingAmountId(null);
     }
   };
 
@@ -2965,7 +2984,23 @@ export function UserProfilePanel({
                           </div>
                         </div>
                         {(isAdmin || isCS || isFinance) && (
-                          <div><span className="text-surface-400">{ar() ? "المبلغ (د.ك)" : "Amount (KWD)"}</span><div className="font-bold mt-0.5">{m.paymentAmountKwd ?? "—"}</div></div>
+                          <div>
+                            <span className="text-surface-400">{ar() ? "المبلغ (د.ك)" : "Amount (KWD)"}</span>
+                            {editingAmountId === m.id ? (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <input type="number" step="0.001" className="input-field py-0.5 px-1.5 text-xs h-7 w-20" value={editingAmountValue} onChange={e => setEditingAmountValue(e.target.value)} />
+                                <button className="btn-primary btn-sm px-2 text-xs py-1 h-7" onClick={() => handleUpdateAmount(m.id)}>OK</button>
+                                <button className="btn-secondary btn-sm px-2 text-xs py-1 h-7" onClick={() => setEditingAmountId(null)}>X</button>
+                              </div>
+                            ) : (
+                              <div className="font-bold mt-0.5 flex items-center gap-2">
+                                {m.paymentAmountKwd ?? "—"}
+                                <button className="bg-surface-100 text-surface-600 hover:bg-brand-pink-50 hover:text-brand-pink-600 p-1.5 rounded-md border border-surface-200 shadow-sm transition-all flex items-center justify-center" title="Edit Amount" onClick={() => { setEditingAmountId(m.id); setEditingAmountValue(m.paymentAmountKwd || "0.000"); }}>
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         )}
                         <div>
                           <span className="text-surface-400">{ar() ? "التفعيل" : "Activated"}</span>
