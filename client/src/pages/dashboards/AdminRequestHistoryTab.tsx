@@ -55,6 +55,8 @@ export default function AdminRequestHistoryTab() {
   const [clinicId, setClinicId] = useState<string>("");
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -86,6 +88,16 @@ export default function AdminRequestHistoryTab() {
   const filtered = useMemo(() => {
     return items.filter((it) => {
       if (it.status === "cancelled" || it.status === "rejected") return false;
+      
+      if (statusFilter !== "all" && it.status !== statusFilter) return false;
+      
+      if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        const matchesName = (it.userName || "").toLowerCase().includes(q) || (it.userId || "").toLowerCase().includes(q);
+        const matchesNotes = (it.notes || "").toLowerCase().includes(q);
+        if (!matchesName && !matchesNotes) return false;
+      }
+      
       if (fromDate) {
         const f = new Date(fromDate).getTime();
         if (new Date(it.createdAt).getTime() < f) return false;
@@ -96,7 +108,7 @@ export default function AdminRequestHistoryTab() {
       }
       return true;
     });
-  }, [items, fromDate, toDate]);
+  }, [items, fromDate, toDate, searchQuery, statusFilter]);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -114,30 +126,68 @@ export default function AdminRequestHistoryTab() {
           </span>
         </div>
 
-        <div className="flex flex-wrap gap-3 items-end">
-          <div>
-            <label className="block text-xs font-semibold text-surface-500 mb-1.5">{ar() ? "العيادة" : "Clinic"}</label>
-            <select className="select-field" value={clinicId} onChange={(e) => setClinicId(e.target.value)}>
-              <option value="">{ar() ? "كل العيادات" : "All clinics"}</option>
-              {clinics.map((c) => (
-                <option key={c.id} value={c.id}>{ar() ? (c.nameAr ?? c.nameEn) : (c.nameEn ?? c.nameAr)}</option>
-              ))}
-            </select>
+        <div className="bg-surface-50 p-4 rounded-xl border border-surface-200">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+            <div className="lg:col-span-2">
+              <label className="block text-xs font-bold text-surface-600 mb-1.5 uppercase tracking-wider">{ar() ? "بحث" : "Search"}</label>
+              <div className="relative">
+                <input 
+                  type="text" 
+                  className="input-field w-full pl-10" 
+                  placeholder={ar() ? "ابحث عن عميل أو ملاحظة..." : "Search customer or notes..."} 
+                  value={searchQuery} 
+                  onChange={(e) => setSearchQuery(e.target.value)} 
+                />
+                <svg className="w-5 h-5 absolute left-3 top-2.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+            </div>
+            
+            <div>
+              <label className="block text-xs font-bold text-surface-600 mb-1.5 uppercase tracking-wider">{ar() ? "العيادة" : "Clinic"}</label>
+              <select className="select-field w-full" value={clinicId} onChange={(e) => setClinicId(e.target.value)}>
+                <option value="">{ar() ? "الكل" : "All"}</option>
+                {clinics.map((c) => (
+                  <option key={c.id} value={c.id}>{ar() ? (c.nameAr ?? c.nameEn) : (c.nameEn ?? c.nameAr)}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-surface-600 mb-1.5 uppercase tracking-wider">{ar() ? "الحالة" : "Status"}</label>
+              <select className="select-field w-full" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="all">{ar() ? "الكل" : "All"}</option>
+                <option value="open">{ar() ? "مفتوح" : "Open"}</option>
+                <option value="request_received">{ar() ? "تم استلام الطلب" : "Request Received"}</option>
+                <option value="slot_assigned">{ar() ? "تم تحديد الوقت" : "Slot Assigned"}</option>
+                <option value="scheduled">{ar() ? "مجدول" : "Scheduled"}</option>
+                <option value="in_progress">{ar() ? "قيد التنفيذ" : "In Progress"}</option>
+                <option value="completed">{ar() ? "مكتمل" : "Completed"}</option>
+                <option value="no_show">{ar() ? "لم يحضر" : "No Show"}</option>
+              </select>
+            </div>
+            
+            <div className="flex gap-2 lg:col-span-1">
+              <button className="btn-primary w-full flex items-center justify-center gap-2" onClick={() => load()} disabled={loading}>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}>
+                  <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
+                </svg>
+                {ar() ? "تحديث" : "Refresh"}
+              </button>
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-surface-500 mb-1.5">{ar() ? "من تاريخ" : "From"}</label>
-            <DatePicker className="input-field w-36" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-xs font-bold text-surface-600 mb-1.5 uppercase tracking-wider">{ar() ? "من تاريخ الطلب" : "From Request Date"}</label>
+              <DatePicker className="input-field w-full" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-surface-600 mb-1.5 uppercase tracking-wider">{ar() ? "إلى تاريخ الطلب" : "To Request Date"}</label>
+              <DatePicker className="input-field w-full" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+            </div>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-surface-500 mb-1.5">{ar() ? "إلى تاريخ" : "To"}</label>
-            <DatePicker className="input-field w-36" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          </div>
-          <button className="btn-primary btn-sm flex items-center gap-1.5" onClick={() => load()} disabled={loading}>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`}>
-              <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.39zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.389A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clipRule="evenodd" />
-            </svg>
-            {ar() ? "تحديث" : "Refresh"}
-          </button>
         </div>
 
         <div className="overflow-auto border border-surface-200 rounded-xl">
