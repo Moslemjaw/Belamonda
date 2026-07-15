@@ -2169,6 +2169,9 @@ export function UserProfilePanel({
   const [editingAmountValue, setEditingAmountValue] = useState("");
   const [editingClinicId, setEditingClinicId] = useState<string | null>(null);
   const [editingClinicValue, setEditingClinicValue] = useState("");
+  
+  const [editingFullName, setEditingFullName] = useState(false);
+  const [editingFullNameValue, setEditingFullNameValue] = useState("");
 
   const [newNote, setNewNote] = useState("");
   const [noteSaving, setNoteSaving] = useState(false);
@@ -2278,6 +2281,22 @@ export function UserProfilePanel({
       setProfile(d);
     } catch (e: any) {
       alert(e.message);
+    }
+  };
+
+  const handleUpdateFullName = async () => {
+    try {
+      await apiFetch(`/users/admin/${user.id}`, {
+        method: "PATCH",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ fullName: editingFullNameValue }),
+      });
+      const d = await apiFetch(`/users/admin/${user.id}/profile`, { headers: getAuthHeader() });
+      setProfile(d);
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setEditingFullName(false);
     }
   };
 
@@ -2550,7 +2569,22 @@ export function UserProfilePanel({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-lg font-bold text-surface-900">{displayUser.fullName || displayUser.name || displayUser.username || displayUser.phone || "—"}</h2>
+            {editingFullName ? (
+              <div className="flex items-center gap-2">
+                <input type="text" className="input-field py-0.5 px-2 text-sm h-8 w-48" value={editingFullNameValue} onChange={e => setEditingFullNameValue(e.target.value)} />
+                <button className="btn-primary btn-sm px-3 text-xs py-1 h-8" onClick={() => handleUpdateFullName()}>OK</button>
+                <button className="btn-secondary btn-sm px-2 text-xs py-1 h-8" onClick={() => setEditingFullName(false)}>X</button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-surface-900">{displayUser.fullName || displayUser.name || displayUser.username || displayUser.phone || "—"}</h2>
+                {(isAdmin || isCS) && (
+                  <button className="text-surface-400 hover:text-brand-pink-600 transition-colors" title="Edit Name" onClick={() => { setEditingFullName(true); setEditingFullNameValue(displayUser.fullName || displayUser.name || displayUser.username || ""); }}>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                  </button>
+                )}
+              </div>
+            )}
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${ROLE_COLORS[displayUser.role] ?? "bg-surface-100 text-surface-600"}`}>{displayUser.role}</span>
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${userIsActive ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"}`}>
               {userIsActive ? (ar() ? "نشط" : "Active") : (ar() ? "معطّل" : "Disabled")}

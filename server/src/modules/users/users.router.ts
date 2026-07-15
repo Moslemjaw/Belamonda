@@ -930,23 +930,39 @@ usersRouter.patch("/admin/:id", authRequired, requireRole(["admin", "cs", "legal
         clinicId: z.string().optional(),
         isConfirmationCallDone: z.boolean().optional()
       })
-      .safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
-
     const before = await UserModel.findById(req.params.id)
-      .select("_id username email phone role clinicId isActive isConfirmationCallDone").lean<UserLean>();
+      .select("_id username email phone role clinicId isActive isConfirmationCallDone fullName").lean<UserLean>();
     if (!before) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const schema = z.object({
+      role: z.string().optional(),
+      isActive: z.boolean().optional(),
+      isConfirmationCallDone: z.boolean().optional(),
+      clinicId: z.string().nullable().optional(),
+      fullName: z.string().optional()
+    });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
+
+    interface UserPatch {
+      role?: string;
+      isActive?: boolean;
+      isConfirmationCallDone?: boolean;
+      clinicId?: mongoose.Types.ObjectId;
+      fullName?: string;
+    }
 
     const patch: UserPatch = {};
     if (parsed.data.role) patch.role = parsed.data.role;
     if (parsed.data.isActive != null) patch.isActive = parsed.data.isActive;
     if (parsed.data.isConfirmationCallDone != null) patch.isConfirmationCallDone = parsed.data.isConfirmationCallDone;
-    if (parsed.data.clinicId != null) {
+    if (parsed.data.fullName != null) patch.fullName = parsed.data.fullName;
+    if (parsed.data.clinicId !== undefined) {
       patch.clinicId = parsed.data.clinicId ? new mongoose.Types.ObjectId(parsed.data.clinicId) : undefined;
     }
 
     const doc = await UserModel.findByIdAndUpdate(req.params.id, patch, { new: true })
-      .select("_id username email phone role clinicId isActive isConfirmationCallDone")
+      .select("_id username email phone role clinicId isActive isConfirmationCallDone fullName")
       .lean<UserLean>();
     if (!doc) return res.status(404).json({ error: "NOT_FOUND" });
 
