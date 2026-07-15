@@ -15,6 +15,7 @@ type BookingRow = {
   clinicNameEn?: string;
   clinicNameAr?: string;
   userId: string;
+  userName?: string;
   userOfferId: string;
   adminSuggestedAt?: string;
   clinicScheduledAt?: string;
@@ -145,6 +146,7 @@ export default function AdminRequestHistoryTab() {
             <thead>
               <tr>
                 <th>{ar() ? "العيادة" : "Clinic"}</th>
+                <th>{ar() ? "العميل" : "Customer"}</th>
                 <th>{ar() ? "موعد مقترح من الإدارة" : "Admin Suggested Date"}</th>
                 <th>{ar() ? "الموعد المعدل من العيادة" : "Clinic Scheduled Date"}</th>
                 <th>{ar() ? "ملاحظات الإدارة" : "Admin Notes"}</th>
@@ -157,6 +159,7 @@ export default function AdminRequestHistoryTab() {
               {filtered.map((it) => (
                 <tr key={it.id}>
                   <td>{ar() ? (it.clinicNameAr ?? it.clinicNameEn ?? it.clinicId) : (it.clinicNameEn ?? it.clinicNameAr ?? it.clinicId)}</td>
+                  <td className="font-medium text-surface-700">{it.userName ?? it.userId}</td>
                   <td>{it.adminSuggestedAt ? <span className="text-amber-700 font-medium">{fmtDateTime(it.adminSuggestedAt)}</span> : "—"}</td>
                   <td>{it.clinicScheduledAt ? <span className="text-emerald-700 font-medium">{fmtDateTime(it.clinicScheduledAt)}</span> : "—"}</td>
                   <td className="truncate max-w-[200px]" title={it.notes}>{it.notes || "—"}</td>

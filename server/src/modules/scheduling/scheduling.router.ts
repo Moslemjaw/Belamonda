@@ -2458,10 +2458,23 @@ schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin"]), as
   const status = (typeof req.query.status === "string" ? req.query.status : "all") as AppointmentStatus | "all" | "open";
   const clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
   const items = await bookingRequestsStore.list({ status, clinicId });
+  
+  const usersMap = new Map<string, string>();
   const enriched = await Promise.all(
     items.map(async (it) => {
       const c = await getClinicNames(it.clinicId);
-      return { ...it, clinicNameEn: c.nameEn, clinicNameAr: c.nameAr };
+      if (!usersMap.has(it.userId)) {
+        const u = await kycStore.getUser(it.userId);
+        usersMap.set(it.userId, u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || it.userId : it.userId);
+      }
+      return { 
+        ...it, 
+        clinicNameEn: c.nameEn, 
+        clinicNameAr: c.nameAr,
+        userName: usersMap.get(it.userId),
+        adminSuggestedAt: it.adminSuggestedAt || (it.status === 'slot_assigned' ? it.proposedAt : null),
+        clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? it.proposedAt : null)
+      };
     })
   );
   return res.json({ items: enriched });
