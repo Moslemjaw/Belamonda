@@ -125,64 +125,85 @@ export default function ClinicMissedSessionsTab({ clinicId, onCountLoaded }: { c
       ) : (
         <div className="space-y-3">
           {sessions.map(s => (
-            <div key={s.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 bg-surface-50/80 rounded-[20px] border border-red-100 gap-4 transition-all hover:border-red-200">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                  <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${s.status === "no_show" ? "bg-red-50 text-red-600 border-red-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
-                    {s.status === "no_show" ? (ar() ? "لم يحضر" : "No Show") : (ar() ? "موعد فائت" : "Past Date")}
-                  </span>
-                  <span className="font-bold text-surface-900">{s.customerName || "—"}</span>
-                </div>
-                <div className="text-sm font-semibold text-surface-700">
-                  {s.offerName || "Session"}
-                </div>
-                <div className="text-xs text-surface-500 mt-1 flex items-center gap-2">
-                  <span>{s.customerPhone || "—"}</span>
-                  <span className="text-surface-300">•</span>
-                  <span>{fmtDate(s.scheduledAt)} {new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-                {(s.adminSuggestedAt || s.notes) && (
-                  <div className="mt-3 p-2.5 rounded-xl bg-amber-50/50 border border-amber-100/50 flex flex-col gap-1.5">
-                    {s.adminSuggestedAt && (
-                      <div className="flex items-center gap-2 text-[11px]">
-                        <span className="font-bold text-amber-700">{ar() ? "اقتراح الإدارة:" : "Admin Suggested:"}</span>
-                        <span className="text-amber-900 font-semibold">{fmtDate(s.adminSuggestedAt)} {new Date(s.adminSuggestedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                    )}
-                    {s.notes && (
-                      <div className="flex items-start gap-2 text-[11px]">
-                        <span className="font-bold text-amber-700 shrink-0">{ar() ? "ملاحظات الإدارة:" : "Admin Notes:"}</span>
-                        <span className="text-amber-900 leading-relaxed italic">{s.notes}</span>
-                      </div>
-                    )}
+            <div key={s.id} className="card-elevated p-5 border border-surface-200 hover:shadow-md transition-shadow">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                {/* Info */}
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${s.status === "no_show" ? "bg-red-50 text-red-600" : "bg-amber-50 text-amber-700"}`}>
+                      {(s.customerName || "?")[0]}
+                    </div>
+                    <div>
+                      <div className="font-bold text-surface-900">{s.customerName || "—"}</div>
+                      <div className="text-xs text-surface-500">{s.customerPhone || ""}</div>
+                    </div>
+                    <span className={`ml-auto px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${s.status === "no_show" ? "bg-red-50 text-red-600 border-red-200" : "bg-amber-50 text-amber-700 border-amber-200"}`}>
+                      {s.status === "no_show" ? (ar() ? "لم يحضر" : "No Show") : (ar() ? "موعد فائت" : "Past Date")}
+                    </span>
                   </div>
-                )}
-              </div>
-              <div className="w-full sm:w-auto flex gap-2">
-                <button 
-                  onClick={() => setRescheduleSession(s)} 
-                  className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 transition-colors"
-                >
-                  {ar() ? "إعادة جدولة" : "Reschedule"}
-                </button>
-                <button 
-                  onClick={async () => {
-                    if (!window.confirm(ar() ? "هل أنت متأكد من حذف هذه الجلسة؟" : "Are you sure you want to delete this session?")) return;
-                    try {
-                      await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
-                        method: "POST",
-                        headers: getAuthHeader(),
-                        body: JSON.stringify({ status: "cancelled", notes: "Deleted from Missed Sessions" })
-                      });
-                      await fetchMissedSessions();
-                    } catch (e: any) {
-                      alert(e.message || "Failed to delete");
-                    }
-                  }}
-                  className="flex-1 sm:flex-none text-xs font-bold px-4 py-2.5 rounded-xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 transition-colors"
-                >
-                  {ar() ? "حذف" : "Delete"}
-                </button>
+
+                  <div className="text-sm text-surface-600 mb-2">
+                    <span className="font-medium">{ar() ? "الخدمة:" : "Service:"}</span>{" "}
+                    {s.offerName || "Session"}
+                  </div>
+
+                  {/* Scheduled date */}
+                  <div className="bg-red-50 text-red-800 px-3 py-2 rounded-lg text-sm border border-red-100 flex gap-2 items-center">
+                    <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                    <div>
+                      <span className="font-bold">{ar() ? "الموعد المحدد:" : "Scheduled Date:"}</span>{" "}
+                      {fmtDate(s.scheduledAt)} {new Date(s.scheduledAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+
+                  {/* Admin suggested date */}
+                  {s.adminSuggestedAt && (
+                    <div className="mt-2 bg-amber-50 text-amber-800 px-3 py-2 rounded-lg text-sm border border-amber-100 flex gap-2 items-center">
+                      <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                      <div>
+                        <span className="font-bold">{ar() ? "اقتراح الإدارة:" : "Admin Suggested:"}</span>{" "}
+                        {fmtDate(s.adminSuggestedAt)} {new Date(s.adminSuggestedAt).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Admin notes */}
+                  {s.notes && (
+                    <div className="mt-2 text-sm text-surface-600 bg-surface-50 p-2.5 rounded-lg border border-surface-100">
+                      <span className="font-bold">{ar() ? "ملاحظات الإدارة:" : "Admin Notes:"}</span> {s.notes}
+                    </div>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col gap-2 w-full md:w-auto md:min-w-[180px]">
+                  <button 
+                    onClick={() => setRescheduleSession(s)} 
+                    className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold py-2.5 rounded-xl text-sm transition-colors border border-blue-200 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    {ar() ? "إعادة جدولة" : "Reschedule"}
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      if (!window.confirm(ar() ? "هل أنت متأكد من حذف هذه الجلسة؟" : "Are you sure you want to delete this session?")) return;
+                      try {
+                        await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
+                          method: "POST",
+                          headers: getAuthHeader(),
+                          body: JSON.stringify({ status: "cancelled", notes: "Deleted from Missed Sessions" })
+                        });
+                        await fetchMissedSessions();
+                      } catch (e: any) {
+                        alert(e.message || "Failed to delete");
+                      }
+                    }}
+                    className="w-full bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 rounded-xl text-sm transition-colors border border-red-200 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    {ar() ? "حذف" : "Delete"}
+                  </button>
+                </div>
               </div>
             </div>
           ))}
