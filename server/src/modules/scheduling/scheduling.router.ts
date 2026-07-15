@@ -2780,4 +2780,19 @@ schedulingRouter.delete("/admin/historical-sessions", authRequired, requireRole(
 
 // `resolveUserOffer` retained for backwards compatibility — exposed for any
 // downstream callers that depend on the richer UserOfferRecord shape.
+
+// ── Admin: update notes on a booking request ────────────────────────────────
+schedulingRouter.post("/admin/requests/:requestId/update-notes", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
+  try {
+    const breq = await bookingRequestsStore.get(req.params.requestId);
+    if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
+    const { notes } = req.body as { notes?: string };
+    if (typeof notes !== "string") return res.status(400).json({ error: "NOTES_REQUIRED" });
+    const updated = await bookingRequestsStore.update(breq.id, { notes });
+    return res.json({ ok: true, request: updated });
+  } catch (e) {
+    next(e);
+  }
+});
+
 export { resolveUserOffer };

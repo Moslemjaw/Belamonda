@@ -58,6 +58,8 @@ export default function AdminRequestHistoryTab() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [loading, setLoading] = useState(false);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -109,6 +111,24 @@ export default function AdminRequestHistoryTab() {
       return true;
     });
   }, [items, fromDate, toDate, searchQuery, statusFilter]);
+
+  const saveNote = async (requestId: string) => {
+    try {
+      await apiFetch(`/scheduling/admin/requests/${requestId}/update-notes`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ notes: editingNoteText }),
+      });
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === requestId ? { ...it, notes: editingNoteText } : it
+        )
+      );
+      setEditingNoteId(null);
+    } catch (e: any) {
+      alert(e.message || "Failed to save");
+    }
+  };
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -210,7 +230,37 @@ export default function AdminRequestHistoryTab() {
                   <td className="font-medium text-surface-700">{it.userName ?? it.userId}</td>
                   <td>{it.adminSuggestedAt ? <span className="text-amber-700 font-medium">{fmtDateTime(it.adminSuggestedAt)}</span> : "—"}</td>
                   <td>{it.clinicScheduledAt ? <span className="text-emerald-700 font-medium">{fmtDateTime(it.clinicScheduledAt)}</span> : "—"}</td>
-                  <td className="truncate max-w-[200px]" title={it.notes}>{it.notes || "—"}</td>
+                  <td className="max-w-[250px]">
+                    {editingNoteId === it.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          type="text"
+                          className="input-field text-xs py-1 px-2 w-full"
+                          value={editingNoteText}
+                          onChange={(e) => setEditingNoteText(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") saveNote(it.id); if (e.key === "Escape") setEditingNoteId(null); }}
+                          autoFocus
+                        />
+                        <button onClick={() => saveNote(it.id)} className="p-1 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors shrink-0" title="Save">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        </button>
+                        <button onClick={() => setEditingNoteId(null)} className="p-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition-colors shrink-0" title="Cancel">
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 group">
+                        <span className="truncate" title={it.notes}>{it.notes || "—"}</span>
+                        <button
+                          onClick={() => { setEditingNoteId(it.id); setEditingNoteText(it.notes || ""); }}
+                          className="p-1 rounded-lg text-surface-400 hover:text-brand-pink-600 hover:bg-brand-pink-50 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                          title={ar() ? "تعديل" : "Edit"}
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </button>
+                      </div>
+                    )}
+                  </td>
                   <td className="text-xs text-surface-500">{fmtDateTime(it.createdAt)}</td>
                   <td><StatusPill status={it.status} /></td>
                 </tr>
