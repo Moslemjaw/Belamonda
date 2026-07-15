@@ -479,11 +479,7 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                       )}
                     </div>
 
-                    {!adminMode && role === "customer" && bookingRequest.status === "slot_assigned" && (
-                      <button className="btn-primary btn-sm" onClick={acceptSlot}>
-                        {ar() ? "قبول الموعد" : "Accept Slot"}
-                      </button>
-                    )}
+                    {/* Customer Accept Slot removed by request */}
 
                     {/* Staff propose / confirm / reject */}
                     {!adminMode && showBookingActions && isStaff && !["scheduled", "cancelled", "checked_in", "in_progress", "completed", "no_show", "rescheduled"].includes(bookingRequest.status) && (
