@@ -467,7 +467,7 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                           {bookingRequest.customerPhone && <div dir="ltr" className={ar() ? "text-right" : ""}>{bookingRequest.customerPhone}</div>}
                         </div>
                       )}
-                      {bookingRequest.proposedAt && (
+                      {isStaff && bookingRequest.proposedAt && (
                         <div className="text-xs text-surface-600 mt-1">
                           {ar() ? "الموعد المقترح" : "Proposed"}: {kwDateTime(bookingRequest.proposedAt)}
                         </div>
