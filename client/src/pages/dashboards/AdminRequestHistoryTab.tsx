@@ -2,7 +2,6 @@ import { fmtDateTime } from "../../lib/dateFormat";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../app/AuthContext";
 import { apiFetch } from "../../lib/api";
-import ChatWidget from "../../components/ChatWidget";
 import DatePicker from "../../components/DatePicker";
 import i18n from "../../app/i18n";
 
@@ -56,7 +55,6 @@ export default function AdminRequestHistoryTab() {
   const [clinicId, setClinicId] = useState<string>("");
   const [fromDate, setFromDate] = useState<string>("");
   const [toDate, setToDate] = useState<string>("");
-  const [selectedConvId, setSelectedConvId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -153,7 +151,6 @@ export default function AdminRequestHistoryTab() {
                 <th>{ar() ? "ملاحظات الإدارة" : "Admin Notes"}</th>
                 <th>{ar() ? "تاريخ الطلب" : "Request Date"}</th>
                 <th>{ar() ? "الحالة" : "Status"}</th>
-                <th></th>
               </tr>
             </thead>
             <tbody className="text-sm">
@@ -166,13 +163,6 @@ export default function AdminRequestHistoryTab() {
                   <td className="truncate max-w-[200px]" title={it.notes}>{it.notes || "—"}</td>
                   <td className="text-xs text-surface-500">{fmtDateTime(it.createdAt)}</td>
                   <td><StatusPill status={it.status} /></td>
-                  <td className="text-end">
-                    {it.conversationId && (
-                      <button className="btn-secondary btn-sm" onClick={() => setSelectedConvId(it.conversationId!)}>
-                        {ar() ? "المحادثة" : "Chat"}
-                      </button>
-                    )}
-                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
@@ -188,8 +178,6 @@ export default function AdminRequestHistoryTab() {
           </table>
         </div>
       </div>
-
-      <ChatWidget adminMode conversationId={selectedConvId ?? undefined} />
     </div>
   );
 }
