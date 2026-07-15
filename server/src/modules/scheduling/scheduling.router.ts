@@ -2015,7 +2015,7 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
         : Promise.resolve([]),
       validSessionIds.length > 0
         ? BookingRequestModel.find({ scheduledSessionId: { $in: validSessionIds } })
-            .select("_id scheduledSessionId isStandalone membershipType").lean()
+            .select("_id scheduledSessionId isStandalone membershipType adminSuggestedAt notes").lean()
         : Promise.resolve([]),
     ]);
 
@@ -2042,6 +2042,8 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
         bookingRequestId: breq?._id?.toString() ?? null,
         membershipType: breq?.membershipType ?? uoDoc?.membershipType ?? "none",
         isStandalone: breq?.isStandalone ?? false,
+        adminSuggestedAt: breq?.adminSuggestedAt ?? null,
+        notes: breq?.notes ?? null,
       };
     });
 
