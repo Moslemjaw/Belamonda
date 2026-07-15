@@ -87,6 +87,7 @@ export default function AdminRequestHistoryTab() {
 
   const filtered = useMemo(() => {
     return items.filter((it) => {
+      if (it.status === "cancelled" || it.status === "rejected") return false;
       if (fromDate) {
         const f = new Date(fromDate).getTime();
         if (new Date(it.createdAt).getTime() < f) return false;
