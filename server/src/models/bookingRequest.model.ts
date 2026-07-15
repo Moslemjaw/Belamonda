@@ -33,6 +33,8 @@ const BookingRequestSchema = new Schema(
     preferredAt: { type: Date },
     proposedAt: { type: Date },
     proposedBy: { type: String },
+    adminSuggestedAt: { type: Date },
+    clinicScheduledAt: { type: Date },
     acceptedAt: { type: Date },
     confirmedAt: { type: Date },
     confirmedBy: { type: String },

@@ -1295,7 +1295,8 @@ schedulingRouter.post("/requests/:id/propose", authRequired, requireRole(["clini
   const updated = await bookingRequestsStore.update(breq.id, {
     status: "slot_assigned",
     proposedAt: parsed.data.scheduledAt,
-    proposedBy: req.auth!.userId
+    proposedBy: req.auth!.userId,
+    adminSuggestedAt: parsed.data.scheduledAt
   });
   const { conv } = await ensureConversationFor(breq.id);
   if (conv) {
@@ -1738,6 +1739,7 @@ schedulingRouter.post(
       status: "slot_assigned",
       proposedAt: parsed.data.scheduledAt,
       proposedBy: req.auth!.userId,
+      adminSuggestedAt: parsed.data.scheduledAt,
       notes: parsed.data.notes
     });
 
@@ -1777,7 +1779,8 @@ schedulingRouter.post(
         status: "scheduled",
         confirmedAt: new Date().toISOString(),
         confirmedBy: req.auth!.userId,
-        proposedAt: scheduledAt
+        proposedAt: scheduledAt,
+        clinicScheduledAt: scheduledAt
       });
       if (updated?.conversationId) {
         postSystemMessage(
@@ -1834,6 +1837,7 @@ schedulingRouter.post(
       confirmedBy: req.auth!.userId,
       scheduledSessionId: session.id,
       proposedAt: scheduledAt,
+      clinicScheduledAt: scheduledAt,
       sessionPriceKwd: clinicTake,
       cashbackDeductedKwd: cashbackUsed,
       clinicPaymentStatus: isCsOrAdmin ? "paid" : "payment_pending",

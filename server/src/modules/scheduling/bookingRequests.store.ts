@@ -13,6 +13,8 @@ export type BookingRequestRecord = {
   preferredAt?: string;
   proposedAt?: string;
   proposedBy?: string;
+  adminSuggestedAt?: string;
+  clinicScheduledAt?: string;
   acceptedAt?: string;
   confirmedAt?: string;
   confirmedBy?: string;
@@ -53,6 +55,8 @@ function mapDoc(doc: any): BookingRequestRecord {
     preferredAt: doc.preferredAt ? doc.preferredAt.toISOString() : undefined,
     proposedAt: doc.proposedAt ? doc.proposedAt.toISOString() : undefined,
     proposedBy: doc.proposedBy,
+    adminSuggestedAt: doc.adminSuggestedAt ? doc.adminSuggestedAt.toISOString() : undefined,
+    clinicScheduledAt: doc.clinicScheduledAt ? doc.clinicScheduledAt.toISOString() : undefined,
     acceptedAt: doc.acceptedAt ? doc.acceptedAt.toISOString() : undefined,
     confirmedAt: doc.confirmedAt ? doc.confirmedAt.toISOString() : undefined,
     confirmedBy: doc.confirmedBy,

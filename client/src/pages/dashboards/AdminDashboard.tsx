@@ -23,6 +23,7 @@ import NotificationSettingsPanel from "../../features/admin/NotificationSettings
 import QRCodeCanvas from "../../components/QRCodeCanvas";
 import { KpiCard } from "../../components/KpiCard";
 import AdminSessionsLogTab from "./AdminSessionsLogTab";
+import AdminRequestHistoryTab from "./AdminRequestHistoryTab";
 import DatePicker from "../../components/DatePicker";
 import { ClinicChangeRequestsQueue } from "./CsDashboard";
 import ClinicChangeModal from "../../components/ClinicChangeModal";
@@ -4914,6 +4915,7 @@ export default function AdminDashboard() {
     { key: "users", icon: Icons.users, label: t("users") },
     { key: "clinics", icon: Icons.clinic, label: t("clinics") },
     { key: "sessions_log", icon: Icons.calendar, label: ar() ? "سجل الجلسات" : "Sessions Log" },
+    { key: "request_history", icon: Icons.history, label: ar() ? "سجل طلبات الحجز" : "Request History" },
     { key: "clinic_changes", icon: Icons.clinic, label: ar() ? "تغيير العيادات" : "Clinic Changes" },
     { key: "tasks", icon: Icons.clipboard, label: t("tasks") },
     { key: "complaints", icon: Icons.complaint, label: t("complaints") },
@@ -5091,6 +5093,7 @@ export default function AdminDashboard() {
         )}
         {activeNav === "clinic_changes" && <ClinicChangeRequestsQueue />}
         {activeNav === "sessions_log" && <AdminSessionsLogTab />}
+        {activeNav === "request_history" && <AdminRequestHistoryTab />}
         {activeNav === "reservations" && <AdminReservationsPanel />}
         {activeNav === "share" && <ShareLinkPage />}
         {activeNav === "notices" && <NoticesAdminPanel />}
