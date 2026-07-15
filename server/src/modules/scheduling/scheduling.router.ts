@@ -2459,20 +2459,27 @@ schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin"]), as
   const clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
   const items = await bookingRequestsStore.list({ status, clinicId });
   
+  // Batch-fetch all unique user IDs for name lookup
+  const uniqueUserIds = [...new Set(items.map(it => it.userId))].filter(id => mongoose.isValidObjectId(id));
+  const userDocs = uniqueUserIds.length
+    ? await UserModel.find({ _id: { $in: uniqueUserIds.map(id => new mongoose.Types.ObjectId(id)) } })
+        .select("fullName phone username shortId").lean()
+    : [];
   const usersMap = new Map<string, string>();
+  for (const u of userDocs) {
+    const uid = (u as any)._id.toString();
+    usersMap.set(uid, (u as any).fullName || (u as any).phone || (u as any).username || uid);
+  }
+  
   const enriched = await Promise.all(
     items.map(async (it) => {
       const c = await getClinicNames(it.clinicId);
-      if (!usersMap.has(it.userId)) {
-        const u = await kycStore.getUser(it.userId);
-        usersMap.set(it.userId, u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || it.userId : it.userId);
-      }
       return { 
         ...it, 
         clinicNameEn: c.nameEn, 
         clinicNameAr: c.nameAr,
-        userName: usersMap.get(it.userId),
-        adminSuggestedAt: it.adminSuggestedAt || (it.status === 'slot_assigned' ? it.proposedAt : null),
+        userName: usersMap.get(it.userId) || it.userId,
+        adminSuggestedAt: it.adminSuggestedAt || it.proposedAt || null,
         clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? it.proposedAt : null)
       };
     })
