@@ -3030,8 +3030,7 @@ export default function CustomerDashboard() {
                                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${meta.color}`}>{ar() ? meta.labelAr : meta.label}</span>
                                 </div>
                                 <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العيادة:" : "Clinic:"} <span className="font-semibold text-surface-700">{clinicName}</span></div>
-                                {r.preferredAt && <div className="text-xs text-surface-400 mt-0.5">{ar() ? "الوقت المفضل:" : "Preferred:"} {fmtDateTime(r.preferredAt)}</div>}
-                                {r.proposedAt && (r.status === "slot_assigned" || r.status === "scheduled") && <div className="text-xs text-blue-600 mt-0.5 font-medium">{ar() ? (r.status === "scheduled" ? "وقت الموعد:" : "الوقت المقترح:") : (r.status === "scheduled" ? "Scheduled time:" : "Proposed time:")} {fmtDateTime(r.proposedAt)}</div>}
+                                {r.proposedAt && r.status === "scheduled" && <div className="text-xs text-blue-600 mt-0.5 font-medium">{ar() ? "وقت الموعد:" : "Scheduled time:"} {fmtDateTime(r.proposedAt)}</div>}
                                 {r.rejectionReason && <div className="text-xs text-red-500 mt-0.5">{ar() ? "السبب:" : "Reason:"} {r.rejectionReason}</div>}
                               </div>
                             </div>
