@@ -26,6 +26,11 @@ function RescheduleModal({ isOpen, session, onClose, onSubmit }: {
 
   if (!isOpen || !session) return null;
 
+  // Determine the minimum allowed date
+  // If adminSuggestedAt exists, lock dates before it. Otherwise allow any date (or just today).
+  // The DatePicker takes minDate in YYYY-MM-DD format.
+  const minDate = session.adminSuggestedAt ? new Date(session.adminSuggestedAt).toISOString().split('T')[0] : undefined;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden flex flex-col">
@@ -40,7 +45,7 @@ function RescheduleModal({ isOpen, session, onClose, onSubmit }: {
         <div className="p-5 space-y-4">
           <div>
             <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "التاريخ الجديد" : "New Date"}</label>
-            <DatePicker value={date} onChange={e => setDate(e.target.value)} className="input-field w-full" />
+            <DatePicker value={date} onChange={e => setDate(e.target.value)} minDate={minDate} className="input-field w-full" />
           </div>
           <div>
             <label className="text-xs font-bold text-surface-700 block mb-1">{ar() ? "الوقت الجديد" : "New Time"}</label>
