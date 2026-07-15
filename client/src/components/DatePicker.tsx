@@ -13,6 +13,8 @@ interface DatePickerProps extends Omit<React.InputHTMLAttributes<HTMLInputElemen
   onChange?: (e: { target: { value: string; name?: string } }) => void;
   showTimeSelect?: boolean;
   showTimeSelectOnly?: boolean;
+  minDate?: Date | null;
+  maxDate?: Date | null;
 }
 
 export default function DatePicker({ value, onChange, className, showTimeSelect, showTimeSelectOnly, ...props }: DatePickerProps) {

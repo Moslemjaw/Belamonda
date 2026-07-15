@@ -135,6 +135,7 @@ export default function ClinicBookingRequestsTab({ clinicId, onCountLoaded }: { 
                         className="w-full bg-white border border-surface-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-pink-500"
                         value={scheduleForm.scheduledAt}
                         onChange={e => setScheduleForm({ ...scheduleForm, scheduledAt: e.target.value })}
+                        minDate={r.proposedAt ? new Date(new Date(r.proposedAt).setHours(0,0,0,0)) : new Date()}
                       />
                       <div className="flex gap-2 mt-1">
                         <button
