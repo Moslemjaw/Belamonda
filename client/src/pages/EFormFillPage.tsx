@@ -19,6 +19,7 @@ export default function EFormFillPage() {
   const [form, setForm] = useState<FormDefinition | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [values, setValues] = useState<Record<string, any>>({});
   const [signature, setSignature] = useState<string | null>(null);
   const [files, setFiles] = useState<string[]>([]);
@@ -61,7 +62,11 @@ export default function EFormFillPage() {
 
   const goReview = () => {
     const err = validate();
-    if (err) return alert(err);
+    if (err) {
+      setValidationError(err);
+      return;
+    }
+    setValidationError(null);
     setStep("review");
   };
 
@@ -87,7 +92,7 @@ export default function EFormFillPage() {
       setStep("done");
       setTimeout(() => navigate(returnTo), 1500);
     } catch (e: any) {
-      alert(e.message);
+      setValidationError(e.message);
     } finally {
       setSubmitting(false);
     }
@@ -109,7 +114,7 @@ export default function EFormFillPage() {
       const data = await r.json();
       setFiles((s) => [...s, data.ref]);
     } catch (err: any) {
-      alert(err.message);
+      setValidationError(err.message);
     } finally {
       e.target.value = "";
     }
@@ -126,6 +131,11 @@ export default function EFormFillPage() {
       <main className="max-w-2xl mx-auto p-4 lg:p-8">
         {step === "fill" && (
           <div className="animate-fade-in">
+            {validationError && (
+              <div className="text-sm text-red-600 bg-red-50 rounded-xl p-3 mb-4">
+                {validationError}
+              </div>
+            )}
             <FormRenderer
               form={form}
               values={values}
