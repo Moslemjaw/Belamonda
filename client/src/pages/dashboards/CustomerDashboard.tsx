@@ -1382,13 +1382,13 @@ export default function CustomerDashboard() {
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    // ── "MEMBERSHIP CARD" title ──
+    // ── "ACCOUNT CARD" title ──
     const pad = 32 * SCALE;
     ctx.font = `bold ${11 * SCALE}px Inter, system-ui, -apple-system, sans-serif`;
     ctx.fillStyle = "rgba(255,255,255,0.55)";
     ctx.textBaseline = "top";
     ctx.letterSpacing = `${3 * SCALE}px`;
-    ctx.fillText("MEMBERSHIP CARD", pad, pad);
+    ctx.fillText(ar() ? "بطاقة الحساب" : "ACCOUNT CARD", pad, pad);
     ctx.letterSpacing = "0px";
 
     // ── QR Code (top-right) ──
