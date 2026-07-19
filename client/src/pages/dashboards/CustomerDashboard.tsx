@@ -1425,14 +1425,7 @@ export default function CustomerDashboard() {
     ctx.textBaseline = "bottom";
     ctx.fillText(member.displayName, pad, H - 72 * SCALE);
 
-    // ── Member Since ──
-    if (member.memberSince) {
-      ctx.font = `500 ${10 * SCALE}px Inter, system-ui, -apple-system, sans-serif`;
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.letterSpacing = `${1.5 * SCALE}px`;
-      ctx.fillText(`MEMBER SINCE ${member.memberSince.toUpperCase()}`, pad, H - 50 * SCALE);
-      ctx.letterSpacing = "0px";
-    }
+    // (Member Since removed per request)
 
     // ── Verification badge ──
     ctx.font = `bold ${9 * SCALE}px Inter, system-ui, -apple-system, sans-serif`;
@@ -3735,7 +3728,7 @@ export default function CustomerDashboard() {
                     
                     <div className="flex justify-between items-start z-10">
                       <div className={`text-xs font-bold uppercase tracking-[0.2em] ${cardData.card.belmondoPlan === "pro" ? "text-amber-200 drop-shadow-md" : "text-brand-pink-200/80"}`}>
-                        {cardData.card.belmondoPlan === "pro" ? (ar() ? "بيلاموندو برو" : "BELMONDO PRO") : (ar() ? "بطاقة العضوية" : "Membership Card")}
+                        {cardData.card.belmondoPlan === "pro" ? (ar() ? "بيلاموندو برو" : "BELMONDO PRO") : (ar() ? "بطاقة الحساب" : "ACCOUNT CARD")}
                       </div>
                       {/* QR Code on the card (top right) */}
                       {cardData.card.publicToken && (
@@ -3756,11 +3749,7 @@ export default function CustomerDashboard() {
                       
                       <div className="flex items-end justify-between">
                         <div>
-                          {cardData.card.memberSince && (
-                            <div className="text-[10px] uppercase tracking-wider text-brand-pink-200/80 mb-1">
-                              {ar() ? "عضو منذ" : "Member Since"} {fmtDate(cardData.card.memberSince)}
-                            </div>
-                          )}
+                          {/* Member Since removed per request */}
                           <div className="flex items-center gap-2">
                             {cardData.card.kycVerified ? (
                               <span className="inline-flex items-center gap-1 bg-white/20 text-white text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm border border-white/10">
