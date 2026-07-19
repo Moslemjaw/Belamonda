@@ -44,6 +44,7 @@ export default function EFormFillPage() {
   const validate = (): string | null => {
     for (const f of form.fields) {
       if (!f.required) continue;
+      if (f.type === "static_text") continue; // static_text cannot have a value
       const rawLabel = (ar() && (f as any).labelAr) ? (f as any).labelAr : f.labelEn;
       const shortLabel = rawLabel.length > 40 ? rawLabel.substring(0, 40) + "..." : rawLabel;
       if (f.type === "signature") {
