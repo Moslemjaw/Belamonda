@@ -2211,6 +2211,16 @@ export default function CustomerDashboard() {
                                   )}
                                 </div>
                                 <h4 className="font-bold text-surface-900 text-lg leading-tight tracking-tight">{offerName}</h4>
+                                {o.activatedAt && (
+                                  <div className="text-[11px] text-surface-500 mt-1">
+                                    {ar() ? "تاريخ التفعيل" : "Activated"}: {fmtDate(o.activatedAt)}
+                                  </div>
+                                )}
+                                {o.expiresAt && (
+                                  <div className={`text-[11px] mt-0.5 font-medium ${new Date(o.expiresAt) < new Date() ? "text-red-500" : new Date(o.expiresAt).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000 ? "text-amber-600" : "text-surface-500"}`}>
+                                    {ar() ? "تاريخ الانتهاء" : "Expires"}: {fmtDate(o.expiresAt)}
+                                  </div>
+                                )}
                               </div>
                               {isCashback ? (
                                 <div className="bg-surface-50 px-3.5 py-2.5 rounded-2xl text-center shrink-0 border border-surface-200/70 min-w-[88px]">
@@ -2870,6 +2880,11 @@ export default function CustomerDashboard() {
                                   {uo.activatedAt && <>{ar() ? "مفعّل:" : "Activated:"} {fmtDate(uo.activatedAt)} · </>}
                                   {ar() ? "الجلسات:" : "Sessions:"} {uo.sessionsUsed ?? 0}{uo.maxSessions ? ` / ${uo.maxSessions}` : " / ∞"}
                                 </div>
+                                {uo.expiresAt && (
+                                  <div className={`text-[11px] mt-0.5 font-medium ${new Date(uo.expiresAt) < new Date() ? "text-red-500" : new Date(uo.expiresAt).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000 ? "text-amber-600" : "text-surface-500"}`}>
+                                    {ar() ? "تاريخ الانتهاء:" : "Expires:"} {fmtDate(uo.expiresAt)}
+                                  </div>
+                                )}
                               </div>
                               <span className={`text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap ${statusBadge.cls}`}>{ar() ? statusBadge.ar : statusBadge.en}</span>
                             </div>
