@@ -948,7 +948,6 @@ commerceRouter.patch("/admin/user-offers/:id", authRequired, requireRole(["admin
       activatedAt: z.string().optional(),
       expiresAt: z.string().optional(),
       clinicId: z.string().nullable().optional(),
-      paymentAmountKwd: z.string().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
@@ -957,7 +956,6 @@ commerceRouter.patch("/admin/user-offers/:id", authRequired, requireRole(["admin
     if (parsed.data.activatedAt) updates.activatedAt = new Date(parsed.data.activatedAt);
     if (parsed.data.expiresAt) updates.expiresAt = new Date(parsed.data.expiresAt);
     if (parsed.data.clinicId !== undefined) updates.clinicId = parsed.data.clinicId;
-    if (parsed.data.paymentAmountKwd !== undefined) updates.paymentAmountKwd = parsed.data.paymentAmountKwd;
 
     if (Object.keys(updates).length === 0) return res.json({ ok: true });
 
