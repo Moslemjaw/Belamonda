@@ -2880,13 +2880,15 @@ export default function CustomerDashboard() {
                                   {uo.activatedAt && <>{ar() ? "مفعّل:" : "Activated:"} {fmtDate(uo.activatedAt)} · </>}
                                   {ar() ? "الجلسات:" : "Sessions:"} {uo.sessionsUsed ?? 0}{uo.maxSessions ? ` / ${uo.maxSessions}` : " / ∞"}
                                 </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                <span className={`text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap ${statusBadge.cls}`}>{ar() ? statusBadge.ar : statusBadge.en}</span>
                                 {uo.expiresAt && (
-                                  <div className={`text-[11px] mt-0.5 font-medium ${new Date(uo.expiresAt) < new Date() ? "text-red-500" : new Date(uo.expiresAt).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000 ? "text-amber-600" : "text-surface-500"}`}>
-                                    {ar() ? "تاريخ الانتهاء:" : "Expires:"} {fmtDate(uo.expiresAt)}
+                                  <div className={`text-[10px] font-medium ${new Date(uo.expiresAt) < new Date() ? "text-red-500" : new Date(uo.expiresAt).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000 ? "text-amber-600" : "text-surface-500"}`}>
+                                    {ar() ? "ينتهي في:" : "Exp:"} {fmtDate(uo.expiresAt)}
                                   </div>
                                 )}
                               </div>
-                              <span className={`text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap ${statusBadge.cls}`}>{ar() ? statusBadge.ar : statusBadge.en}</span>
                             </div>
 
                             {isInstallments && uo.installmentSchedule && (
