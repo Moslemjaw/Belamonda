@@ -44,17 +44,19 @@ export default function EFormFillPage() {
   const validate = (): string | null => {
     for (const f of form.fields) {
       if (!f.required) continue;
+      const rawLabel = (ar() && (f as any).labelAr) ? (f as any).labelAr : f.labelEn;
+      const shortLabel = rawLabel.length > 40 ? rawLabel.substring(0, 40) + "..." : rawLabel;
       if (f.type === "signature") {
-        if (!signature) return ar() ? `${f.labelEn} مطلوب` : `${f.labelEn} is required`;
+        if (!signature) return ar() ? `التوقيع مطلوب` : `Signature is required`;
         continue;
       }
       if (f.type === "file_upload") {
-        if (files.length === 0) return ar() ? `${f.labelEn} مطلوب` : `${f.labelEn} is required`;
+        if (files.length === 0) return ar() ? `${shortLabel} مطلوب` : `${shortLabel} is required`;
         continue;
       }
       const v = values[f.key];
       if (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0)) {
-        return ar() ? `${f.labelEn} مطلوب` : `${f.labelEn} is required`;
+        return ar() ? `${shortLabel} مطلوب` : `${shortLabel} is required`;
       }
     }
     return null;

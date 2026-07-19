@@ -184,17 +184,19 @@ export default function CheckoutModal({
     if (!eformDef) return null;
     for (const f of eformDef.fields) {
       if (!f.required) continue;
+      const rawLabel = (ar && (f as any).labelAr) ? (f as any).labelAr : f.labelEn;
+      const shortLabel = rawLabel.length > 40 ? rawLabel.substring(0, 40) + "..." : rawLabel;
       if (f.type === "signature") {
-        if (!eformSignature) return ar ? `${f.labelEn} مطلوب` : `${f.labelEn} is required`;
+        if (!eformSignature) return ar ? `التوقيع مطلوب` : `Signature is required`;
         continue;
       }
       if (f.type === "file_upload") {
-        if (eformFiles.length === 0) return ar ? `${f.labelEn} مطلوب` : `${f.labelEn} is required`;
+        if (eformFiles.length === 0) return ar ? `${shortLabel} مطلوب` : `${shortLabel} is required`;
         continue;
       }
       const v = eformValues[f.key];
       if (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0)) {
-        return ar ? `${f.labelEn} مطلوب` : `${f.labelEn} is required`;
+        return ar ? `${shortLabel} مطلوب` : `${shortLabel} is required`;
       }
     }
     return null;
