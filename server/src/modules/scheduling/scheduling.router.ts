@@ -2795,4 +2795,45 @@ schedulingRouter.post("/admin/requests/:requestId/update-notes", authRequired, r
   }
 });
 
+// ── Admin / Clinic: delete a booking request ────────────────────────────────
+schedulingRouter.delete("/admin/requests/:requestId", authRequired, requireRole(["admin", "cs", "legal", "cs_director", "clinicStaff"]), async (req, res, next) => {
+  try {
+    const breq = await bookingRequestsStore.get(req.params.requestId);
+    if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
+
+    if (req.auth!.role === "clinicStaff" && !(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
+      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+    }
+
+    if (breq.scheduledSessionId && mongoose.isValidObjectId(breq.scheduledSessionId)) {
+      await BookingSessionModel.findByIdAndDelete(breq.scheduledSessionId);
+
+      if (!breq.isStandalone && breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
+        const uo = await UserOfferModel.findById(breq.userOfferId);
+        if (uo && (uo.sessionsUsed ?? 0) > 0) {
+          await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { sessionsUsed: -1 } });
+        }
+      }
+    }
+
+    if (breq.cashbackDeductedKwd && parseFloat(breq.cashbackDeductedKwd) > 0) {
+      const refund = parseFloat(breq.cashbackDeductedKwd);
+      if (breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
+        await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { cashbackBalanceKwd: refund } });
+      }
+      await kycStore.adjustUnlocked({
+        userId: breq.userId,
+        amountKwd: refund.toFixed(3),
+        reason: "Refund from deleted booking",
+        createdById: req.auth!.userId
+      });
+    }
+
+    await BookingRequestModel.findByIdAndDelete(breq.id);
+    return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
 export { resolveUserOffer };
