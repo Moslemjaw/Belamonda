@@ -4305,7 +4305,7 @@ export default function CustomerDashboard() {
                         });
                      };
                      
-                     const isPreAssigned = showBookingModal.clinicLocked === true && !!showBookingModal.userOfferId && !!showBookingModal.clinicId;
+                     const isPreAssigned = !!showBookingModal.userOfferId && !!showBookingModal.clinicId;
                      const isLaser = showBookingModal.category === "laser" && !!showBookingModal.clinicId;
                      const shouldDisable = isPreAssigned || isLaser;
 

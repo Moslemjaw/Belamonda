@@ -574,11 +574,16 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     }
     
     if (overrideClinicId) {
-       uo.clinicId = overrideClinicId; // Use selected clinic
        const dbUo = await UserOfferModel.findById(uo.id);
-       if (dbUo && !dbUo.clinicId) {
-         dbUo.clinicId = new mongoose.Types.ObjectId(overrideClinicId);
-         await dbUo.save();
+       if (dbUo && dbUo.clinicId) {
+         // Force it back to the membership's existing clinic
+         uo.clinicId = dbUo.clinicId.toString();
+       } else {
+         uo.clinicId = overrideClinicId; // Use selected clinic
+         if (dbUo && !dbUo.clinicId) {
+           dbUo.clinicId = new mongoose.Types.ObjectId(overrideClinicId);
+           await dbUo.save();
+         }
        }
     }
 
