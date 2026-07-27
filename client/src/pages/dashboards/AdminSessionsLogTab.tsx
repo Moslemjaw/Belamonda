@@ -449,9 +449,39 @@ export default function AdminSessionsLogTab() {
                       </td>
                       {/* Attendance Status */}
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${attendanceStyle}`}>
-                          {attendanceLabel}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${attendanceStyle}`}>
+                            {attendanceLabel}
+                          </span>
+                          {attendanceStatus === 'awaiting' && (
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(ar() ? "تأكيد حضور العميل؟" : "Mark customer as attended?")) return;
+                                try {
+                                  if (s.type === "session") {
+                                    await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
+                                      method: "POST",
+                                      headers: getAuthHeader(),
+                                      body: JSON.stringify({ status: "completed", notes: "Marked attended by admin" })
+                                    });
+                                  } else {
+                                    await apiFetch(`/scheduling/clinic/requests/${s.id}/confirm`, {
+                                      method: "POST",
+                                      headers: getAuthHeader(),
+                                      body: JSON.stringify({ scheduledAt: s.scheduledAt, notes: "Marked attended by admin" })
+                                    });
+                                  }
+                                  fetchSessions();
+                                } catch (err: any) {
+                                  alert(err.message || "Failed to mark as attended");
+                                }
+                              }}
+                              className="text-[10px] font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-2 py-1 rounded transition-colors"
+                            >
+                              {ar() ? "حضر" : "Attended"}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
