@@ -1197,17 +1197,25 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
     : [];
   const offerMap = new Map(offerDocs.map((o) => [String(o._id), mapOfferDocToSched(o)]));
 
-  const finalItems = enriched.map((it) => {
-    const offer = it.offerId && mongoose.isValidObjectId(it.offerId)
-      ? (offerMap.get(it.offerId) ?? null)
-      : (it.offerId ? (offersStore.get(it.offerId) as any as SchedOffer | undefined) ?? null : null);
-    const financials = computeBookingRequestFinancials(it, offer);
-    return {
-      ...it,
-      offerName: it.standaloneName ?? offer?.name ?? (it.offerId && !mongoose.isValidObjectId(it.offerId) ? (offersStore.get(it.offerId) as { name?: string } | undefined)?.name ?? null : null),
-      ...financials,
-    };
-  });
+  const finalItems = enriched
+    .filter((it) => {
+      // If booking is routed via CS, clinic only sees it after Admin/CS has proposed/assigned a date or forwarded it
+      if (it.bookingRoute === "cs" && it.status === "request_received" && !it.proposedAt) {
+        return false;
+      }
+      return true;
+    })
+    .map((it) => {
+      const offer = it.offerId && mongoose.isValidObjectId(it.offerId)
+        ? (offerMap.get(it.offerId) ?? null)
+        : (it.offerId ? (offersStore.get(it.offerId) as any as SchedOffer | undefined) ?? null : null);
+      const financials = computeBookingRequestFinancials(it, offer);
+      return {
+        ...it,
+        offerName: it.standaloneName ?? offer?.name ?? (it.offerId && !mongoose.isValidObjectId(it.offerId) ? (offersStore.get(it.offerId) as { name?: string } | undefined)?.name ?? null : null),
+        ...financials,
+      };
+    });
 
   return res.json({ items: finalItems });
 });
