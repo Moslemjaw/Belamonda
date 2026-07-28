@@ -502,8 +502,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     let uoId = parsed.data.userOfferId;
     let overrideClinicId = parsed.data.clinicId;
 
-    const globalBookingRoute: "clinic" | "cs" =
-      parsed.data.schedulingMode === "belamonda_cs" ? "cs" : "clinic";
+    const globalBookingRoute: "clinic" | "cs" = "cs";
 
     if (parsed.data.isStandalone && uoId.startsWith("temp_")) {
        if (!parsed.data.standaloneName) return res.status(400).json({ error: "MISSING_STANDALONE_NAME" });
@@ -1199,8 +1198,9 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
 
   const finalItems = enriched
     .filter((it) => {
-      // If booking is routed via CS, clinic only sees it after Admin/CS has proposed/assigned a date or forwarded it
-      if (it.bookingRoute === "cs" && it.status === "request_received" && !it.proposedAt) {
+      // Clinic staff must NEVER see a request until Admin/CS has forwarded or proposed/assigned a date
+      const hasAdminProposedDate = !!(it.proposedAt || (it as any).adminSuggestedAt);
+      if (!hasAdminProposedDate && (it.status === "request_received" || it.bookingRoute === "cs")) {
         return false;
       }
       return true;
