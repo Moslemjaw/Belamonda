@@ -205,16 +205,19 @@ function ScheduleTable({
   const dayAfterTomorrow = new Date(today);
   dayAfterTomorrow.setDate(today.getDate() + 2);
 
+  // Hide request_received sessions from clinic view — only forwarded sessions should appear
+  const filteredSessions = sessions.filter((s) => s.status !== "request_received");
+
   const groups = {
-    today: sessions.filter((s) => {
+    today: filteredSessions.filter((s) => {
       const t = new Date(s.scheduledAt);
       return t >= today && t < tomorrow;
     }),
-    tomorrow: sessions.filter((s) => {
+    tomorrow: filteredSessions.filter((s) => {
       const t = new Date(s.scheduledAt);
       return t >= tomorrow && t < dayAfterTomorrow;
     }),
-    upcoming: sessions.filter((s) => new Date(s.scheduledAt) >= dayAfterTomorrow),
+    upcoming: filteredSessions.filter((s) => new Date(s.scheduledAt) >= dayAfterTomorrow),
   };
 
   const formatTimeOnly = (iso: string) => {
@@ -413,7 +416,7 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
   const { data, loading } = useMyClinicReport({ from, to });
 
   const invoices = data?.invoices ?? [];
-  const activeInvoices = invoices.filter(inv => inv.status !== 'completed');
+  const activeInvoices = invoices.filter(inv => inv.status !== 'completed' && inv.status !== 'request_received');
   
   const filteredInvoices = activeInvoices.filter(inv =>
     !search || inv.customerName?.toLowerCase().includes(search.toLowerCase()) ||
