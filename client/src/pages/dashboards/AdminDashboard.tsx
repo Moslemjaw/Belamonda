@@ -3268,11 +3268,11 @@ export function UserProfilePanel({
                         </button>
                       )}
                       <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${
-                        s.status === 'completed' && s.clinicPaymentStatus !== 'paid' && !s.notes
+                        s.status === 'completed' && s.clinicPaymentStatus !== 'paid'
                           ? 'bg-amber-50 text-amber-700'
                           : statusBadge(s.status)
                       }`}>
-                        {s.status === 'completed' && s.clinicPaymentStatus !== 'paid' && !s.notes
+                        {s.status === 'completed' && s.clinicPaymentStatus !== 'paid'
                           ? 'Awaiting Session Payment'
                           : s.status}
                       </span>
