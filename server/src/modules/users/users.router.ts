@@ -226,8 +226,46 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES,
       offerName: offerMap[String(s.offerId)]?.name ?? "—",
       offerNameAr: offerMap[String(s.offerId)]?.nameAr,
       scheduledAt: s.scheduledAt ? new Date(s.scheduledAt).toISOString() : undefined,
+      completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : undefined,
       shortId: s.shortId,
+      bookingRequestId: s.bookingRequestId ? String(s.bookingRequestId) : undefined,
+      notes: s.notes,
     }));
+
+    // Synthesize entries for any manual/historical sessions counted on memberships that lack BookingSession records
+    const sessionCountsByUoId: Record<string, number> = {};
+    for (const bs of bookingSessionsList) {
+      if (bs.userOfferId) {
+        sessionCountsByUoId[bs.userOfferId] = (sessionCountsByUoId[bs.userOfferId] || 0) + 1;
+      }
+    }
+
+    for (const m of memberships as any[]) {
+      const uoIdStr = String(m._id);
+      const used = m.sessionsUsed ?? 0;
+      const actualBsCount = sessionCountsByUoId[uoIdStr] || 0;
+      const missingCount = used - actualBsCount;
+
+      if (missingCount > 0) {
+        const manualDate = m.lastManualSessionAt || m.createdAt || new Date();
+        for (let i = 0; i < missingCount; i++) {
+          bookingSessionsList.push({
+            id: `manual_${uoIdStr}_${i}`,
+            status: "completed",
+            clinicId: m.clinicId ? String(m.clinicId) : undefined,
+            userOfferId: uoIdStr,
+            offerId: String(m.offerId),
+            offerName: offerMap[String(m.offerId)]?.name ?? "—",
+            offerNameAr: offerMap[String(m.offerId)]?.nameAr,
+            scheduledAt: new Date(manualDate).toISOString(),
+            completedAt: new Date(manualDate).toISOString(),
+            shortId: `manual-${i + 1}`,
+            bookingRequestId: undefined,
+            notes: "Manual / Historical Session",
+          });
+        }
+      }
+    }
 
     const kycItem = kyc.length > 0 ? {
       id: String((kyc[0] as any)._id),
@@ -888,8 +926,23 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
         await UserOfferModel.findByIdAndUpdate(uo._id, { $set: { paymentId: payment._id } });
       }
 
-      // Historical sessions: only the sessionsUsed counter on UserOffer matters.
-      // We no longer create BookingSession documents for historical sessions.
+      // Historical sessions: create BookingSession documents so they appear in session history
+      if (en.historicalSessions && en.historicalSessions.length > 0) {
+        for (const hs of en.historicalSessions) {
+          const sessionDate = hs.date ? new Date(hs.date) : now;
+          await BookingSessionModel.create({
+            userId: String(user._id),
+            offerId: offer._id,
+            userOfferId: uo._id,
+            clinicId: en.clinicId || undefined,
+            status: "completed",
+            scheduledAt: sessionDate,
+            completedAt: sessionDate,
+            scheduledBy: req.auth!.userId,
+            notes: "Historical session (Manual Enroll)"
+          });
+        }
+      }
 
       await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
 
