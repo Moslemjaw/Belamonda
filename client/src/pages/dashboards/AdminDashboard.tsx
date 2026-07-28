@@ -3227,7 +3227,7 @@ export function UserProfilePanel({
                     <div>
                       <div className="font-bold text-surface-900 flex items-center gap-2 flex-wrap">
                         <span>{ar() ? (s.offerNameAr || s.offerName) : s.offerName}</span>
-                        {s.notes && (
+                        {String(s.id).startsWith("manual_") && (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
                             {ar() ? "جلسة يدوية / تاريخية" : "Manual / Historical"}
                           </span>
@@ -3235,7 +3235,6 @@ export function UserProfilePanel({
                       </div>
                       <div className="text-xs font-mono text-surface-400 mt-0.5" title="Session ID">{s.shortId || s.id}</div>
                       <div className="text-xs text-surface-500 mt-0.5">{ar() ? "الموعد" : "Scheduled"}: {fmt(s.scheduledAt)}</div>
-                      {s.notes && <div className="text-[11px] text-purple-600 mt-0.5 font-medium">{s.notes}</div>}
                     </div>
                     <div className="flex items-center gap-2">
                       {s.bookingRequestId && (isAdmin || isCS) && (s.status === "scheduled" || s.status === "completed" || s.status === "no_show") && (
