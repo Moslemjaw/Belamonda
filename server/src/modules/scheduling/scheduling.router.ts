@@ -502,7 +502,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     let uoId = parsed.data.userOfferId;
     let overrideClinicId = parsed.data.clinicId;
 
-    const globalBookingRoute: "clinic" | "cs" = "cs";
+    const globalBookingRoute: "clinic" | "cs" = "cs" as any;
 
     if (parsed.data.isStandalone && uoId.startsWith("temp_")) {
        if (!parsed.data.standaloneName) return res.status(400).json({ error: "MISSING_STANDALONE_NAME" });
