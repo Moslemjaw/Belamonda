@@ -283,7 +283,7 @@ export default function AdminSessionsLogTab() {
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-surface-100 text-surface-800">
                             {clinicName || s.clinicId}
                           </span>
-                          {['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'slot_proposed', 'under_review', 'pending'].includes(s.status) && (
+                          {!['cancelled', 'rejected'].includes(s.status) && (
                             <>
                               <button 
                                 onClick={() => {
@@ -335,7 +335,7 @@ export default function AdminSessionsLogTab() {
                             <div className="font-bold text-surface-900">{fmtDate(s.scheduledAt)}</div>
                             <div className="text-xs text-surface-500">{new Date(s.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
                           </div>
-                          {['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'slot_proposed', 'under_review', 'pending'].includes(s.status) && (
+                          {!['cancelled', 'rejected'].includes(s.status) && (
                             <button
                               onClick={() => {
                                 setRescheduleTarget(s);
