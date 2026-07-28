@@ -1253,6 +1253,27 @@ function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, clinicI
                       <button className="text-xs font-medium text-surface-500 hover:text-surface-700 bg-surface-50 hover:bg-surface-100 px-2.5 py-1.5 rounded-lg transition-colors border border-surface-200" onClick={() => setExpandedId(isExpanded ? null : o.id)}>
                         {isExpanded ? "▲" : "▼"}
                       </button>
+                      {!isActive && (
+                        <button
+                          className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 px-2.5 py-1 rounded-lg transition-colors"
+                          onClick={async () => {
+                            if (!window.confirm(ar() ? "تأكيد إعادة تفعيل العضوية؟" : "Reactivate this membership?")) return;
+                            try {
+                              await apiFetch(`/commerce/admin/user-offers/${o.id}`, {
+                                method: "PATCH",
+                                headers: getAuthHeader(),
+                                body: JSON.stringify({ status: "active" })
+                              });
+                              refetch();
+                              alert(ar() ? "تم إعادة تفعيل العضوية بنجاح" : "Membership reactivated");
+                            } catch (err: any) {
+                              alert(err.message || "Failed to reactivate membership");
+                            }
+                          }}
+                        >
+                          {ar() ? "إعادة تفعيل" : "Reactivate"}
+                        </button>
+                      )}
                       {canCancel && !isConfirming && (
                         <>
                           <button 

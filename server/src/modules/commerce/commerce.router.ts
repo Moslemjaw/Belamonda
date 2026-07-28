@@ -948,6 +948,7 @@ commerceRouter.patch("/admin/user-offers/:id", authRequired, requireRole(["admin
       activatedAt: z.string().optional(),
       expiresAt: z.string().optional(),
       clinicId: z.string().nullable().optional(),
+      status: z.string().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
@@ -956,10 +957,16 @@ commerceRouter.patch("/admin/user-offers/:id", authRequired, requireRole(["admin
     if (parsed.data.activatedAt) updates.activatedAt = new Date(parsed.data.activatedAt);
     if (parsed.data.expiresAt) updates.expiresAt = new Date(parsed.data.expiresAt);
     if (parsed.data.clinicId !== undefined) updates.clinicId = parsed.data.clinicId;
+    if (parsed.data.status) updates.status = parsed.data.status;
 
     if (Object.keys(updates).length === 0) return res.json({ ok: true });
 
-    const uo = await UserOfferModel.findByIdAndUpdate(req.params.id, { $set: updates }, { new: true });
+    const mongoUpdates: any = { $set: updates };
+    if (parsed.data.status === "active") {
+      mongoUpdates.$unset = { pendingExpiresAt: 1 };
+    }
+
+    const uo = await UserOfferModel.findByIdAndUpdate(req.params.id, mongoUpdates, { new: true });
     if (!uo) return res.status(404).json({ error: "Membership not found" });
 
     return res.json({ ok: true, uo });
