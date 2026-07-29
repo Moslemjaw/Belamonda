@@ -160,15 +160,15 @@ async function assertCustomerCanPurchase(userId: string) {
 async function assertNotAlreadyEnrolled(userId: string, offer: OfferDoc, excludeUserOfferId?: string) {
   // If the offer is a membership (has a defined membershipType), block any other active membership of the SAME type.
   // Otherwise, fallback to blocking the exact same offerId.
+  // 1. Check if they already have THIS EXACT offer active or reserved
   const baseQuery: any = {
     userId,
-    status: { $in: ["pending_payment", "active", "reserved", "enet_pending"] }
+    status: { $in: ["active", "reserved"] }
   };
   if (excludeUserOfferId) {
     baseQuery._id = { $ne: new mongoose.Types.ObjectId(excludeUserOfferId) };
   }
 
-  // 1. Check if they already have THIS EXACT offer
   const exactOfferQuery = { ...baseQuery, offerId: offer._id };
   const exactExisting = await UserOfferModel.countDocuments(exactOfferQuery);
   if (exactExisting > 0) {
@@ -177,8 +177,6 @@ async function assertNotAlreadyEnrolled(userId: string, offer: OfferDoc, exclude
 
   // 2. If it's a membership, check if they already have ANY offer with the SAME membershipType
   if (offer.offerKind === "membership" || offer.membershipType) {
-    // If the offer has a membershipType, look for other userOffers with the same membershipType.
-    // We only enforce this for actual memberships, to prevent having NGOLD and NSILVER active at once.
     if (offer.membershipType) {
       const typeQuery = { ...baseQuery, membershipType: offer.membershipType };
       const typeExisting = await UserOfferModel.countDocuments(typeQuery);
@@ -1060,7 +1058,7 @@ export async function convertReservation(input: {
     _id: { $ne: uo._id },
     userId: input.userId,
     offerId: offer._id,
-    status: { $in: ["pending_payment", "active", "reserved", "enet_pending"] }
+    status: { $in: ["active", "reserved"] }
   });
   if (dupes > 0) throw httpErr(409, `ALREADY_ENROLLED|uid:${input.userId}|oid:${offer._id}|excl:${uo._id}`);
 
@@ -1069,7 +1067,7 @@ export async function convertReservation(input: {
       _id: { $ne: uo._id },
       userId: input.userId,
       membershipType: offer.membershipType,
-      status: { $in: ["pending_payment", "active", "reserved", "enet_pending"] }
+      status: { $in: ["active", "reserved"] }
     });
     if (typeDupes > 0) throw httpErr(409, `ALREADY_ENROLLED|uid:${input.userId}|type:${offer.membershipType}|excl:${uo._id}`);
   }
