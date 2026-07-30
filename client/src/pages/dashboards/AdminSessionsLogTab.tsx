@@ -359,12 +359,12 @@ export default function AdminSessionsLogTab() {
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${paymentStyle}`}>
                             {paymentLabel}
                           </span>
-                          {s.clinicPaymentStatus !== 'paid' && (s.type === 'request' || s.requestId) && (
+                          {s.clinicPaymentStatus !== 'paid' && (
                             <button
                               onClick={async () => {
                                 if (!window.confirm(ar() ? "تأكيد الدفع؟" : "Confirm payment?")) return;
                                 try {
-                                  const reqId = s.type === 'request' ? s.id : s.requestId;
+                                  const reqId = s.requestId || s.id;
                                   await apiFetch(`/scheduling/requests/${reqId}/mark-paid`, {
                                     method: "POST",
                                     headers: getAuthHeader(),
@@ -380,12 +380,12 @@ export default function AdminSessionsLogTab() {
                               {ar() ? "دفع" : "Paid"}
                             </button>
                           )}
-                          {s.clinicPaymentStatus === 'paid' && (s.type === 'request' || s.requestId) && (
+                          {s.clinicPaymentStatus === 'paid' && (
                             <button
                               onClick={async () => {
                                 if (!window.confirm(ar() ? "هل تريد إلغاء الدفع؟" : "Mark as unpaid?")) return;
                                 try {
-                                  const reqId = s.type === 'request' ? s.id : s.requestId;
+                                  const reqId = s.requestId || s.id;
                                   await apiFetch(`/scheduling/requests/${reqId}/mark-unpaid`, {
                                     method: "POST",
                                     headers: getAuthHeader(),
@@ -401,35 +401,33 @@ export default function AdminSessionsLogTab() {
                               {ar() ? "غير مدفوع" : "Unpaid"}
                             </button>
                           )}
-                          {(s.type === 'request' || s.requestId) && (
-                            <button
-                              onClick={async () => {
-                                const currentPrice = s.sessionPriceKwd || "0.000";
-                                const newPrice = prompt(ar() ? "أدخل السعر الجديد (د.ك):" : "Enter new price (KWD):", currentPrice);
-                                if (newPrice !== null && newPrice.trim() !== "") {
-                                  const parsed = parseFloat(newPrice);
-                                  if (!isNaN(parsed)) {
-                                    try {
-                                      const reqId = s.type === 'request' ? s.id : s.requestId;
-                                      await apiFetch(`/scheduling/requests/${reqId}/update-price`, {
-                                        method: "POST",
-                                        headers: getAuthHeader(),
-                                        body: JSON.stringify({ sessionPriceKwd: parsed.toFixed(3) })
-                                      });
-                                      fetchSessions();
-                                    } catch (err: any) {
-                                      alert(err.message || "Failed to update price");
-                                    }
-                                  } else {
-                                    alert(ar() ? "سعر غير صالح" : "Invalid price");
+                          <button
+                            onClick={async () => {
+                              const currentPrice = s.sessionPriceKwd || "0.000";
+                              const newPrice = prompt(ar() ? "أدخل السعر الجديد (د.ك):" : "Enter new price (KWD):", currentPrice);
+                              if (newPrice !== null && newPrice.trim() !== "") {
+                                const parsed = parseFloat(newPrice);
+                                if (!isNaN(parsed)) {
+                                  try {
+                                    const reqId = s.requestId || s.id;
+                                    await apiFetch(`/scheduling/requests/${reqId}/update-price`, {
+                                      method: "POST",
+                                      headers: getAuthHeader(),
+                                      body: JSON.stringify({ sessionPriceKwd: parsed.toFixed(3) })
+                                    });
+                                    fetchSessions();
+                                  } catch (err: any) {
+                                    alert(err.message || "Failed to update price");
                                   }
+                                } else {
+                                  alert(ar() ? "سعر غير صالح" : "Invalid price");
                                 }
-                              }}
-                              className="text-[10px] font-bold bg-surface-100 text-surface-600 hover:bg-surface-200 px-2 py-1 rounded transition-colors"
-                            >
-                              {ar() ? "تعديل السعر" : "Edit Price"}
-                            </button>
-                          )}
+                              }
+                            }}
+                            className="text-[10px] font-bold bg-surface-100 text-surface-600 hover:bg-surface-200 px-2 py-1 rounded transition-colors"
+                          >
+                            {ar() ? "تعديل السعر" : "Edit Price"}
+                          </button>
                         </div>
                         {s.sessionPriceKwd !== undefined && s.sessionPriceKwd !== null && (
                           <div className="mt-1 text-xs font-medium text-surface-500">

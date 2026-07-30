@@ -2404,7 +2404,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     const enrichedSessions = sessionDocs.map((doc: any) => {
       const req = requestsBySessionMap.get(doc._id.toString());
       const sStatus = doc.status;
-      const pStatus = req?.clinicPaymentStatus || "pending";
+      const pStatus = doc.clinicPaymentStatus || req?.clinicPaymentStatus || "pending";
       
       let combinedStatus = "";
       if (sStatus === "completed" && pStatus === "paid") combinedStatus = "Completed";
