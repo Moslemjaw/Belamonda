@@ -1724,10 +1724,12 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
       setResult(data);
 
       if (isInitialScan) {
-        const scheduledCount = data?.card?.activeSessionCount ?? 0;
-        const clinicScheduledCount = (data?.clinicSessions || []).filter((s: any) => s.status === "scheduled" || s.status === "slot_assigned").length;
+        const clinicScheduledSessions = (data?.clinicSessions || []).filter((s: any) => s.status === "scheduled" || s.status === "slot_assigned");
 
-        if (scheduledCount === 0 && clinicScheduledCount === 0) {
+        if (clinicScheduledSessions.length > 0) {
+          const currentSession = clinicScheduledSessions[0];
+          await handleMarkSession(currentSession.id, "completed");
+        } else {
           setShowNoScheduledModal(true);
         }
       }
