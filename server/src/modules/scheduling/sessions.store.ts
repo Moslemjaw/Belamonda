@@ -148,7 +148,9 @@ export const sessionsStore = {
     };
     if (input.notes) update.notes = input.notes;
     if (input.status === "completed") {
-      update.completedAt = new Date();
+      const now = new Date();
+      update.scheduledAt = now;
+      update.completedAt = now;
       if (input.cashbackUnlockedKwd) update.cashbackUnlockedKwd = input.cashbackUnlockedKwd;
       if (input.extraItems) update.extraItems = input.extraItems;
       if (input.totalBillKwd) update.totalBillKwd = input.totalBillKwd;
