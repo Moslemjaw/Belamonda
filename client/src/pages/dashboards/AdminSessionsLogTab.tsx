@@ -129,19 +129,11 @@ export default function AdminSessionsLogTab() {
     setRescheduleSubmitting(true);
     try {
       const scheduledAtIso = new Date(newDateStr).toISOString();
-      if (rescheduleTarget.type === "session") {
-        await apiFetch(`/scheduling/clinic/sessions/${rescheduleTarget.id}/reschedule`, {
-          method: "POST",
-          headers: getAuthHeader(),
-          body: JSON.stringify({ scheduledAt: scheduledAtIso })
-        });
-      } else {
-        await apiFetch(`/scheduling/requests/${rescheduleTarget.id}/propose`, {
-          method: "POST",
-          headers: getAuthHeader(),
-          body: JSON.stringify({ scheduledAt: scheduledAtIso })
-        });
-      }
+      await apiFetch(`/scheduling/admin/sessions-log/${rescheduleTarget.id}/edit-date`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ scheduledAt: scheduledAtIso, type: rescheduleTarget.type })
+      });
       alert(ar() ? "تم تغيير الموعد بنجاح" : "Rescheduled successfully");
       setRescheduleTarget(null);
       fetchSessions();
@@ -339,9 +331,7 @@ export default function AdminSessionsLogTab() {
                             <button
                               onClick={() => {
                                 setRescheduleTarget(s);
-                                const d = new Date(s.scheduledAt);
-                                d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-                                setNewDateStr(d.toISOString().slice(0, 16));
+                                setNewDateStr(s.scheduledAt || "");
                               }}
                               className="ml-2 text-[10px] font-bold bg-surface-100 text-surface-600 hover:bg-surface-200 px-2 py-1 rounded transition-colors"
                             >
@@ -568,12 +558,12 @@ export default function AdminSessionsLogTab() {
             
             <div className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-bold text-surface-700 mb-1">{ar() ? "الموعد الجديد" : "New Date & Time"}</label>
-                <input 
-                  type="datetime-local" 
-                  className="input-field w-full"
+                <label className="block text-sm font-bold text-surface-700 mb-1">{ar() ? "الموعد الجديد (يوم/شهر/سنة)" : "New Date & Time (DD/MM/YYYY)"}</label>
+                <DatePicker 
                   value={newDateStr}
                   onChange={e => setNewDateStr(e.target.value)}
+                  showTimeSelect={true}
+                  className="input-field w-full font-medium text-surface-700"
                 />
               </div>
             </div>

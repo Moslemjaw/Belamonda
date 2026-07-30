@@ -2553,6 +2553,76 @@ schedulingRouter.post("/admin/user-offers/:uoId/adjust-sessions", authRequired, 
   }
 });
 
+// ── Admin: Edit Date on any session or booking request (regardless of status) ──
+schedulingRouter.post("/admin/sessions-log/:id/edit-date", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
+  try {
+    const { scheduledAt, type } = req.body;
+    if (!scheduledAt || isNaN(new Date(scheduledAt).getTime())) {
+      return res.status(400).json({ error: "INVALID_DATE" });
+    }
+    const newDate = new Date(scheduledAt);
+    const id = req.params.id;
+
+    let updated = false;
+
+    if (type === "session" || (mongoose.isValidObjectId(id) && await BookingSessionModel.exists({ _id: id }))) {
+      const bs = await BookingSessionModel.findById(id);
+      if (bs) {
+        bs.scheduledAt = newDate;
+        if (bs.status === "completed") {
+          bs.completedAt = newDate;
+        }
+        await bs.save();
+        updated = true;
+
+        if (bs.bookingRequestId) {
+          await BookingRequestModel.findByIdAndUpdate(bs.bookingRequestId, { $set: { scheduledAt: newDate } });
+        }
+      }
+    }
+
+    if (!updated && (type === "request" || (mongoose.isValidObjectId(id) && await BookingRequestModel.exists({ _id: id })))) {
+      const breq = await BookingRequestModel.findById(id);
+      if (breq) {
+        breq.scheduledAt = newDate;
+        await breq.save();
+        updated = true;
+
+        if (breq.bookingSessionId) {
+          await BookingSessionModel.findByIdAndUpdate(breq.bookingSessionId, { $set: { scheduledAt: newDate } });
+        }
+      }
+    }
+
+    if (!updated && mongoose.isValidObjectId(id)) {
+      const [bs, breq] = await Promise.all([
+        BookingSessionModel.findById(id),
+        BookingRequestModel.findById(id)
+      ]);
+      if (bs) {
+        bs.scheduledAt = newDate;
+        if (bs.status === "completed") bs.completedAt = newDate;
+        await bs.save();
+        if (bs.bookingRequestId) await BookingRequestModel.findByIdAndUpdate(bs.bookingRequestId, { $set: { scheduledAt: newDate } });
+        updated = true;
+      } else if (breq) {
+        breq.scheduledAt = newDate;
+        await breq.save();
+        if (breq.bookingSessionId) await BookingSessionModel.findByIdAndUpdate(breq.bookingSessionId, { $set: { scheduledAt: newDate } });
+        updated = true;
+      }
+    }
+
+    if (!updated) {
+      return res.status(404).json({ error: "NOT_FOUND" });
+    }
+
+    return res.json({ ok: true, scheduledAt: newDate.toISOString() });
+  } catch (e) {
+    next(e);
+  }
+});
+
 schedulingRouter.post("/admin/grant-session", authRequired, requireRole(["cs", "legal", "admin", "cs_director"]), async (req, res, next) => {
   try {
     const schema = z.object({
