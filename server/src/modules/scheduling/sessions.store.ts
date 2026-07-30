@@ -149,7 +149,6 @@ export const sessionsStore = {
     if (input.notes) update.notes = input.notes;
     if (input.status === "completed") {
       const now = new Date();
-      update.scheduledAt = now;
       update.completedAt = now;
       if (input.cashbackUnlockedKwd) update.cashbackUnlockedKwd = input.cashbackUnlockedKwd;
       if (input.extraItems) update.extraItems = input.extraItems;

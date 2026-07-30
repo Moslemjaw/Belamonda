@@ -59,7 +59,8 @@ const BookingRequestSchema = new Schema(
     conversationId: { type: String },
     extraItems: { type: [{ name: String, priceKwd: String, qty: Number }], default: [] },
     totalBillKwd: { type: String },
-    finalPaidKwd: { type: String }
+    finalPaidKwd: { type: String },
+    shownAt: { type: Date }
   },
   { timestamps: true }
 );

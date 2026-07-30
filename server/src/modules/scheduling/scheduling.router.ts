@@ -2173,20 +2173,14 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     if (updated?.status === "completed") {
       notifySessionCompletedCashback(uo.userId, updated.id, cashbackUnlocked);
 
-      // Auto-sync the associated booking request status & attendance reschedule date
+      // Auto-sync the associated booking request status & shownAt timestamp
       const breq = await bookingRequestsStore.findBySessionId(session.id);
       if (breq) {
         const now = new Date().toISOString();
-        const origDate = breq.clinicScheduledAt || breq.proposedAt || (session.scheduledAt ? new Date(session.scheduledAt).toISOString() : null);
-        const breqUpdate: Record<string, unknown> = {
+        await bookingRequestsStore.update(breq.id, {
           status: "completed",
-          clinicScheduledAt: now,
-          proposedAt: now,
-        };
-        if (!breq.adminSuggestedAt && origDate) {
-          breqUpdate.adminSuggestedAt = origDate;
-        }
-        await bookingRequestsStore.update(breq.id, breqUpdate);
+          shownAt: now
+        });
       }
     }
 
@@ -2500,7 +2494,8 @@ schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin"]), as
         clinicNameAr: c.nameAr,
         userName: usersMap.get(it.userId) || it.userId,
         adminSuggestedAt: it.adminSuggestedAt || it.proposedAt || null,
-        clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? it.proposedAt : null)
+        clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? it.proposedAt : null),
+        shownAt: it.shownAt || null
       };
     })
   );
