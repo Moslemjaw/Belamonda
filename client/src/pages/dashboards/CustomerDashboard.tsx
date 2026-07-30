@@ -1999,11 +1999,13 @@ export default function CustomerDashboard() {
 
         {/* Horizontal tabs for Wallet */}
         {activeTab === "wallet" && (() => {
-          const items = [
+          const hasActiveMembership = offers.some(o => o.status === "active");
+          const allItems = [
             { id: "cashback", label: ar() ? "محفظة الكاش باك" : "Cashback", icon: "💎" },
             { id: "history",  label: ar() ? "سجل المدفوعات"   : "History", icon: "🧾" },
             { id: "card",     label: ar() ? "بطاقتي الرقمية"  : "Digital Card", icon: "🪪" },
           ];
+          const items = hasActiveMembership ? allItems : allItems.filter(i => i.id !== "card");
           return (
             <div className="mb-4 sm:mb-6 sticky top-[calc(env(safe-area-inset-top,0px)+3.25rem)] z-20 lg:static lg:z-auto pt-3 sm:pt-4 py-1.5 px-3 sm:px-0 bg-surface-50/95 backdrop-blur-xl lg:bg-transparent lg:backdrop-blur-none transition-all">
               <div className="flex bg-surface-200/60 p-1.5 rounded-[16px] max-w-md mx-auto shadow-inner border border-surface-200/30">
@@ -3697,7 +3699,7 @@ export default function CustomerDashboard() {
             </section>
           )}
 
-          {activeTab === "wallet" && walletSubTab === "card" && (
+          {activeTab === "wallet" && walletSubTab === "card" && offers.some(o => o.status === "active") && (
             <section id="sec-card" className="space-y-6 animate-fade-in scroll-mt-24">
               <div>
                 <h2 className="text-xl font-bold text-surface-900">{ar() ? "بطاقتي الرقمية" : "My Digital Card"}</h2>
