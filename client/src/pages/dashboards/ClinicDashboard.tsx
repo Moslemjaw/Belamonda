@@ -1712,9 +1712,9 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
     const match = extracted.match(/\/verify\/([a-f0-9]+)/i);
     if (match) extracted = match[1];
     
-    setLoading(true);
-    setError(null);
     if (isInitialScan) {
+      setLoading(true);
+      setError(null);
       setResult(null);
     }
     try {
@@ -1734,21 +1734,37 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
         }
       }
     } catch (e: any) {
-      setError(e.message || (ar() ? "لم يتم العثور على العميل" : "Customer not found"));
+      if (isInitialScan) {
+        setError(e.message || (ar() ? "لم يتم العثور على العميل" : "Customer not found"));
+      }
     } finally {
-      setLoading(false);
+      if (isInitialScan) {
+        setLoading(false);
+      }
     }
   };
 
   const handleMarkSession = async (sessionId: string, status: string, posData?: any) => {
     setMarkingId(sessionId);
+    // Optimistically update only the session list in state without refreshing the entire card
+    setResult((prev: any) => {
+      if (!prev) return prev;
+      const updatedSessions = (prev.clinicSessions || []).map((s: any) =>
+        s.id === sessionId ? { ...s, status: status, completedAt: status === "completed" ? new Date().toISOString() : s.completedAt } : s
+      );
+      const updatedBookings = (prev.clinicBookings || []).map((b: any) =>
+        (b.scheduledSessionId === sessionId || b.id === sessionId) ? { ...b, status: status } : b
+      );
+      return { ...prev, clinicSessions: updatedSessions, clinicBookings: updatedBookings };
+    });
+
     try {
       await onMarkSession(sessionId, status, posData);
       if (status === "completed") {
         setShowAttendedModal(true);
       }
-      // Refresh the scan
-      await handleScan();
+      // Silently sync latest background data
+      await handleScan(undefined, false);
     } catch (e: any) {
       alert(e.message);
     } finally {
