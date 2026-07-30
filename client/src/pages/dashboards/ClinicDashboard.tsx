@@ -1680,7 +1680,7 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
           try {
             html5QrCode?.stop().catch(() => {}).finally(() => html5QrCode?.clear());
           } catch (e) {}
-          handleScan(decodedText);
+          handleScan(decodedText, true);
         },
         () => {}
       ).catch((err) => {
@@ -1702,7 +1702,7 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
   const [showAdjustCb, setShowAdjustCb] = useState(false);
   const [showNoScheduledModal, setShowNoScheduledModal] = useState(false);
 
-  const handleScan = async (scanToken?: string) => {
+  const handleScan = async (scanToken?: string, isInitialScan: boolean = false) => {
     const rawInput = scanToken ?? token;
     if (!rawInput.trim()) return;
     
@@ -1713,18 +1713,22 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
     
     setLoading(true);
     setError(null);
-    setResult(null);
+    if (isInitialScan) {
+      setResult(null);
+    }
     try {
       const data = await apiFetch(`/public/clinic/scan/${extracted}`, {
         headers: getAuthHeader(),
       });
       setResult(data);
 
-      const scheduledCount = data?.card?.activeSessionCount ?? 0;
-      const clinicScheduledCount = (data?.clinicSessions || []).filter((s: any) => s.status === "scheduled" || s.status === "slot_assigned").length;
+      if (isInitialScan) {
+        const scheduledCount = data?.card?.activeSessionCount ?? 0;
+        const clinicScheduledCount = (data?.clinicSessions || []).filter((s: any) => s.status === "scheduled" || s.status === "slot_assigned").length;
 
-      if (scheduledCount === 0 && clinicScheduledCount === 0) {
-        setShowNoScheduledModal(true);
+        if (scheduledCount === 0 && clinicScheduledCount === 0) {
+          setShowNoScheduledModal(true);
+        }
       }
     } catch (e: any) {
       setError(e.message || (ar() ? "لم يتم العثور على العميل" : "Customer not found"));
@@ -1767,7 +1771,7 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
               type="text"
               value={token}
               onChange={e => setToken(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") handleScan(); }}
+              onKeyDown={e => { if (e.key === "Enter") handleScan(undefined, true); }}
               placeholder={ar() ? "أدخل رمز البطاقة أو الصق رابط QR..." : "Enter card token or paste QR link..."}
               className="input-field text-sm py-3 pl-11 pr-4 w-full bg-white"
               dir="ltr"
@@ -1785,7 +1789,7 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
             )}
           </button>
           <button
-            onClick={() => handleScan()}
+            onClick={() => handleScan(undefined, true)}
             disabled={loading || !token.trim()}
             className="btn-primary px-8 py-3 rounded-xl flex items-center gap-2 disabled:opacity-50 shrink-0"
           >
