@@ -1701,6 +1701,7 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
   const [markingId, setMarkingId] = useState<string | null>(null);
   const [showAdjustCb, setShowAdjustCb] = useState(false);
   const [showNoScheduledModal, setShowNoScheduledModal] = useState(false);
+  const [showAttendedModal, setShowAttendedModal] = useState(false);
 
   const handleScan = async (scanToken?: string, isInitialScan: boolean = false) => {
     const rawInput = scanToken ?? token;
@@ -1741,6 +1742,9 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
     setMarkingId(sessionId);
     try {
       await onMarkSession(sessionId, status, posData);
+      if (status === "completed") {
+        setShowAttendedModal(true);
+      }
       // Refresh the scan
       await handleScan();
     } catch (e: any) {
@@ -1984,6 +1988,46 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
                     {ar() ? "إغلاق" : "Close"}
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Attendance Success Confirmation Modal */}
+          {showAttendedModal && (
+            <div className="fixed inset-0 z-[100] bg-surface-900/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6 sm:p-8 relative border border-surface-200 text-center animate-scale-up">
+                <button 
+                  onClick={() => setShowAttendedModal(false)}
+                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-surface-100 text-surface-500 hover:bg-surface-200 hover:text-surface-900 flex items-center justify-center transition-colors font-bold text-base"
+                >
+                  ✕
+                </button>
+
+                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5 text-emerald-600 shadow-inner">
+                  <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+
+                <h3 className="text-xl sm:text-2xl font-black text-surface-900 mb-2 leading-tight">
+                  {ar() ? "تم تسجيل الحضور بنجاح" : "Attendance Recorded Successfully"}
+                </h3>
+
+                <p className="text-sm text-surface-600 leading-relaxed mb-6">
+                  {ar() 
+                    ? "تم تسجيل حضور العميل للجلسة بنجاح وتحديث بيانات الجلسة." 
+                    : "The customer's attendance for this session has been recorded successfully."}
+                </p>
+
+                <button
+                  onClick={() => setShowAttendedModal(false)}
+                  className="w-full py-3.5 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-bold shadow-lg shadow-emerald-600/30 transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  {ar() ? "تم" : "Done"}
+                </button>
               </div>
             </div>
           )}
