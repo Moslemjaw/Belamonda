@@ -19,6 +19,7 @@ import { OfferModel, type OfferDoc } from "../../models/offer.model.js";
 import { BookingSessionModel } from "../../models/bookingSession.model.js";
 import { BookingRequestModel } from "../../models/bookingRequest.model.js";
 import { PaymentModel } from "../../models/payment.model.js";
+import { ScanLogModel } from "../../models/scanLog.model.js";
 import { incrementMetric } from "../../services/metric.service.js";
 import { notifyBookingConfirmed, notifyBookingUnderReview, notifyBookingRejected, notifyBookingCancelled, notifySessionCompletedCashback } from "../notifications/notifications.service.js";
 import { notifyChatRelatedUsers } from "../notifications/notifications.service.chat.js";
@@ -2914,6 +2915,111 @@ schedulingRouter.delete("/admin/requests/:requestId", authRequired, requireRole(
 
     await BookingRequestModel.findByIdAndDelete(breq.id);
     return res.json({ ok: true });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ── Admin: Get scan logs history ───────────────────────────────────────────
+schedulingRouter.get("/admin/scan-logs", authRequired, requireRole(["admin"]), async (req, res, next) => {
+  try {
+    const { clinicId, offerId, search } = req.query;
+    const page = Math.max(1, parseInt(String(req.query.page || "1"), 10) || 1);
+    const limit = Math.max(1, parseInt(String(req.query.limit || "50"), 10) || 50);
+
+    const filter: any = {};
+
+    if (clinicId && typeof clinicId === "string" && clinicId.trim()) {
+      filter.clinicId = clinicId.trim();
+    }
+
+    if (offerId && typeof offerId === "string" && offerId.trim()) {
+      const trimmedOfferId = offerId.trim();
+      const matchingUserOffers = await UserOfferModel.find({
+        $or: [
+          { offerId: mongoose.isValidObjectId(trimmedOfferId) ? new mongoose.Types.ObjectId(trimmedOfferId) : trimmedOfferId },
+          { _id: mongoose.isValidObjectId(trimmedOfferId) ? new mongoose.Types.ObjectId(trimmedOfferId) : trimmedOfferId }
+        ]
+      }).select("_id").lean();
+      const uoIds = matchingUserOffers.map((uo: any) => String(uo._id));
+      uoIds.push(trimmedOfferId);
+      filter.userOfferId = { $in: uoIds };
+    }
+
+    if (search && typeof search === "string" && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), "i");
+      const matchingUsers = await UserModel.find({
+        $or: [
+          { fullName: searchRegex },
+          { phone: searchRegex },
+          { username: searchRegex }
+        ]
+      }).select("_id").lean();
+      const userIds = matchingUsers.map((u: any) => String(u._id));
+      filter.userId = { $in: userIds };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [total, rawLogs] = await Promise.all([
+      ScanLogModel.countDocuments(filter),
+      ScanLogModel.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
+
+    const customerUserIds = [...new Set(rawLogs.map((l: any) => l.userId).filter(Boolean))];
+    const scannerUserIds = [...new Set(rawLogs.map((l: any) => l.scannedByUserId).filter(Boolean))];
+    const allUserIds = [...new Set([...customerUserIds, ...scannerUserIds])];
+
+    const clinicIds = [...new Set(rawLogs.map((l: any) => l.clinicId).filter((id): id is string => Boolean(id) && id !== "admin"))];
+
+    const validUserObjIds = allUserIds.filter((id) => mongoose.isValidObjectId(id));
+    const validClinicObjIds = clinicIds.filter((id) => mongoose.isValidObjectId(id));
+
+    const [users, clinics] = await Promise.all([
+      validUserObjIds.length ? UserModel.find({ _id: { $in: validUserObjIds } }).select("_id fullName username phone").lean() : [],
+      validClinicObjIds.length ? ClinicModel.find({ _id: { $in: validClinicObjIds } }).select("_id nameEn nameAr").lean() : []
+    ]);
+
+    const userMap = new Map<string, { name: string; phone?: string }>();
+    for (const u of users as any[]) {
+      const name = u.fullName || u.username || "Unknown";
+      userMap.set(String(u._id), { name, phone: u.phone });
+    }
+
+    const clinicMap = new Map<string, { nameEn: string; nameAr: string }>();
+    for (const c of clinics as any[]) {
+      clinicMap.set(String(c._id), { nameEn: c.nameEn || "", nameAr: c.nameAr || "" });
+    }
+
+    const items = rawLogs.map((log: any) => {
+      const customer = userMap.get(log.userId);
+      const scanner = userMap.get(log.scannedByUserId);
+      const clinic = clinicMap.get(log.clinicId);
+
+      return {
+        ...log,
+        id: String(log._id),
+        userName: customer?.name ?? "Unknown",
+        userPhone: customer?.phone ?? null,
+        scannedByName: scanner?.name ?? log.scannedByUserId,
+        clinicNameEn: clinic?.nameEn ?? (log.clinicId === "admin" ? "Admin" : ""),
+        clinicNameAr: clinic?.nameAr ?? (log.clinicId === "admin" ? "Admin" : ""),
+        offerName: log.offerName ?? null,
+      };
+    });
+
+    const pages = Math.ceil(total / limit) || 1;
+
+    return res.json({
+      items,
+      total,
+      page,
+      pages
+    });
   } catch (e) {
     next(e);
   }

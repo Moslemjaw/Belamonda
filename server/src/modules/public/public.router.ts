@@ -7,6 +7,7 @@ import { requireRole } from "../../middlewares/requireRole.js";
 import { UserModel } from "../../models/user.model.js";
 import { UserOfferModel, type UserOfferDoc } from "../../models/userOffer.model.js";
 import { BookingSessionModel } from "../../models/bookingSession.model.js";
+import { ScanLogModel } from "../../models/scanLog.model.js";
 import { kycStore } from "../kyc/kyc.store.js";
 import { randomBytes } from "crypto";
 
@@ -384,6 +385,21 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         };
       });
     }
+
+    const hasScheduled = clinicSessions.some((s: any) => s.status === "scheduled" || s.status === "slot_assigned");
+    const firstActiveMembership = memberships.find((m: any) => m.status === "active") || memberships[0];
+
+    await ScanLogModel.create({
+      userId: String(user._id),
+      scannedByUserId: req.auth!.userId,
+      clinicId: clinicId || "admin",
+      scannedAt: new Date(),
+      tokenUsed: token,
+      hadScheduledSession: hasScheduled,
+      status: hasScheduled ? "attended" : "no_scheduled_session",
+      userOfferId: firstActiveMembership?.id || undefined,
+      offerName: firstActiveMembership?.offerName || undefined,
+    });
 
     return res.json({
       card: {
