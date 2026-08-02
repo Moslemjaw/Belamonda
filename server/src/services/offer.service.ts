@@ -116,6 +116,11 @@ let _adminOffersPromise: Promise<any[]> | null = null;
 let _adminOffersCache: { data: any[]; ts: number } | null = null;
 const ADMIN_OFFERS_TTL = 30_000;
 
+export function clearAdminOffersCache() {
+  _adminOffersCache = null;
+  _adminOffersPromise = null;
+}
+
 export async function listOffersAdmin() {
   if (_adminOffersCache && Date.now() - _adminOffersCache.ts < ADMIN_OFFERS_TTL) {
     return _adminOffersCache.data;
@@ -318,6 +323,8 @@ type OfferInput = {
   visibility?: OfferVisibility;
   clinicId: string;
   clinicIds?: string[];
+  clinicLocked?: boolean;
+  requireBranchSelection?: boolean;
   clinicTransferFeeKwd?: string;
   doctorIds?: string[];
   subscriptionPriceKwd: string;
@@ -418,6 +425,8 @@ export async function createOffer(input: OfferInput) {
     featured: input.featured ?? false,
     clinicId: input.clinicId ? new mongoose.Types.ObjectId(input.clinicId) : undefined,
     clinicIds,
+    clinicLocked: input.clinicLocked ?? false,
+    requireBranchSelection: input.requireBranchSelection ?? true,
     clinicTransferFeeKwd: input.clinicTransferFeeKwd ?? "0.000",
     doctorIds: input.doctorIds ?? [],
     subscriptionPriceKwd: input.subscriptionPriceKwd,
@@ -470,6 +479,7 @@ export async function createOffer(input: OfferInput) {
     bookingFlow: input.bookingFlow ?? "admin_forward"
   });
 
+  clearAdminOffersCache();
   const lean = doc.toObject();
   const slug = await primaryCategorySlugForOffer(lean as any);
   return serializeOffer(lean as any, slug);
@@ -562,6 +572,7 @@ export async function updateOffer(id: string, patch: Record<string, unknown>) {
 
   const doc = await OfferModel.findByIdAndUpdate(id, mongoUpdate, { new: true }).lean();
   if (!doc) return null;
+  clearAdminOffersCache();
   const slug = await primaryCategorySlugForOffer(doc as any);
   return serializeOffer(doc as any, slug);
 }
@@ -569,5 +580,6 @@ export async function updateOffer(id: string, patch: Record<string, unknown>) {
 export async function deleteOffer(id: string) {
   if (!mongoose.isValidObjectId(id)) return false;
   const result = await OfferModel.findByIdAndDelete(id);
+  if (result) clearAdminOffersCache();
   return !!result;
 }

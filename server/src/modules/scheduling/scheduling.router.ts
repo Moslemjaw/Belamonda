@@ -122,6 +122,7 @@ type SchedOffer = {
   allowExtraPaidSessions: boolean;
   extraSessionPriceKwd?: string;
   branchExtraSessionPrices: { clinicId: string; priceKwd: string }[];
+  bookingFlow?: "admin_forward" | "direct_clinic";
 };
 
 /**
@@ -161,7 +162,8 @@ function mapOfferDocToSched(o: OfferDoc): SchedOffer {
     branchExtraSessionPrices: (o.branchExtraSessionPrices ?? []).map((b: any) => ({
       clinicId: String(b.clinicId),
       priceKwd: String(b.priceKwd)
-    }))
+    })),
+    bookingFlow: (o as any).bookingFlow ?? "admin_forward"
   };
 }
 
