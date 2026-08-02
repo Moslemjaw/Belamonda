@@ -369,6 +369,7 @@ type OfferInput = {
   depositEFormId?: string;
   allowENet?: boolean;
   enetEFormId?: string;
+  bookingFlow?: "admin_forward" | "direct_clinic";
 };
 
 export async function createOffer(input: OfferInput) {
@@ -465,7 +466,8 @@ export async function createOffer(input: OfferInput) {
     cashbackPerSessionKwd: input.cashbackPerSessionKwd ?? "0.000",
     isCashbackOnly: input.isCashbackOnly ?? false,
     cashbackEligible: input.cashbackEligible ?? true,
-    maxCashbackPerPurchaseKwd: input.maxCashbackPerPurchaseKwd
+    maxCashbackPerPurchaseKwd: input.maxCashbackPerPurchaseKwd,
+    bookingFlow: input.bookingFlow ?? "admin_forward"
   });
 
   const lean = doc.toObject();
