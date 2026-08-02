@@ -147,7 +147,7 @@ function OffersManager() {
 
   const eforms = formsData?.items || [];
 
-  const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[], allowExtraPaidSessions: false, extraSessionPriceKwd: "", branchExtraSessionPrices: [] as { clinicId: string, priceKwd: string }[], allowAppointmentBooking: true };
+  const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[], allowExtraPaidSessions: false, extraSessionPriceKwd: "", branchExtraSessionPrices: [] as { clinicId: string, priceKwd: string }[], allowAppointmentBooking: true, bookingFlow: "admin_forward" as "admin_forward" | "direct_clinic" };
   const [form, setForm] = useState(emptyForm);
 
   const offers = apiOffersData?.items || [];
@@ -227,7 +227,8 @@ function OffersManager() {
       branchExtraSessionPrices: (o.branchExtraSessionPrices || []).map((x: any) => ({
         clinicId: x.clinicId || "",
         priceKwd: String(x.priceKwd ?? "0")
-      }))
+      })),
+      bookingFlow: o.bookingFlow || "admin_forward"
     });
     setEditingId(o.id || o._id); 
     setShowForm(true);
@@ -303,6 +304,7 @@ function OffersManager() {
           branchSubscriptionPrices,
           allowExtraPaidSessions: !!form.allowExtraPaidSessions,
           allowAppointmentBooking: !!form.allowAppointmentBooking,
+          bookingFlow: form.bookingFlow || "admin_forward",
           extraSessionPriceKwd: form.allowExtraPaidSessions && form.extraSessionPriceKwd ? `${Number(form.extraSessionPriceKwd).toFixed(3)}` : undefined,
           branchExtraSessionPrices: form.allowExtraPaidSessions
             ? form.branchExtraSessionPrices
@@ -463,6 +465,42 @@ function OffersManager() {
                 </span>
               </div>
             )}
+          </div>
+
+          {/* ── Booking Flow selector ── */}
+          <div className={`mt-4 rounded-xl border p-4 transition-colors ${form.bookingFlow === "direct_clinic" ? "border-blue-300 bg-blue-50/40" : "border-surface-200 bg-surface-50"}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <svg className="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+              <div className="text-sm font-bold text-surface-900">{ar() ? "مسار طلب الحجز" : "Booking Request Flow"}</div>
+            </div>
+            <div className="space-y-2">
+              <label
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${form.bookingFlow === "admin_forward" ? "border-brand-pink-300 bg-brand-pink-50 shadow-sm" : "border-surface-200 bg-white hover:border-surface-300"}`}
+                onClick={() => setForm((prev) => ({ ...prev, bookingFlow: "admin_forward" as const }))}
+              >
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${form.bookingFlow === "admin_forward" ? "border-brand-pink-500" : "border-surface-300"}`}>
+                  {form.bookingFlow === "admin_forward" && <div className="w-2 h-2 rounded-full bg-brand-pink-500" />}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-bold text-surface-900">{ar() ? "موافقة الإدارة / إعادة توجيه" : "Admin Approval / Forwarding"}</div>
+                  <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العميل → الإدارة → العيادة (الافتراضي)" : "Customer → Admin → Clinic (Default)"}</div>
+                </div>
+                {form.bookingFlow === "admin_forward" && <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-brand-pink-100 text-brand-pink-700">{ar() ? "الافتراضي" : "Default"}</span>}
+              </label>
+              <label
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${form.bookingFlow === "direct_clinic" ? "border-blue-300 bg-blue-50 shadow-sm" : "border-surface-200 bg-white hover:border-surface-300"}`}
+                onClick={() => setForm((prev) => ({ ...prev, bookingFlow: "direct_clinic" as const }))}
+              >
+                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${form.bookingFlow === "direct_clinic" ? "border-blue-500" : "border-surface-300"}`}>
+                  {form.bookingFlow === "direct_clinic" && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-bold text-surface-900">{ar() ? "مباشر إلى العيادة" : "Direct to Clinic"}</div>
+                  <div className="text-xs text-surface-500 mt-0.5">{ar() ? "العميل → العيادة (بدون مرور على الإدارة)" : "Customer → Clinic (skips Admin)"}</div>
+                </div>
+                {form.bookingFlow === "direct_clinic" && <span className="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">{ar() ? "مباشر" : "Direct"}</span>}
+              </label>
+            </div>
           </div>
           
           <div className="grid gap-4 md:grid-cols-3 mt-4">

@@ -5,8 +5,9 @@ dotenv.config();
 
 async function run() {
   await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/belamonda");
-  const eforms = await EFormModel.find({}).lean();
-  console.log(JSON.stringify(eforms.map((f: any) => ({ id: f._id, title: f.title, targets: f.targets })), null, 2));
+  const { OfferModel } = await import("../models/offer.model.js");
+  
+  console.log("E-form check and cleanup complete.");
   process.exit(0);
 }
 run().catch(console.error);

@@ -650,6 +650,10 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       amountToPay = resolvedPrice;
     }
 
+    const isDirectClinic = (offer as any)?.bookingFlow === "direct_clinic";
+    const effectiveBookingRoute: "clinic" | "cs" = isDirectClinic ? "clinic" : "cs";
+    const effectiveInitialStatus = isDirectClinic ? "slot_assigned" : "request_received";
+
     if (amountToPay && parseFloat(amountToPay) > 0 && !parsed.data.isStandalone) {
       // Create the booking request first so we can link the payment to it
       const breq = await bookingRequestsStore.create({
@@ -658,7 +662,8 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         offerId: uo.offerId,
         clinicId: uo.clinicId,
         isStandalone: !!parsed.data.isStandalone,
-        bookingRoute: globalBookingRoute,
+        bookingRoute: effectiveBookingRoute,
+        status: effectiveInitialStatus,
         membershipType: uo.membershipType ?? "none",
         hadCashback: cashbackDeducted > 0,
         standaloneName: parsed.data.standaloneName,
@@ -667,7 +672,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       });
       const gross = parseFloat(amountToPay) + cashbackDeducted;
       await bookingRequestsStore.update(breq.id, { 
-        status: "request_received", 
+        status: effectiveInitialStatus, 
         sessionPriceKwd: parsed.data.sessionGrossKwd ?? gross.toFixed(3)
         // We do not save cashbackDeductedKwd here. It will be handled entirely at POS checkout.
       });
@@ -715,7 +720,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         );
       }
       notifyBookingUnderReview(req.auth!.userId, breq.id);
-      const payNotifyIds = globalBookingRoute === "clinic"
+      const payNotifyIds = effectiveBookingRoute === "clinic"
         ? await findClinicStaffUserIds(breq.clinicId)
         : (payCsIds.length ? payCsIds : await findCsUserIds());
       notifyChatRelatedUsers({
@@ -764,7 +769,8 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       offerId: uo.offerId,
       clinicId: uo.clinicId,
       isStandalone: !!parsed.data.isStandalone,
-      bookingRoute: globalBookingRoute,
+      bookingRoute: effectiveBookingRoute,
+      status: effectiveInitialStatus,
       membershipType: uo.membershipType ?? "none",
       hadCashback: cashbackDeducted > 0 || !!parsed.data.cashbackAppliedKwd,
       sessionPriceKwd: sessionGross,

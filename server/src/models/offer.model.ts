@@ -115,6 +115,16 @@ const OfferSchema = new Schema(
       enum: ["instant", "review", "doctor_approval", "manual_confirmation"] satisfies BookingMode[],
       default: "instant"
     },
+    /**
+     * Booking request routing flow:
+     *   admin_forward -> Customer -> Admin -> Clinic (Default)
+     *   direct_clinic -> Customer -> Clinic
+     */
+    bookingFlow: {
+      type: String,
+      enum: ["admin_forward", "direct_clinic"],
+      default: "admin_forward"
+    },
 
     // ─── Enrollment & Capacity ───────────────────────────────────────────────
     enrollmentCap: { type: Number, min: 1 },

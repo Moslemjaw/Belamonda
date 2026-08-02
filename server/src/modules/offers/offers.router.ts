@@ -66,6 +66,7 @@ const OfferBaseSchema = z.object({
   maxActiveSessions: z.number().int().positive().optional(),
   allowAppointmentBooking: z.boolean().default(true),
   bookingMode: z.enum(["instant", "review", "doctor_approval", "manual_confirmation"]).default("instant"),
+  bookingFlow: z.enum(["admin_forward", "direct_clinic"]).default("admin_forward"),
 
   // Capacity & Window
   enrollmentCap: z.number().int().positive().optional(),

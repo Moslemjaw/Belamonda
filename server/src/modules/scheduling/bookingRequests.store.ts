@@ -99,10 +99,11 @@ export const bookingRequestsStore = {
     cashbackDeductedKwd?: string;
     preferredAt?: string;
     notes?: string;
+    status?: AppointmentStatus;
   }): Promise<BookingRequestRecord> {
     const doc = await BookingRequestModel.create({
       ...input,
-      status: "request_received",
+      status: input.status ?? "request_received",
     });
     return mapDoc(doc);
   },
