@@ -1199,9 +1199,9 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
 
   const finalItems = enriched
     .filter((it) => {
-      // Clinic staff must NEVER see a request until Admin/CS has forwarded or proposed/assigned a date
+      // Clinic staff must only see requests once Admin/CS has forwarded them (status !== "request_received" or has proposed date)
       const hasAdminProposedDate = !!(it.proposedAt || (it as any).adminSuggestedAt);
-      if (!hasAdminProposedDate && (it.status === "request_received" || it.bookingRoute === "cs")) {
+      if (it.status === "request_received" && !hasAdminProposedDate) {
         return false;
       }
       return true;
