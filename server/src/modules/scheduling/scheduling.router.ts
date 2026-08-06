@@ -1446,7 +1446,25 @@ const MarkPaidSchema = z.object({
 schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res) => {
   const parsed = MarkPaidSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
-  const breq = await bookingRequestsStore.get(req.params.id);
+  let breq = await bookingRequestsStore.get(req.params.id);
+  if (!breq && mongoose.isValidObjectId(req.params.id)) {
+    const sess = await BookingSessionModel.findById(req.params.id).lean();
+    if (sess) {
+      const linkedReqId = (sess as any).bookingRequestId ? String((sess as any).bookingRequestId) : null;
+      if (linkedReqId) {
+        breq = await bookingRequestsStore.get(linkedReqId);
+      }
+      if (!breq) {
+        const reqBySess = await BookingRequestModel.findOne({ scheduledSessionId: (sess as any)._id }).lean();
+        if (reqBySess) {
+          breq = await bookingRequestsStore.get(String((reqBySess as any)._id));
+        } else {
+          await BookingSessionModel.findByIdAndUpdate((sess as any)._id, { $set: { clinicPaymentStatus: "paid" } });
+          return res.json({ success: true });
+        }
+      }
+    }
+  }
   if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
   if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
     return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
@@ -1599,7 +1617,25 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
 // ── Admin marks booking as unpaid ──────────────────────────────────────────
 schedulingRouter.post("/requests/:id/mark-unpaid", authRequired, requireRole(["admin"]), async (req, res) => {
   try {
-    const breq = await bookingRequestsStore.get(req.params.id);
+    let breq = await bookingRequestsStore.get(req.params.id);
+    if (!breq && mongoose.isValidObjectId(req.params.id)) {
+      const sess = await BookingSessionModel.findById(req.params.id).lean();
+      if (sess) {
+        const linkedReqId = (sess as any).bookingRequestId ? String((sess as any).bookingRequestId) : null;
+        if (linkedReqId) {
+          breq = await bookingRequestsStore.get(linkedReqId);
+        }
+        if (!breq) {
+          const reqBySess = await BookingRequestModel.findOne({ scheduledSessionId: (sess as any)._id }).lean();
+          if (reqBySess) {
+            breq = await bookingRequestsStore.get(String((reqBySess as any)._id));
+          } else {
+            await BookingSessionModel.findByIdAndUpdate((sess as any)._id, { $set: { clinicPaymentStatus: "pending" } });
+            return res.json({ success: true });
+          }
+        }
+      }
+    }
     if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
     if (breq.clinicPaymentStatus !== "paid") return res.status(409).json({ error: "NOT_PAID" });
 
@@ -2401,8 +2437,20 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     
     // Fetch associated requests for sessions to get payment status
     const sessionIds = sessionDocs.map(s => s._id.toString());
-    const requestsForSessions = sessionIds.length > 0 ? await BookingRequestModel.find({ scheduledSessionId: { $in: sessionIds } }).lean() : [];
-    const requestsBySessionMap = new Map(requestsForSessions.map((r: any) => [r.scheduledSessionId?.toString(), r]));
+    const reqIdsFromSessions = sessionDocs.map(s => (s as any).bookingRequestId).filter(Boolean);
+    const requestsForSessions = (sessionIds.length > 0 || reqIdsFromSessions.length > 0)
+      ? await BookingRequestModel.find({
+          $or: [
+            { scheduledSessionId: { $in: sessionIds } },
+            { _id: { $in: reqIdsFromSessions } }
+          ]
+        }).lean()
+      : [];
+    const requestsBySessionMap = new Map<string, any>();
+    for (const r of requestsForSessions) {
+      if ((r as any).scheduledSessionId) requestsBySessionMap.set(String((r as any).scheduledSessionId), r);
+      if ((r as any)._id) requestsBySessionMap.set(String((r as any)._id), r);
+    }
 
     // Fetch associated sessions for requests to get session status
     const reqSessionIds = requestDocs.map(r => r.scheduledSessionId).filter(Boolean);
@@ -2410,7 +2458,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     const sessionsByReqMap = new Map(sessionsForRequests.map((s: any) => [s._id.toString(), s]));
 
     const enrichedSessions = sessionDocs.map((doc: any) => {
-      const req = requestsBySessionMap.get(doc._id.toString());
+      const req = requestsBySessionMap.get(doc._id.toString()) || (doc.bookingRequestId ? requestsBySessionMap.get(doc.bookingRequestId.toString()) : null);
       const sStatus = doc.status;
       const pStatus = doc.clinicPaymentStatus || req?.clinicPaymentStatus || "pending";
       
