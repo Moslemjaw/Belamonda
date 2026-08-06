@@ -142,10 +142,10 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES,
       ...sessions.map((s: any) => s.offerId ? String(s.offerId) : undefined)
     ].filter(Boolean))];
     const offers = offerIds.length
-      ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr maxSessions").lean<{ _id: mongoose.Types.ObjectId; name: string; nameAr?: string; maxSessions?: number }[]>()
+      ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr maxSessions sessionIntervalDays").lean<{ _id: mongoose.Types.ObjectId; name: string; nameAr?: string; maxSessions?: number; sessionIntervalDays?: number }[]>()
       : [];
-    const offerMap: Record<string, { name: string; nameAr?: string; maxSessions?: number }> = {};
-    offers.forEach((o) => { offerMap[String(o._id)] = { name: o.name, nameAr: o.nameAr, maxSessions: o.maxSessions }; });
+    const offerMap: Record<string, { name: string; nameAr?: string; maxSessions?: number; sessionIntervalDays?: number }> = {};
+    offers.forEach((o) => { offerMap[String(o._id)] = { name: o.name, nameAr: o.nameAr, maxSessions: o.maxSessions, sessionIntervalDays: o.sessionIntervalDays ?? 0 }; });
 
     // Enrich memberships with clinic names
     const membershipClinicIds = [...new Set(memberships.map((m: any) => m.clinicId ? String(m.clinicId) : undefined).filter(Boolean))].filter((cid) => mongoose.isValidObjectId(cid!));
@@ -155,6 +155,18 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES,
     const membershipClinicMap: Record<string, { nameEn?: string; nameAr?: string }> = {};
     membershipClinics.forEach((c: any) => { membershipClinicMap[String(c._id)] = { nameEn: c.nameEn, nameAr: c.nameAr }; });
 
+    const membershipIds = memberships.map((m: any) => m._id);
+    const lastCompletedSessions = membershipIds.length > 0 ? await BookingSessionModel.aggregate([
+      { $match: { userOfferId: { $in: membershipIds }, status: "completed" } },
+      { $group: { _id: "$userOfferId", lastCompletedAt: { $max: "$scheduledAt" } } }
+    ]) : [];
+    const lastCompletedMap = Object.fromEntries(lastCompletedSessions.map((s: any) => [s._id.toString(), s.lastCompletedAt]));
+
+    const activeBookingsSet = new Set([
+      ...sessions.filter((r: any) => ["request_received", "slot_assigned", "scheduled"].includes(r.status)).map((r: any) => r.userOfferId?.toString()),
+      ...bookingSessions.filter((s: any) => ["scheduled", "checked_in", "in_progress"].includes(s.status)).map((s: any) => s.userOfferId?.toString())
+    ].filter(Boolean));
+
     const membershipItems = memberships.map((m: any) => {
       const clinicInfo: any = m.clinicId ? (membershipClinicMap[String(m.clinicId)] || {}) : {};
       return {
@@ -163,6 +175,15 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES,
         offerName: offerMap[String(m.offerId)]?.name ?? "—",
         offerNameAr: offerMap[String(m.offerId)]?.nameAr,
         maxSessions: offerMap[String(m.offerId)]?.maxSessions,
+        sessionIntervalDays: offerMap[String(m.offerId)]?.sessionIntervalDays ?? 0,
+        hasActiveBooking: activeBookingsSet.has(String(m._id)),
+        lastCompletedSessionAt: lastCompletedMap[String(m._id)]
+          ? new Date(lastCompletedMap[String(m._id)]).toISOString()
+          : m.lastManualSessionAt
+            ? new Date(m.lastManualSessionAt).toISOString()
+            : undefined,
+        bookingOverrideUnlocked: !!m.bookingOverrideUnlocked,
+        bookingCooldownEndOverrideAt: m.bookingCooldownEndOverrideAt ? new Date(m.bookingCooldownEndOverrideAt).toISOString() : undefined,
         clinicId: m.clinicId ? String(m.clinicId) : undefined,
         clinicNameEn: clinicInfo.nameEn || undefined,
         clinicNameAr: clinicInfo.nameAr || undefined,

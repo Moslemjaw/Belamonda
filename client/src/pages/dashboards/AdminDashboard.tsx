@@ -2540,20 +2540,34 @@ export function UserProfilePanel({
   };
 
   const [overrideSavingId, setOverrideSavingId] = useState<string | null>(null);
+  const [overrideSuccessMsg, setOverrideSuccessMsg] = useState<string | null>(null);
   const [customCooldownDates, setCustomCooldownDates] = useState<Record<string, string>>({});
 
   const handleUpdateBookingOverride = async (uoId: string, payload: { bookingOverrideUnlocked?: boolean | null; bookingCooldownEndOverrideAt?: string | null }) => {
     setOverrideSavingId(uoId);
+    setOverrideSuccessMsg(null);
     try {
       await apiFetch(`/commerce/admin/user-offers/${uoId}`, {
         method: "PATCH",
         headers: getAuthHeader(),
         body: JSON.stringify(payload)
       });
-      if (profile?.id) {
-        const updated = await apiFetch(`/users/admin/${profile.id}`, { headers: getAuthHeader() });
+      invalidateCache("/me");
+      invalidateCache("/commerce");
+      invalidateCache("/offers");
+      const targetUserId = user.id || displayUser?.id || profile?.id || profile?.user?.id;
+      if (targetUserId) {
+        const updated = await apiFetch(`/users/admin/${targetUserId}/profile`, { headers: getAuthHeader() });
         setProfile(updated);
       }
+      setOverrideSuccessMsg(
+        payload.bookingOverrideUnlocked
+          ? (ar() ? "✓ تم فتح زر الحجز فوراً للعميل بنجاح!" : "✓ Booking button unlocked immediately for customer!")
+          : payload.bookingCooldownEndOverrideAt === null
+          ? (ar() ? "✓ تم استعادة الضوابط الافتراضية!" : "✓ Reset to default rules!")
+          : (ar() ? "✓ تم تحديث تاريخ الحجز بنجاح!" : "✓ Rebook date updated successfully!")
+      );
+      setTimeout(() => setOverrideSuccessMsg(null), 5000);
     } catch (err: any) {
       alert(err.message || "Failed to update booking override");
     } finally {
@@ -2779,6 +2793,16 @@ export function UserProfilePanel({
                       : "View the real-time booking button status on the customer's dashboard for each membership, and instantly unlock or change the rebook cooldown date."}
                   </p>
                 </div>
+
+                {overrideSuccessMsg && (
+                  <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold p-3 rounded-xl flex items-center justify-between shadow-sm animate-fade-in">
+                    <span className="flex items-center gap-1.5">
+                      <svg className="w-4 h-4 text-emerald-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                      {overrideSuccessMsg}
+                    </span>
+                    <button type="button" onClick={() => setOverrideSuccessMsg(null)} className="text-emerald-600 hover:text-emerald-900 font-bold ml-2">✕</button>
+                  </div>
+                )}
 
                 {profile?.memberships?.length === 0 ? (
                   <div className="text-sm text-surface-400 text-center py-8 bg-white rounded-xl border border-surface-100">
