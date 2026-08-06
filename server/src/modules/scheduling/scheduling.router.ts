@@ -1459,7 +1459,9 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
         if (reqBySess) {
           breq = await bookingRequestsStore.get(String((reqBySess as any)._id));
         } else {
-          await BookingSessionModel.findByIdAndUpdate((sess as any)._id, { $set: { clinicPaymentStatus: "paid" } });
+          await BookingSessionModel.findByIdAndUpdate((sess as any)._id, {
+            $set: { clinicPaymentStatus: "paid", clinicPaymentMarkedAt: new Date(), clinicPaymentMarkedBy: req.auth!.userId }
+          });
           return res.json({ success: true });
         }
       }

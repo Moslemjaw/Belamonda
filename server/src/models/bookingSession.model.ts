@@ -33,7 +33,12 @@ const BookingSessionSchema = new Schema(
     extraItems: { type: [{ name: String, priceKwd: String, qty: Number }], default: [] },
     totalBillKwd: { type: String, match: /^\d+(\.\d{3})$/ },
     finalPaidKwd: { type: String, match: /^\d+(\.\d{3})$/ },
-    shortId: { type: String, trim: true, unique: true, sparse: true }
+    shortId: { type: String, trim: true, unique: true, sparse: true },
+    clinicPaymentStatus: { type: String, enum: ["pending", "paid"], default: "pending" },
+    clinicPaymentMarkedAt: { type: Date },
+    clinicPaymentMarkedBy: { type: String },
+    bookingRequestId: { type: Schema.Types.ObjectId, ref: "BookingRequest" },
+    sessionPriceKwd: { type: String }
   },
   { timestamps: true }
 );
