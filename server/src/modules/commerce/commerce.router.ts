@@ -949,22 +949,42 @@ commerceRouter.patch("/admin/user-offers/:id", authRequired, requireRole(["admin
       expiresAt: z.string().optional(),
       clinicId: z.string().nullable().optional(),
       status: z.string().optional(),
+      bookingOverrideUnlocked: z.boolean().nullable().optional(),
+      bookingCooldownEndOverrideAt: z.string().nullable().optional(),
     });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "INVALID_INPUT", details: parsed.error.issues });
 
     const updates: any = {};
+    const unsets: any = {};
+
     if (parsed.data.activatedAt) updates.activatedAt = new Date(parsed.data.activatedAt);
     if (parsed.data.expiresAt) updates.expiresAt = new Date(parsed.data.expiresAt);
     if (parsed.data.clinicId !== undefined) updates.clinicId = parsed.data.clinicId;
     if (parsed.data.status) updates.status = parsed.data.status;
-
-    if (Object.keys(updates).length === 0) return res.json({ ok: true });
-
-    const mongoUpdates: any = { $set: updates };
-    if (parsed.data.status === "active") {
-      mongoUpdates.$unset = { pendingExpiresAt: 1 };
+    
+    if (parsed.data.bookingOverrideUnlocked !== undefined) {
+      if (parsed.data.bookingOverrideUnlocked === null) {
+        unsets.bookingOverrideUnlocked = 1;
+      } else {
+        updates.bookingOverrideUnlocked = parsed.data.bookingOverrideUnlocked;
+      }
     }
+
+    if (parsed.data.bookingCooldownEndOverrideAt !== undefined) {
+      if (parsed.data.bookingCooldownEndOverrideAt === null || parsed.data.bookingCooldownEndOverrideAt === "") {
+        unsets.bookingCooldownEndOverrideAt = 1;
+      } else {
+        updates.bookingCooldownEndOverrideAt = new Date(parsed.data.bookingCooldownEndOverrideAt);
+      }
+    }
+
+    const mongoUpdates: any = {};
+    if (Object.keys(updates).length > 0) mongoUpdates.$set = updates;
+    if (parsed.data.status === "active") unsets.pendingExpiresAt = 1;
+    if (Object.keys(unsets).length > 0) mongoUpdates.$unset = unsets;
+
+    if (Object.keys(mongoUpdates).length === 0) return res.json({ ok: true });
 
     const uo = await UserOfferModel.findByIdAndUpdate(req.params.id, mongoUpdates, { new: true });
     if (!uo) return res.status(404).json({ error: "Membership not found" });

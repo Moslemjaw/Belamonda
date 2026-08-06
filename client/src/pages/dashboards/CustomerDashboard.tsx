@@ -2154,7 +2154,25 @@ export default function CustomerDashboard() {
                         const sessionIntervalDays = o.sessionIntervalDays || 0;
                         let coolingActive = false;
 
-                        if (sessionIntervalDays > 0 && lastCompleted) {
+                        const isOverrideUnlocked = !!(o as any).bookingOverrideUnlocked;
+                        const cooldownOverrideAt = (o as any).bookingCooldownEndOverrideAt ? new Date((o as any).bookingCooldownEndOverrideAt) : null;
+
+                        if (isOverrideUnlocked) {
+                          bookingLocked = false;
+                          coolingActive = false;
+                          lockedReason = "";
+                        } else if (cooldownOverrideAt) {
+                          if (new Date() < cooldownOverrideAt) {
+                            coolingActive = true;
+                            bookingLocked = true;
+                            const formattedDate = fmtDate(cooldownOverrideAt);
+                            rebookDateStr = formattedDate;
+                            lockedReason = ar() ? `إعادة الحجز في ${formattedDate}` : `Rebook at ${formattedDate}`;
+                          } else {
+                            coolingActive = false;
+                            bookingLocked = false;
+                          }
+                        } else if (sessionIntervalDays > 0 && lastCompleted) {
                           const nextEligible = new Date(lastCompleted.getTime() + sessionIntervalDays * 24 * 60 * 60 * 1000);
                           if (new Date() < nextEligible) {
                             coolingActive = true;
@@ -2165,7 +2183,7 @@ export default function CustomerDashboard() {
                           }
                         }
 
-                        if (!isPending && !coolingActive) {
+                        if (!isPending && !coolingActive && !isOverrideUnlocked) {
                           if (hasActiveBooking) {
                             bookingLocked = true;
                             lockedReason = ar() ? "يوجد حجز قيد المعالجة" : "Active booking exists";

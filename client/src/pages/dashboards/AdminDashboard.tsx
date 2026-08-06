@@ -2159,7 +2159,7 @@ function AdminSettings() {
 }
 
 // ── User Profile Panel (tabbed) ──────────────────────────────────────────────
-export type ProfileTab = "overview" | "memberships" | "cashback" | "requests" | "sessions" | "payments" | "kyc" | "notes" | "recovery";
+export type ProfileTab = "overview" | "memberships" | "cashback" | "booking_button" | "requests" | "sessions" | "payments" | "kyc" | "notes" | "recovery";
 
 export function UserProfilePanel({
   user,
@@ -2539,10 +2539,33 @@ export function UserProfilePanel({
     URL.revokeObjectURL(a.href);
   };
 
+  const [overrideSavingId, setOverrideSavingId] = useState<string | null>(null);
+  const [customCooldownDates, setCustomCooldownDates] = useState<Record<string, string>>({});
+
+  const handleUpdateBookingOverride = async (uoId: string, payload: { bookingOverrideUnlocked?: boolean | null; bookingCooldownEndOverrideAt?: string | null }) => {
+    setOverrideSavingId(uoId);
+    try {
+      await apiFetch(`/commerce/admin/user-offers/${uoId}`, {
+        method: "PATCH",
+        headers: getAuthHeader(),
+        body: JSON.stringify(payload)
+      });
+      if (profile?.id) {
+        const updated = await apiFetch(`/users/admin/${profile.id}`, { headers: getAuthHeader() });
+        setProfile(updated);
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to update booking override");
+    } finally {
+      setOverrideSavingId(null);
+    }
+  };
+
   const allTabs: { key: ProfileTab; label: string; labelAr: string }[] = [
     { key: "overview", label: "Overview", labelAr: "نظرة عامة" },
     { key: "memberships", label: "Memberships", labelAr: "العضويات" },
     { key: "cashback", label: "Cashback", labelAr: "الكاش باك" },
+    { key: "booking_button", label: "Booking Button", labelAr: "حالة زر الحجز" },
     { key: "sessions", label: "Sessions", labelAr: "الجلسات" },
     { key: "payments", label: "Payments", labelAr: "الدفعات" },
     { key: "kyc", label: "KYC / Civil ID", labelAr: "الهوية" },
@@ -2551,7 +2574,7 @@ export function UserProfilePanel({
   ];
 
   const tabs = allTabs.filter(t => {
-    if (t.key === "notes" || t.key === "payments" || t.key === "recovery") return isAdmin || isFinance || isCS;
+    if (t.key === "notes" || t.key === "payments" || t.key === "recovery" || t.key === "booking_button") return isAdmin || isFinance || isCS;
     return true;
   });
 
@@ -2737,6 +2760,182 @@ export function UserProfilePanel({
                     </button>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* ── BOOKING BUTTON STATUS & OVERRIDES ── */}
+            {tab === "booking_button" && (
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-brand-pink-50 to-purple-50 border border-brand-pink-100 rounded-xl p-4">
+                  <h4 className="font-bold text-surface-900 text-sm flex items-center gap-2">
+                    <svg className="w-4 h-4 text-brand-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {ar() ? "التحكم في زر حجز المواعيد للعميل" : "Customer Booking Appointment Button Controls"}
+                  </h4>
+                  <p className="text-xs text-surface-600 mt-1 leading-relaxed">
+                    {ar() 
+                      ? "عرض حالة زر الحجز الحالية على لوحة العميل لكل عضوية، ويمكنك فتح الزر فوراً أو تعديل تاريخ التبريد حسب رغبتك." 
+                      : "View the real-time booking button status on the customer's dashboard for each membership, and instantly unlock or change the rebook cooldown date."}
+                  </p>
+                </div>
+
+                {profile?.memberships?.length === 0 ? (
+                  <div className="text-sm text-surface-400 text-center py-8 bg-white rounded-xl border border-surface-100">
+                    {ar() ? "لا توجد عضويات لهذا العميل" : "No memberships for this customer"}
+                  </div>
+                ) : (
+                  profile?.memberships?.map((m: any) => {
+                    const isPending = m.status === "pending_payment" || m.status === "pending payment";
+                    const isInstallment = m.purchaseMode === "installments" || m.method === "Installments";
+                    const paidInst = m.paidInstallments || m.installmentsPaid || 0;
+                    const sessionsUsed = m.sessionsUsed || 0;
+                    const sessionIntervalDays = m.sessionIntervalDays || 0;
+                    const lastCompleted = m.lastCompletedSessionAt ? new Date(m.lastCompletedSessionAt) : null;
+                    const hasActiveBooking = m.hasActiveBooking;
+
+                    const isOverrideUnlocked = !!m.bookingOverrideUnlocked;
+                    const cooldownOverrideAt = m.bookingCooldownEndOverrideAt ? new Date(m.bookingCooldownEndOverrideAt) : null;
+
+                    let statusType: "unlocked" | "cooldown" | "installment" | "active_booking" | "pending" = "unlocked";
+                    let displayStatusText = ar() ? "حجز موعد (مفتوح)" : "Book Appointment (Unlocked)";
+                    let rebookDateStr = "";
+
+                    if (isOverrideUnlocked) {
+                      statusType = "unlocked";
+                      displayStatusText = ar() ? "مفتوح فوراً (تجاوز الإدارة)" : "Unlocked Immediately (Admin Override)";
+                    } else if (cooldownOverrideAt && new Date() < cooldownOverrideAt) {
+                      statusType = "cooldown";
+                      rebookDateStr = fmtDate(cooldownOverrideAt);
+                      displayStatusText = ar() ? `مغلق — إعادة الحجز في ${rebookDateStr}` : `Locked — Rebook at ${rebookDateStr}`;
+                    } else if (sessionIntervalDays > 0 && lastCompleted) {
+                      const nextEligible = new Date(lastCompleted.getTime() + sessionIntervalDays * 24 * 60 * 60 * 1000);
+                      if (new Date() < nextEligible) {
+                        statusType = "cooldown";
+                        rebookDateStr = fmtDate(nextEligible);
+                        displayStatusText = ar() ? `مغلق — إعادة الحجز في ${rebookDateStr}` : `Locked — Rebook at ${rebookDateStr}`;
+                      }
+                    }
+
+                    if (statusType !== "cooldown" && !isOverrideUnlocked) {
+                      if (isPending) {
+                        statusType = "pending";
+                        displayStatusText = ar() ? "مغلق — بانتظار تأكيد الدفع" : "Locked — Awaiting Payment";
+                      } else if (hasActiveBooking) {
+                        statusType = "active_booking";
+                        displayStatusText = ar() ? "مغلق — يوجد حجز قيد المعالجة" : "Locked — Active booking in progress";
+                      } else if (isInstallment) {
+                        if (paidInst === 0) {
+                          statusType = "installment";
+                          displayStatusText = ar() ? "مغلق — يجب دفع القسط الأول" : "Locked — First installment required";
+                        } else if (paidInst < (m.installmentCount || 1) && sessionsUsed >= paidInst) {
+                          statusType = "installment";
+                          displayStatusText = ar() ? "مغلق — يجب دفع القسط التالي" : "Locked — Next installment required";
+                        }
+                      }
+                    }
+
+                    return (
+                      <div key={m.id} className="bg-white rounded-xl border border-surface-200 p-5 shadow-sm space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-surface-100 pb-3">
+                          <div>
+                            <h5 className="font-bold text-surface-900 text-base">{ar() && m.offerNameAr ? m.offerNameAr : (m.offerName || "Membership")}</h5>
+                            <div className="text-xs text-surface-500 font-mono mt-0.5">ID: {m.id}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              statusType === "unlocked" 
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200" 
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                            }`}>
+                              {displayStatusText}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Details Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-surface-50 p-3 rounded-lg text-xs">
+                          <div>
+                            <span className="text-surface-500 block">{ar() ? "الجلسات المستخدمة" : "Sessions Used"}</span>
+                            <span className="font-bold text-surface-900">{m.sessionsUsed} {m.maxSessions ? `/ ${m.maxSessions}` : "(غير محدود)"}</span>
+                          </div>
+                          <div>
+                            <span className="text-surface-500 block">{ar() ? "آخر جلسة مكتملة" : "Last Completed Session"}</span>
+                            <span className="font-bold text-surface-900">{m.lastCompletedSessionAt ? fmtDate(new Date(m.lastCompletedSessionAt)) : "—"}</span>
+                          </div>
+                          <div>
+                            <span className="text-surface-500 block">{ar() ? "فترة التبريد" : "Cooling Interval"}</span>
+                            <span className="font-bold text-surface-900">{m.sessionIntervalDays ? `${m.sessionIntervalDays} days` : "None"}</span>
+                          </div>
+                          <div>
+                            <span className="text-surface-500 block">{ar() ? "تاريخ التبريد الحالي" : "Current Rebook Date"}</span>
+                            <span className="font-bold text-surface-900">{rebookDateStr || (isOverrideUnlocked ? (ar() ? "مفتوح فوراً" : "Unlocked Now") : "Immediate")}</span>
+                          </div>
+                        </div>
+
+                        {/* Admin Override Action Controls */}
+                        <div className="bg-surface-50 border border-surface-200 rounded-xl p-4 space-y-3">
+                          <div className="text-xs font-bold text-surface-800 uppercase tracking-wide flex items-center gap-1.5">
+                            <svg className="w-4 h-4 text-brand-pink-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                            </svg>
+                            {ar() ? "إجراءات التحكم والفتح" : "Admin Override Controls"}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-3">
+                            {/* 1. Unlock Immediately */}
+                            <button
+                              type="button"
+                              disabled={overrideSavingId === m.id}
+                              onClick={() => handleUpdateBookingOverride(m.id, { bookingOverrideUnlocked: true, bookingCooldownEndOverrideAt: null })}
+                              className={`btn-sm font-bold text-xs px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-all ${
+                                isOverrideUnlocked 
+                                  ? "bg-emerald-600 text-white shadow-sm" 
+                                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                              }`}
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                              </svg>
+                              {isOverrideUnlocked ? (ar() ? "✓ مفتوح فوراً" : "✓ Unlocked Immediately") : (ar() ? "فتح الزر فوراً" : "Unlock Immediately")}
+                            </button>
+
+                            {/* 2. Custom Date Picker */}
+                            <div className="flex items-center gap-2">
+                              <div className="w-36">
+                                <DatePicker
+                                  value={customCooldownDates[m.id] ?? (m.bookingCooldownEndOverrideAt ? m.bookingCooldownEndOverrideAt.split("T")[0] : "")}
+                                  onChange={e => setCustomCooldownDates(prev => ({ ...prev, [m.id]: e.target.value }))}
+                                  className="input-field text-xs py-1.5 px-2 bg-white"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                disabled={overrideSavingId === m.id || !customCooldownDates[m.id]}
+                                onClick={() => handleUpdateBookingOverride(m.id, { bookingOverrideUnlocked: false, bookingCooldownEndOverrideAt: customCooldownDates[m.id] })}
+                                className="btn-secondary btn-sm text-xs py-2 px-3 font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
+                              >
+                                {ar() ? "تعديل التاريخ" : "Change Date"}
+                              </button>
+                            </div>
+
+                            {/* 3. Reset to Default */}
+                            {(isOverrideUnlocked || m.bookingCooldownEndOverrideAt) && (
+                              <button
+                                type="button"
+                                disabled={overrideSavingId === m.id}
+                                onClick={() => handleUpdateBookingOverride(m.id, { bookingOverrideUnlocked: false, bookingCooldownEndOverrideAt: null })}
+                                className="text-xs font-bold text-surface-600 hover:text-red-600 px-3 py-2 rounded-lg bg-surface-100 hover:bg-red-50 transition-colors ml-auto"
+                              >
+                                {ar() ? "إعادة الضوابط الافتراضية" : "Reset to Default Rules"}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             )}
 

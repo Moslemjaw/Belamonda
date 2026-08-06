@@ -604,13 +604,23 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     const elErr = await eligibilityError(uo, offer);
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
-    // Gate: session interval cooling period
-    if (offer.sessionIntervalDays > 0) {
-      const lastCompletedAt = await sessionsStore.lastCompletedAt(uo.id, req.auth!.userId);
-      if (lastCompletedAt) {
-        const nextEligible = new Date(new Date(lastCompletedAt).getTime() + offer.sessionIntervalDays * 24 * 60 * 60 * 1000);
-        if (new Date() < nextEligible) {
-          return res.status(409).json({ error: "INTERVAL_NOT_MET", nextEligibleAt: nextEligible.toISOString() });
+    // Gate: session interval cooling period (respects admin overrides)
+    const uoDocForOverride = await UserOfferModel.findById(uo.id).lean();
+    const isOverrideUnlocked = !!(uoDocForOverride as any)?.bookingOverrideUnlocked;
+    const cooldownOverrideAt = (uoDocForOverride as any)?.bookingCooldownEndOverrideAt ? new Date((uoDocForOverride as any).bookingCooldownEndOverrideAt) : null;
+
+    if (!isOverrideUnlocked) {
+      if (cooldownOverrideAt) {
+        if (new Date() < cooldownOverrideAt) {
+          return res.status(409).json({ error: "INTERVAL_NOT_MET", nextEligibleAt: cooldownOverrideAt.toISOString() });
+        }
+      } else if (offer.sessionIntervalDays > 0) {
+        const lastCompletedAt = await sessionsStore.lastCompletedAt(uo.id, req.auth!.userId);
+        if (lastCompletedAt) {
+          const nextEligible = new Date(new Date(lastCompletedAt).getTime() + offer.sessionIntervalDays * 24 * 60 * 60 * 1000);
+          if (new Date() < nextEligible) {
+            return res.status(409).json({ error: "INTERVAL_NOT_MET", nextEligibleAt: nextEligible.toISOString() });
+          }
         }
       }
     }

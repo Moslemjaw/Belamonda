@@ -196,6 +196,8 @@ export function serializeUserOffer(doc: UserOfferDoc) {
     sharedWith: (doc as any).sharedWith ?? [],
     maxSessions: (doc as any).maxSessions ?? undefined,
     lastManualSessionAt: (doc as any).lastManualSessionAt ? new Date((doc as any).lastManualSessionAt).toISOString() : undefined,
+    bookingOverrideUnlocked: !!(doc as any).bookingOverrideUnlocked,
+    bookingCooldownEndOverrideAt: (doc as any).bookingCooldownEndOverrideAt ? new Date((doc as any).bookingCooldownEndOverrideAt).toISOString() : undefined,
     shortId: (doc as any).shortId ?? undefined
   };
 }
