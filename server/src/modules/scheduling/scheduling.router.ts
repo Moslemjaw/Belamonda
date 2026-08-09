@@ -1481,7 +1481,14 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
   if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
     return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
   }
-  if (breq.clinicPaymentStatus === "paid") return res.status(409).json({ error: "ALREADY_MARKED_PAID" });
+  if (breq.clinicPaymentStatus === "paid") {
+    if (breq.scheduledSessionId) {
+      await BookingSessionModel.findByIdAndUpdate(breq.scheduledSessionId, {
+        $set: { clinicPaymentStatus: "paid", clinicPaymentMarkedAt: new Date(), clinicPaymentMarkedBy: req.auth!.userId }
+      });
+    }
+    return res.json({ success: true, alreadyPaid: true });
+  }
 
   if (breq.sessionPaymentId) {
     const oldPay = await PaymentModel.findByIdAndUpdate(breq.sessionPaymentId, {
@@ -1604,6 +1611,12 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
     cashbackDeductedKwd: cbToDeduct > 0 ? cbToDeduct.toFixed(3) : undefined
   });
 
+  if (breq.scheduledSessionId) {
+    await BookingSessionModel.findByIdAndUpdate(breq.scheduledSessionId, {
+      $set: { clinicPaymentStatus: "paid", clinicPaymentMarkedAt: new Date(), clinicPaymentMarkedBy: req.auth!.userId }
+    });
+  }
+
   if (updated?.conversationId) {
     postSystemMessage(
       updated.conversationId,
@@ -1656,6 +1669,12 @@ schedulingRouter.post("/requests/:id/mark-unpaid", authRequired, requireRole(["a
       clinicPaymentMarkedAt: new Date().toISOString(),
       clinicPaymentMarkedBy: req.auth!.userId,
     });
+
+    if (breq.scheduledSessionId) {
+      await BookingSessionModel.findByIdAndUpdate(breq.scheduledSessionId, {
+        $set: { clinicPaymentStatus: "pending" }
+      });
+    }
 
     return res.json({ request: updated });
   } catch (err: any) {
@@ -2472,7 +2491,8 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     const enrichedSessions = sessionDocs.map((doc: any) => {
       const req = requestsBySessionMap.get(doc._id.toString()) || (doc.bookingRequestId ? requestsBySessionMap.get(doc.bookingRequestId.toString()) : null);
       const sStatus = doc.status;
-      const pStatus = doc.clinicPaymentStatus || req?.clinicPaymentStatus || "pending";
+      const isPaid = doc.clinicPaymentStatus === "paid" || req?.clinicPaymentStatus === "paid";
+      const pStatus = isPaid ? "paid" : "pending";
       
       let combinedStatus = "";
       if (sStatus === "completed" && pStatus === "paid") combinedStatus = "Completed";
@@ -2502,7 +2522,8 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     const enrichedRequests = requestDocs.map((doc: any) => {
       const sess = doc.scheduledSessionId ? sessionsByReqMap.get(doc.scheduledSessionId.toString()) : null;
       const sStatus = sess?.status;
-      const pStatus = doc.clinicPaymentStatus || "pending";
+      const isPaid = doc.clinicPaymentStatus === "paid" || sess?.clinicPaymentStatus === "paid";
+      const pStatus = isPaid ? "paid" : "pending";
       
       let combinedStatus = "";
       if (sStatus === "completed" && pStatus === "paid") combinedStatus = "Completed";
