@@ -2464,7 +2464,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     }
 
     let requestDocs: any[] = [];
-    const isRequestStatus = !status || status === "all" || ["request_received", "slot_assigned", "scheduled", "cancelled", "no_show", "checked_in"].includes(status as string);
+    const isRequestStatus = !status || status === "all" || ["request_received", "slot_assigned", "scheduled", "cancelled", "no_show", "checked_in", "completed"].includes(status as string);
     if (isRequestStatus) {
       const rawRequestDocs = await BookingRequestModel.find(requestQuery).sort({ createdAt: -1 }).limit(300).lean();
       // Filter out requests that have an associated session, because the session itself will be returned in sessionDocs
