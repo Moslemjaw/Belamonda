@@ -632,6 +632,28 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
 
     // Gate: prevent multiple open booking requests for the same membership
     const openStatuses = ["request_received", "slot_assigned", "scheduled"];
+    const now = new Date();
+
+    // Auto-clear stale requests (>24h old) so past appointments don't block new bookings
+    const potentialStaleReqs = await BookingRequestModel.find({
+      userOfferId: uo.id,
+      userId: req.auth!.userId,
+      status: { $in: openStatuses }
+    });
+    for (const r of potentialStaleReqs) {
+      const rDate = (r as any).proposedAt || (r as any).preferredAt || (r as any).createdAt;
+      if (rDate && new Date(rDate) < new Date(now.getTime() - 24 * 60 * 60 * 1000)) {
+        let linkedSess: any = null;
+        if ((r as any).scheduledSessionId) {
+          linkedSess = await BookingSessionModel.findById((r as any).scheduledSessionId).lean();
+        } else {
+          linkedSess = await BookingSessionModel.findOne({ bookingRequestId: r._id }).lean();
+        }
+        const newStatus = (linkedSess?.status === "completed" || linkedSess?.status === "no_show") ? linkedSess.status : "completed";
+        await BookingRequestModel.findByIdAndUpdate(r._id, { $set: { status: newStatus } });
+      }
+    }
+
     const existingReq = await BookingRequestModel.findOne({
       userOfferId: uo.id,
       userId: req.auth!.userId,
