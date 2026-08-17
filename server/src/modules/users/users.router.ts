@@ -73,11 +73,12 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
     }
 
     if (q) {
+      const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       filter.$or = [
-        { username: { $regex: q, $options: "i" } },
-        { fullName: { $regex: q, $options: "i" } },
-        { email: { $regex: q, $options: "i" } },
-        { phone: { $regex: q, $options: "i" } }
+        { username: { $regex: safeQ, $options: "i" } },
+        { fullName: { $regex: safeQ, $options: "i" } },
+        { email: { $regex: safeQ, $options: "i" } },
+        { phone: { $regex: safeQ, $options: "i" } }
       ];
     }
 

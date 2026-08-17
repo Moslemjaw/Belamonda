@@ -3948,7 +3948,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
     }
   };
 
-  const loadUsers = () => {
+  const loadUsers = useCallback(() => {
     interface AdminUserItem {
       id: string;
       username?: string;
@@ -3962,7 +3962,11 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
     interface AdminUsersResponse { items: AdminUserItem[]; }
     let url = "/users/admin?";
     if (from) url += `from=${from}&`;
-    if (to) url += `to=${to}`;
+    if (to) url += `to=${to}&`;
+    if (search) url += `q=${encodeURIComponent(search.trim())}&`;
+    if (filterRole && filterRole !== "all") url += `role=${filterRole}&`;
+    if (filterStatus && filterStatus !== "all") url += `status=${filterStatus}&`;
+
     apiFetch(url, { headers: getAuthHeader() })
       .then((d) => {
         setUsers(((d as AdminUsersResponse).items || []).map((u) => ({
@@ -3981,16 +3985,16 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
       .catch((err: unknown) => {
         console.error("[UsersManager] Failed to load users:", err);
       });
-  };
+  }, [from, to, search, filterRole, filterStatus, getAuthHeader]);
 
-  useEffect(() => { loadUsers(); }, [from, to]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadUsers();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [loadUsers]);
 
-  const filtered = users.filter(u => {
-    const matchSearch = (u.name ?? "").toLowerCase().includes(search.toLowerCase()) || (u.phone ?? "").includes(search);
-    const matchRole = filterRole === "all" || u.role === filterRole;
-    const matchStatus = filterStatus === "all" || (filterStatus === "active" ? u.kyc : !u.kyc);
-    return matchSearch && matchRole && matchStatus;
-  });
+  const filtered = users;
 
   const openUser = (u: any) => { setSelectedUser(u); };
 
