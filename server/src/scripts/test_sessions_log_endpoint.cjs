@@ -1,37 +1,40 @@
 const mongoose = require("mongoose");
-
-const MONGO_URI = process.env.MONGODB_URI || "mongodb+srv://moslemjawich:MMjj2005@forall.9ryif9r.mongodb.net/?appName=ForAll/";
+const MONGO_URI = "mongodb+srv://moslemjawich:MMjj2005@forall.9ryif9r.mongodb.net/?appName=ForAll/";
 
 const BookingSessionSchema = new mongoose.Schema({}, { strict: false });
-const BookingSession = mongoose.model("FixBS", BookingSessionSchema, "bookingsessions");
+const BookingSession = mongoose.model("AlaaBS", BookingSessionSchema, "bookingsessions");
 
-async function fix() {
+const BookingRequestSchema = new mongoose.Schema({}, { strict: false });
+const BookingRequest = mongoose.model("AlaaBR", BookingRequestSchema, "bookingrequests");
+
+const UserSchema = new mongoose.Schema({}, { strict: false });
+const User = mongoose.model("AlaaUser", UserSchema, "users");
+
+async function check() {
   await mongoose.connect(MONGO_URI);
-  
-  // Fix the document missing createdAt by setting it to its scheduledAt
-  const doc = await BookingSession.findById("6a8bfa50caad3e2f045d8c83").lean();
-  if (doc && !doc.createdAt) {
-    await BookingSession.updateOne(
-      { _id: "6a8bfa50caad3e2f045d8c83" },
-      { $set: { createdAt: doc.scheduledAt || new Date() } }
-    );
-    console.log("✅ Fixed document 6a8bfa50caad3e2f045d8c83 - set createdAt to:", doc.scheduledAt || new Date());
-  } else {
-    console.log("Document already has createdAt or not found.");
+
+  const user = await User.findOne({ fullName: /الاء.*رضوان.*يونس/i }).lean();
+  if (!user) {
+    console.log("User not found");
+    await mongoose.disconnect();
+    return;
   }
-  
-  // Check for any other sessions missing createdAt
-  const missing = await BookingSession.find({ createdAt: { $exists: false } }).lean();
-  console.log(`Found ${missing.length} other sessions missing createdAt`);
-  for (const m of missing) {
-    await BookingSession.updateOne(
-      { _id: m._id },
-      { $set: { createdAt: m.scheduledAt || new Date() } }
-    );
-    console.log(`  ✅ Fixed ${m._id}`);
+
+  console.log(`Found User: ${user.fullName} (${user._id})`);
+
+  const sessions = await BookingSession.find({ userId: user._id.toString() }).lean();
+  console.log(`\nBooking Sessions (${sessions.length}):`);
+  for (const s of sessions) {
+    console.log(JSON.stringify(s, null, 2));
   }
-  
+
+  const requests = await BookingRequest.find({ userId: user._id.toString() }).lean();
+  console.log(`\nBooking Requests (${requests.length}):`);
+  for (const r of requests) {
+    console.log(JSON.stringify(r, null, 2));
+  }
+
   await mongoose.disconnect();
 }
 
-fix().catch(console.error);
+check().catch(console.error);

@@ -159,7 +159,7 @@ usersRouter.get("/admin/:id/profile", authRequired, requireRole([...STAFF_ROLES,
     const membershipIds = memberships.map((m: any) => m._id);
     const lastCompletedSessions = membershipIds.length > 0 ? await BookingSessionModel.aggregate([
       { $match: { userOfferId: { $in: membershipIds }, status: "completed" } },
-      { $group: { _id: "$userOfferId", lastCompletedAt: { $max: "$scheduledAt" } } }
+      { $group: { _id: "$userOfferId", lastCompletedAt: { $max: { $ifNull: ["$completedAt", "$scheduledAt"] } } } }
     ]) : [];
     const lastCompletedMap = Object.fromEntries(lastCompletedSessions.map((s: any) => [s._id.toString(), s.lastCompletedAt]));
 
