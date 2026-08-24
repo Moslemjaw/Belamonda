@@ -390,7 +390,10 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     const activeScheduledSession = clinicSessions.find((s: any) => s.status === "scheduled" || s.status === "slot_assigned");
     const hasScheduled = !!activeScheduledSession;
 
-    if (activeScheduledSession) {
+    // Reschedule ONLY for late arrivals (scanned AFTER their originally scheduled session date/time)
+    const isLateArrival = activeScheduledSession && activeScheduledSession.scheduledAt && new Date(now).getTime() > new Date(activeScheduledSession.scheduledAt).getTime();
+
+    if (activeScheduledSession && isLateArrival) {
       await BookingSessionModel.findByIdAndUpdate(activeScheduledSession.id, {
         $set: { scheduledAt: now }
       });

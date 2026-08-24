@@ -2281,7 +2281,7 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
         });
       }
 
-      if (updated.completedAt) {
+      if (updated.completedAt && session.scheduledAt && new Date(updated.completedAt).getTime() > new Date(session.scheduledAt).getTime()) {
         await BookingSessionModel.findByIdAndUpdate(session.id, {
           $set: { scheduledAt: updated.completedAt }
         });
