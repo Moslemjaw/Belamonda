@@ -96,6 +96,34 @@ export default function AdminSessionsLogTab() {
     return name.includes(q) || phone.includes(q);
   });
 
+  const analytics = useMemo(() => {
+    let completed = 0;
+    let pendingPayment = 0;
+    let awaitingAttendance = 0;
+
+    for (const s of filteredSessions) {
+      if (s.status === 'completed') {
+        completed++;
+      }
+
+      if (s.clinicPaymentStatus !== 'paid') {
+        pendingPayment++;
+      }
+
+      const isAwaiting = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status);
+      if (isAwaiting) {
+        awaitingAttendance++;
+      }
+    }
+
+    return {
+      total: filteredSessions.length,
+      completed,
+      pendingPayment,
+      awaitingAttendance
+    };
+  }, [filteredSessions]);
+
   const submitChangeClinic = async () => {
     if (!newClinicSelection || newClinicSelection === changeClinicTarget.clinicId) {
       alert(ar() ? "الرجاء اختيار عيادة مختلفة" : "Please select a different clinic");
@@ -173,6 +201,61 @@ export default function AdminSessionsLogTab() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
           {ar() ? "تحديث السجل" : "Refresh Log"}
         </button>
+      </div>
+
+      {/* Dynamic Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* Total Sessions */}
+        <div className="bg-white rounded-2xl p-4 border border-surface-200 shadow-sm flex items-center gap-3 transition-all">
+          <div className="w-11 h-11 rounded-xl bg-brand-pink-50 flex items-center justify-center text-brand-pink-600 shrink-0 font-bold">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-surface-500">{ar() ? "إجمالي الجلسات" : "Total Sessions"}</div>
+            <div className="text-xl font-extrabold text-surface-900 mt-0.5">{analytics.total}</div>
+          </div>
+        </div>
+
+        {/* Completed */}
+        <div className="bg-white rounded-2xl p-4 border border-emerald-100 shadow-sm flex items-center gap-3 transition-all">
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 font-bold">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-surface-500">{ar() ? "الجلسات المكتملة" : "Completed Sessions"}</div>
+            <div className="text-xl font-extrabold text-emerald-700 mt-0.5">{analytics.completed}</div>
+          </div>
+        </div>
+
+        {/* Awaiting Attendance */}
+        <div className="bg-white rounded-2xl p-4 border border-blue-100 shadow-sm flex items-center gap-3 transition-all">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 font-bold">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-surface-500">{ar() ? "في انتظار الحضور" : "Awaiting Attendance"}</div>
+            <div className="text-xl font-extrabold text-blue-700 mt-0.5">{analytics.awaitingAttendance}</div>
+          </div>
+        </div>
+
+        {/* Awaiting Payments */}
+        <div className="bg-white rounded-2xl p-4 border border-amber-100 shadow-sm flex items-center gap-3 transition-all">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 font-bold">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-surface-500">{ar() ? "في انتظار الدفع" : "Awaiting Payments"}</div>
+            <div className="text-xl font-extrabold text-amber-700 mt-0.5">{analytics.pendingPayment}</div>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white p-4 rounded-2xl shadow-sm border border-surface-200 flex flex-wrap gap-3 items-center">
