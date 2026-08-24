@@ -2273,11 +2273,17 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
 
       // Auto-sync the associated booking request status & shownAt timestamp
       const breq = await bookingRequestsStore.findBySessionId(session.id);
+      const nowIso = new Date().toISOString();
       if (breq) {
-        const now = new Date().toISOString();
         await bookingRequestsStore.update(breq.id, {
           status: "completed",
-          shownAt: now
+          shownAt: nowIso
+        });
+      }
+
+      if (updated.completedAt) {
+        await BookingSessionModel.findByIdAndUpdate(session.id, {
+          $set: { scheduledAt: updated.completedAt }
         });
       }
     }

@@ -386,14 +386,40 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
       });
     }
 
-    const hasScheduled = clinicSessions.some((s: any) => s.status === "scheduled" || s.status === "slot_assigned");
+    const now = new Date();
+    const activeScheduledSession = clinicSessions.find((s: any) => s.status === "scheduled" || s.status === "slot_assigned");
+    const hasScheduled = !!activeScheduledSession;
+
+    if (activeScheduledSession) {
+      await BookingSessionModel.findByIdAndUpdate(activeScheduledSession.id, {
+        $set: { scheduledAt: now }
+      });
+      activeScheduledSession.scheduledAt = now;
+
+      await BookingRequestModel.updateMany(
+        {
+          $or: [
+            { scheduledSessionId: activeScheduledSession.id },
+            { _id: activeScheduledSession.id }
+          ]
+        },
+        {
+          $set: {
+            proposedAt: now.toISOString(),
+            adminSuggestedAt: now.toISOString(),
+            shownAt: now.toISOString()
+          }
+        }
+      );
+    }
+
     const firstActiveMembership = memberships.find((m: any) => m.status === "active") || memberships[0];
 
     await ScanLogModel.create({
       userId: String(user._id),
       scannedByUserId: req.auth!.userId,
       clinicId: clinicId || "admin",
-      scannedAt: new Date(),
+      scannedAt: now,
       tokenUsed: token,
       hadScheduledSession: hasScheduled,
       status: hasScheduled ? "attended" : "no_scheduled_session",
