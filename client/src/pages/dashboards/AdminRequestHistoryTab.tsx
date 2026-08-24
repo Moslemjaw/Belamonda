@@ -102,11 +102,13 @@ export default function AdminRequestHistoryTab() {
       }
       
       if (fromDate) {
-        const f = new Date(fromDate).getTime();
+        const [sy, sm, sd] = fromDate.split("-").map(Number);
+        const f = new Date(sy, sm - 1, sd, 0, 0, 0, 0).getTime();
         if (new Date(it.createdAt).getTime() < f) return false;
       }
       if (toDate) {
-        const t = new Date(toDate).getTime() + 24 * 60 * 60 * 1000 - 1;
+        const [ey, em, ed] = toDate.split("-").map(Number);
+        const t = new Date(ey, em - 1, ed, 23, 59, 59, 999).getTime();
         if (new Date(it.createdAt).getTime() > t) return false;
       }
       return true;

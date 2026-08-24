@@ -36,7 +36,8 @@ export default function AdminSessionsLogTab() {
 
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterDate, setFilterDate] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [status, setStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClinic, setFilterClinic] = useState("all");
@@ -55,16 +56,20 @@ export default function AdminSessionsLogTab() {
     setLoading(true);
     try {
       let q = "";
-      if (filterDate || status !== "all") {
+      if (fromDate || toDate || status !== "all") {
         const p = new URLSearchParams();
-        if (filterDate) {
-           const d = new Date(filterDate);
-           if (!isNaN(d.getTime())) {
-             const from = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString();
-             const to = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).toISOString();
-             p.set("from", from);
-             p.set("to", to);
-           }
+        if (fromDate || toDate) {
+          const startDayStr = fromDate || toDate;
+          const endDayStr = toDate || fromDate;
+
+          const [sy, sm, sd] = startDayStr.split("-").map(Number);
+          const [ey, em, ed] = endDayStr.split("-").map(Number);
+
+          const fromIso = new Date(sy, sm - 1, sd, 0, 0, 0, 0).toISOString();
+          const toIso = new Date(ey, em - 1, ed, 23, 59, 59, 999).toISOString();
+
+          p.set("from", fromIso);
+          p.set("to", toIso);
         }
         if (status !== "all") p.set("status", status);
         q = `?${p.toString()}`;
@@ -78,7 +83,7 @@ export default function AdminSessionsLogTab() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader, filterDate, status]);
+  }, [getAuthHeader, fromDate, toDate, status]);
 
   useEffect(() => { fetchSessions(); }, [fetchSessions]);
 
@@ -201,10 +206,19 @@ export default function AdminSessionsLogTab() {
             <option value="in_progress">{ar() ? "قيد التنفيذ" : "In Progress"}</option>
             <option value="rescheduled">{ar() ? "إعادة جدولة" : "Rescheduled"}</option>
           </select>
-          <div className="w-full md:w-40 shrink-0">
+          <div className="w-full md:w-36 shrink-0">
             <DatePicker 
-              value={filterDate} 
-              onChange={e => setFilterDate(e.target.value)} 
+              value={fromDate} 
+              onChange={e => setFromDate(e.target.value)} 
+              placeholder={ar() ? "من تاريخ" : "From date"}
+              className="input-field w-full font-medium text-surface-700" 
+            />
+          </div>
+          <div className="w-full md:w-36 shrink-0">
+            <DatePicker 
+              value={toDate} 
+              onChange={e => setToDate(e.target.value)} 
+              placeholder={ar() ? "إلى تاريخ" : "To date"}
               className="input-field w-full font-medium text-surface-700" 
             />
           </div>
