@@ -649,7 +649,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         } else {
           linkedSess = await BookingSessionModel.findOne({ bookingRequestId: r._id }).lean();
         }
-        const newStatus = (linkedSess?.status === "completed" || linkedSess?.status === "no_show") ? linkedSess.status : "completed";
+        const newStatus = (linkedSess?.status === "completed" || linkedSess?.status === "no_show") ? linkedSess.status : "cancelled";
         await BookingRequestModel.findByIdAndUpdate(r._id, { $set: { status: newStatus } });
       }
     }
