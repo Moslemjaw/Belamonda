@@ -245,13 +245,11 @@ export function EFormsAdminPanel() {
   const { getAuthHeader, auth } = useAuth();
   const { data: formsData, refetch, loading } = useApi<{ items: FormItem[] }>("/eforms/admin/forms");
   const { data: offersData } = useApi<{ items: Array<{ id: string; name: string }> }>("/offers/admin");
-  const { data: subsData, refetch: refetchSubs } = useApi<{ items: SubmissionItem[] }>("/eforms/admin/submissions");
-
+  
   const isCsDirector = auth?.role === "cs_director";
 
   const offers = offersData?.items ?? [];
   const forms = formsData?.items ?? [];
-  const submissions = subsData?.items ?? [];
 
   const [view, setView] = useState<"forms" | "submissions">(isCsDirector ? "submissions" : "forms");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -261,6 +259,17 @@ export function EFormsAdminPanel() {
   const [previewForm, setPreviewForm] = useState<FormItem | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+
+  const subsEndpoint = useMemo(() => {
+    const params = new URLSearchParams();
+    if (filterFormId) params.set("formId", filterFormId);
+    if (searchQuery.trim()) params.set("q", searchQuery.trim());
+    const qStr = params.toString();
+    return `/eforms/admin/submissions${qStr ? `?${qStr}` : ""}`;
+  }, [filterFormId, searchQuery]);
+
+  const { data: subsData, refetch: refetchSubs } = useApi<{ items: SubmissionItem[] }>(subsEndpoint, { deps: [subsEndpoint] });
+  const submissions = subsData?.items ?? [];
 
   // Send form state
   const [sendFormModal, setSendFormModal] = useState<FormItem | null>(null);
@@ -276,7 +285,8 @@ export function EFormsAdminPanel() {
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const customerName = (s.userName || s.userId || "").toLowerCase();
-      if (!customerName.includes(q)) return false;
+      const phone = (s.userPhone || "").toLowerCase();
+      if (!customerName.includes(q) && !phone.includes(q)) return false;
     }
     return true;
   });

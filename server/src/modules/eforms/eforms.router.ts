@@ -384,19 +384,41 @@ eformsRouter.post("/admin/assignments", authRequired, requireRole(["admin", "leg
 eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "legal", "cs_director", "finance"]), async (req, res, next) => {
   try {
     const filter: Record<string, unknown> = {};
-    if (typeof req.query.formId === "string" && mongoose.isValidObjectId(req.query.formId)) {
-      filter.formId = new mongoose.Types.ObjectId(req.query.formId);
+    const { formId, userId, from, to, q } = req.query;
+
+    if (typeof formId === "string" && formId.trim() && mongoose.isValidObjectId(formId.trim())) {
+      filter.formId = new mongoose.Types.ObjectId(formId.trim());
     }
-    if (typeof req.query.userId === "string") filter.userId = req.query.userId;
-    if (typeof req.query.from === "string" && typeof req.query.to === "string") {
+    if (typeof userId === "string" && userId.trim()) {
+      filter.userId = userId.trim();
+    }
+    if (typeof from === "string" && typeof to === "string" && from && to) {
       filter.createdAt = {
-        $gte: new Date(req.query.from),
-        $lte: new Date(req.query.to),
+        $gte: new Date(from),
+        $lte: new Date(to),
       };
     }
+    if (typeof q === "string" && q.trim()) {
+      const searchRegex = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      const matchedUsers = await UserModel.find({
+        $or: [
+          { fullName: searchRegex },
+          { username: searchRegex },
+          { phone: searchRegex },
+          { email: searchRegex },
+          { shortId: searchRegex }
+        ]
+      }).select("_id").lean();
+      const matchedUserIds = matchedUsers.map(u => String(u._id));
+      
+      filter.$or = [
+        { userId: { $in: matchedUserIds } },
+        { formTitle: searchRegex }
+      ];
+    }
+
     const rows = await EFormSubmissionModel.find(filter)
       .sort({ createdAt: -1 })
-      .limit(200)
       .lean<EFormSubmissionDoc[]>();
 
     const userIds = [...new Set(rows.map(r => r.userId).filter(Boolean))];
