@@ -3018,8 +3018,9 @@ export default function CustomerDashboard() {
                 );
               })()}
 
-              {/* Active booking requests (non awaiting_payment) */}
+              {/* Active booking requests (non awaiting_payment) - hidden per configuration */}
               {(() => {
+                return null;
                 const activeRequests = (myRequestsData?.items ?? []).filter(
                   (r) => r.status !== "awaiting_session_payment"
                 );
