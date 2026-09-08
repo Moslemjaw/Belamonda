@@ -496,9 +496,24 @@ function postSystemMessage(
 
 export const schedulingRouter = Router();
 
+const userBookingLocks = new Map<string, number>();
+
 // ── Customer requests a session — creates booking request + conversation ───
 schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
   try {
+    const userId = req.auth!.userId;
+    const nowTs = Date.now();
+    const lastTime = userBookingLocks.get(userId) || 0;
+    if (nowTs - lastTime < 4000) {
+      return res.status(429).json({ error: "TOO_MANY_REQUESTS", message: "A booking request is already being processed. Please wait a moment." });
+    }
+    userBookingLocks.set(userId, nowTs);
+    setTimeout(() => {
+      if (userBookingLocks.get(userId) === nowTs) {
+        userBookingLocks.delete(userId);
+      }
+    }, 5000);
+
     const parsed = RequestSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
 
@@ -2214,6 +2229,19 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
 
     let cashbackUnlocked = "0.000";
     if (parsed.data.status === "completed") {
+      // Validate that session scheduledAt date is not in the future (after today)
+      if (session.scheduledAt) {
+        const schedDate = new Date(session.scheduledAt);
+        const endOfToday = new Date();
+        endOfToday.setHours(23, 59, 59, 999);
+        if (schedDate > endOfToday && req.auth?.role !== "admin") {
+          return res.status(400).json({
+            error: "FUTURE_SESSION_NOT_ALLOWED",
+            message: "Cannot mark a session as completed before its scheduled date."
+          });
+        }
+      }
+
       // sessionsUsed was already incremented at confirm time; just unlock cashback here
       cashbackUnlocked = offer.cashbackPerSessionKwd ?? "0.000";
       

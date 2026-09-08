@@ -1067,6 +1067,7 @@ export default function CustomerDashboard() {
     membersNeeded: number;
     loading: boolean;
   } | null>(null);
+  const [isBookingSubmitting, setIsBookingSubmitting] = useState(false);
 
   const { data: walletData, loading: wLoading } = useWallet({ lazy: activeTab !== "overview" && activeTab !== "wallet" && activeTab !== "my-purchases" });
   const { data: offersData, refetch: refetchMyOffers } = useMyOffers({ lazy: activeTab !== "overview" && activeTab !== "my-purchases" && activeTab !== "store" });
@@ -4439,7 +4440,9 @@ export default function CustomerDashboard() {
                })()}
             </div>
 
-            <button className="btn-primary w-full shadow-md" onClick={async () => {
+            <button className="btn-primary w-full shadow-md disabled:opacity-50 disabled:cursor-not-allowed" disabled={isBookingSubmitting} onClick={async () => {
+               if (isBookingSubmitting) return;
+               setIsBookingSubmitting(true);
                const offer = showBookingModal;
                try {
                  // BUG FIX: Use the real MongoDB UserOffer _id (offer.userOfferId) for
@@ -4519,9 +4522,11 @@ export default function CustomerDashboard() {
                    setSysAlert(friendly[msg] ?? msg);
                  }
                  setTimeout(() => setSysAlert(null), 6000);
+               } finally {
+                 setIsBookingSubmitting(false);
                }
             }}>
-               {ar() ? "تأكيد الحجز" : "Confirm Booking"}
+               {isBookingSubmitting ? (ar() ? "جاري الإرسال..." : "Submitting...") : (ar() ? "تأكيد الحجز" : "Confirm Booking")}
             </button>
           </div>
         </div>

@@ -51,7 +51,9 @@ export default function AdminScanHistoryTab() {
   const fetchScanHistory = useCallback(async () => {
     setLoading(true);
     try {
-      const res = (await apiFetch("/scheduling/admin/scan-logs", {
+      const params = new URLSearchParams();
+      params.set("limit", "10000");
+      const res = (await apiFetch(`/scheduling/admin/scan-logs?${params.toString()}`, {
         headers: getAuthHeader(),
       })) as { items: ScanLogItem[] };
       setScanLogs(res.items || []);
