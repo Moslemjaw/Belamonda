@@ -2427,82 +2427,91 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
 });
 
 // ── Admin Sessions Log ────────────────────────────────────────────────────────
-schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_director", "legal", "cs"]), async (req, res, next) => {
+schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res, next) => {
   try {
-    const { from, to, status } = req.query;
+    const { from, to, status, clinicId, search } = req.query;
+    const userRole = (req as any).user?.role;
+    const userClinicId = (req as any).user?.clinicId;
 
-    const sessionQuery: any = {
-      $and: [
-        { notes: { $ne: "Historical session logged during enrollment" } },
-        { scheduledAt: { $gte: new Date("2026-07-01T00:00:00Z") } }
-      ]
-    };
+    const sessionQuery: any = {};
+    const requestQuery: any = { status: { $ne: "confirmed" } };
+
+    // Clinic scoping
+    let targetClinicId = clinicId;
+    if (userRole === "clinicStaff" && userClinicId) {
+      targetClinicId = userClinicId.toString();
+    }
+
+    if (targetClinicId && targetClinicId !== "all") {
+      let cId: any = targetClinicId;
+      if (typeof cId === "string" && mongoose.isValidObjectId(cId)) {
+        cId = new mongoose.Types.ObjectId(cId);
+      }
+      sessionQuery.clinicId = cId;
+      requestQuery.clinicId = cId;
+    }
+
+    // Date filtering
     if (from || to) {
       const dateFilter: any = {};
       if (from) dateFilter.$gte = new Date(from as string);
       if (to) dateFilter.$lte = new Date(to as string);
-      
-      // Merge user date filter with our base >= 2026-07-01 rule
-      if (dateFilter.$gte) {
-        const userFrom = dateFilter.$gte.getTime();
-        const baseFrom = sessionQuery.$and[1].scheduledAt.$gte.getTime();
-        sessionQuery.$and[1].scheduledAt.$gte = new Date(Math.max(userFrom, baseFrom));
-      }
-      if (dateFilter.$lte) {
-        sessionQuery.$and[1].scheduledAt.$lte = dateFilter.$lte;
-      }
+
+      sessionQuery.scheduledAt = dateFilter;
+      requestQuery.$or = [
+        { proposedAt: dateFilter },
+        { preferredAt: dateFilter },
+        { createdAt: dateFilter }
+      ];
+    } else {
+      sessionQuery.scheduledAt = { $gte: new Date("2026-01-01T00:00:00Z") };
+      requestQuery.createdAt = { $gte: new Date("2026-01-01T00:00:00Z") };
     }
+
+    // Search filtering (customer name, phone, user shortId, or session shortId)
+    if (search && typeof search === "string" && search.trim()) {
+      const q = search.trim();
+      const matchingUsers = await UserModel.find({
+        $or: [
+          { fullName: { $regex: q, $options: "i" } },
+          { phone: { $regex: q, $options: "i" } },
+          { shortId: { $regex: q, $options: "i" } }
+        ]
+      }).select("_id").lean();
+
+      const matchingUserIds = matchingUsers.map((u: any) => u._id.toString());
+
+      const userCondSession = {
+        $or: [
+          { userId: { $in: matchingUserIds } },
+          { shortId: { $regex: q, $options: "i" } }
+        ]
+      };
+      const userCondRequest = {
+        $or: [
+          { userId: { $in: matchingUserIds } }
+        ]
+      };
+
+      sessionQuery.$and = sessionQuery.$and ? [...sessionQuery.$and, userCondSession] : [userCondSession];
+      requestQuery.$and = requestQuery.$and ? [...requestQuery.$and, userCondRequest] : [userCondRequest];
+    }
+
     if (status && status !== "all") {
       sessionQuery.status = status;
+      requestQuery.status = status;
     }
 
     let sessionDocs: any[] = [];
     const isSessionStatus = !status || status === "all" || ["scheduled", "completed", "no_show", "cancelled"].includes(status as string);
     if (isSessionStatus) {
-      sessionDocs = await BookingSessionModel.find(sessionQuery).sort({ scheduledAt: -1 }).limit(300).lean();
-    }
-
-    const requestQuery: any = {
-      $and: [
-        { status: { $ne: "confirmed" } },
-        { 
-          $or: [
-            { proposedAt: { $gte: new Date("2026-07-01T00:00:00Z") } },
-            { preferredAt: { $gte: new Date("2026-07-01T00:00:00Z") } },
-            { createdAt: { $gte: new Date("2026-07-01T00:00:00Z") } }
-          ]
-        }
-      ]
-    };
-    if (from || to) {
-      const dateFilter: any = {};
-      if (from) dateFilter.$gte = new Date(from as string);
-      if (to) dateFilter.$lte = new Date(to as string);
-      
-      if (dateFilter.$gte) {
-        const userFrom = dateFilter.$gte.getTime();
-        const baseFrom = new Date("2026-07-01T00:00:00Z").getTime();
-        dateFilter.$gte = new Date(Math.max(userFrom, baseFrom));
-      } else {
-        dateFilter.$gte = new Date("2026-07-01T00:00:00Z");
-      }
-      
-      requestQuery.$and[1].$or = [
-        { proposedAt: dateFilter },
-        { preferredAt: dateFilter },
-        { createdAt: dateFilter }
-      ];
-    }
-    if (status && status !== "all") {
-      requestQuery.status = status;
+      sessionDocs = await BookingSessionModel.find(sessionQuery).sort({ scheduledAt: -1 }).limit(2000).lean();
     }
 
     let requestDocs: any[] = [];
     const isRequestStatus = !status || status === "all" || ["request_received", "slot_assigned", "scheduled", "cancelled", "no_show", "checked_in", "completed"].includes(status as string);
     if (isRequestStatus) {
-      const rawRequestDocs = await BookingRequestModel.find(requestQuery).sort({ createdAt: -1 }).limit(300).lean();
-      // Filter out requests that have an associated session, because the session itself will be returned in sessionDocs
-      // This prevents the UI from showing duplicate rows for the same scheduled booking.
+      const rawRequestDocs = await BookingRequestModel.find(requestQuery).sort({ createdAt: -1 }).limit(2000).lean();
       requestDocs = rawRequestDocs.filter((r: any) => !r.scheduledSessionId);
     }
 
@@ -2511,7 +2520,14 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
       ...requestDocs.map((i: any) => i.userId)
     ];
     const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
-    const users = await UserModel.find({ _id: { $in: uniqueUserIds } }).select("_id fullName phone").lean();
+    const users = uniqueUserIds.length > 0
+      ? await UserModel.find({
+          $or: [
+            { _id: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { _id: { $in: uniqueUserIds } }
+          ]
+        }).select("_id fullName phone").lean()
+      : [];
     const userMap = new Map(users.map((u: any) => [u._id.toString(), { fullName: u.fullName, phone: u.phone }]));
 
     const offerIds = [
@@ -2520,7 +2536,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     ];
     const uniqueOfferIds = [...new Set(offerIds.filter(id => !!id && mongoose.isValidObjectId(id)))];
     const offerDocs = uniqueOfferIds.length > 0 ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).lean() : [];
-    const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o.name]));
+    const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o.titleAr || o.titleEn || o.title || o.name]));
     
     // Fetch associated requests for sessions to get payment status
     const sessionIds = sessionDocs.map(s => s._id.toString());
@@ -2607,7 +2623,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     const allItems = [...enrichedSessions, ...enrichedRequests];
     allItems.sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
 
-    return res.json({ items: allItems.slice(0, 500) });
+    return res.json({ items: allItems.slice(0, 2000) });
   } catch (e) {
     next(e);
   }

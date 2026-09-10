@@ -55,25 +55,25 @@ export default function AdminSessionsLogTab() {
   const fetchSessions = useCallback(async () => {
     setLoading(true);
     try {
-      let q = "";
-      if (fromDate || toDate || status !== "all") {
-        const p = new URLSearchParams();
-        if (fromDate || toDate) {
-          const startDayStr = fromDate || toDate;
-          const endDayStr = toDate || fromDate;
+      const p = new URLSearchParams();
+      if (fromDate || toDate) {
+        const startDayStr = fromDate || toDate;
+        const endDayStr = toDate || fromDate;
 
-          const [sy, sm, sd] = startDayStr.split("-").map(Number);
-          const [ey, em, ed] = endDayStr.split("-").map(Number);
+        const [sy, sm, sd] = startDayStr.split("-").map(Number);
+        const [ey, em, ed] = endDayStr.split("-").map(Number);
 
-          const fromIso = new Date(sy, sm - 1, sd, 0, 0, 0, 0).toISOString();
-          const toIso = new Date(ey, em - 1, ed, 23, 59, 59, 999).toISOString();
+        const fromIso = new Date(sy, sm - 1, sd, 0, 0, 0, 0).toISOString();
+        const toIso = new Date(ey, em - 1, ed, 23, 59, 59, 999).toISOString();
 
-          p.set("from", fromIso);
-          p.set("to", toIso);
-        }
-        if (status !== "all") p.set("status", status);
-        q = `?${p.toString()}`;
+        p.set("from", fromIso);
+        p.set("to", toIso);
       }
+      if (status !== "all") p.set("status", status);
+      if (filterClinic !== "all") p.set("clinicId", filterClinic);
+      if (searchQuery.trim()) p.set("search", searchQuery.trim());
+
+      const q = p.toString() ? `?${p.toString()}` : "";
       const res: any = await apiFetch(`/scheduling/admin/sessions-log${q}`, {
         headers: getAuthHeader()
       });
@@ -83,9 +83,14 @@ export default function AdminSessionsLogTab() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader, fromDate, toDate, status]);
+  }, [getAuthHeader, fromDate, toDate, status, filterClinic, searchQuery]);
 
-  useEffect(() => { fetchSessions(); }, [fetchSessions]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchSessions();
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fetchSessions]);
 
   const filteredSessions = sessions.filter(s => {
     if (filterClinic !== "all" && String(s.clinicId) !== filterClinic) return false;
