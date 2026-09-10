@@ -1702,6 +1702,7 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
   const [showAdjustCb, setShowAdjustCb] = useState(false);
   const [showNoScheduledModal, setShowNoScheduledModal] = useState(false);
   const [showAttendedModal, setShowAttendedModal] = useState(false);
+  const [scannedSessionInfo, setScannedSessionInfo] = useState<{ scheduledAt?: string | null; shownAt?: string | null }>({});
 
   const handleScan = async (scanToken?: string, isInitialScan: boolean = false) => {
     const rawInput = scanToken ?? token;
@@ -1724,10 +1725,17 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
       setResult(data);
 
       if (isInitialScan) {
+        const scanTime = new Date().toISOString();
         const clinicScheduledSessions = (data?.clinicSessions || []).filter((s: any) => s.status === "scheduled" || s.status === "slot_assigned");
+        const currentSession = clinicScheduledSessions[0];
+        const matchedBooking = (data?.clinicBookings || []).find((b: any) => b.scheduledSessionId === currentSession?.id || b.id === currentSession?.id);
+
+        setScannedSessionInfo({
+          scheduledAt: currentSession?.scheduledAt || matchedBooking?.clinicScheduledAt || matchedBooking?.proposedAt || null,
+          shownAt: matchedBooking?.shownAt || scanTime
+        });
 
         if (clinicScheduledSessions.length > 0) {
-          const currentSession = clinicScheduledSessions[0];
           await handleMarkSession(currentSession.id, "completed");
         } else {
           setShowNoScheduledModal(true);
@@ -1981,8 +1989,19 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
                 </h3>
 
                 {card?.displayName && (
-                  <div className="text-base font-extrabold text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-2 my-3 inline-block">
-                    👤 {card.displayName}
+                  <div className="my-3 p-3 bg-red-50 border border-red-200 rounded-2xl text-start text-xs space-y-1.5">
+                    <div className="font-extrabold text-red-800 text-sm flex items-center gap-1.5 mb-2">
+                      <span>👤</span>
+                      <span>{card.displayName}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-surface-700">
+                      <span className="font-bold">{ar() ? "الموعد المجدول:" : "Scheduled session:"}</span>
+                      <span className="font-mono text-red-600 font-bold">{ar() ? "لا يوجد موعد مجدول" : "No Scheduled Session"}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-surface-700">
+                      <span className="font-bold">{ar() ? "تاريخ العرض / المسح:" : "Shown date:"}</span>
+                      <span className="font-mono text-surface-900 font-bold">{fmtDateTime(scannedSessionInfo.shownAt || new Date())}</span>
+                    </div>
                   </div>
                 )}
 
@@ -2038,8 +2057,21 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
                 </h3>
 
                 {card?.displayName && (
-                  <div className="text-base font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2 my-3 inline-block">
-                    👤 {card.displayName}
+                  <div className="my-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-start text-xs space-y-1.5">
+                    <div className="font-extrabold text-emerald-900 text-sm flex items-center gap-1.5 mb-2">
+                      <span>👤</span>
+                      <span>{card.displayName}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-surface-700">
+                      <span className="font-bold">{ar() ? "الموعد المجدول:" : "Scheduled session:"}</span>
+                      <span className="font-mono text-emerald-700 font-bold">
+                        {scannedSessionInfo.scheduledAt ? fmtDateTime(scannedSessionInfo.scheduledAt) : (ar() ? "محدد آلياً" : "Auto-assigned")}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-surface-700">
+                      <span className="font-bold">{ar() ? "تاريخ العرض / المسح:" : "Shown date:"}</span>
+                      <span className="font-mono text-surface-900 font-bold">{fmtDateTime(scannedSessionInfo.shownAt || new Date())}</span>
+                    </div>
                   </div>
                 )}
 
