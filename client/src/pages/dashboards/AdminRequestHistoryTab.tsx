@@ -15,6 +15,8 @@ type BookingRow = {
   clinicNameAr?: string;
   userId: string;
   userName?: string;
+  userPhone?: string;
+  userShortId?: string;
   userOfferId: string;
   adminSuggestedAt?: string;
   clinicScheduledAt?: string;
@@ -90,14 +92,18 @@ export default function AdminRequestHistoryTab() {
 
   const filtered = useMemo(() => {
     return items.filter((it) => {
-      if (it.status === "cancelled" || it.status === "rejected") return false;
-      
       if (statusFilter !== "all" && it.status !== statusFilter) return false;
       
       if (searchQuery) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = (it.userName || "").toLowerCase().includes(q) || (it.userId || "").toLowerCase().includes(q);
-        const matchesNotes = (it.notes || "").toLowerCase().includes(q);
+        const q = searchQuery.toLowerCase().trim();
+        const matchesName = (it.userName || "").toLowerCase().includes(q) ||
+                            (it.userPhone || "").toLowerCase().includes(q) ||
+                            (it.userShortId || "").toLowerCase().includes(q) ||
+                            (it.userId || "").toLowerCase().includes(q) ||
+                            (it.id || "").toLowerCase().includes(q);
+        const matchesNotes = (it.notes || "").toLowerCase().includes(q) ||
+                             (it.clinicNameAr || "").toLowerCase().includes(q) ||
+                             (it.clinicNameEn || "").toLowerCase().includes(q);
         if (!matchesName && !matchesNotes) return false;
       }
       
@@ -185,8 +191,11 @@ export default function AdminRequestHistoryTab() {
                 <option value="request_received">{ar() ? "تم استلام الطلب" : "Request Received"}</option>
                 <option value="slot_assigned">{ar() ? "تم تحديد الوقت" : "Slot Assigned"}</option>
                 <option value="scheduled">{ar() ? "مجدول" : "Scheduled"}</option>
+                <option value="checked_in">{ar() ? "تم الحضور" : "Checked In"}</option>
                 <option value="in_progress">{ar() ? "قيد التنفيذ" : "In Progress"}</option>
                 <option value="completed">{ar() ? "مكتمل" : "Completed"}</option>
+                <option value="cancelled">{ar() ? "ملغى" : "Cancelled"}</option>
+                <option value="rescheduled">{ar() ? "تمت إعادة الجدولة" : "Rescheduled"}</option>
                 <option value="no_show">{ar() ? "لم يحضر" : "No Show"}</option>
               </select>
             </div>
@@ -231,7 +240,10 @@ export default function AdminRequestHistoryTab() {
               {filtered.map((it) => (
                 <tr key={it.id}>
                   <td>{ar() ? (it.clinicNameAr ?? it.clinicNameEn ?? it.clinicId) : (it.clinicNameEn ?? it.clinicNameAr ?? it.clinicId)}</td>
-                  <td className="font-medium text-surface-700">{it.userName ?? it.userId}</td>
+                  <td className="font-medium text-surface-700">
+                    <div className="font-bold text-surface-900">{it.userName ?? it.userId}</div>
+                    {it.userPhone && <div className="text-xs text-surface-500">{it.userPhone}</div>}
+                  </td>
                   <td>{it.adminSuggestedAt ? <span className="text-amber-700 font-medium">{fmtDateTime(it.adminSuggestedAt)}</span> : "—"}</td>
                   <td>{it.clinicScheduledAt ? <span className="text-emerald-700 font-medium">{fmtDateTime(it.clinicScheduledAt)}</span> : "—"}</td>
                   <td>{it.shownAt ? <span className="text-purple-700 font-medium">{fmtDateTime(it.shownAt)}</span> : "—"}</td>

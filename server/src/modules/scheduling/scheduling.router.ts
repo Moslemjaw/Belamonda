@@ -2630,31 +2630,50 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
 });
 
 // ── Admin overview of all booking requests ────────────────────────────────
-schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin"]), async (req, res) => {
+schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res) => {
+  const userRole = (req as any).user?.role;
+  const userClinicId = (req as any).user?.clinicId;
+
   const status = (typeof req.query.status === "string" ? req.query.status : "all") as AppointmentStatus | "all" | "open";
-  const clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
+  let clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
+  if (userRole === "clinicStaff" && userClinicId) {
+    clinicId = userClinicId.toString();
+  }
+
   const items = await bookingRequestsStore.list({ status, clinicId });
   
-  // Batch-fetch all unique user IDs for name lookup
-  const uniqueUserIds = [...new Set(items.map(it => it.userId))].filter(id => mongoose.isValidObjectId(id));
+  // Batch-fetch all unique user IDs for name and phone lookup
+  const uniqueUserIds = [...new Set(items.map(it => it.userId))].filter(id => Boolean(id));
   const userDocs = uniqueUserIds.length
-    ? await UserModel.find({ _id: { $in: uniqueUserIds.map(id => new mongoose.Types.ObjectId(id)) } })
-        .select("fullName phone username shortId").lean()
+    ? await UserModel.find({
+        $or: [
+          { _id: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+          { _id: { $in: uniqueUserIds } }
+        ]
+      }).select("fullName phone username shortId").lean()
     : [];
-  const usersMap = new Map<string, string>();
+  const usersMap = new Map<string, { fullName?: string; phone?: string; username?: string; shortId?: string }>();
   for (const u of userDocs) {
     const uid = (u as any)._id.toString();
-    usersMap.set(uid, (u as any).fullName || (u as any).phone || (u as any).username || uid);
+    usersMap.set(uid, {
+      fullName: (u as any).fullName,
+      phone: (u as any).phone,
+      username: (u as any).username,
+      shortId: (u as any).shortId
+    });
   }
   
   const enriched = await Promise.all(
     items.map(async (it) => {
       const c = await getClinicNames(it.clinicId);
+      const uInfo = usersMap.get(it.userId);
       return { 
         ...it, 
         clinicNameEn: c.nameEn, 
         clinicNameAr: c.nameAr,
-        userName: usersMap.get(it.userId) || it.userId,
+        userName: uInfo?.fullName || uInfo?.username || it.userId,
+        userPhone: uInfo?.phone || "",
+        userShortId: uInfo?.shortId || "",
         adminSuggestedAt: it.adminSuggestedAt || it.proposedAt || null,
         clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? it.proposedAt : null),
         shownAt: it.shownAt || null
