@@ -1989,18 +1989,16 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
                 </h3>
 
                 {card?.displayName && (
-                  <div className="my-3 p-3 bg-red-50 border border-red-200 rounded-2xl text-start text-xs space-y-1.5">
-                    <div className="font-extrabold text-red-800 text-sm flex items-center gap-1.5 mb-2">
-                      <span>👤</span>
+                  <div className="my-4 p-4 bg-red-50/80 border border-red-200/80 rounded-2xl text-center space-y-2">
+                    <div className="text-base font-black text-red-950 flex items-center justify-center gap-2">
+                      <span className="text-lg">👤</span>
                       <span>{card.displayName}</span>
                     </div>
-                    <div className="flex justify-between items-center text-surface-700">
-                      <span className="font-bold">{ar() ? "الموعد المجدول:" : "Scheduled session:"}</span>
-                      <span className="font-mono text-red-600 font-bold">{ar() ? "لا يوجد موعد مجدول" : "No Scheduled Session"}</span>
-                    </div>
-                    <div className="flex justify-between items-center text-surface-700">
-                      <span className="font-bold">{ar() ? "تاريخ العرض / المسح:" : "Shown date:"}</span>
-                      <span className="font-mono text-surface-900 font-bold">{fmtDateTime(scannedSessionInfo.shownAt || new Date())}</span>
+                    <div className="pt-2 border-t border-red-200/60 flex items-center justify-between text-xs text-red-900 font-semibold px-2">
+                      <span>{ar() ? "تاريخ الحضور / المسح:" : "Shown date:"}</span>
+                      <span className="font-mono text-sm font-bold bg-white/90 text-red-950 px-2.5 py-1 rounded-lg border border-red-200 shadow-sm">
+                        {fmtDateTime(scannedSessionInfo.shownAt || new Date())}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -2057,20 +2055,16 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
                 </h3>
 
                 {card?.displayName && (
-                  <div className="my-3 p-3 bg-emerald-50 border border-emerald-200 rounded-2xl text-start text-xs space-y-1.5">
-                    <div className="font-extrabold text-emerald-900 text-sm flex items-center gap-1.5 mb-2">
-                      <span>👤</span>
+                  <div className="my-4 p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl text-center space-y-2">
+                    <div className="text-base font-black text-emerald-950 flex items-center justify-center gap-2">
+                      <span className="text-lg">👤</span>
                       <span>{card.displayName}</span>
                     </div>
-                    <div className="flex justify-between items-center text-surface-700">
-                      <span className="font-bold">{ar() ? "الموعد المجدول:" : "Scheduled session:"}</span>
-                      <span className="font-mono text-emerald-700 font-bold">
-                        {scannedSessionInfo.scheduledAt ? fmtDateTime(scannedSessionInfo.scheduledAt) : (ar() ? "محدد آلياً" : "Auto-assigned")}
+                    <div className="pt-2 border-t border-emerald-200/60 flex items-center justify-between text-xs text-emerald-900 font-semibold px-2">
+                      <span>{ar() ? "تاريخ الحضور / المسح:" : "Shown date:"}</span>
+                      <span className="font-mono text-sm font-bold bg-white/90 text-emerald-950 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-sm">
+                        {fmtDateTime(scannedSessionInfo.shownAt || new Date())}
                       </span>
-                    </div>
-                    <div className="flex justify-between items-center text-surface-700">
-                      <span className="font-bold">{ar() ? "تاريخ العرض / المسح:" : "Shown date:"}</span>
-                      <span className="font-mono text-surface-900 font-bold">{fmtDateTime(scannedSessionInfo.shownAt || new Date())}</span>
                     </div>
                   </div>
                 )}
