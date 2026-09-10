@@ -1970,20 +1970,26 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
                   ✕
                 </button>
 
-                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-5 text-red-600 shadow-inner">
+                <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 shadow-inner">
                   <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </div>
 
-                <h3 className="text-xl sm:text-2xl font-black text-surface-900 mb-2 leading-tight">
+                <h3 className="text-xl sm:text-2xl font-black text-surface-900 mb-1 leading-tight">
                   {ar() ? "لا يوجد موعد مجدول" : "No Scheduled Session"}
                 </h3>
 
+                {card?.displayName && (
+                  <div className="text-base font-extrabold text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-2 my-3 inline-block">
+                    👤 {card.displayName}
+                  </div>
+                )}
+
                 <p className="text-sm text-surface-600 leading-relaxed mb-6">
                   {ar() 
-                    ? "هذا المستخدم ليس لديه أي جلسة مجدولة حالياً. يرجى التواصل مع فريق بيلاموندو." 
-                    : "This user does not have any scheduled session. Please contact the Belamonda team."}
+                    ? `العميل (${card?.displayName || ""}) ليس لديه أي جلسة مجدولة حالياً. يرجى التواصل مع فريق بيلاموندو.` 
+                    : `Customer (${card?.displayName || ""}) does not have any scheduled session. Please contact the Belamonda team.`}
                 </p>
 
                 <div className="flex flex-col gap-2.5">
@@ -2021,20 +2027,26 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
                   ✕
                 </button>
 
-                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-5 text-emerald-600 shadow-inner">
+                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4 text-emerald-600 shadow-inner">
                   <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
 
-                <h3 className="text-xl sm:text-2xl font-black text-surface-900 mb-2 leading-tight">
+                <h3 className="text-xl sm:text-2xl font-black text-surface-900 mb-1 leading-tight">
                   {ar() ? "تم تسجيل الحضور بنجاح" : "Attendance Recorded Successfully"}
                 </h3>
 
+                {card?.displayName && (
+                  <div className="text-base font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2 my-3 inline-block">
+                    👤 {card.displayName}
+                  </div>
+                )}
+
                 <p className="text-sm text-surface-600 leading-relaxed mb-6">
                   {ar() 
-                    ? "تم تسجيل حضور العميل للجلسة بنجاح وتحديث بيانات الجلسة." 
-                    : "The customer's attendance for this session has been recorded successfully."}
+                    ? `تم تسجيل حضور العميل (${card?.displayName || ""}) للجلسة بنجاح وتحديث بيانات الجلسة.` 
+                    : `The attendance for customer (${card?.displayName || ""}) has been recorded successfully.`}
                 </p>
 
                 <button

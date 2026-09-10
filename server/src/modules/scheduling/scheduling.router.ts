@@ -3070,7 +3070,7 @@ schedulingRouter.get("/admin/scan-logs", authRequired, requireRole(["admin"]), a
   try {
     const { clinicId, offerId, search } = req.query;
     const page = Math.max(1, parseInt(String(req.query.page || "1"), 10) || 1);
-    const limit = Math.max(1, parseInt(String(req.query.limit || "50"), 10) || 50);
+    const limit = Math.min(500, Math.max(1, parseInt(String(req.query.limit || "50"), 10) || 50));
 
     const filter: any = {};
 

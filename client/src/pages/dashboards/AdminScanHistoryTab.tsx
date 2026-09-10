@@ -52,7 +52,10 @@ export default function AdminScanHistoryTab() {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      params.set("limit", "10000");
+      if (searchQuery.trim()) params.set("search", searchQuery.trim());
+      if (selectedClinic !== "all") params.set("clinicId", selectedClinic);
+      if (selectedMembership !== "all") params.set("offerId", selectedMembership);
+      params.set("limit", "200");
       const res = (await apiFetch(`/scheduling/admin/scan-logs?${params.toString()}`, {
         headers: getAuthHeader(),
       })) as { items: ScanLogItem[] };
@@ -62,7 +65,7 @@ export default function AdminScanHistoryTab() {
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeader]);
+  }, [getAuthHeader, searchQuery, selectedClinic, selectedMembership]);
 
   useEffect(() => {
     fetchScanHistory();
