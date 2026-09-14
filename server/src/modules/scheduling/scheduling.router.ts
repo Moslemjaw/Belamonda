@@ -2402,10 +2402,18 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     let cashbackUnlocked = "0.000";
     if (parsed.data.status === "completed") {
       if (req.auth?.role === "clinicStaff") {
-        return res.status(403).json({
-          error: "SCAN_REQUIRED",
-          message: "Clinic staff cannot mark sessions as completed manually. Attendance must be recorded via QR card scan."
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const hasScan = await ScanLogModel.exists({
+          userId: session.userId,
+          clinicId: req.auth.clinicId || session.clinicId,
+          scannedAt: { $gte: twentyFourHoursAgo }
         });
+        if (!hasScan) {
+          return res.status(403).json({
+            error: "SCAN_REQUIRED",
+            message: "Clinic staff cannot mark sessions as completed manually. Attendance must be recorded via QR card scan."
+          });
+        }
       }
 
       // Validate that session scheduledAt date is not in the future (after today)
@@ -2695,8 +2703,37 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     }
 
     if (status && status !== "all") {
-      sessionQuery.status = status;
-      requestQuery.status = status;
+      if (status === "no_show") {
+        const now = new Date();
+        const noShowSessionCondition = {
+          $or: [
+            { status: "no_show" },
+            {
+              status: { $nin: ["completed", "cancelled", "rejected"] },
+              scheduledAt: { $lt: now }
+            }
+          ]
+        };
+        sessionQuery.$and = sessionQuery.$and ? [...sessionQuery.$and, noShowSessionCondition] : [noShowSessionCondition];
+
+        const noShowRequestCondition = {
+          $or: [
+            { status: "no_show" },
+            {
+              status: { $nin: ["completed", "cancelled", "rejected"] },
+              $or: [
+                { proposedAt: { $lt: now } },
+                { preferredAt: { $lt: now } },
+                { createdAt: { $lt: now } }
+              ]
+            }
+          ]
+        };
+        requestQuery.$and = requestQuery.$and ? [...requestQuery.$and, noShowRequestCondition] : [noShowRequestCondition];
+      } else {
+        sessionQuery.status = status;
+        requestQuery.status = status;
+      }
     }
 
     let sessionDocs: any[] = [];

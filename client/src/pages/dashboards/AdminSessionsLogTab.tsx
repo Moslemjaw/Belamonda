@@ -100,21 +100,29 @@ export default function AdminSessionsLogTab() {
 
   const filteredSessions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    const now = new Date();
     return sessions.filter(s => {
       if (filterClinic !== "all" && String(s.clinicId) !== filterClinic) return false;
+      if (status === "no_show") {
+        const isScheduled = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status);
+        const isPast = s.scheduledAt && new Date(s.scheduledAt) < now;
+        const isNoShow = s.status === 'no_show' || (isScheduled && isPast);
+        if (!isNoShow) return false;
+      }
       if (!q) return true;
       const name = (s.customerName || "").toLowerCase();
       const phone = (s.customerPhone || "").toLowerCase();
       const offer = (s.offerName || "").toLowerCase();
       return name.includes(q) || phone.includes(q) || offer.includes(q);
     });
-  }, [sessions, filterClinic, searchQuery]);
+  }, [sessions, filterClinic, searchQuery, status]);
 
   const analytics = useMemo(() => {
     let completed = 0;
     let pendingPayment = 0;
     let awaitingAttendance = 0;
 
+    const now = new Date();
     for (const s of filteredSessions) {
       if (s.status === 'completed') {
         completed++;
@@ -125,7 +133,8 @@ export default function AdminSessionsLogTab() {
       }
 
       const isAwaiting = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status);
-      if (isAwaiting) {
+      const isPast = s.scheduledAt && new Date(s.scheduledAt) < now;
+      if (isAwaiting && !isPast) {
         awaitingAttendance++;
       }
     }
@@ -332,7 +341,7 @@ export default function AdminSessionsLogTab() {
             <option value="all">{ar() ? "جميع الحالات" : "All Statuses"}</option>
             <option value="scheduled">{ar() ? "مجدول" : "Scheduled"}</option>
             <option value="completed">{ar() ? "مكتمل" : "Completed"}</option>
-            <option value="no_show">{ar() ? "لم يحضر" : "No Show"}</option>
+            <option value="no_show">{ar() ? "لم يحضر (المواعيد الفائتة)" : "No Show (Missed)"}</option>
             <option value="cancelled">{ar() ? "ملغي" : "Cancelled"}</option>
             <option value="request_received">{ar() ? "تم استلام الطلب" : "Request Received"}</option>
             <option value="slot_assigned">{ar() ? "تم تحديد الوقت" : "Slot Assigned"}</option>
@@ -389,11 +398,13 @@ export default function AdminSessionsLogTab() {
                   const clinicName = ar() ? clinic?.nameAr : clinic?.nameEn;
 
                   // Derive attendance status from appointment status
-                  const attendanceStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status)
-                    ? 'awaiting'
-                    : ['checked_in', 'in_progress'].includes(s.status) ? 'checked_in'
+                  const isScheduledStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status);
+                  const isPast = s.scheduledAt && new Date(s.scheduledAt) < new Date();
+
+                  const attendanceStatus = ['checked_in', 'in_progress'].includes(s.status) ? 'checked_in'
                     : s.status === 'completed' ? 'attended'
-                    : s.status === 'no_show' ? 'no_show'
+                    : s.status === 'no_show' || (isScheduledStatus && isPast) ? 'no_show'
+                    : isScheduledStatus ? 'awaiting'
                     : 'n_a';
 
                   const attendanceLabel = attendanceStatus === 'awaiting' ? (ar() ? 'في الانتظار' : 'Awaiting')
@@ -512,10 +523,14 @@ export default function AdminSessionsLogTab() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
                           s.status === 'completed' && s.clinicPaymentStatus !== 'paid' 
                             ? "bg-amber-50 text-amber-700" 
+                            : isScheduledStatus && isPast
+                            ? "bg-rose-50 text-rose-700"
                             : SESSION_STATUS_STYLE[s.status] ?? "bg-surface-100 text-surface-500"
                         }`}>
                           {s.status === 'completed' && s.clinicPaymentStatus !== 'paid' 
                             ? "Awaiting Session Payment" 
+                            : isScheduledStatus && isPast
+                            ? (ar() ? "فائت (لم يحضر)" : "Missed (No Show)")
                             : s.status === 'slot_accepted' ? (ar() ? "مجدول" : "Scheduled")
                             : s.status.replace(/_/g, ' ')}
                         </span>

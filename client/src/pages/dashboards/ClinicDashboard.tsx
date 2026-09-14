@@ -193,7 +193,7 @@ function ScheduleTable({
   onReschedule,
 }: {
   sessions: any[];
-  onMark: (id: string, status: string) => void;
+  onMark?: (id: string, status: string) => void;
   onMarkPaid: (bookingRequestId: string) => void;
   onSelectUser?: (userId: string) => void;
   onReschedule?: (id: string) => void;
@@ -2375,6 +2375,17 @@ export default function ClinicDashboard() {
   const noShows = sessions.filter(s => s.status === "no_show");
 
   const [rescheduleSessionId, setRescheduleSessionId] = useState<string | null>(null);
+
+  const markSession = async (sessionId: string, status: string, posData?: any) => {
+    try {
+      await apiFetch(`/scheduling/clinic/sessions/${sessionId}/mark`, {
+        method: "POST", headers: getAuthHeader(),
+        body: JSON.stringify({ status, notes: `Marked as ${status}`, ...(posData || {}) }),
+      });
+      invalidateCache("/scheduling/clinic/");
+      void refetch(true);
+    } catch (e: any) { alert(e.message); }
+  };
 
   const rescheduleSession = async (sessionId: string, scheduledAt: string) => {
     try {
