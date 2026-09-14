@@ -2629,6 +2629,94 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
   }
 });
 
+// ── Session row detail: booking requests + scans for a user ───────────────────
+schedulingRouter.get("/admin/session-details", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res, next) => {
+  try {
+    const userId = typeof req.query.userId === "string" ? req.query.userId.trim() : "";
+    if (!userId) return res.json({ requests: [], scans: [] });
+
+    // Booking requests for this user
+    const requestDocs = await BookingRequestModel.find({
+      $or: [{ userId }, ...(mongoose.isValidObjectId(userId) ? [{ userId: new mongoose.Types.ObjectId(userId) }] : [])]
+    }).sort({ createdAt: -1 }).lean();
+
+    // Scans for this user
+    const scanDocs = await ScanLogModel.find({
+      $or: [{ userId }, ...(mongoose.isValidObjectId(userId) ? [{ userId: new mongoose.Types.ObjectId(userId) }] : [])]
+    }).sort({ scannedAt: -1 }).lean();
+
+    // Clinic lookup
+    const allClinicIds = [
+      ...requestDocs.map(r => r.clinicId),
+      ...scanDocs.map(sc => sc.clinicId)
+    ].filter(Boolean);
+    const uniqueClinicIds = [...new Set(allClinicIds.map(id => id.toString()))];
+    const clinicDocs = uniqueClinicIds.length > 0
+      ? await ClinicModel.find({
+          $or: [
+            { _id: { $in: uniqueClinicIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { id: { $in: uniqueClinicIds } }
+          ]
+        }).lean()
+      : [];
+    const clinicMap = new Map<string, { nameEn: string; nameAr: string }>();
+    for (const c of clinicDocs) {
+      const cid = (c as any)._id.toString();
+      clinicMap.set(cid, { nameEn: (c as any).nameEn || (c as any).name || cid, nameAr: (c as any).nameAr || (c as any).name || cid });
+      if ((c as any).id) clinicMap.set(String((c as any).id), clinicMap.get(cid)!);
+    }
+
+    // Offer lookup
+    const offerIds = [...new Set(requestDocs.map(r => r.offerId).filter(Boolean))];
+    const offerDocs = offerIds.length > 0 ? await OfferModel.find({ _id: { $in: offerIds } }).lean() : [];
+    const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o.titleAr || o.titleEn || o.title || o.name || "Offer"]));
+
+    // Scanned by user lookup
+    const scannedByIds = [...new Set(scanDocs.map(s => s.scannedByUserId).filter(Boolean))];
+    const staffDocs = scannedByIds.length > 0
+      ? await UserModel.find({
+          $or: [
+            { _id: { $in: scannedByIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { _id: { $in: scannedByIds } }
+          ]
+        }).select("fullName username").lean()
+      : [];
+    const staffMap = new Map(staffDocs.map((st: any) => [st._id.toString(), st.fullName || st.username || "Staff"]));
+
+    const requests = requestDocs.map((r: any) => {
+      const c = clinicMap.get(r.clinicId?.toString()) || { nameEn: "Clinic", nameAr: "العيادة" };
+      return {
+        id: r._id.toString(),
+        clinicNameEn: c.nameEn,
+        clinicNameAr: c.nameAr,
+        offerName: r.offerId ? (offerMap.get(r.offerId.toString()) || "Booking") : (r.standaloneName || "Booking"),
+        status: r.status,
+        adminSuggestedAt: r.adminSuggestedAt || r.proposedAt || null,
+        clinicScheduledAt: r.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(r.status) && r.proposedAt ? r.proposedAt : null),
+        shownAt: r.shownAt || null,
+        createdAt: r.createdAt || null
+      };
+    });
+
+    const scans = scanDocs.map((sc: any) => {
+      const c = clinicMap.get(sc.clinicId?.toString()) || { nameEn: "Clinic", nameAr: "العيادة" };
+      return {
+        id: sc._id.toString(),
+        clinicNameEn: c.nameEn,
+        clinicNameAr: c.nameAr,
+        offerName: sc.offerName || "Membership",
+        scannedAt: sc.scannedAt || sc.createdAt || null,
+        status: sc.status || "attended",
+        scannedBy: staffMap.get(sc.scannedByUserId?.toString()) || "Clinic Staff"
+      };
+    });
+
+    return res.json({ requests, scans });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ── Customer 360 Session Status (Sessions + Requests + Scans) ────────────────
 schedulingRouter.get("/admin/customer-session-status", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res, next) => {
   try {
