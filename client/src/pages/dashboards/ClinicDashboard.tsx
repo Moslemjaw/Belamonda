@@ -2220,7 +2220,6 @@ function ClinicScannerTab({ clinicId, onMarkSession }: { clinicId?: string; onMa
                 <th>{ar() ? "الخدمة / الباقة" : "Service"}</th>
                 <th>{ar() ? "حالة الحضور" : "Attending Status"}</th>
                 <th>{ar() ? "حالة المسح (QR)" : "Scan Status"}</th>
-                <th>{ar() ? "الإجراء" : "Action"}</th>
               </tr>
             </thead>
             <tbody className="text-sm">
@@ -2240,7 +2239,7 @@ function ClinicScannerTab({ clinicId, onMarkSession }: { clinicId?: string; onMa
                 if (filteredTodayItems.length === 0) {
                   return (
                     <tr>
-                      <td colSpan={6} className="text-center py-10 text-surface-400">
+                      <td colSpan={5} className="text-center py-10 text-surface-400">
                         {todayLoading
                           ? (ar() ? "جاري التحميل..." : "Loading today's schedule...")
                           : (ar() ? "لا توجد مواعيد مطابقة لهذا اليوم" : "No matching appointments scheduled for today")}
@@ -2251,7 +2250,6 @@ function ClinicScannerTab({ clinicId, onMarkSession }: { clinicId?: string; onMa
 
                 return filteredTodayItems.map((it) => {
                   const isAttended = it.attendanceStatus === "attended";
-                  const isAwaiting = it.attendanceStatus === "awaiting" || it.attendanceStatus === "checked_in";
                   
                   return (
                     <tr key={it.id} className="hover:bg-surface-50 transition-colors">
@@ -2302,37 +2300,6 @@ function ClinicScannerTab({ clinicId, onMarkSession }: { clinicId?: string; onMa
                             {ar() ? "لم يتم المسح بعد" : "Not scanned yet"}
                           </span>
                         )}
-                      </td>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              const scanKey = it.publicToken || it.userId;
-                              setToken(scanKey);
-                              handleScan(scanKey, true);
-                            }}
-                            className="px-3 py-1.5 rounded-lg bg-brand-pink-50 text-brand-pink-600 hover:bg-brand-pink-100 font-bold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
-                            title={ar() ? "مسح وعرض بيانات العميل" : "Scan and view customer card"}
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                            </svg>
-                            {ar() ? "فحص ومسح" : "Scan & Check"}
-                          </button>
-
-                          {isAwaiting && it.sessionId && (
-                            <button
-                              onClick={async () => {
-                                if (!window.confirm(ar() ? `تسجيل حضور العميل (${it.customerName})؟` : `Mark attendance for (${it.customerName})?`)) return;
-                                await handleMarkSession(it.sessionId, "completed");
-                                fetchTodayExpected();
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs transition-colors"
-                            >
-                              {ar() ? "حضر" : "Attended"}
-                            </button>
-                          )}
-                        </div>
                       </td>
                     </tr>
                   );
