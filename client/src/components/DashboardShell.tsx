@@ -162,14 +162,17 @@ const getGroupForNavItem = (key: string, role: string, isAr: boolean): { name: s
     if (["offers", "subscriptions", "promotions", "categories", "treatments", "standalone"].includes(key)) {
       return { name: isAr ? "إدارة الكتالوج" : "Catalog Management", order: 2 };
     }
-    if (["users", "clinics", "session_status", "sessions_log", "request_history", "scan_history", "clinic_changes", "bookings", "reservations"].includes(key)) {
+    if (["users", "clinics", "session_status", "sessions_log", "clinic_changes", "reservations"].includes(key)) {
       return { name: isAr ? "العمليات والحجوزات" : "Operations & Bookings", order: 3 };
     }
+    if (["request_history", "scan_history", "bookings"].includes(key)) {
+      return { name: isAr ? "السجلات" : "Histories", order: 4 };
+    }
     if (["eforms", "notices", "complaints", "share", "tasks", "audit"].includes(key)) {
-      return { name: isAr ? "الأدوات والتدقيق" : "Tools & Audits", order: 4 };
+      return { name: isAr ? "الأدوات والتدقيق" : "Tools & Audits", order: 5 };
     }
     if (["settings", "notifications_settings"].includes(key)) {
-      return { name: isAr ? "التفضيلات" : "Preferences", order: 5 };
+      return { name: isAr ? "التفضيلات" : "Preferences", order: 6 };
     }
   }
 
