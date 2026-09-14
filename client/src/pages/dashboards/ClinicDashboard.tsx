@@ -85,7 +85,7 @@ function RescheduleModal({ isOpen, onClose, onSubmit }: { isOpen: boolean; onClo
   );
 }
 
-function SessionCard({ session, onMark, onMarkPaid, onSelectUser, onReschedule }: { session: any; onMark: (id: string, status: string) => void; onMarkPaid: (id: string) => void; onSelectUser?: (userId: string) => void; onReschedule?: (id: string) => void }) {
+function SessionCard({ session, onMarkPaid, onSelectUser, onReschedule }: { session: any; onMark?: (id: string, status: string) => void; onMarkPaid: (id: string) => void; onSelectUser?: (userId: string) => void; onReschedule?: (id: string) => void }) {
   const { getAuthHeader } = useAuth();
   
   const isPast = session.status !== "scheduled";
@@ -2374,17 +2374,6 @@ export default function ClinicDashboard() {
   const completed = sessions.filter(s => s.status === "completed");
   const noShows = sessions.filter(s => s.status === "no_show");
 
-  const markSession = async (sessionId: string, status: string) => {
-    try {
-      await apiFetch(`/scheduling/clinic/sessions/${sessionId}/mark`, {
-        method: "POST", headers: getAuthHeader(),
-        body: JSON.stringify({ status, notes: `Marked as ${status}` }),
-      });
-      invalidateCache("/scheduling/clinic/");
-      void refetch(true);
-    } catch (e: any) { alert(e.message); }
-  };
-
   const [rescheduleSessionId, setRescheduleSessionId] = useState<string | null>(null);
 
   const rescheduleSession = async (sessionId: string, scheduledAt: string) => {
@@ -2525,7 +2514,7 @@ export default function ClinicDashboard() {
                           })
                           .sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
                           .map(s => (
-                          <SessionCard key={s.id} session={s} onMark={markSession} onMarkPaid={markPaidFromSchedule} onReschedule={(id) => setRescheduleSessionId(id)} />
+                          <SessionCard key={s.id} session={s} onMarkPaid={markPaidFromSchedule} onReschedule={(id) => setRescheduleSessionId(id)} />
                         ))}
                         {sessions.filter(s => {
                             if (dateFilter === "all") return true;

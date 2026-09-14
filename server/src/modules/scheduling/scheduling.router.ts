@@ -25,6 +25,7 @@ import { notifyBookingConfirmed, notifyBookingUnderReview, notifyBookingRejected
 import { notifyChatRelatedUsers } from "../notifications/notifications.service.chat.js";
 import { listRequiredFormsForUser } from "../eforms/eforms.router.js";
 import { createSessionPayment, confirmSessionPayment } from "../../services/payment.service.js";
+import { logAuditAction } from "../../services/audit.service.js";
 
 const RequestSchema = z.object({
   userOfferId: z.string().min(1),
@@ -2400,6 +2401,13 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
 
     let cashbackUnlocked = "0.000";
     if (parsed.data.status === "completed") {
+      if (req.auth?.role === "clinicStaff") {
+        return res.status(403).json({
+          error: "SCAN_REQUIRED",
+          message: "Clinic staff cannot mark sessions as completed manually. Attendance must be recorded via QR card scan."
+        });
+      }
+
       // Validate that session scheduledAt date is not in the future (after today)
       if (session.scheduledAt) {
         const schedDate = new Date(session.scheduledAt);
@@ -2483,6 +2491,24 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
       if (updated.completedAt && session.scheduledAt && new Date(updated.completedAt).getTime() > new Date(session.scheduledAt).getTime()) {
         await BookingSessionModel.findByIdAndUpdate(session.id, {
           $set: { scheduledAt: updated.completedAt }
+        });
+      }
+
+      if (req.auth?.userId) {
+        await logAuditAction({
+          actorId: req.auth.userId,
+          actorRole: req.auth.role as any,
+          actionType: "admin_manual_session_complete",
+          targetEntityType: "BookingSession",
+          targetEntityId: session.id,
+          beforeState: { status: session.status },
+          afterState: { status: "completed" },
+          metadata: {
+            shortId: (session as any).shortId || session.id,
+            userId: session.userId,
+            clinicId: session.clinicId,
+            notes: parsed.data.notes
+          }
         });
       }
     }
@@ -2731,6 +2757,21 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     const sessionsForRequests = reqSessionIds.length > 0 ? await BookingSessionModel.find({ _id: { $in: reqSessionIds } }).lean() : [];
     const sessionsByReqMap = new Map(sessionsForRequests.map((s: any) => [s._id.toString(), s]));
 
+    // Fetch scan history count for users
+    const userScans = uniqueUserIds.length > 0
+      ? await ScanLogModel.find({
+          $or: [
+            { userId: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { userId: { $in: uniqueUserIds } }
+          ]
+        }).select("userId").lean()
+      : [];
+    const scanCountMap = new Map<string, number>();
+    for (const sc of userScans) {
+      const uid = (sc as any).userId?.toString();
+      if (uid) scanCountMap.set(uid, (scanCountMap.get(uid) || 0) + 1);
+    }
+
     const enrichedSessions = sessionDocs.map((doc: any) => {
       const req = requestsBySessionMap.get(doc._id.toString()) || (doc.bookingRequestId ? requestsBySessionMap.get(doc.bookingRequestId.toString()) : null);
       const sStatus = doc.status;
@@ -2758,7 +2799,9 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
         clinicPaymentStatus: pStatus,
         requestId: req?._id?.toString(),
         sessionPriceKwd: doc.sessionPriceKwd || req?.sessionPriceKwd || null,
-        isHistorical: doc.notes === "Historical session logged during enrollment"
+        isHistorical: doc.notes === "Historical session logged during enrollment",
+        scanCount: scanCountMap.get(doc.userId?.toString()) || 0,
+        hasScanHistory: (scanCountMap.get(doc.userId?.toString()) || 0) > 0
       };
     });
 
@@ -2787,7 +2830,9 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
         createdAt: doc.createdAt?.toISOString() || doc.proposedAt?.toISOString() || null,
         combinedSessionStatus: combinedStatus,
         clinicPaymentStatus: pStatus,
-        sessionPriceKwd: doc.sessionPriceKwd || null
+        sessionPriceKwd: doc.sessionPriceKwd || null,
+        scanCount: scanCountMap.get(doc.userId?.toString()) || 0,
+        hasScanHistory: (scanCountMap.get(doc.userId?.toString()) || 0) > 0
       };
     });
 

@@ -35,7 +35,8 @@ export default function AdminSessionsLogTab() {
   const apiClinics = clinicsData?.items || [];
 
   const [sessions, setSessions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [status, setStatus] = useState("all");
@@ -56,8 +57,12 @@ export default function AdminSessionsLogTab() {
   const [expandedData, setExpandedData] = useState<{ requests: any[]; scans: any[] } | null>(null);
   const [expandedLoading, setExpandedLoading] = useState(false);
 
-  const fetchSessions = useCallback(async () => {
-    setLoading(true);
+  const fetchSessions = useCallback(async (isFirstLoad = false) => {
+    if (isFirstLoad) {
+      setInitialLoading(true);
+    } else {
+      setRefreshing(true);
+    }
     try {
       const p = new URLSearchParams();
       if (fromDate || toDate) {
@@ -75,7 +80,6 @@ export default function AdminSessionsLogTab() {
       }
       if (status !== "all") p.set("status", status);
       if (filterClinic !== "all") p.set("clinicId", filterClinic);
-      if (searchQuery.trim()) p.set("search", searchQuery.trim());
 
       const q = p.toString() ? `?${p.toString()}` : "";
       const res: any = await apiFetch(`/scheduling/admin/sessions-log${q}`, {
@@ -85,25 +89,26 @@ export default function AdminSessionsLogTab() {
     } catch {
       setSessions([]);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
+      setRefreshing(false);
     }
-  }, [getAuthHeader, fromDate, toDate, status, filterClinic, searchQuery]);
+  }, [getAuthHeader, fromDate, toDate, status, filterClinic]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchSessions();
-    }, 300);
-    return () => clearTimeout(timer);
+    fetchSessions(sessions.length === 0);
   }, [fetchSessions]);
 
-  const filteredSessions = sessions.filter(s => {
-    if (filterClinic !== "all" && String(s.clinicId) !== filterClinic) return false;
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const name = (s.customerName || "").toLowerCase();
-    const phone = (s.customerPhone || "").toLowerCase();
-    return name.includes(q) || phone.includes(q);
-  });
+  const filteredSessions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return sessions.filter(s => {
+      if (filterClinic !== "all" && String(s.clinicId) !== filterClinic) return false;
+      if (!q) return true;
+      const name = (s.customerName || "").toLowerCase();
+      const phone = (s.customerPhone || "").toLowerCase();
+      const offer = (s.offerName || "").toLowerCase();
+      return name.includes(q) || phone.includes(q) || offer.includes(q);
+    });
+  }, [sessions, filterClinic, searchQuery]);
 
   const analytics = useMemo(() => {
     let completed = 0;
@@ -207,7 +212,7 @@ export default function AdminSessionsLogTab() {
     }
   };
 
-  if (loading) {
+  if (initialLoading && sessions.length === 0) {
     return (
       <div className="flex items-center justify-center py-16">
         <svg className="w-8 h-8 animate-spin text-brand-pink-500" fill="none" viewBox="0 0 24 24">
@@ -227,9 +232,15 @@ export default function AdminSessionsLogTab() {
             {ar() ? "عرض جميع الجلسات والطلبات في العيادات" : "View all sessions and pending requests across clinics"}
           </p>
         </div>
-        <button onClick={fetchSessions} className="btn-secondary shrink-0 hidden sm:flex items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-          {ar() ? "تحديث السجل" : "Refresh Log"}
+        <button 
+          onClick={() => fetchSessions(false)} 
+          disabled={refreshing}
+          className="btn-secondary shrink-0 hidden sm:flex items-center gap-2"
+        >
+          <svg className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {refreshing ? (ar() ? "جاري التحديث..." : "Refreshing...") : (ar() ? "تحديث السجل" : "Refresh Log")}
         </button>
       </div>
 
@@ -293,11 +304,20 @@ export default function AdminSessionsLogTab() {
           <svg className={`w-5 h-5 text-surface-400 absolute top-1/2 -translate-y-1/2 ${ar() ? 'right-3' : 'left-3'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           <input 
             type="text" 
-            placeholder={ar() ? "بحث بالاسم او الهاتف..." : "Search customer name or phone..."}
+            placeholder={ar() ? "بحث فوري بالاسم او الهاتف..." : "Instant search by name or phone..."}
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className={`input-field w-full ${ar() ? 'pr-10' : 'pl-10'}`}
+            className={`input-field w-full ${ar() ? 'pr-10 pl-8' : 'pl-10 pr-8'}`}
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className={`absolute top-1/2 -translate-y-1/2 text-surface-400 hover:text-surface-600 text-xs w-5 h-5 rounded-full bg-surface-100 flex items-center justify-center ${ar() ? 'left-2.5' : 'right-2.5'}`}
+            >
+              ✕
+            </button>
+          )}
         </div>
         <div className="w-full md:w-auto flex flex-wrap md:flex-nowrap gap-3">
           <select value={filterClinic} onChange={e => setFilterClinic(e.target.value)} className="input-field w-full md:w-40 font-medium text-surface-700">
@@ -336,9 +356,9 @@ export default function AdminSessionsLogTab() {
             />
           </div>
         </div>
-        <button onClick={fetchSessions} className="btn-secondary w-full sm:hidden flex justify-center items-center gap-2">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-          {ar() ? "تحديث السجل" : "Refresh Log"}
+        <button onClick={() => fetchSessions(false)} disabled={refreshing} className="btn-secondary w-full sm:hidden flex justify-center items-center gap-2">
+          <svg className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+          {refreshing ? (ar() ? "جاري التحديث..." : "Refreshing...") : (ar() ? "تحديث السجل" : "Refresh Log")}
         </button>
       </div>
 
@@ -584,37 +604,47 @@ export default function AdminSessionsLogTab() {
                       </td>
                       {/* Attendance Status */}
                       <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${attendanceStyle}`}>
-                            {attendanceLabel}
-                          </span>
-                          {attendanceStatus === 'awaiting' && (
-                            <button
-                              onClick={async () => {
-                                if (!window.confirm(ar() ? "تأكيد حضور العميل؟" : "Mark customer as attended?")) return;
-                                try {
-                                  if (s.type === "session") {
-                                    await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
-                                      method: "POST",
-                                      headers: getAuthHeader(),
-                                      body: JSON.stringify({ status: "completed", notes: "Marked attended by admin" })
-                                    });
-                                  } else {
-                                    await apiFetch(`/scheduling/clinic/requests/${s.id}/confirm`, {
-                                      method: "POST",
-                                      headers: getAuthHeader(),
-                                      body: JSON.stringify({ scheduledAt: s.scheduledAt, notes: "Marked attended by admin" })
-                                    });
+                        <div className="flex flex-col gap-1 items-start">
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${attendanceStyle}`}>
+                              {attendanceLabel}
+                            </span>
+                            {attendanceStatus === 'awaiting' && (
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm(ar() ? "تأكيد حضور العميل؟" : "Mark customer as attended?")) return;
+                                  try {
+                                    if (s.type === "session") {
+                                      await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
+                                        method: "POST",
+                                        headers: getAuthHeader(),
+                                        body: JSON.stringify({ status: "completed", notes: "Marked attended by admin" })
+                                      });
+                                    } else {
+                                      await apiFetch(`/scheduling/clinic/requests/${s.id}/confirm`, {
+                                        method: "POST",
+                                        headers: getAuthHeader(),
+                                        body: JSON.stringify({ scheduledAt: s.scheduledAt, notes: "Marked attended by admin" })
+                                      });
+                                    }
+                                    fetchSessions();
+                                  } catch (err: any) {
+                                    alert(err.message || "Failed to mark as attended");
                                   }
-                                  fetchSessions();
-                                } catch (err: any) {
-                                  alert(err.message || "Failed to mark as attended");
-                                }
-                              }}
-                              className="text-[10px] font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-2 py-1 rounded transition-colors"
-                            >
-                              {ar() ? "حضر" : "Attended"}
-                            </button>
+                                }}
+                                className="text-[10px] font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-2 py-1 rounded transition-colors"
+                              >
+                                {ar() ? "حضر" : "Attended"}
+                              </button>
+                            )}
+                          </div>
+                          {attendanceStatus === 'attended' && !s.hasScanHistory && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200" title={ar() ? "تم تسجيل الحضور ولكن لا يوجد سجل فحص QR" : "Attended without QR scan history"}>
+                              <svg className="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              <span>{ar() ? "يجب التأكد من العيادة" : "you need to check with the clinic"}</span>
+                            </span>
                           )}
                         </div>
                       </td>
@@ -706,7 +736,21 @@ export default function AdminSessionsLogTab() {
                                     </span>
                                   </div>
                                   {expandedData.scans.length === 0 ? (
-                                    <div className="px-4 py-6 text-center text-sm text-surface-400">{ar() ? "لا توجد سجلات فحص" : "No QR scans recorded"}</div>
+                                    <div className="px-4 py-6 text-center">
+                                      {attendanceStatus === 'attended' ? (
+                                        <div className="flex flex-col items-center justify-center p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl max-w-sm mx-auto">
+                                          <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center mb-1.5 text-sm font-bold">⚠️</div>
+                                          <div className="text-xs font-black text-amber-900">
+                                            {ar() ? "يجب التأكد من العيادة" : "you need to check with the clinic"}
+                                          </div>
+                                          <div className="text-[11px] text-amber-700 mt-0.5">
+                                            {ar() ? "تم تسجيل الحضور ولكن لا يوجد أي سجل فحص QR" : "Attended without QR scan history"}
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <span className="text-sm text-surface-400">{ar() ? "لا توجد سجلات فحص" : "No QR scans recorded"}</span>
+                                      )}
+                                    </div>
                                   ) : (
                                     <div className="divide-y divide-surface-100 max-h-[300px] overflow-y-auto">
                                       {expandedData.scans.map((sc: any) => {
