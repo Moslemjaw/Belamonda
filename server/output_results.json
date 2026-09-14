@@ -1,0 +1,1221 @@
+[
+  {
+    "row": 1,
+    "inputPhone": "55575900",
+    "targetDate": "2026-07-12",
+    "userFound": true,
+    "user": {
+      "id": "6a538234cd9c53928fe4c43d",
+      "shortId": "u20001921",
+      "fullName": "اشواق منيف العنزي",
+      "phone": "55575900",
+      "createdAt": "2026-07-12T12:01:56.016Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a538438cd9c53928fe4c711",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-07-12T12:10:32.348Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a538809cd9c53928fe4cbb9",
+        "shortId": "s0004142",
+        "scheduledAt": "2026-07-12T12:30:00.000Z",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "finalPaidKwd": "0.000",
+        "notes": "Marked as completed",
+        "createdAt": "2026-07-12T12:26:49.909Z"
+      },
+      {
+        "_id": "6a817c370daa63ec5df7a29f",
+        "shortId": "s0004663",
+        "scheduledAt": "2026-08-16T11:00:00.000Z",
+        "status": "scheduled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "createdAt": "2026-08-16T09:00:39.973Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a538748cd9c53928fe4caf2",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-07-12T12:23:36.546Z"
+      },
+      {
+        "_id": "6a76d43629dc8884371cd4ee",
+        "status": "scheduled",
+        "clinicScheduledAt": "2026-08-16T11:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "الرجاء وضع موعد",
+        "createdAt": "2026-08-08T07:01:10.887Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a772a4529dc8884371d063b",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Platinum (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-08T13:08:21.041Z",
+        "createdAt": "2026-08-08T13:08:21.041Z"
+      }
+    ]
+  },
+  {
+    "row": 2,
+    "inputPhone": "50810035",
+    "targetDate": "2026-07-12",
+    "userFound": true,
+    "user": {
+      "id": "6a4e66151eadef4691cf417f",
+      "shortId": "u20001900",
+      "fullName": "عاليه فاضل ادويح اعشوي",
+      "phone": "50810035",
+      "createdAt": "2026-07-08T15:00:37.678Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a4ec0161eadef4691cf6a16",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-07-08T21:24:38.263Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a54c5b848736c659aaaf041",
+        "shortId": "s0004184",
+        "scheduledAt": "2026-07-11T12:30:00.000Z",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "finalPaidKwd": "0.000",
+        "notes": "Marked as completed",
+        "createdAt": "2026-07-13T11:02:16.940Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a52629ac1eeb8bfb722dbaa",
+        "status": "cancelled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "rejectionReason": "Cancelled by admin",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-07-11T15:34:50.250Z"
+      },
+      {
+        "_id": "6a54c59f48736c659aaaefdd",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-07-13T11:01:51.601Z"
+      },
+      {
+        "_id": "6a9bede29a5f9a374eefcf02",
+        "status": "request_received",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-09-05T10:24:34.294Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a709d80809f42b3d10a9906",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Platinum (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-03T13:54:08.661Z",
+        "createdAt": "2026-08-03T13:54:08.662Z"
+      }
+    ]
+  },
+  {
+    "row": 3,
+    "inputPhone": "94111075",
+    "targetDate": "2026-07-16",
+    "userFound": true,
+    "user": {
+      "id": "6a46843dcd6ae424d19ebf51",
+      "shortId": "u20001809",
+      "fullName": "نور طارق العليان",
+      "phone": "94111075",
+      "createdAt": "2026-07-02T15:31:09.733Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a4689e7cd6ae424d19ec38c",
+        "offerTitle": "Naumi Plus (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-07-02T15:55:19.374Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a52078c7c4e7a51afb7ebb4",
+        "shortId": "s0004115",
+        "scheduledAt": "2026-07-12T14:00:00.000Z",
+        "status": "cancelled",
+        "clinicName": "عيادة اي دي",
+        "offerTitle": "Naumi Plus (Female)",
+        "notes": "Cancelled by admin",
+        "createdAt": "2026-07-11T09:06:20.301Z"
+      },
+      {
+        "_id": "6a5767387c2b83ca6ff73c0d",
+        "shortId": "s0004229",
+        "scheduledAt": "2026-07-15T15:00:00.000Z",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Plus (Female)",
+        "finalPaidKwd": "0.000",
+        "notes": "Marked as completed",
+        "createdAt": "2026-07-15T10:55:52.203Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a468b41cd6ae424d19ec49d",
+        "status": "cancelled",
+        "clinicName": "عيادة اي دي",
+        "offerTitle": "Naumi Plus (Female)",
+        "notes": "Naumi Plus (Female)",
+        "createdAt": "2026-07-02T16:01:05.575Z"
+      },
+      {
+        "_id": "6a5601a948736c659aab98ad",
+        "status": "completed",
+        "clinicScheduledAt": "2026-07-19T21:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Plus (Female)",
+        "notes": "رجاء وضع موعد ",
+        "createdAt": "2026-07-14T09:30:17.624Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a7334c8809f42b3d10bbc9b",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Plus (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-05T13:04:08.469Z",
+        "createdAt": "2026-08-05T13:04:08.470Z"
+      }
+    ]
+  },
+  {
+    "row": 4,
+    "inputPhone": "60067703",
+    "targetDate": "2026-07-26",
+    "userFound": true,
+    "user": {
+      "id": "6a3bf835f89b29aee11c9621",
+      "shortId": "u20001683",
+      "fullName": "منى حسن محمد شكري",
+      "phone": "60067703",
+      "createdAt": "2026-06-24T15:31:01.017Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a3bf835f89b29aee11c9625",
+        "offerTitle": "Naumi Plus (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-06-24T15:31:01.479Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a60c7458018232c405d3561",
+        "shortId": "s0004360",
+        "scheduledAt": "2026-07-26T15:00:00.000Z",
+        "status": "cancelled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Plus (Female)",
+        "notes": "Deleted from Missed Sessions",
+        "createdAt": "2026-07-22T13:36:05.282Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a5f7c318018232c405cb88d",
+        "status": "cancelled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Plus (Female)",
+        "notes": "Naumi Plus (Female)",
+        "createdAt": "2026-07-21T14:03:29.350Z"
+      },
+      {
+        "_id": "6a5f7cbe8018232c405cb9a1",
+        "status": "cancelled",
+        "clinicScheduledAt": "2026-07-26T15:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Plus (Female)",
+        "notes": "Naumi Plus (Female)",
+        "createdAt": "2026-07-21T14:05:50.367Z"
+      },
+      {
+        "_id": "6a79953b7bc45ae4d9e059d3",
+        "status": "cancelled",
+        "clinicName": "مركز مارينا 8",
+        "offerTitle": "Naumi Plus (Female)",
+        "rejectionReason": "Cancelled by admin",
+        "notes": "رجاء وضع موعد ",
+        "createdAt": "2026-08-10T09:09:15.246Z"
+      },
+      {
+        "_id": "6a97c8d620e80e7ed3c47cd5",
+        "status": "slot_assigned",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Plus (Female)",
+        "notes": "الرجاء وضع موعد",
+        "createdAt": "2026-09-02T06:57:26.311Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a9d85584f02d92b2e6ebe77",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Plus (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-09-06T15:23:04.582Z",
+        "createdAt": "2026-09-06T15:23:04.583Z"
+      },
+      {
+        "_id": "6a9d87644f02d92b2e6ebfd8",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Plus (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-09-06T15:31:48.629Z",
+        "createdAt": "2026-09-06T15:31:48.630Z"
+      }
+    ]
+  },
+  {
+    "row": 5,
+    "inputPhone": "94111075",
+    "targetDate": "2026-08-05",
+    "userFound": true,
+    "user": {
+      "id": "6a46843dcd6ae424d19ebf51",
+      "shortId": "u20001809",
+      "fullName": "نور طارق العليان",
+      "phone": "94111075",
+      "createdAt": "2026-07-02T15:31:09.733Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a4689e7cd6ae424d19ec38c",
+        "offerTitle": "Naumi Plus (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-07-02T15:55:19.374Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a52078c7c4e7a51afb7ebb4",
+        "shortId": "s0004115",
+        "scheduledAt": "2026-07-12T14:00:00.000Z",
+        "status": "cancelled",
+        "clinicName": "عيادة اي دي",
+        "offerTitle": "Naumi Plus (Female)",
+        "notes": "Cancelled by admin",
+        "createdAt": "2026-07-11T09:06:20.301Z"
+      },
+      {
+        "_id": "6a5767387c2b83ca6ff73c0d",
+        "shortId": "s0004229",
+        "scheduledAt": "2026-07-15T15:00:00.000Z",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Plus (Female)",
+        "finalPaidKwd": "0.000",
+        "notes": "Marked as completed",
+        "createdAt": "2026-07-15T10:55:52.203Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a468b41cd6ae424d19ec49d",
+        "status": "cancelled",
+        "clinicName": "عيادة اي دي",
+        "offerTitle": "Naumi Plus (Female)",
+        "notes": "Naumi Plus (Female)",
+        "createdAt": "2026-07-02T16:01:05.575Z"
+      },
+      {
+        "_id": "6a5601a948736c659aab98ad",
+        "status": "completed",
+        "clinicScheduledAt": "2026-07-19T21:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Plus (Female)",
+        "notes": "رجاء وضع موعد ",
+        "createdAt": "2026-07-14T09:30:17.624Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a7334c8809f42b3d10bbc9b",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Plus (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-05T13:04:08.469Z",
+        "createdAt": "2026-08-05T13:04:08.470Z"
+      }
+    ]
+  },
+  {
+    "row": 6,
+    "inputPhone": "55575900",
+    "targetDate": "2026-08-08",
+    "userFound": true,
+    "user": {
+      "id": "6a538234cd9c53928fe4c43d",
+      "shortId": "u20001921",
+      "fullName": "اشواق منيف العنزي",
+      "phone": "55575900",
+      "createdAt": "2026-07-12T12:01:56.016Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a538438cd9c53928fe4c711",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-07-12T12:10:32.348Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a538809cd9c53928fe4cbb9",
+        "shortId": "s0004142",
+        "scheduledAt": "2026-07-12T12:30:00.000Z",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "finalPaidKwd": "0.000",
+        "notes": "Marked as completed",
+        "createdAt": "2026-07-12T12:26:49.909Z"
+      },
+      {
+        "_id": "6a817c370daa63ec5df7a29f",
+        "shortId": "s0004663",
+        "scheduledAt": "2026-08-16T11:00:00.000Z",
+        "status": "scheduled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "createdAt": "2026-08-16T09:00:39.973Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a538748cd9c53928fe4caf2",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-07-12T12:23:36.546Z"
+      },
+      {
+        "_id": "6a76d43629dc8884371cd4ee",
+        "status": "scheduled",
+        "clinicScheduledAt": "2026-08-16T11:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "الرجاء وضع موعد",
+        "createdAt": "2026-08-08T07:01:10.887Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a772a4529dc8884371d063b",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Platinum (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-08T13:08:21.041Z",
+        "createdAt": "2026-08-08T13:08:21.041Z"
+      }
+    ]
+  },
+  {
+    "row": 7,
+    "inputPhone": "50810035",
+    "targetDate": "2026-08-10",
+    "userFound": true,
+    "user": {
+      "id": "6a4e66151eadef4691cf417f",
+      "shortId": "u20001900",
+      "fullName": "عاليه فاضل ادويح اعشوي",
+      "phone": "50810035",
+      "createdAt": "2026-07-08T15:00:37.678Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a4ec0161eadef4691cf6a16",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-07-08T21:24:38.263Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a54c5b848736c659aaaf041",
+        "shortId": "s0004184",
+        "scheduledAt": "2026-07-11T12:30:00.000Z",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "finalPaidKwd": "0.000",
+        "notes": "Marked as completed",
+        "createdAt": "2026-07-13T11:02:16.940Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a52629ac1eeb8bfb722dbaa",
+        "status": "cancelled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "rejectionReason": "Cancelled by admin",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-07-11T15:34:50.250Z"
+      },
+      {
+        "_id": "6a54c59f48736c659aaaefdd",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-07-13T11:01:51.601Z"
+      },
+      {
+        "_id": "6a9bede29a5f9a374eefcf02",
+        "status": "request_received",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-09-05T10:24:34.294Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a709d80809f42b3d10a9906",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Platinum (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-03T13:54:08.661Z",
+        "createdAt": "2026-08-03T13:54:08.662Z"
+      }
+    ]
+  },
+  {
+    "row": 8,
+    "inputPhone": "65029032",
+    "targetDate": "2026-08-12",
+    "userFound": true,
+    "user": {
+      "id": "6a4161a52ac4e18177255171",
+      "shortId": "u20001736",
+      "fullName": "بتول كريم العساف",
+      "phone": "65029032",
+      "createdAt": "2026-06-28T18:02:13.165Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a7ace3f7bc45ae4d9e0ce21",
+        "offerTitle": "Naumi Classic (Group of 2)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-08-11T07:24:47.953Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a8180220daa63ec5df7a5e9",
+        "shortId": "s0004664",
+        "scheduledAt": "2026-12-08T21:00:00.000Z",
+        "status": "scheduled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Classic (Group of 2)",
+        "createdAt": "2026-08-16T09:17:22.343Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a7ad9f47bc45ae4d9e0da70",
+        "status": "scheduled",
+        "clinicScheduledAt": "2026-12-08T21:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Classic (Group of 2)",
+        "notes": "الرجاء وضع موعد",
+        "createdAt": "2026-08-11T08:14:44.827Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a7c48e47bc45ae4d9e18385",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Classic (Group of 2)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-12T10:20:20.293Z",
+        "createdAt": "2026-08-12T10:20:20.294Z"
+      },
+      {
+        "_id": "6a7c49287bc45ae4d9e183bb",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Classic (Group of 2)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-12T10:21:28.273Z",
+        "createdAt": "2026-08-12T10:21:28.274Z"
+      }
+    ]
+  },
+  {
+    "row": 9,
+    "inputPhone": "66692224",
+    "targetDate": "2026-08-19",
+    "userFound": true,
+    "user": {
+      "id": "6a7cc52e7bc45ae4d9e1cdb0",
+      "shortId": "u20002207",
+      "fullName": "لبنى حسين الاكتع",
+      "phone": "66692224",
+      "createdAt": "2026-08-12T19:10:38.826Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a7cca557bc45ae4d9e1d095",
+        "offerTitle": "Naumi Silver (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-08-12T19:32:37.917Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a7cca7a7bc45ae4d9e1d0c0",
+        "shortId": "s0004626",
+        "scheduledAt": "2026-07-08T00:00:00.000Z",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Silver (Female)",
+        "notes": "Historical/Manual session increment",
+        "createdAt": "2026-08-12T19:33:14.438Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a8086660daa63ec5df74450",
+        "status": "slot_assigned",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Silver (Female)",
+        "notes": "الرجاء حجز موعد",
+        "createdAt": "2026-08-15T15:31:50.481Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a85b5b45749bb62aa46c9b5",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Silver (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-19T13:55:00.520Z",
+        "createdAt": "2026-08-19T13:55:00.521Z"
+      }
+    ]
+  },
+  {
+    "row": 10,
+    "inputPhone": "66033160",
+    "targetDate": "2026-08-19",
+    "userFound": false,
+    "user": null,
+    "sessions": [],
+    "requests": [],
+    "scans": [],
+    "userOffersCount": 0
+  },
+  {
+    "row": 11,
+    "inputPhone": "64446088",
+    "targetDate": "2026-08-20",
+    "userFound": true,
+    "user": {
+      "id": "6a8073440daa63ec5df737d0",
+      "shortId": "u20002225",
+      "fullName": "دانه حمد الجعفر",
+      "phone": "64446088",
+      "createdAt": "2026-08-15T14:10:12.751Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a807f2e0daa63ec5df73dcb",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-08-15T15:01:02.971Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a808ca80daa63ec5df74ba2",
+        "shortId": "s0004652",
+        "scheduledAt": "2026-08-19T21:00:00.000Z",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "finalPaidKwd": "0.000",
+        "notes": "Marked as completed",
+        "createdAt": "2026-08-15T15:58:32.127Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a8081af0daa63ec5df73fa5",
+        "status": "completed",
+        "clinicScheduledAt": "2026-08-19T21:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "الرجاء وضع موعد",
+        "createdAt": "2026-08-15T15:11:43.353Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a86fae75749bb62aa475217",
+        "status": "attended",
+        "offerName": "Naumi Platinum (Female)",
+        "hadScheduledSession": true,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-20T13:02:31.547Z",
+        "createdAt": "2026-08-20T13:02:31.547Z"
+      }
+    ]
+  },
+  {
+    "row": 12,
+    "inputPhone": "51227057",
+    "targetDate": "2026-08-24",
+    "userFound": true,
+    "user": {
+      "id": "6a7c9e107bc45ae4d9e1b7ff",
+      "shortId": "u20002205",
+      "fullName": "غلا حسين المري",
+      "phone": "51227057",
+      "createdAt": "2026-08-12T16:23:44.340Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a7ca24d7bc45ae4d9e1bb85",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-08-12T16:41:49.459Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a83135c0daa63ec5df86406",
+        "shortId": "s0004676",
+        "scheduledAt": "2026-08-23T11:00:00.000Z",
+        "status": "cancelled",
+        "clinicName": "عيادة اي دي",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Cancelled by admin",
+        "createdAt": "2026-08-17T13:57:48.646Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a7cf87f7bc45ae4d9e1dbd8",
+        "status": "cancelled",
+        "clinicScheduledAt": "2026-08-23T11:00:00.000Z",
+        "clinicName": "عيادة اي دي",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "رجاء وضع موعد",
+        "createdAt": "2026-08-12T22:49:35.672Z"
+      },
+      {
+        "_id": "6a8ad07d5749bb62aa48a803",
+        "status": "slot_assigned",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "الرجاء وضع موعد",
+        "createdAt": "2026-08-23T10:50:37.551Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a8c4722ae736dabf0c2f1df",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Platinum (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-24T13:29:06.706Z",
+        "createdAt": "2026-08-24T13:29:06.706Z"
+      },
+      {
+        "_id": "6a8c76b1ae736dabf0c3049a",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Platinum (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-24T16:52:01.459Z",
+        "createdAt": "2026-08-24T16:52:01.460Z"
+      },
+      {
+        "_id": "6a8c76bcae736dabf0c304b1",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Platinum (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-24T16:52:12.283Z",
+        "createdAt": "2026-08-24T16:52:12.283Z"
+      }
+    ]
+  },
+  {
+    "row": 13,
+    "inputPhone": "94725861",
+    "targetDate": "2026-08-24",
+    "userFound": false,
+    "user": null,
+    "sessions": [],
+    "requests": [],
+    "scans": [],
+    "userOffersCount": 0
+  },
+  {
+    "row": 14,
+    "inputPhone": "50100670",
+    "targetDate": "2026-08-24",
+    "userFound": true,
+    "user": {
+      "id": "6a77665a29dc8884371d1bc3",
+      "shortId": "u20002176",
+      "fullName": "ايه محمد محمود خليل",
+      "phone": "96550100670",
+      "createdAt": "2026-08-08T17:24:42.068Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a776e1129dc8884371d1db4",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-08-08T17:57:37.969Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a815afb0daa63ec5df78ef4",
+        "shortId": "s0004657",
+        "scheduledAt": "2026-08-23T13:00:00.000Z",
+        "status": "cancelled",
+        "clinicName": "مركز مارينا 5",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Cancelled by admin",
+        "createdAt": "2026-08-16T06:38:51.345Z"
+      },
+      {
+        "_id": "6a9ede543c7812ab9883103b",
+        "shortId": "s0004852",
+        "scheduledAt": "2026-09-17T16:00:00.000Z",
+        "status": "scheduled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "createdAt": "2026-09-07T15:55:00.029Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a777e8729dc8884371d245a",
+        "status": "cancelled",
+        "clinicScheduledAt": "2026-08-23T13:00:00.000Z",
+        "clinicName": "مركز مارينا 5",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "رجاء وضع موعد",
+        "createdAt": "2026-08-08T19:07:51.521Z"
+      },
+      {
+        "_id": "6a8bf1e501c8d3e977ced290",
+        "status": "cancelled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "rejectionReason": "Cancelled by admin",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-08-24T07:25:25.181Z"
+      },
+      {
+        "_id": "6a8bf25401c8d3e977ced369",
+        "status": "scheduled",
+        "clinicScheduledAt": "2026-09-17T16:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-08-24T07:27:16.150Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a8c77a7ae736dabf0c30527",
+        "status": "no_scheduled_session",
+        "offerName": "Naumi Platinum (Female)",
+        "hadScheduledSession": false,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-24T16:56:07.686Z",
+        "createdAt": "2026-08-24T16:56:07.687Z"
+      }
+    ]
+  },
+  {
+    "row": 15,
+    "inputPhone": "50523103",
+    "targetDate": "2026-08-24",
+    "userFound": true,
+    "user": {
+      "id": "6a44379284cb6c376e820435",
+      "shortId": "u20001784",
+      "fullName": "ليماس مهرب مفضي العنزي",
+      "phone": "50523103",
+      "createdAt": "2026-06-30T21:39:30.913Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a455ae784cb6c376e8266f5",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة اي دي",
+        "createdAt": "2026-07-01T18:22:31.621Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a5c79b68018232c405b5abc",
+        "shortId": "s0004250",
+        "scheduledAt": "2026-07-17T21:00:00.000Z",
+        "status": "cancelled",
+        "clinicName": "عيادة اي دي",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Cancelled by admin",
+        "createdAt": "2026-07-19T07:16:06.332Z"
+      },
+      {
+        "_id": "6a5c79b68018232c405b5abf",
+        "shortId": "s0004251",
+        "scheduledAt": "2026-07-17T21:00:00.000Z",
+        "status": "cancelled",
+        "clinicName": "عيادة اي دي",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Cancelled by admin",
+        "createdAt": "2026-07-19T07:16:06.479Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a5720c88c86bd7c36bdf342",
+        "status": "cancelled",
+        "clinicName": "عيادة اي دي",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "رجاء وضع موعد ",
+        "createdAt": "2026-07-15T05:55:20.053Z"
+      },
+      {
+        "_id": "6a8c1ee8ae736dabf0c2de55",
+        "status": "slot_assigned",
+        "clinicName": "عيادة اي دي",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "الرجاء وضع موعد",
+        "createdAt": "2026-08-24T10:37:28.203Z"
+      }
+    ],
+    "scans": []
+  },
+  {
+    "row": 16,
+    "inputPhone": "99532776",
+    "targetDate": "2026-08-24",
+    "userFound": true,
+    "user": {
+      "id": "6a8c04c8ae736dabf0c2cadc",
+      "shortId": "u20002293",
+      "fullName": "عاليه محمد اسماعيل",
+      "phone": "+96599532776",
+      "createdAt": "2026-08-24T08:46:00.286Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a8c09f7ae736dabf0c2cddd",
+        "offerTitle": "4 Sessions (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-08-24T09:08:07.622Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a96aa5dde987094a2f3fb16",
+        "shortId": "s0004770",
+        "scheduledAt": "2026-08-24T00:00:00.000Z",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "4 Sessions (Female)",
+        "notes": "Historical/Manual session increment",
+        "createdAt": "2026-09-01T10:35:09.975Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a8c23b8ae736dabf0c2e123",
+        "status": "slot_assigned",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "4 Sessions (Female)",
+        "notes": "رجاء وضع موعد",
+        "createdAt": "2026-08-24T10:58:00.551Z"
+      }
+    ],
+    "scans": []
+  },
+  {
+    "row": 17,
+    "inputPhone": "50768703",
+    "targetDate": "2026-08-25",
+    "userFound": true,
+    "user": {
+      "id": "6a89dd915749bb62aa484b8f",
+      "shortId": "u20002277",
+      "fullName": "عاليه العتيبي",
+      "phone": "50768703",
+      "createdAt": "2026-08-22T17:34:09.265Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a8dad5bde987094a2f108d5",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-08-25T14:57:31.596Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a8dc4d4de987094a2f11510",
+        "shortId": "s0004745",
+        "scheduledAt": "2026-08-25T03:00:00.000Z",
+        "status": "scheduled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "createdAt": "2026-08-25T16:37:40.176Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a8dad89de987094a2f10938",
+        "status": "scheduled",
+        "clinicScheduledAt": "2026-08-25T15:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "رجاء وضع موعد",
+        "createdAt": "2026-08-25T14:58:17.761Z"
+      }
+    ],
+    "scans": []
+  },
+  {
+    "row": 18,
+    "inputPhone": "97994606",
+    "targetDate": "2026-08-30",
+    "userFound": true,
+    "user": {
+      "id": "6a70da8c809f42b3d10ab56d",
+      "shortId": "u20002148",
+      "fullName": "اسماء احمد",
+      "phone": "97994606",
+      "createdAt": "2026-08-03T18:14:36.050Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a70dc68809f42b3d10ab6c0",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-08-03T18:22:32.819Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a8b24465749bb62aa48cfc0",
+        "shortId": "s0004726",
+        "scheduledAt": "2026-08-18T21:00:00.000Z",
+        "status": "scheduled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "createdAt": "2026-08-23T16:48:06.764Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a70de86809f42b3d10ab803",
+        "status": "scheduled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "رجاء وضع موعد ",
+        "createdAt": "2026-08-03T18:31:34.382Z"
+      },
+      {
+        "_id": "6a70df63809f42b3d10ab999",
+        "status": "cancelled",
+        "clinicName": "مركز اسنانكو",
+        "notes": "تبييض الأسنان",
+        "createdAt": "2026-08-03T18:35:15.451Z"
+      }
+    ],
+    "scans": []
+  },
+  {
+    "row": 19,
+    "inputPhone": "66936468",
+    "targetDate": "2026-08-31",
+    "userFound": true,
+    "user": {
+      "id": "6a7dbdbd7bc45ae4d9e2361a",
+      "shortId": "u20002215",
+      "fullName": "سمر جمال",
+      "phone": "66936468",
+      "createdAt": "2026-08-13T12:51:09.734Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a8021d60daa63ec5df6fa53",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-08-15T08:22:46.733Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a944a6bde987094a2f2ff1b",
+        "shortId": "s0004762",
+        "scheduledAt": "2026-08-30T22:00:00.000Z",
+        "status": "scheduled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "createdAt": "2026-08-30T15:21:15.358Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a943c6dde987094a2f2f6ea",
+        "status": "scheduled",
+        "clinicScheduledAt": "2026-08-30T22:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "الرجاء وضع موعد",
+        "createdAt": "2026-08-30T14:21:33.748Z"
+      }
+    ],
+    "scans": []
+  },
+  {
+    "row": 20,
+    "inputPhone": "97858533",
+    "targetDate": "2026-08-31",
+    "userFound": true,
+    "user": {
+      "id": "6a86d1545749bb62aa472e20",
+      "shortId": "u20002255",
+      "fullName": "منال زين العازمي",
+      "phone": "+96597858533",
+      "createdAt": "2026-08-20T10:05:08.555Z"
+    },
+    "userOffersCount": 1,
+    "userOffers": [
+      {
+        "_id": "6a8d7cf7de987094a2f0ec8b",
+        "offerTitle": "Naumi Platinum (Female)",
+        "clinicName": "عيادة الكوت",
+        "createdAt": "2026-08-25T11:31:03.408Z"
+      }
+    ],
+    "sessions": [
+      {
+        "_id": "6a944aa8de987094a2f2ff50",
+        "shortId": "s0004763",
+        "scheduledAt": "2026-07-31T10:50:00.000Z",
+        "status": "completed",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "finalPaidKwd": "0.000",
+        "notes": "Marked attended by admin",
+        "createdAt": "2026-08-30T15:22:16.620Z"
+      }
+    ],
+    "requests": [
+      {
+        "_id": "6a8ec8cdde987094a2f16b10",
+        "status": "cancelled",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-08-26T11:06:53.729Z"
+      },
+      {
+        "_id": "6a9438f4de987094a2f2f155",
+        "status": "completed",
+        "clinicScheduledAt": "2026-08-31T00:00:00.000Z",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "الرجاء وضع موعد",
+        "createdAt": "2026-08-30T14:06:44.322Z"
+      },
+      {
+        "_id": "6aa28c096a4383679b1bd68a",
+        "status": "request_received",
+        "clinicName": "عيادة الكوت",
+        "offerTitle": "Naumi Platinum (Female)",
+        "notes": "Naumi Platinum (Female)",
+        "createdAt": "2026-09-10T10:52:57.293Z"
+      }
+    ],
+    "scans": [
+      {
+        "_id": "6a95725fde987094a2f37cc5",
+        "status": "attended",
+        "offerName": "Naumi Platinum (Female)",
+        "hadScheduledSession": true,
+        "clinicName": "عيادة الكوت",
+        "scannedAt": "2026-08-31T12:23:59.309Z",
+        "createdAt": "2026-08-31T12:23:59.633Z"
+      }
+    ]
+  }
+]

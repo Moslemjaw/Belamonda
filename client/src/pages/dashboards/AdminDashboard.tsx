@@ -25,6 +25,7 @@ import { KpiCard } from "../../components/KpiCard";
 import AdminSessionsLogTab from "./AdminSessionsLogTab";
 import AdminRequestHistoryTab from "./AdminRequestHistoryTab";
 import AdminScanHistoryTab from "./AdminScanHistoryTab";
+import AdminCustomerSessionStatusTab from "./AdminCustomerSessionStatusTab";
 import DatePicker from "../../components/DatePicker";
 import { ClinicChangeRequestsQueue } from "./CsDashboard";
 import ClinicChangeModal from "../../components/ClinicChangeModal";
@@ -5250,6 +5251,7 @@ export default function AdminDashboard() {
     { key: "users", icon: Icons.users, label: t("users") },
     { key: "clinics", icon: Icons.clinic, label: t("clinics") },
     { key: "sessions_log", icon: Icons.calendar, label: ar() ? "سجل الجلسات" : "Sessions Log" },
+    { key: "session_status", icon: Icons.chart, label: ar() ? "حالة الجلسات (360°)" : "Session Status" },
     { key: "clinic_changes", icon: Icons.clinic, label: ar() ? "تغيير العيادات" : "Clinic Changes" },
     { key: "tasks", icon: Icons.clipboard, label: t("tasks") },
     { key: "complaints", icon: Icons.complaint, label: t("complaints") },
@@ -5428,6 +5430,7 @@ export default function AdminDashboard() {
         )}
         {activeNav === "clinic_changes" && <ClinicChangeRequestsQueue />}
         {activeNav === "sessions_log" && <AdminSessionsLogTab />}
+        {activeNav === "session_status" && <AdminCustomerSessionStatusTab />}
         {activeNav === "request_history" && <AdminRequestHistoryTab />}
         {activeNav === "scan_history" && <AdminScanHistoryTab />}
         {activeNav === "reservations" && <AdminReservationsPanel />}

@@ -2629,6 +2629,247 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
   }
 });
 
+// ── Customer 360 Session Status (Sessions + Requests + Scans) ────────────────
+schedulingRouter.get("/admin/customer-session-status", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res, next) => {
+  try {
+    const q = (typeof req.query.query === "string" ? req.query.query : (typeof req.query.q === "string" ? req.query.q : "")).trim();
+    const userIdParam = typeof req.query.userId === "string" ? req.query.userId.trim() : "";
+
+    if (!q && !userIdParam) {
+      return res.json({
+        targetUser: null,
+        matchedUsers: [],
+        sessions: [],
+        requests: [],
+        scans: [],
+        memberships: [],
+        stats: null
+      });
+    }
+
+    let targetUser: any = null;
+    let matchedUsers: any[] = [];
+
+    if (userIdParam && mongoose.isValidObjectId(userIdParam)) {
+      targetUser = await UserModel.findById(userIdParam).lean();
+    }
+
+    if (!targetUser && q) {
+      const escapedQ = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const cleanPhone = q.replace(/[^0-9]/g, "");
+
+      const userSearchConditions: any[] = [
+        { fullName: { $regex: escapedQ, $options: "i" } },
+        { username: { $regex: escapedQ, $options: "i" } },
+        { shortId: { $regex: escapedQ, $options: "i" } }
+      ];
+      if (cleanPhone.length >= 3) {
+        userSearchConditions.push({ phone: { $regex: cleanPhone } });
+      }
+      if (mongoose.isValidObjectId(q)) {
+        userSearchConditions.push({ _id: new mongoose.Types.ObjectId(q) });
+      }
+
+      matchedUsers = await UserModel.find({ $or: userSearchConditions })
+        .select("_id fullName phone shortId email gender verificationStatus createdAt")
+        .limit(10)
+        .lean();
+
+      if (matchedUsers.length > 0) {
+        targetUser = matchedUsers[0];
+      }
+    }
+
+    if (!targetUser) {
+      return res.json({
+        targetUser: null,
+        matchedUsers: [],
+        sessions: [],
+        requests: [],
+        scans: [],
+        memberships: [],
+        stats: null
+      });
+    }
+
+    const userIdStr = targetUser._id.toString();
+    const userObjId = targetUser._id;
+
+    // 1. Memberships (UserOffers)
+    const userOffers = await UserOfferModel.find({
+      $or: [{ userId: userIdStr }, { userId: userObjId }]
+    }).lean();
+
+    const offerIds = [...new Set(userOffers.map(uo => uo.offerId).filter(Boolean))];
+    const offers = offerIds.length > 0 ? await OfferModel.find({ _id: { $in: offerIds } }).lean() : [];
+    const offerMap = new Map(offers.map((o: any) => [o._id.toString(), o.titleAr || o.titleEn || o.title || o.name || "Unknown Offer"]));
+
+    const enrichedMemberships = userOffers.map((uo: any) => ({
+      id: uo._id.toString(),
+      offerId: uo.offerId?.toString(),
+      offerName: offerMap.get(uo.offerId?.toString()) || uo.offerName || "Membership",
+      membershipType: uo.membershipType,
+      status: uo.status,
+      maxSessions: uo.maxSessions ?? null,
+      sessionsUsed: uo.sessionsUsed ?? 0,
+      createdAt: uo.createdAt ? new Date(uo.createdAt).toISOString() : null,
+      validUntil: uo.validUntil ? new Date(uo.validUntil).toISOString() : null,
+      cashbackBalanceKwd: uo.cashbackBalanceKwd || "0.000"
+    }));
+
+    // 2. Sessions (BookingSessions)
+    const sessions = await BookingSessionModel.find({
+      $or: [{ userId: userIdStr }, { userId: userObjId }]
+    }).sort({ scheduledAt: -1 }).lean();
+
+    // 3. Requests (BookingRequests)
+    const requests = await BookingRequestModel.find({
+      $or: [{ userId: userIdStr }, { userId: userObjId }]
+    }).sort({ createdAt: -1 }).lean();
+
+    // 4. Scans (ScanLogs)
+    const scans = await ScanLogModel.find({
+      $or: [{ userId: userIdStr }, { userId: userObjId }]
+    }).sort({ scannedAt: -1 }).lean();
+
+    // Clinic lookup for all items
+    const allClinicIds = [
+      ...sessions.map(s => s.clinicId),
+      ...requests.map(r => r.clinicId),
+      ...scans.map(sc => sc.clinicId)
+    ].filter(Boolean);
+    const uniqueClinicIds = [...new Set(allClinicIds.map(id => id.toString()))];
+    const clinicDocs = uniqueClinicIds.length > 0
+      ? await ClinicModel.find({
+          $or: [
+            { _id: { $in: uniqueClinicIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { id: { $in: uniqueClinicIds } }
+          ]
+        }).lean()
+      : [];
+    const clinicMap = new Map<string, { nameEn: string; nameAr: string }>();
+    for (const c of clinicDocs) {
+      const cid = (c as any)._id.toString();
+      clinicMap.set(cid, { nameEn: (c as any).nameEn || (c as any).name || cid, nameAr: (c as any).nameAr || (c as any).name || cid });
+      if ((c as any).id) {
+        clinicMap.set(String((c as any).id), { nameEn: (c as any).nameEn || (c as any).name || cid, nameAr: (c as any).nameAr || (c as any).name || cid });
+      }
+    }
+
+    // Scanned by user lookup
+    const scannedByUserIds = [...new Set(scans.map(s => s.scannedByUserId).filter(Boolean))];
+    const staffDocs = scannedByUserIds.length > 0
+      ? await UserModel.find({
+          $or: [
+            { _id: { $in: scannedByUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { _id: { $in: scannedByUserIds } }
+          ]
+        }).select("fullName username role").lean()
+      : [];
+    const staffMap = new Map(staffDocs.map((st: any) => [st._id.toString(), st.fullName || st.username || "Staff"]));
+
+    // Enrich sessions
+    const enrichedSessions = sessions.map((s: any) => {
+      const c = clinicMap.get(s.clinicId?.toString()) || { nameEn: s.clinicId?.toString() || "Clinic", nameAr: s.clinicId?.toString() || "العيادة" };
+      const offName = s.offerId ? (offerMap.get(s.offerId.toString()) || "Session") : (s.standaloneName || "Standalone Session");
+      return {
+        id: s._id.toString(),
+        shortId: s.shortId || null,
+        clinicId: s.clinicId?.toString(),
+        clinicNameEn: c.nameEn,
+        clinicNameAr: c.nameAr,
+        offerName: offName,
+        scheduledAt: s.scheduledAt ? new Date(s.scheduledAt).toISOString() : null,
+        status: s.status,
+        clinicPaymentStatus: s.clinicPaymentStatus || "pending",
+        sessionPriceKwd: s.sessionPriceKwd || "0.000",
+        finalPaidKwd: s.finalPaidKwd || null,
+        notes: s.notes || null,
+        completedAt: s.completedAt ? new Date(s.completedAt).toISOString() : null,
+        createdAt: s.createdAt ? new Date(s.createdAt).toISOString() : null
+      };
+    });
+
+    // Enrich requests
+    const enrichedRequests = requests.map((r: any) => {
+      const c = clinicMap.get(r.clinicId?.toString()) || { nameEn: r.clinicId?.toString() || "Clinic", nameAr: r.clinicId?.toString() || "العيادة" };
+      const offName = r.offerId ? (offerMap.get(r.offerId.toString()) || r.standaloneName || "Booking") : (r.standaloneName || "Booking");
+      return {
+        id: r._id.toString(),
+        clinicId: r.clinicId?.toString(),
+        clinicNameEn: c.nameEn,
+        clinicNameAr: c.nameAr,
+        offerName: offName,
+        status: r.status,
+        adminSuggestedAt: r.adminSuggestedAt ? new Date(r.adminSuggestedAt).toISOString() : (r.proposedAt ? new Date(r.proposedAt).toISOString() : null),
+        clinicScheduledAt: r.clinicScheduledAt ? new Date(r.clinicScheduledAt).toISOString() : (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(r.status) && r.proposedAt ? new Date(r.proposedAt).toISOString() : null),
+        shownAt: r.shownAt ? new Date(r.shownAt).toISOString() : null,
+        scheduledSessionId: r.scheduledSessionId || null,
+        notes: r.notes || null,
+        clinicPaymentStatus: r.clinicPaymentStatus || "pending",
+        bookingRoute: r.bookingRoute || "cs",
+        createdAt: r.createdAt ? new Date(r.createdAt).toISOString() : null
+      };
+    });
+
+    // Enrich scans
+    const enrichedScans = scans.map((sc: any) => {
+      const c = clinicMap.get(sc.clinicId?.toString()) || { nameEn: sc.clinicId?.toString() || "Clinic", nameAr: sc.clinicId?.toString() || "العيادة" };
+      return {
+        id: sc._id.toString(),
+        clinicId: sc.clinicId?.toString(),
+        clinicNameEn: c.nameEn,
+        clinicNameAr: c.nameAr,
+        offerName: sc.offerName || (sc.userOfferId ? offerMap.get(sc.userOfferId.toString()) : null) || "Membership",
+        scannedAt: sc.scannedAt ? new Date(sc.scannedAt).toISOString() : (sc.createdAt ? new Date(sc.createdAt).toISOString() : null),
+        status: sc.status || "attended",
+        hadScheduledSession: !!sc.hadScheduledSession,
+        scannedBy: staffMap.get(sc.scannedByUserId?.toString()) || "Clinic Staff"
+      };
+    });
+
+    const stats = {
+      totalSessions: enrichedSessions.length,
+      completedSessions: enrichedSessions.filter(s => s.status === "completed").length,
+      scheduledSessions: enrichedSessions.filter(s => s.status === "scheduled").length,
+      cancelledSessions: enrichedSessions.filter(s => s.status === "cancelled").length,
+      totalRequests: enrichedRequests.length,
+      completedRequests: enrichedRequests.filter(r => r.status === "completed").length,
+      cancelledRequests: enrichedRequests.filter(r => r.status === "cancelled").length,
+      totalScans: enrichedScans.length,
+      attendedScans: enrichedScans.filter(sc => sc.status === "attended").length,
+      totalMemberships: enrichedMemberships.length,
+      activeMemberships: enrichedMemberships.filter(m => m.status === "active").length
+    };
+
+    return res.json({
+      targetUser: {
+        id: targetUser._id.toString(),
+        fullName: targetUser.fullName || targetUser.username || "Customer",
+        phone: targetUser.phone || "",
+        shortId: targetUser.shortId || "",
+        email: targetUser.email || "",
+        gender: targetUser.gender || "",
+        verificationStatus: targetUser.verificationStatus || "unverified",
+        createdAt: targetUser.createdAt ? new Date(targetUser.createdAt).toISOString() : null
+      },
+      matchedUsers: matchedUsers.map((u: any) => ({
+        id: u._id.toString(),
+        fullName: u.fullName || u.username || "Customer",
+        phone: u.phone || "",
+        shortId: u.shortId || ""
+      })),
+      memberships: enrichedMemberships,
+      sessions: enrichedSessions,
+      requests: enrichedRequests,
+      scans: enrichedScans,
+      stats
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ── Admin overview of all booking requests ────────────────────────────────
 schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res) => {
   const userRole = (req as any).user?.role;
