@@ -2225,6 +2225,7 @@ function ClinicScannerTab({ clinicId, onMarkSession }: { clinicId?: string; onMa
             <tbody className="text-sm">
               {(() => {
                 const filteredTodayItems = todayItems.filter((item) => {
+                  if (item.status === "slot_assigned" || item.status === "request_received") return false;
                   if (todayFilter === "awaiting" && item.attendanceStatus !== "awaiting" && item.attendanceStatus !== "checked_in") return false;
                   if (todayFilter === "attended" && item.attendanceStatus !== "attended") return false;
                   if (todaySearch.trim()) {

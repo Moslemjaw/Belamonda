@@ -2137,14 +2137,17 @@ schedulingRouter.get("/clinic/:clinicId/today-expected-scans", authRequired, req
     const clinicMatch = clinicObjId ? { $in: [clinicId, clinicObjId] } : clinicId;
 
     // 1. Fetch sessions for today
+    // 1. Fetch sessions for today (only confirmed/scheduled sessions, exclude slot_assigned)
     const sessions = await BookingSessionModel.find({
       clinicId: clinicMatch,
+      status: { $nin: ["slot_assigned", "request_received", "cancelled", "rejected"] },
       scheduledAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc }
     }).sort({ scheduledAt: 1 }).lean();
 
-    // 2. Fetch booking requests for today
+    // 2. Fetch booking requests for today (only confirmed/scheduled requests, strictly exclude slot_assigned)
     const requests = await BookingRequestModel.find({
       clinicId: clinicMatch,
+      status: { $in: ["scheduled", "completed", "checked_in", "in_progress"] },
       $or: [
         { clinicScheduledAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc } },
         { proposedAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc } }
@@ -2198,6 +2201,7 @@ schedulingRouter.get("/clinic/:clinicId/today-expected-scans", authRequired, req
     const items: any[] = [];
 
     for (const s of sessions as any[]) {
+      if (s.status === "slot_assigned") continue;
       const user = userMap.get(s.userId?.toString());
       const scan = scanMap.get(s.userId?.toString());
       const offerName = s.offerId ? (offerMap.get(s.offerId.toString()) || "Session") : (s.standaloneName || "Session");
@@ -2231,6 +2235,7 @@ schedulingRouter.get("/clinic/:clinicId/today-expected-scans", authRequired, req
     }
 
     for (const r of standaloneRequests as any[]) {
+      if (r.status === "slot_assigned") continue;
       const user = userMap.get(r.userId?.toString());
       const scan = scanMap.get(r.userId?.toString());
       const offerName = r.offerId ? (offerMap.get(r.offerId.toString()) || r.standaloneName || "Booking") : (r.standaloneName || "Booking");
