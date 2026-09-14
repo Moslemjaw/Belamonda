@@ -222,13 +222,28 @@ publicRouter.get("/admin/customer/:userId/card", authRequired, requireRole(["adm
 publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res, next) => {
   try {
     const { token } = req.params;
-    if (!token || token.length < 10) return res.status(400).json({ error: "INVALID_TOKEN" });
+    const userQuery: any[] = [{ publicToken: token }];
+    if (mongoose.isValidObjectId(token)) {
+      userQuery.push({ _id: new mongoose.Types.ObjectId(token) });
+    }
 
-    const user = await UserModel.findOne({ publicToken: token })
+    let user = await UserModel.findOne({ $or: userQuery })
       .select("_id username fullName role publicToken createdAt phone email belmondoPlan belmondoProExpiresAt")
       .lean<UserCardFields & { phone?: string; email?: string }>();
 
     if (!user || user.role !== "customer") return res.status(404).json({ error: "CUSTOMER_NOT_FOUND" });
+
+    if (!user.publicToken) {
+      const { randomBytes } = await import("crypto");
+      let newToken: string;
+      let attempts = 0;
+      do {
+        newToken = randomBytes(20).toString("hex");
+        attempts++;
+      } while (attempts < 5 && (await UserModel.exists({ publicToken: newToken })));
+      await UserModel.findByIdAndUpdate(user._id, { $set: { publicToken: newToken } });
+      user = { ...user, publicToken: newToken };
+    }
 
     const card = await buildFullCardData(user);
     const userId = String(user._id);

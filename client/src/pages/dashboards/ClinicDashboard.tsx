@@ -1644,11 +1644,39 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
 }
 
 
-function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string, status: string, posData?: any) => Promise<void> }) {
+function ClinicScannerTab({ clinicId, onMarkSession }: { clinicId?: string; onMarkSession: (sessionId: string, status: string, posData?: any) => Promise<void> }) {
   const { getAuthHeader } = useAuth();
   const [token, setToken] = useState("");
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+
+  // Today's Expected Scans State
+  const [todayItems, setTodayItems] = useState<any[]>([]);
+  const [todayStats, setTodayStats] = useState<{ total: number; attended: number; awaiting: number; noShow: number; cancelled: number } | null>(null);
+  const [todayLoading, setTodayLoading] = useState(false);
+  const [todayFilter, setTodayFilter] = useState<"all" | "awaiting" | "attended">("all");
+  const [todaySearch, setTodaySearch] = useState("");
+
+  const fetchTodayExpected = useCallback(async () => {
+    if (!clinicId) return;
+    setTodayLoading(true);
+    try {
+      const res: any = await apiFetch(`/scheduling/clinic/${clinicId}/today-expected-scans`, {
+        headers: getAuthHeader(),
+      });
+      setTodayItems(res.items || []);
+      setTodayStats(res.stats || null);
+    } catch {
+      setTodayItems([]);
+      setTodayStats(null);
+    } finally {
+      setTodayLoading(false);
+    }
+  }, [clinicId, getAuthHeader]);
+
+  useEffect(() => {
+    fetchTodayExpected();
+  }, [fetchTodayExpected]);
 
   useEffect(() => {
     let html5QrCode: Html5Qrcode | null = null;
@@ -2091,18 +2119,229 @@ function ClinicScannerTab({ onMarkSession }: { onMarkSession: (sessionId: string
         );
       })()}
 
-      {/* Empty State */}
-      {!card && !loading && !error && (
-        <div className="card-elevated p-16 text-center border-dashed border-2 border-surface-200 bg-surface-50/50">
-          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-sm mx-auto mb-5">
-            <svg className="w-12 h-12 text-surface-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-            </svg>
+      {/* Today's Expected Scans & Attendance Section */}
+      <div className="card-elevated p-6 bg-white border border-surface-200 rounded-2xl shadow-sm space-y-5 mt-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-surface-100">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-brand-pink-50 flex items-center justify-center text-brand-pink-600 shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-surface-900">
+                  {ar() ? "مواعيد اليوم المتوقع حضورهم ومسحهم" : "Today's Expected Customers to Scan"}
+                </h3>
+                <p className="text-xs text-surface-500 mt-0.5">
+                  {ar() ? "العملاء المجدولين لزيارة العيادة اليوم مع حالة الحضور والمسح" : "Customers scheduled to visit today with their scan & attendance status"}
+                </p>
+              </div>
+            </div>
           </div>
-          <h3 className="text-lg font-bold text-surface-900 mb-1">{ar() ? "جاهز للمسح" : "Ready to Scan"}</h3>
-          <p className="text-sm text-surface-500 max-w-sm mx-auto">{ar() ? "أدخل رمز البطاقة أو امسح رمز QR من بطاقة العميل لعرض بياناته وجلساته." : "Enter the card token or scan the QR code from the customer's membership card to view their profile and sessions."}</p>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {todayStats && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="px-2.5 py-1 rounded-lg bg-surface-100 font-bold text-surface-700">
+                  {ar() ? "الإجمالي:" : "Total:"} {todayStats.total}
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                  {ar() ? "حضر:" : "Attended:"} {todayStats.attended}
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                  {ar() ? "في الانتظار:" : "Awaiting:"} {todayStats.awaiting}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={fetchTodayExpected}
+              disabled={todayLoading}
+              className="p-2 rounded-xl border border-surface-200 hover:bg-surface-50 text-surface-600 transition-colors shrink-0"
+              title={ar() ? "تحديث" : "Refresh"}
+            >
+              <svg className={`w-4 h-4 ${todayLoading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          </div>
         </div>
-      )}
+
+        {/* Search & Filter pills */}
+        <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="relative w-full sm:w-72">
+            <svg className="w-4 h-4 text-surface-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder={ar() ? "بحث بالاسم أو الهاتف..." : "Filter by name or phone..."}
+              value={todaySearch}
+              onChange={(e) => setTodaySearch(e.target.value)}
+              className="input-field text-xs py-2 pl-9 pr-3 w-full"
+            />
+          </div>
+
+          <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+            <button
+              onClick={() => setTodayFilter("all")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shrink-0 ${
+                todayFilter === "all" ? "bg-brand-pink-500 text-white" : "bg-surface-100 text-surface-600 hover:bg-surface-200"
+              }`}
+            >
+              {ar() ? "الكل" : "All"} ({todayItems.length})
+            </button>
+            <button
+              onClick={() => setTodayFilter("awaiting")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shrink-0 ${
+                todayFilter === "awaiting" ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+              }`}
+            >
+              {ar() ? "في انتظار المسح" : "Awaiting Scan"} ({todayStats?.awaiting ?? 0})
+            </button>
+            <button
+              onClick={() => setTodayFilter("attended")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors shrink-0 ${
+                todayFilter === "attended" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              }`}
+            >
+              {ar() ? "تم الحضور" : "Attended"} ({todayStats?.attended ?? 0})
+            </button>
+          </div>
+        </div>
+
+        {/* List / Table */}
+        <div className="overflow-x-auto border border-surface-200 rounded-xl">
+          <table className="data-table whitespace-nowrap min-w-full">
+            <thead>
+              <tr>
+                <th>{ar() ? "الموعد" : "Time"}</th>
+                <th>{ar() ? "العميل" : "Customer"}</th>
+                <th>{ar() ? "الخدمة / الباقة" : "Service"}</th>
+                <th>{ar() ? "حالة الحضور" : "Attending Status"}</th>
+                <th>{ar() ? "حالة المسح (QR)" : "Scan Status"}</th>
+                <th>{ar() ? "الإجراء" : "Action"}</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm">
+              {(() => {
+                const filteredTodayItems = todayItems.filter((item) => {
+                  if (todayFilter === "awaiting" && item.attendanceStatus !== "awaiting" && item.attendanceStatus !== "checked_in") return false;
+                  if (todayFilter === "attended" && item.attendanceStatus !== "attended") return false;
+                  if (todaySearch.trim()) {
+                    const q = todaySearch.trim().toLowerCase();
+                    const name = (item.customerName || "").toLowerCase();
+                    const phone = (item.customerPhone || "").toLowerCase();
+                    return name.includes(q) || phone.includes(q);
+                  }
+                  return true;
+                });
+
+                if (filteredTodayItems.length === 0) {
+                  return (
+                    <tr>
+                      <td colSpan={6} className="text-center py-10 text-surface-400">
+                        {todayLoading
+                          ? (ar() ? "جاري التحميل..." : "Loading today's schedule...")
+                          : (ar() ? "لا توجد مواعيد مطابقة لهذا اليوم" : "No matching appointments scheduled for today")}
+                      </td>
+                    </tr>
+                  );
+                }
+
+                return filteredTodayItems.map((it) => {
+                  const isAttended = it.attendanceStatus === "attended";
+                  const isAwaiting = it.attendanceStatus === "awaiting" || it.attendanceStatus === "checked_in";
+                  
+                  return (
+                    <tr key={it.id} className="hover:bg-surface-50 transition-colors">
+                      <td className="font-mono text-xs font-bold text-surface-900">
+                        {it.scheduledAt
+                          ? new Date(it.scheduledAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                          : "—"}
+                      </td>
+                      <td>
+                        <div className="font-bold text-surface-900">{it.customerName}</div>
+                        {it.customerPhone && <div className="text-xs text-surface-500 font-mono">{it.customerPhone}</div>}
+                      </td>
+                      <td className="font-medium text-surface-700 text-xs">
+                        {it.offerName}
+                      </td>
+                      <td>
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold border ${
+                          isAttended
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : it.attendanceStatus === "no_show"
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : it.attendanceStatus === "cancelled"
+                            ? "bg-surface-100 text-surface-600 border-surface-200"
+                            : "bg-blue-50 text-blue-700 border-blue-200"
+                        }`}>
+                          {it.attendanceStatus === "attended" ? (ar() ? "حضر" : "Attended")
+                            : it.attendanceStatus === "checked_in" ? (ar() ? "وصل" : "Checked In")
+                            : it.attendanceStatus === "no_show" ? (ar() ? "لم يحضر" : "No Show")
+                            : it.attendanceStatus === "cancelled" ? (ar() ? "ملغي" : "Cancelled")
+                            : (ar() ? "في الانتظار" : "Awaiting")}
+                        </span>
+                      </td>
+                      <td>
+                        {it.hasScannedToday ? (
+                          <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-bold">
+                            <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>{ar() ? "تم المسح" : "Scanned"}</span>
+                            {it.scannedAt && (
+                              <span className="font-mono text-[11px] text-surface-400">
+                                ({new Date(it.scannedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-surface-400 font-medium">
+                            {ar() ? "لم يتم المسح بعد" : "Not scanned yet"}
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => {
+                              const scanKey = it.publicToken || it.userId;
+                              setToken(scanKey);
+                              handleScan(scanKey, true);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-brand-pink-50 text-brand-pink-600 hover:bg-brand-pink-100 font-bold text-xs transition-colors flex items-center gap-1.5 shadow-sm"
+                            title={ar() ? "مسح وعرض بيانات العميل" : "Scan and view customer card"}
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                            </svg>
+                            {ar() ? "فحص ومسح" : "Scan & Check"}
+                          </button>
+
+                          {isAwaiting && it.sessionId && (
+                            <button
+                              onClick={async () => {
+                                if (!window.confirm(ar() ? `تسجيل حضور العميل (${it.customerName})؟` : `Mark attendance for (${it.customerName})?`)) return;
+                                await handleMarkSession(it.sessionId, "completed");
+                                fetchTodayExpected();
+                              }}
+                              className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs transition-colors"
+                            >
+                              {ar() ? "حضر" : "Attended"}
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                });
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2442,7 +2681,7 @@ export default function ClinicDashboard() {
         )}
 
         {activeNav === "scanner" && (
-          <ClinicScannerTab onMarkSession={markSession} />
+          <ClinicScannerTab clinicId={CLINIC_ID} onMarkSession={markSession} />
         )}
 
         {activeNav === "reports" && (

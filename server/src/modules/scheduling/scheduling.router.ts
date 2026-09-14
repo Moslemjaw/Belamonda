@@ -2118,6 +2118,172 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
   }
 });
 
+// ── Clinic today expected scans & attendance status ───────────────────────────
+schedulingRouter.get("/clinic/:clinicId/today-expected-scans", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
+  try {
+    const { clinicId } = req.params;
+    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, clinicId))) {
+      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+    }
+
+    // Determine today bounds in Kuwait Time (UTC+3)
+    const now = new Date();
+    const kuwaitOffsetMs = 3 * 60 * 60 * 1000;
+    const kuwaitNow = new Date(now.getTime() + kuwaitOffsetMs);
+    const startOfTodayKuwaitUtc = new Date(Date.UTC(kuwaitNow.getUTCFullYear(), kuwaitNow.getUTCMonth(), kuwaitNow.getUTCDate()) - kuwaitOffsetMs);
+    const endOfTodayKuwaitUtc = new Date(startOfTodayKuwaitUtc.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+    const clinicObjId = mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : null;
+    const clinicMatch = clinicObjId ? { $in: [clinicId, clinicObjId] } : clinicId;
+
+    // 1. Fetch sessions for today
+    const sessions = await BookingSessionModel.find({
+      clinicId: clinicMatch,
+      scheduledAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc }
+    }).sort({ scheduledAt: 1 }).lean();
+
+    // 2. Fetch booking requests for today
+    const requests = await BookingRequestModel.find({
+      clinicId: clinicMatch,
+      $or: [
+        { clinicScheduledAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc } },
+        { proposedAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc } }
+      ]
+    }).sort({ clinicScheduledAt: 1, proposedAt: 1 }).lean();
+
+    // Filter requests not already linked to an existing session
+    const sessionIdsSet = new Set(sessions.map((s: any) => s._id.toString()));
+    const standaloneRequests = requests.filter((r: any) => !r.scheduledSessionId || !sessionIdsSet.has(r.scheduledSessionId.toString()));
+
+    const allUserIds = [
+      ...sessions.map((s: any) => s.userId),
+      ...standaloneRequests.map((r: any) => r.userId)
+    ].filter(Boolean);
+    const uniqueUserIds = [...new Set(allUserIds.map(id => id.toString()))];
+
+    const users = uniqueUserIds.length > 0
+      ? await UserModel.find({
+          $or: [
+            { _id: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { _id: { $in: uniqueUserIds } }
+          ]
+        }).select("_id fullName phone publicToken shortId").lean()
+      : [];
+    const userMap = new Map((users as any[]).map(u => [u._id.toString(), u]));
+
+    // Fetch scan logs for today at this clinic
+    const todayScans = await ScanLogModel.find({
+      clinicId: clinicMatch,
+      scannedAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc }
+    }).sort({ scannedAt: -1 }).lean();
+
+    const scanMap = new Map<string, any>();
+    for (const sc of todayScans) {
+      if ((sc as any).userId && !scanMap.has((sc as any).userId.toString())) {
+        scanMap.set((sc as any).userId.toString(), sc);
+      }
+    }
+
+    // Offers lookup
+    const allOfferIds = [
+      ...sessions.map((s: any) => s.offerId?.toString()),
+      ...standaloneRequests.map((r: any) => r.offerId?.toString())
+    ].filter(Boolean);
+    const uniqueOfferIds = [...new Set(allOfferIds)];
+    const offerDocs = uniqueOfferIds.length > 0
+      ? await OfferModel.find({ _id: { $in: uniqueOfferIds.filter(id => mongoose.isValidObjectId(id)) } }).select("_id name titleAr titleEn").lean()
+      : [];
+    const offerMap = new Map((offerDocs as any[]).map(o => [o._id.toString(), (o as any).titleAr || (o as any).titleEn || (o as any).name]));
+
+    const items: any[] = [];
+
+    for (const s of sessions as any[]) {
+      const user = userMap.get(s.userId?.toString());
+      const scan = scanMap.get(s.userId?.toString());
+      const offerName = s.offerId ? (offerMap.get(s.offerId.toString()) || "Session") : (s.standaloneName || "Session");
+
+      let attendanceStatus = "awaiting";
+      if (s.status === "completed" || scan) {
+        attendanceStatus = "attended";
+      } else if (s.status === "checked_in" || s.status === "in_progress") {
+        attendanceStatus = "checked_in";
+      } else if (s.status === "no_show") {
+        attendanceStatus = "no_show";
+      } else if (s.status === "cancelled") {
+        attendanceStatus = "cancelled";
+      }
+
+      items.push({
+        id: s._id.toString(),
+        type: "session",
+        sessionId: s._id.toString(),
+        userId: s.userId?.toString(),
+        customerName: (user as any)?.fullName || "Customer",
+        customerPhone: (user as any)?.phone || "",
+        publicToken: (user as any)?.publicToken || null,
+        offerName,
+        scheduledAt: s.scheduledAt ? new Date(s.scheduledAt).toISOString() : null,
+        status: s.status,
+        attendanceStatus,
+        hasScannedToday: !!scan,
+        scannedAt: scan?.scannedAt ? new Date(scan.scannedAt).toISOString() : null
+      });
+    }
+
+    for (const r of standaloneRequests as any[]) {
+      const user = userMap.get(r.userId?.toString());
+      const scan = scanMap.get(r.userId?.toString());
+      const offerName = r.offerId ? (offerMap.get(r.offerId.toString()) || r.standaloneName || "Booking") : (r.standaloneName || "Booking");
+      const schedAt = r.clinicScheduledAt || r.proposedAt || r.adminSuggestedAt;
+
+      let attendanceStatus = "awaiting";
+      if (r.status === "completed" || scan) {
+        attendanceStatus = "attended";
+      } else if (r.status === "checked_in" || r.status === "in_progress") {
+        attendanceStatus = "checked_in";
+      } else if (r.status === "no_show") {
+        attendanceStatus = "no_show";
+      } else if (r.status === "cancelled") {
+        attendanceStatus = "cancelled";
+      }
+
+      items.push({
+        id: r._id.toString(),
+        type: "request",
+        requestId: r._id.toString(),
+        userId: r.userId?.toString(),
+        customerName: (user as any)?.fullName || "Customer",
+        customerPhone: (user as any)?.phone || "",
+        publicToken: (user as any)?.publicToken || null,
+        offerName,
+        scheduledAt: schedAt ? new Date(schedAt).toISOString() : null,
+        status: r.status,
+        attendanceStatus,
+        hasScannedToday: !!scan,
+        scannedAt: scan?.scannedAt ? new Date(scan.scannedAt).toISOString() : null
+      });
+    }
+
+    items.sort((a, b) => {
+      if (!a.scheduledAt) return 1;
+      if (!b.scheduledAt) return -1;
+      return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+    });
+
+    const stats = {
+      total: items.length,
+      attended: items.filter(i => i.attendanceStatus === "attended").length,
+      awaiting: items.filter(i => i.attendanceStatus === "awaiting" || i.attendanceStatus === "checked_in").length,
+      noShow: items.filter(i => i.attendanceStatus === "no_show").length,
+      cancelled: items.filter(i => i.attendanceStatus === "cancelled").length
+    };
+
+    return res.json({ items, stats });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ── Clinic missed sessions view (Mongo-aware) ────────────────────────────
 schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
