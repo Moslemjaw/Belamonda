@@ -230,7 +230,6 @@ export default function AdminRequestHistoryTab() {
                 <th>{ar() ? "العميل" : "Customer"}</th>
                 <th>{ar() ? "موعد مقترح من الإدارة" : "Admin Suggested Date"}</th>
                 <th>{ar() ? "الموعد المعدل من العيادة" : "Clinic Scheduled Date"}</th>
-                <th>{ar() ? "تاريخ الحضور" : "Shown Date"}</th>
                 <th>{ar() ? "ملاحظات الإدارة" : "Admin Notes"}</th>
                 <th>{ar() ? "تاريخ الطلب" : "Request Date"}</th>
                 <th>{ar() ? "الحالة" : "Status"}</th>
@@ -246,7 +245,6 @@ export default function AdminRequestHistoryTab() {
                   </td>
                   <td>{it.adminSuggestedAt ? <span className="text-amber-700 font-medium">{fmtDateTime(it.adminSuggestedAt)}</span> : "—"}</td>
                   <td>{it.clinicScheduledAt ? <span className="text-emerald-700 font-medium">{fmtDateTime(it.clinicScheduledAt)}</span> : "—"}</td>
-                  <td>{it.shownAt ? <span className="text-purple-700 font-medium">{fmtDateTime(it.shownAt)}</span> : "—"}</td>
                   <td className="max-w-[250px]">
                     {editingNoteId === it.id ? (
                       <div className="flex items-center gap-1.5">
@@ -284,7 +282,7 @@ export default function AdminRequestHistoryTab() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={8}>
+                  <td colSpan={7}>
                     <div className="empty-state py-12">
                       <p className="empty-state-title">{ar() ? "لا توجد نتائج" : "No results found"}</p>
                     </div>
