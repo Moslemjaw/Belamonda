@@ -106,6 +106,8 @@ export function createApp() {
         if (/\.vercel\.app$/.test(origin)) return cb(null, true);
         if (/^https?:\/\/belamondokw\.com$/.test(origin)) return cb(null, true);
         if (/^https?:\/\/www\.belamondokw\.com$/.test(origin)) return cb(null, true);
+        // Allow Render deployments (onrender.com)
+        if (/\.onrender\.com$/.test(origin)) return cb(null, true);
 
         if (allowedOrigins.includes(origin)) return cb(null, true);
         return cb(new Error("Not allowed by CORS"));
