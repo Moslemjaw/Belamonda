@@ -3335,24 +3335,51 @@ schedulingRouter.post("/admin/sessions-log/:id/edit-date", authRequired, require
         if (bs.status === "completed") {
           bs.completedAt = newDate;
         }
+        if (bs.status === "no_show") {
+          bs.status = "scheduled";
+        }
         await bs.save();
         updated = true;
 
-        if (bs.bookingRequestId) {
-          await BookingRequestModel.findByIdAndUpdate(bs.bookingRequestId, { $set: { scheduledAt: newDate } });
-        }
+        const reqFilter: any = {
+          $or: [
+            ...(bs.bookingRequestId ? [{ _id: bs.bookingRequestId }] : []),
+            { scheduledSessionId: bs._id.toString() }
+          ]
+        };
+        await BookingRequestModel.updateMany(reqFilter, {
+          $set: {
+            proposedAt: newDate,
+            clinicScheduledAt: newDate,
+            adminSuggestedAt: newDate,
+            preferredAt: newDate,
+            ...(bs.status === "no_show" ? { status: "slot_assigned" } : {})
+          }
+        });
       }
     }
 
     if (!updated && (type === "request" || (mongoose.isValidObjectId(id) && await BookingRequestModel.exists({ _id: id })))) {
       const breq = await BookingRequestModel.findById(id);
       if (breq) {
-        breq.scheduledAt = newDate;
+        breq.proposedAt = newDate;
+        breq.clinicScheduledAt = newDate;
+        breq.adminSuggestedAt = newDate;
+        breq.preferredAt = newDate;
+        if (breq.status === "no_show") {
+          breq.status = "slot_assigned";
+        }
         await breq.save();
         updated = true;
 
-        if (breq.bookingSessionId) {
-          await BookingSessionModel.findByIdAndUpdate(breq.bookingSessionId, { $set: { scheduledAt: newDate } });
+        if (breq.scheduledSessionId) {
+          const sess = await BookingSessionModel.findById(breq.scheduledSessionId);
+          if (sess) {
+            sess.scheduledAt = newDate;
+            if (sess.status === "no_show") sess.status = "scheduled";
+            if (sess.status === "completed") sess.completedAt = newDate;
+            await sess.save();
+          }
         }
       }
     }
@@ -3365,13 +3392,39 @@ schedulingRouter.post("/admin/sessions-log/:id/edit-date", authRequired, require
       if (bs) {
         bs.scheduledAt = newDate;
         if (bs.status === "completed") bs.completedAt = newDate;
+        if (bs.status === "no_show") bs.status = "scheduled";
         await bs.save();
-        if (bs.bookingRequestId) await BookingRequestModel.findByIdAndUpdate(bs.bookingRequestId, { $set: { scheduledAt: newDate } });
+        const reqFilter: any = {
+          $or: [
+            ...(bs.bookingRequestId ? [{ _id: bs.bookingRequestId }] : []),
+            { scheduledSessionId: bs._id.toString() }
+          ]
+        };
+        await BookingRequestModel.updateMany(reqFilter, {
+          $set: {
+            proposedAt: newDate,
+            clinicScheduledAt: newDate,
+            adminSuggestedAt: newDate,
+            preferredAt: newDate
+          }
+        });
         updated = true;
       } else if (breq) {
-        breq.scheduledAt = newDate;
+        breq.proposedAt = newDate;
+        breq.clinicScheduledAt = newDate;
+        breq.adminSuggestedAt = newDate;
+        breq.preferredAt = newDate;
+        if (breq.status === "no_show") breq.status = "slot_assigned";
         await breq.save();
-        if (breq.bookingSessionId) await BookingSessionModel.findByIdAndUpdate(breq.bookingSessionId, { $set: { scheduledAt: newDate } });
+        if (breq.scheduledSessionId) {
+          const sess = await BookingSessionModel.findById(breq.scheduledSessionId);
+          if (sess) {
+            sess.scheduledAt = newDate;
+            if (sess.status === "no_show") sess.status = "scheduled";
+            if (sess.status === "completed") sess.completedAt = newDate;
+            await sess.save();
+          }
+        }
         updated = true;
       }
     }
