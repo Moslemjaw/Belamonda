@@ -2029,7 +2029,7 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
 
     const standaloneRequests = await BookingRequestModel.find({
       clinicId: clinicMatch,
-      status: { $nin: ["cancelled", "rejected"] },
+      status: { $in: ["scheduled", "slot_accepted", "confirmed"] },
       $and: [
         {
           $or: [

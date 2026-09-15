@@ -205,8 +205,8 @@ function ScheduleTable({
   const dayAfterTomorrow = new Date(today);
   dayAfterTomorrow.setDate(today.getDate() + 2);
 
-  // Allow all sessions including request_received to appear on clinic schedule
-  const filteredSessions = sessions;
+  // Only show scheduled appointments on clinic schedule (no requests, suggestions, or cancelled)
+  const filteredSessions = sessions.filter((s) => s.status === "scheduled" || s.status === "slot_accepted" || s.status === "confirmed");
 
   const groups = {
     today: filteredSessions.filter((s) => {
@@ -2370,7 +2370,8 @@ export default function ClinicDashboard() {
   }, [refetch]);
 
   const sessions = data?.items || [];
-  const scheduled = sessions.filter(s => s.status === "scheduled");
+  const scheduledAppointments = sessions.filter(s => s.status === "scheduled" || s.status === "slot_accepted" || s.status === "confirmed");
+  const scheduled = scheduledAppointments;
   const completed = sessions.filter(s => s.status === "completed");
   const noShows = sessions.filter(s => s.status === "no_show");
 
@@ -2502,7 +2503,7 @@ export default function ClinicDashboard() {
                   <div className="p-4 sm:p-5 flex-1 overflow-y-auto" style={{ maxHeight: '700px' }}>
                     {loading ? (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{[1,2,3,4].map(i => <div key={i} className="shimmer h-56 rounded-2xl" />)}</div>
-                    ) : sessions.length === 0 ? (
+                    ) : scheduledAppointments.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-16 text-center">
                         <div className="w-16 h-16 bg-surface-50 rounded-2xl flex items-center justify-center text-3xl mb-4 border border-surface-100">📅</div>
                         <h4 className="text-sm font-bold text-surface-700 mb-1">{ar() ? "الجدول فارغ" : "Your schedule is clear"}</h4>
@@ -2510,7 +2511,7 @@ export default function ClinicDashboard() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {sessions
+                        {scheduledAppointments
                           .filter(s => {
                             if (dateFilter === "all") return true;
                             const d = new Date(s.scheduledAt);
@@ -2527,7 +2528,7 @@ export default function ClinicDashboard() {
                           .map(s => (
                           <SessionCard key={s.id} session={s} onMarkPaid={markPaidFromSchedule} onReschedule={(id) => setRescheduleSessionId(id)} />
                         ))}
-                        {sessions.filter(s => {
+                        {scheduledAppointments.filter(s => {
                             if (dateFilter === "all") return true;
                             const d = new Date(s.scheduledAt);
                             const today = new Date();
