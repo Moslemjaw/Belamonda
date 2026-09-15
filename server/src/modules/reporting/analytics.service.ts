@@ -1625,29 +1625,39 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
     clinicId: clinicMatch,
   };
   if (dateFilter) sessionQ.scheduledAt = dateFilter;
-  const sessions = await BookingSessionModel.find(sessionQ).sort({ scheduledAt: -1 }).limit(300).lean();
+  const sessions = await BookingSessionModel.find(sessionQ).sort({ scheduledAt: -1 }).limit(1000).lean();
 
-  // Booking requests (invoices)
-  const brQ: Record<string, unknown> = { clinicId: clinicMatch };
+  const sessionIds = (sessions as any[]).map(s => s._id);
+  const sessionIdStrs = new Set(sessionIds.map(id => id.toString()));
+
+  // Booking requests: either clinicId matches OR scheduledSessionId is one of clinic's sessions
+  const brQ: Record<string, unknown> = {
+    $or: [
+      { clinicId: clinicMatch },
+      { scheduledSessionId: { $in: sessionIds } },
+      { scheduledSessionId: { $in: Array.from(sessionIdStrs) } }
+    ]
+  };
   if (dateFilter) {
-    brQ.$or = [
-      { createdAt: dateFilter },
-      { clinicScheduledAt: dateFilter },
-      { proposedAt: dateFilter },
-      { preferredAt: dateFilter },
+    brQ.$and = [
+      {
+        $or: [
+          { createdAt: dateFilter },
+          { clinicScheduledAt: dateFilter },
+          { proposedAt: dateFilter },
+          { preferredAt: dateFilter },
+        ]
+      }
     ];
   }
-  let bookingReqs = await BookingRequestModel.find(brQ).sort({ createdAt: -1 }).limit(300).lean();
+  let bookingReqs = await BookingRequestModel.find(brQ).sort({ createdAt: -1 }).limit(1000).lean();
 
-  const seenBrSessions = new Set<string>();
-  bookingReqs = bookingReqs.filter(br => {
+  const reqBySessionId = new Map<string, any>();
+  for (const br of bookingReqs as any[]) {
     if (br.scheduledSessionId) {
-      const sid = br.scheduledSessionId.toString();
-      if (seenBrSessions.has(sid)) return false;
-      seenBrSessions.add(sid);
+      reqBySessionId.set(br.scheduledSessionId.toString(), br);
     }
-    return true;
-  });
+  }
 
   // Enrich with user names
   const allUserIds = [
@@ -1681,25 +1691,75 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
   const noShow = (sessions as any[]).filter((s) => s.status === "no_show").length;
   const scheduled = (sessions as any[]).filter((s) => s.status === "scheduled").length;
 
-  // Find sessions for these bookingReqs
-  const brSessionIds = (bookingReqs as any[]).map(br => br.scheduledSessionId).filter(Boolean);
-  const brSessions = await BookingSessionModel.find({ _id: { $in: brSessionIds } }).select("status scheduledAt").lean();
-  const brSessionMap = new Map(brSessions.map((s: any) => [s._id.toString(), s]));
+  const sessionInvoices = (sessions as any[]).map((s) => {
+    const br = reqBySessionId.get(s._id.toString());
+    const isPaid = s.clinicPaymentStatus === "paid" || br?.clinicPaymentStatus === "paid";
+    const pStatus = isPaid ? "paid" : "pending";
+    let combinedStatus = "";
+    if (pStatus === "paid" && s.status === "completed") combinedStatus = "Completed";
+    else if (pStatus !== "paid" && s.status === "completed") combinedStatus = "Missing POS";
+    else if (pStatus === "paid" && s.status !== "completed") combinedStatus = "Missing Came";
+    else combinedStatus = "Missing Both";
+
+    return {
+      id: br?._id?.toString() || s._id.toString(),
+      sessionId: s._id.toString(),
+      userId: s.userId,
+      ...resolveUser(s.userId),
+      status: s.status,
+      sessionPriceKwd: br?.sessionPriceKwd ?? s.sessionPriceKwd ?? null,
+      cashbackDeductedKwd: br?.cashbackDeductedKwd ?? s.cashbackDeductedKwd ?? null,
+      clinicPaymentStatus: pStatus,
+      membershipType: br?.membershipType ?? s.membershipType ?? null,
+      createdAt: br?.createdAt ?? s.createdAt ?? s.scheduledAt,
+      scheduledAt: s.scheduledAt ?? br?.clinicScheduledAt ?? br?.proposedAt ?? br?.createdAt,
+      confirmedAt: br?.confirmedAt ?? null,
+      combinedSessionStatus: combinedStatus,
+    };
+  });
+
+  const standaloneInvoices = (bookingReqs as any[])
+    .filter(br => !br.scheduledSessionId || !sessionIdStrs.has(br.scheduledSessionId.toString()))
+    .map((br) => {
+      const isPaid = br.clinicPaymentStatus === "paid";
+      const pStatus = isPaid ? "paid" : "pending";
+      let combinedStatus = "";
+      if (pStatus === "paid" && br.status === "completed") combinedStatus = "Completed";
+      else if (pStatus !== "paid" && br.status === "completed") combinedStatus = "Missing POS";
+      else if (pStatus === "paid" && br.status !== "completed") combinedStatus = "Missing Came";
+      else combinedStatus = "Missing Both";
+
+      return {
+        id: br._id.toString(),
+        userId: br.userId,
+        ...resolveUser(br.userId),
+        status: br.status,
+        sessionPriceKwd: br.sessionPriceKwd ?? null,
+        cashbackDeductedKwd: br.cashbackDeductedKwd ?? null,
+        clinicPaymentStatus: pStatus,
+        membershipType: br.membershipType ?? null,
+        createdAt: br.createdAt,
+        scheduledAt: br.clinicScheduledAt ?? br.proposedAt ?? br.preferredAt ?? br.createdAt,
+        confirmedAt: br.confirmedAt ?? null,
+        combinedSessionStatus: combinedStatus,
+      };
+    });
+
+  const allInvoices = [...sessionInvoices, ...standaloneInvoices];
+  allInvoices.sort((a, b) => new Date(b.scheduledAt || b.createdAt).getTime() - new Date(a.scheduledAt || a.createdAt).getTime());
 
   // Revenue from session prices
   let sessionRevenueMils = 0;
   let paidRevenueMils = 0;
   let cashbackTotalMils = 0;
-  for (const br of bookingReqs as any[]) {
-    const brSession = br.scheduledSessionId ? brSessionMap.get(br.scheduledSessionId.toString()) : null;
-    const sStatus = brSession?.status;
-    if (sStatus === "completed") {
-      if (br.sessionPriceKwd) {
-        sessionRevenueMils += parseKwd(br.sessionPriceKwd);
-        if (br.clinicPaymentStatus === "paid") paidRevenueMils += parseKwd(br.sessionPriceKwd);
+  for (const inv of allInvoices) {
+    if (inv.status === "completed") {
+      if (inv.sessionPriceKwd) {
+        sessionRevenueMils += parseKwd(inv.sessionPriceKwd);
+        if (inv.clinicPaymentStatus === "paid") paidRevenueMils += parseKwd(inv.sessionPriceKwd);
       }
-      if (br.cashbackDeductedKwd) {
-        cashbackTotalMils += parseKwd(br.cashbackDeductedKwd);
+      if (inv.cashbackDeductedKwd) {
+        cashbackTotalMils += parseKwd(inv.cashbackDeductedKwd);
       }
     }
   }
@@ -1711,9 +1771,9 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
       completedSessions: completed,
       noShowSessions: noShow,
       scheduledSessions: scheduled,
-      totalInvoices: bookingReqs.length,
-      paidInvoices: (bookingReqs as any[]).filter((b) => b.clinicPaymentStatus === "paid").length,
-      pendingInvoices: (bookingReqs as any[]).filter((b) => b.clinicPaymentStatus !== "paid").length,
+      totalInvoices: allInvoices.length,
+      paidInvoices: allInvoices.filter((b) => b.clinicPaymentStatus === "paid").length,
+      pendingInvoices: allInvoices.filter((b) => b.clinicPaymentStatus !== "paid").length,
       sessionRevenueKwd: fmtKwd(sessionRevenueMils),
       paidRevenueKwd: fmtKwd(paidRevenueMils),
       pendingRevenueKwd: fmtKwd(sessionRevenueMils - paidRevenueMils),
@@ -1729,30 +1789,7 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
       notes: s.notes ?? null,
       cashbackUnlockedKwd: s.cashbackUnlockedKwd ?? null,
     })),
-    invoices: (bookingReqs as any[]).map((br) => {
-      const brSession = br.scheduledSessionId ? brSessionMap.get(br.scheduledSessionId.toString()) : null;
-      const sStatus = brSession?.status;
-      let combinedStatus = "";
-      if (br.clinicPaymentStatus === "paid" && sStatus === "completed") combinedStatus = "Completed";
-      else if (br.clinicPaymentStatus !== "paid" && sStatus === "completed") combinedStatus = "Missing POS";
-      else if (br.clinicPaymentStatus === "paid" && sStatus !== "completed") combinedStatus = "Missing Came";
-      else combinedStatus = "Missing Both";
-
-      return {
-        id: br._id.toString(),
-        userId: br.userId,
-        ...resolveUser(br.userId),
-        status: sStatus || br.status,
-        sessionPriceKwd: br.sessionPriceKwd ?? null,
-        cashbackDeductedKwd: br.cashbackDeductedKwd ?? null,
-        clinicPaymentStatus: br.clinicPaymentStatus ?? "payment_pending",
-        membershipType: br.membershipType ?? null,
-        createdAt: br.createdAt,
-        scheduledAt: brSession?.scheduledAt ?? (br as any).clinicScheduledAt ?? (br as any).proposedAt ?? (br as any).preferredAt ?? br.createdAt,
-        confirmedAt: br.confirmedAt ?? null,
-        combinedSessionStatus: combinedStatus,
-      };
-    }),
+    invoices: allInvoices,
   };
 }
 

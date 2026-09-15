@@ -416,16 +416,16 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
   const { data, loading } = useMyClinicReport({ from, to });
 
   const invoices = data?.invoices ?? [];
-  const activeInvoices = invoices.filter(inv => inv.status !== 'completed');
+  const allInvoices = invoices;
   
-  const filteredInvoices = activeInvoices.filter(inv =>
+  const filteredInvoices = allInvoices.filter(inv =>
     !search || inv.customerName?.toLowerCase().includes(search.toLowerCase()) ||
     inv.customerPhone?.includes(search) || inv.status?.includes(search.toLowerCase())
   );
 
-  const activePaidCount = activeInvoices.filter(inv => inv.clinicPaymentStatus === "paid").length;
-  const activePendingCount = activeInvoices.length - activePaidCount;
-  const activePaidRevenue = activeInvoices.filter(inv => inv.clinicPaymentStatus === "paid").reduce((sum, inv) => sum + parseFloat(inv.sessionPriceKwd || "0"), 0);
+  const paidCount = allInvoices.filter(inv => inv.clinicPaymentStatus === "paid").length;
+  const pendingCount = allInvoices.length - paidCount;
+  const paidRevenue = allInvoices.filter(inv => inv.clinicPaymentStatus === "paid").reduce((sum, inv) => sum + parseFloat(inv.sessionPriceKwd || "0"), 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -461,10 +461,10 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
 
       <div className="grid gap-3 sm:grid-cols-4">
         {[
-          { label: ar() ? "إجمالي الجلسات النشطة" : "Total Active Sessions", value: activeInvoices.length, color: "text-surface-900" },
-          { label: ar() ? "مدفوعة" : "Paid", value: activePaidCount, color: "text-emerald-700" },
-          { label: ar() ? "معلقة" : "Pending", value: activePendingCount, color: "text-amber-700" },
-          { label: ar() ? "الإيرادات المدفوعة" : "Paid Revenue", value: `${activePaidRevenue.toFixed(3)} KWD`, color: "text-emerald-700" },
+          { label: ar() ? "إجمالي الجلسات" : "Total Sessions", value: allInvoices.length, color: "text-surface-900" },
+          { label: ar() ? "مدفوعة" : "Paid", value: paidCount, color: "text-emerald-700" },
+          { label: ar() ? "معلقة" : "Pending", value: pendingCount, color: "text-amber-700" },
+          { label: ar() ? "الإيرادات المدفوعة" : "Paid Revenue", value: `${paidRevenue.toFixed(3)} KWD`, color: "text-emerald-700" },
         ].map(k => (
           <div key={k.label} className="card-elevated border border-surface-200 p-4 shadow-sm rounded-xl">
             <div className="text-[10px] uppercase tracking-wider text-surface-500 font-bold mb-1">{k.label}</div>
