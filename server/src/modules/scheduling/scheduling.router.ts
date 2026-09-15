@@ -2296,12 +2296,31 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
     if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.clinicId))) {
       return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
     }
-    const sessions = await sessionsStore.listMissedByClinic(req.params.clinicId);
+    const { clinicId } = req.params;
+    const now = new Date();
 
-    if (sessions.length === 0) return res.json({ items: [] });
+    // 1. BookingSession-based missed sessions (past scheduled or no_show)
+    const sessions = await sessionsStore.listMissedByClinic(clinicId);
 
-    const uniqueUserIds       = [...new Set(sessions.map(s => s.userId))];
-    const uniqueUserOfferIds  = [...new Set(sessions.map(s => s.userOfferId).filter(id => mongoose.isValidObjectId(id)))];
+    // 2. Standalone BookingRequest past items (not linked to a session)
+    const clinicObjId = mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : null;
+    const clinicMatch = clinicObjId ? { $in: [clinicId, clinicObjId] } : clinicId;
+
+    const standaloneRequests = await BookingRequestModel.find({
+      clinicId: clinicMatch,
+      scheduledSessionId: { $exists: false },
+      status: { $nin: ["completed", "cancelled", "rejected"] },
+      $or: [
+        { status: "no_show" },
+        { proposedAt: { $lt: now } },
+        { preferredAt: { $lt: now } },
+      ]
+    }).sort({ proposedAt: -1 }).lean();
+
+    const sessionIds = new Set(sessions.map(s => s.id));
+
+    const uniqueUserIds       = [...new Set([...sessions.map(s => s.userId), ...standaloneRequests.map((r: any) => r.userId)])];
+    const uniqueUserOfferIds  = [...new Set([...sessions.map(s => s.userOfferId), ...standaloneRequests.map((r: any) => r.userOfferId)].filter(id => mongoose.isValidObjectId(id)))];
     const validSessionIds     = sessions.map(s => s.id).filter(id => mongoose.isValidObjectId(id));
 
     const [userDocs, userOfferDocs, breqDocs] = await Promise.all([
@@ -2313,7 +2332,7 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
         : Promise.resolve([]),
       validSessionIds.length > 0
         ? BookingRequestModel.find({ scheduledSessionId: { $in: validSessionIds } })
-            .select("_id scheduledSessionId isStandalone membershipType adminSuggestedAt notes").lean()
+            .select("_id scheduledSessionId isStandalone membershipType adminSuggestedAt notes standaloneName").lean()
         : Promise.resolve([]),
     ]);
 
@@ -2327,13 +2346,15 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
       : [];
     const offerMap = new Map((offerDocs as any[]).map(o => [o._id.toString(), o]));
 
-    const items = sessions.map((s) => {
+    // Build session-based items
+    const sessionItems = sessions.map((s) => {
       const uoDoc    = mongoose.isValidObjectId(s.userOfferId) ? uoMap.get(s.userOfferId) : null;
       const offerDoc = uoDoc ? offerMap.get(uoDoc.offerId?.toString()) : null;
       const breq     = breqBySession.get(s.id);
       const user = userMap.get(s.userId);
       return {
         ...s,
+        type: "session",
         customerName: (user as any)?.fullName ?? null,
         customerPhone: (user as any)?.phone ?? null,
         offerName: breq?.standaloneName ?? (offerDoc as any)?.name ?? null,
@@ -2344,6 +2365,36 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
         notes: breq?.notes ?? null,
       };
     });
+
+    // Build request-based items (standalone)
+    const requestItems = standaloneRequests
+      .filter((r: any) => !sessionIds.has(r._id.toString()))
+      .map((r: any) => {
+        const uoDoc    = r.userOfferId && mongoose.isValidObjectId(r.userOfferId) ? uoMap.get(r.userOfferId) : null;
+        const offerDoc = uoDoc ? offerMap.get(uoDoc.offerId?.toString()) : null;
+        const user = userMap.get(r.userId?.toString());
+        return {
+          id: r._id.toString(),
+          type: "request",
+          userId: r.userId,
+          userOfferId: r.userOfferId,
+          clinicId: r.clinicId,
+          status: r.status,
+          scheduledAt: r.proposedAt ?? r.preferredAt ?? r.createdAt,
+          customerName: (user as any)?.fullName ?? null,
+          customerPhone: (user as any)?.phone ?? null,
+          offerName: r.standaloneName ?? (offerDoc as any)?.name ?? null,
+          bookingRequestId: r._id.toString(),
+          membershipType: r.membershipType ?? uoDoc?.membershipType ?? "none",
+          isStandalone: r.isStandalone ?? true,
+          adminSuggestedAt: r.adminSuggestedAt ?? null,
+          notes: r.notes ?? null,
+        };
+      });
+
+    const items = [...sessionItems, ...requestItems].sort((a: any, b: any) =>
+      new Date(b.scheduledAt || 0).getTime() - new Date(a.scheduledAt || 0).getTime()
+    );
 
     return res.json({ items });
   } catch (e) {

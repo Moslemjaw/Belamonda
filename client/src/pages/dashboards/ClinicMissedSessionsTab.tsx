@@ -104,11 +104,20 @@ export default function ClinicMissedSessionsTab({ clinicId, onCountLoaded }: { c
 
   const handleReschedule = async (scheduledAt: string) => {
     if (!rescheduleSession) return;
-    await apiFetch(`/scheduling/clinic/sessions/${rescheduleSession.id}/reschedule`, {
-      method: "POST",
-      headers: getAuthHeader(),
-      body: JSON.stringify({ scheduledAt, notes: "Rescheduled from Missed Sessions tab" })
-    });
+    if (rescheduleSession.type === "request") {
+      // Standalone request: update via admin edit-date endpoint
+      await apiFetch(`/scheduling/admin/sessions-log/${rescheduleSession.id}/edit-date`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ scheduledAt, type: "request", notes: "Rescheduled from Missed Sessions tab" })
+      });
+    } else {
+      await apiFetch(`/scheduling/clinic/sessions/${rescheduleSession.id}/reschedule`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({ scheduledAt, notes: "Rescheduled from Missed Sessions tab" })
+      });
+    }
     await fetchMissedSessions();
   };
 
@@ -188,11 +197,19 @@ export default function ClinicMissedSessionsTab({ clinicId, onCountLoaded }: { c
                     onClick={async () => {
                       if (!window.confirm(ar() ? "هل أنت متأكد من حذف هذه الجلسة؟" : "Are you sure you want to delete this session?")) return;
                       try {
-                        await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
-                          method: "POST",
-                          headers: getAuthHeader(),
-                          body: JSON.stringify({ status: "cancelled", notes: "Deleted from Missed Sessions" })
-                        });
+                        if (s.type === "request") {
+                          await apiFetch(`/scheduling/requests/${s.id}/cancel`, {
+                            method: "POST",
+                            headers: getAuthHeader(),
+                            body: JSON.stringify({ reason: "Deleted from Missed Sessions" })
+                          });
+                        } else {
+                          await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
+                            method: "POST",
+                            headers: getAuthHeader(),
+                            body: JSON.stringify({ status: "cancelled", notes: "Deleted from Missed Sessions" })
+                          });
+                        }
                         await fetchMissedSessions();
                       } catch (e: any) {
                         alert(e.message || "Failed to delete");
