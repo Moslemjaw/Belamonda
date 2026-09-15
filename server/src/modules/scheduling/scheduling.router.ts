@@ -1254,14 +1254,6 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
   const offerMap = new Map(offerDocs.map((o) => [String(o._id), mapOfferDocToSched(o)]));
 
   const finalItems = enriched
-    .filter((it) => {
-      // Clinic staff must only see requests once Admin/CS has forwarded them (status !== "request_received" or has proposed date)
-      const hasAdminProposedDate = !!(it.proposedAt || (it as any).adminSuggestedAt);
-      if (it.status === "request_received" && !hasAdminProposedDate) {
-        return false;
-      }
-      return true;
-    })
     .map((it) => {
       const offer = it.offerId && mongoose.isValidObjectId(it.offerId)
         ? (offerMap.get(it.offerId) ?? null)
@@ -2308,14 +2300,27 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
 
     const standaloneRequests = await BookingRequestModel.find({
       clinicId: clinicMatch,
-      scheduledSessionId: { $exists: false },
       status: { $nin: ["completed", "cancelled", "rejected"] },
-      $or: [
-        { status: "no_show" },
-        { proposedAt: { $lt: now } },
-        { preferredAt: { $lt: now } },
+      $and: [
+        {
+          $or: [
+            { scheduledSessionId: { $exists: false } },
+            { scheduledSessionId: null },
+            { scheduledSessionId: "" }
+          ]
+        },
+        {
+          $or: [
+            { status: "no_show" },
+            { proposedAt: { $lt: now } },
+            { preferredAt: { $lt: now } },
+            { clinicScheduledAt: { $lt: now } },
+            { adminSuggestedAt: { $lt: now } },
+            { createdAt: { $lt: now } }
+          ]
+        }
       ]
-    }).sort({ proposedAt: -1 }).lean();
+    }).sort({ proposedAt: -1, clinicScheduledAt: -1, createdAt: -1 }).lean();
 
     const sessionIds = new Set(sessions.map(s => s.id));
 
@@ -2380,7 +2385,7 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
           userOfferId: r.userOfferId,
           clinicId: r.clinicId,
           status: r.status,
-          scheduledAt: r.proposedAt ?? r.preferredAt ?? r.createdAt,
+          scheduledAt: r.clinicScheduledAt ?? r.adminSuggestedAt ?? r.proposedAt ?? r.preferredAt ?? r.createdAt,
           customerName: (user as any)?.fullName ?? null,
           customerPhone: (user as any)?.phone ?? null,
           offerName: r.standaloneName ?? (offerDoc as any)?.name ?? null,
@@ -2703,12 +2708,12 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     }
 
     if (targetClinicId && targetClinicId !== "all") {
-      let cId: any = targetClinicId;
-      if (typeof cId === "string" && mongoose.isValidObjectId(cId)) {
-        cId = new mongoose.Types.ObjectId(cId);
-      }
-      sessionQuery.clinicId = cId;
-      requestQuery.clinicId = cId;
+      const cIdStr = String(targetClinicId);
+      const clinicMatch = mongoose.isValidObjectId(cIdStr)
+        ? { $in: [cIdStr, new mongoose.Types.ObjectId(cIdStr)] }
+        : cIdStr;
+      sessionQuery.clinicId = clinicMatch;
+      requestQuery.clinicId = clinicMatch;
     }
 
     // Date filtering
@@ -2866,12 +2871,10 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
 
     // Fetch markedBy user names for sessions
     const markedByIds = [...new Set(sessionDocs.map((s: any) => s.markedBy).filter(Boolean))];
-    const markedByUsers = markedByIds.length > 0
+    const validMarkedByIds = markedByIds.filter(id => mongoose.isValidObjectId(id));
+    const markedByUsers = validMarkedByIds.length > 0
       ? await UserModel.find({
-          $or: [
-            { _id: { $in: markedByIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
-            { _id: { $in: markedByIds } }
-          ]
+          _id: { $in: validMarkedByIds.map(id => new mongoose.Types.ObjectId(id)) }
         }).select("_id fullName role").lean()
       : [];
     const markedByMap = new Map(markedByUsers.map((u: any) => [u._id.toString(), u.fullName || (u.role === 'admin' ? 'Admin' : u.role)]));
@@ -2946,7 +2949,8 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
     allItems.sort((a, b) => new Date(b.scheduledAt).getTime() - new Date(a.scheduledAt).getTime());
 
     return res.json({ items: allItems.slice(0, 2000) });
-  } catch (e) {
+  } catch (e: any) {
+    console.error("[sessions-log] Error:", e.message, e.stack?.split("\n").slice(0, 5).join("\n"));
     next(e);
   }
 });
