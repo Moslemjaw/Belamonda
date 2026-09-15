@@ -649,19 +649,11 @@ export default function AdminSessionsLogTab() {
                                     row.id === s.id ? { ...row, status: 'completed', completedAt: new Date().toISOString() } : row
                                   ));
                                   try {
-                                    if (s.type === "session") {
-                                      await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
-                                        method: "POST",
-                                        headers: getAuthHeader(),
-                                        body: JSON.stringify({ status: "completed", notes: "Marked attended by admin" })
-                                      });
-                                    } else {
-                                      await apiFetch(`/scheduling/clinic/requests/${s.id}/confirm`, {
-                                        method: "POST",
-                                        headers: getAuthHeader(),
-                                        body: JSON.stringify({ scheduledAt: s.scheduledAt, notes: "Marked attended by admin" })
-                                      });
-                                    }
+                                    await apiFetch(`/scheduling/admin/sessions-log/${s.id}/mark-attended`, {
+                                      method: "POST",
+                                      headers: getAuthHeader(),
+                                      body: JSON.stringify({ type: s.type, notes: "Marked attended by admin" })
+                                    });
                                     // Silently refresh in background (no loading spinner)
                                     fetchSessions(false);
                                   } catch (err: any) {
@@ -677,8 +669,44 @@ export default function AdminSessionsLogTab() {
                                 {ar() ? "حضر" : "Attended"}
                               </button>
                             )}
+                            {attendanceStatus === 'attended' && (
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm(ar() ? "إلغاء التحضير وتعيينه كـ 'لم يحضر'؟" : "Unmark attendance and set as No Show?")) return;
+                                  // Optimistic update: flip back to no_show
+                                  setSessions(prev => prev.map(row =>
+                                    row.id === s.id ? { ...row, status: 'no_show', completedAt: undefined } : row
+                                  ));
+                                  try {
+                                    await apiFetch(`/scheduling/admin/sessions-log/${s.id}/mark-no-show`, {
+                                      method: "POST",
+                                      headers: getAuthHeader(),
+                                      body: JSON.stringify({ type: s.type, notes: "Unmarked by admin" })
+                                    });
+                                    fetchSessions(false);
+                                  } catch (err: any) {
+                                    setSessions(prev => prev.map(row =>
+                                      row.id === s.id ? { ...row, status: s.status, completedAt: s.completedAt } : row
+                                    ));
+                                    alert(err.message || "Failed to update status");
+                                  }
+                                }}
+                                className="text-[10px] font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 px-2 py-1 rounded transition-colors"
+                                title={ar() ? "إلغاء التحضير وتعيينه لم يحضر" : "Unmark and set as No Show"}
+                              >
+                                {ar() ? "لم يحضر" : "No Show"}
+                              </button>
+                            )}
                           </div>
-                          {attendanceStatus === 'attended' && !s.hasScanHistory && (
+                          {attendanceStatus === 'attended' && s.markedByName && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200" title={ar() ? `تم التحضير بواسطة ${s.markedByName}` : `Marked by ${s.markedByName}`}>
+                              <svg className="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                              <span>{ar() ? `تم بواسطة: ${s.markedByName}` : `Marked by: ${s.markedByName}`}</span>
+                            </span>
+                          )}
+                          {attendanceStatus === 'attended' && !s.hasScanHistory && !s.markedByName && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200" title={ar() ? "تم تسجيل الحضور ولكن لا يوجد سجل فحص QR" : "Attended without QR scan history"}>
                               <svg className="w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />

@@ -2411,7 +2411,7 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     const session = await sessionsStore.get(req.params.sessionId);
     if (!session) return res.status(404).json({ error: "NOT_FOUND" });
 
-    const uo = await loadUserOffer(session.userOfferId);
+    const uo = session.userOfferId ? await loadUserOffer(session.userOfferId) : null;
     
     // For cancellations, skip offer validation — allow cancelling orphaned or expired sessions
     if (parsed.data.status === "cancelled") {
@@ -2445,10 +2445,11 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
       return res.json({ session: result });
     }
 
-    if (!uo || uo.status !== "active") return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
-
-    const offer = await loadOffer(uo.offerId);
-    if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
+    if (session.userOfferId) {
+      if (!uo || uo.status !== "active") return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
+      const offer = await loadOffer(uo.offerId);
+      if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
+    }
 
     let cashbackUnlocked = "0.000";
     if (parsed.data.status === "completed") {
@@ -2480,16 +2481,20 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
         }
       }
 
-      // sessionsUsed was already incremented at confirm time; just unlock cashback here
-      cashbackUnlocked = offer.cashbackPerSessionKwd ?? "0.000";
-      
-      if (parseFloat(cashbackUnlocked) > 0) {
-        await kycStore.rewardSessionCashback({
-          userId: uo.userId,
-          amountKwd: cashbackUnlocked,
-          sessionId: session.id,
-          createdById: "system"
-        });
+      // If offer exists, unlock cashback
+      if (uo) {
+        const offer = await loadOffer(uo.offerId);
+        if (offer) {
+          cashbackUnlocked = offer.cashbackPerSessionKwd ?? "0.000";
+          if (parseFloat(cashbackUnlocked) > 0) {
+            await kycStore.rewardSessionCashback({
+              userId: uo.userId,
+              amountKwd: cashbackUnlocked,
+              sessionId: session.id,
+              createdById: "system"
+            });
+          }
+        }
       }
     }
 
@@ -2535,7 +2540,9 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     });
 
     if (updated?.status === "completed") {
-      notifySessionCompletedCashback(uo.userId, updated.id, cashbackUnlocked);
+      if (uo && parseFloat(cashbackUnlocked) > 0) {
+        notifySessionCompletedCashback(uo.userId, updated.id, cashbackUnlocked);
+      }
 
       // Auto-sync the associated booking request status & shownAt timestamp
       const breq = await bookingRequestsStore.findBySessionId(session.id);
@@ -2547,11 +2554,8 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
         });
       }
 
-      if (updated.completedAt && session.scheduledAt && new Date(updated.completedAt).getTime() > new Date(session.scheduledAt).getTime()) {
-        await BookingSessionModel.findByIdAndUpdate(session.id, {
-          $set: { scheduledAt: updated.completedAt }
-        });
-      }
+      // NOTE: Removed code that was overwriting scheduledAt with completedAt.
+      // The original scheduledAt should always be preserved.
 
       if (req.auth?.userId) {
         await logAuditAction({
@@ -2860,6 +2864,18 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
       if (uid) scanCountMap.set(uid, (scanCountMap.get(uid) || 0) + 1);
     }
 
+    // Fetch markedBy user names for sessions
+    const markedByIds = [...new Set(sessionDocs.map((s: any) => s.markedBy).filter(Boolean))];
+    const markedByUsers = markedByIds.length > 0
+      ? await UserModel.find({
+          $or: [
+            { _id: { $in: markedByIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { _id: { $in: markedByIds } }
+          ]
+        }).select("_id fullName role").lean()
+      : [];
+    const markedByMap = new Map(markedByUsers.map((u: any) => [u._id.toString(), u.fullName || (u.role === 'admin' ? 'Admin' : u.role)]));
+
     const enrichedSessions = sessionDocs.map((doc: any) => {
       const req = requestsBySessionMap.get(doc._id.toString()) || (doc.bookingRequestId ? requestsBySessionMap.get(doc.bookingRequestId.toString()) : null);
       const sStatus = doc.status;
@@ -2889,7 +2905,9 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
         sessionPriceKwd: doc.sessionPriceKwd || req?.sessionPriceKwd || null,
         isHistorical: doc.notes === "Historical session logged during enrollment",
         scanCount: scanCountMap.get(doc.userId?.toString()) || 0,
-        hasScanHistory: (scanCountMap.get(doc.userId?.toString()) || 0) > 0
+        hasScanHistory: (scanCountMap.get(doc.userId?.toString()) || 0) > 0,
+        markedBy: doc.markedBy || null,
+        markedByName: doc.markedBy ? (markedByMap.get(doc.markedBy) || doc.markedBy) : null
       };
     });
 
@@ -3489,6 +3507,244 @@ schedulingRouter.post("/admin/sessions-log/:id/edit-date", authRequired, require
     next(e);
   }
 });
+
+// ── Admin: Mark Attended on any session or booking request (including standalone) ──
+schedulingRouter.post(
+  "/admin/sessions-log/:id/mark-attended",
+  authRequired,
+  requireRole(["admin", "cs", "legal", "cs_director"]),
+  async (req, res, next) => {
+    try {
+      const id = req.params.id;
+      const { type, notes } = req.body;
+      const now = new Date();
+      const nowIso = now.toISOString();
+      let updated = false;
+
+      // 1. Try BookingSession
+      if (type === "session" || (mongoose.isValidObjectId(id) && await BookingSessionModel.exists({ _id: id }))) {
+        const bs = await BookingSessionModel.findById(id);
+        if (bs) {
+          bs.status = "completed";
+          bs.completedAt = now;
+          if (notes) bs.notes = bs.notes ? `${bs.notes} | ${notes}` : notes;
+          await bs.save();
+          updated = true;
+
+          // Sync linked booking requests
+          const reqFilter: any = {
+            $or: [
+              ...(bs.bookingRequestId ? [{ _id: bs.bookingRequestId }] : []),
+              { scheduledSessionId: bs._id.toString() }
+            ]
+          };
+          await BookingRequestModel.updateMany(reqFilter, {
+            $set: {
+              status: "completed",
+              shownAt: nowIso
+            }
+          });
+
+          if (req.auth?.userId) {
+            await logAuditAction({
+              actorId: req.auth.userId,
+              actorRole: req.auth.role as any,
+              actionType: "admin_manual_session_complete",
+              targetEntityType: "BookingSession",
+              targetEntityId: bs._id.toString(),
+              beforeState: { status: bs.status },
+              afterState: { status: "completed" },
+              metadata: {
+                shortId: (bs as any).shortId || bs._id.toString(),
+                userId: bs.userId,
+                clinicId: bs.clinicId,
+                notes
+              }
+            });
+          }
+        }
+      }
+
+      // 2. Try BookingRequest (standalone or request-only)
+      if (!updated && (type === "request" || (mongoose.isValidObjectId(id) && await BookingRequestModel.exists({ _id: id })))) {
+        const breq = await BookingRequestModel.findById(id);
+        if (breq) {
+          breq.status = "completed";
+          (breq as any).shownAt = now;
+          breq.confirmedAt = breq.confirmedAt || now;
+          if (notes) breq.notes = breq.notes ? `${breq.notes} | ${notes}` : notes;
+          await breq.save();
+          updated = true;
+
+          // Sync linked session if exists
+          if (breq.scheduledSessionId) {
+            const bs = await BookingSessionModel.findById(breq.scheduledSessionId);
+            if (bs) {
+              bs.status = "completed";
+              bs.completedAt = now;
+              await bs.save();
+            }
+          }
+
+          if (req.auth?.userId) {
+            await logAuditAction({
+              actorId: req.auth.userId,
+              actorRole: req.auth.role as any,
+              actionType: "admin_manual_session_complete",
+              targetEntityType: "BookingRequest",
+              targetEntityId: breq._id.toString(),
+              beforeState: { status: breq.status },
+              afterState: { status: "completed" },
+              metadata: {
+                userId: breq.userId,
+                clinicId: breq.clinicId,
+                notes
+              }
+            });
+          }
+        }
+      }
+
+      // Fallback: search both
+      if (!updated && mongoose.isValidObjectId(id)) {
+        const [bs, breq] = await Promise.all([
+          BookingSessionModel.findById(id),
+          BookingRequestModel.findById(id)
+        ]);
+        if (bs) {
+          bs.status = "completed";
+          bs.completedAt = now;
+          if (notes) bs.notes = bs.notes ? `${bs.notes} | ${notes}` : notes;
+          await bs.save();
+          const reqFilter: any = {
+            $or: [
+              ...(bs.bookingRequestId ? [{ _id: bs.bookingRequestId }] : []),
+              { scheduledSessionId: bs._id.toString() }
+            ]
+          };
+          await BookingRequestModel.updateMany(reqFilter, {
+            $set: { status: "completed", shownAt: nowIso }
+          });
+          updated = true;
+        } else if (breq) {
+          breq.status = "completed";
+          (breq as any).shownAt = now;
+          breq.confirmedAt = breq.confirmedAt || now;
+          if (notes) breq.notes = breq.notes ? `${breq.notes} | ${notes}` : notes;
+          await breq.save();
+          if (breq.scheduledSessionId) {
+            const sess = await BookingSessionModel.findById(breq.scheduledSessionId);
+            if (sess) {
+              sess.status = "completed";
+              sess.completedAt = now;
+              await sess.save();
+            }
+          }
+          updated = true;
+        }
+      }
+
+      if (!updated) {
+        return res.status(404).json({ error: "NOT_FOUND" });
+      }
+
+      return res.json({ ok: true, status: "completed" });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
+
+// ── Admin: Mark No-Show on any session or booking request ──
+schedulingRouter.post(
+  "/admin/sessions-log/:id/mark-no-show",
+  authRequired,
+  requireRole(["admin", "cs", "legal", "cs_director"]),
+  async (req, res, next) => {
+    try {
+      const id = req.params.id;
+      const { type, notes } = req.body;
+      let updated = false;
+
+      if (type === "session" || (mongoose.isValidObjectId(id) && await BookingSessionModel.exists({ _id: id }))) {
+        const bs = await BookingSessionModel.findById(id);
+        if (bs) {
+          bs.status = "no_show";
+          (bs as any).completedAt = undefined;
+          if (notes) bs.notes = bs.notes ? `${bs.notes} | ${notes}` : notes;
+          await bs.save();
+          updated = true;
+
+          const reqFilter: any = {
+            $or: [
+              ...(bs.bookingRequestId ? [{ _id: bs.bookingRequestId }] : []),
+              { scheduledSessionId: bs._id.toString() }
+            ]
+          };
+          await BookingRequestModel.updateMany(reqFilter, {
+            $set: { status: "no_show" }
+          });
+        }
+      }
+
+      if (!updated && (type === "request" || (mongoose.isValidObjectId(id) && await BookingRequestModel.exists({ _id: id })))) {
+        const breq = await BookingRequestModel.findById(id);
+        if (breq) {
+          breq.status = "no_show";
+          if (notes) breq.notes = breq.notes ? `${breq.notes} | ${notes}` : notes;
+          await breq.save();
+          updated = true;
+
+          if (breq.scheduledSessionId) {
+            const bs = await BookingSessionModel.findById(breq.scheduledSessionId);
+            if (bs) {
+              bs.status = "no_show";
+              (bs as any).completedAt = undefined;
+              await bs.save();
+            }
+          }
+        }
+      }
+
+      if (!updated && mongoose.isValidObjectId(id)) {
+        const [bs, breq] = await Promise.all([
+          BookingSessionModel.findById(id),
+          BookingRequestModel.findById(id)
+        ]);
+        if (bs) {
+          bs.status = "no_show";
+          (bs as any).completedAt = undefined;
+          await bs.save();
+          const reqFilter: any = {
+            $or: [
+              ...(bs.bookingRequestId ? [{ _id: bs.bookingRequestId }] : []),
+              { scheduledSessionId: bs._id.toString() }
+            ]
+          };
+          await BookingRequestModel.updateMany(reqFilter, { $set: { status: "no_show" } });
+          updated = true;
+        } else if (breq) {
+          breq.status = "no_show";
+          await breq.save();
+          if (breq.scheduledSessionId) {
+            const sess = await BookingSessionModel.findById(breq.scheduledSessionId);
+            if (sess) {
+              sess.status = "no_show";
+              (sess as any).completedAt = undefined;
+              await sess.save();
+            }
+          }
+          updated = true;
+        }
+      }
+
+      if (!updated) return res.status(404).json({ error: "NOT_FOUND" });
+      return res.json({ ok: true, status: "no_show" });
+    } catch (e) {
+      next(e);
+    }
+  }
+);
 
 schedulingRouter.post("/admin/grant-session", authRequired, requireRole(["cs", "legal", "admin", "cs_director"]), async (req, res, next) => {
   try {
