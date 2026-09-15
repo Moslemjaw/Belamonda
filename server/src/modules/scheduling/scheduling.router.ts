@@ -2363,9 +2363,12 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
     const clinicObjId = mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : null;
     const clinicMatch = clinicObjId ? { $in: [clinicId, clinicObjId] } : clinicId;
 
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
     const standaloneRequests = await BookingRequestModel.find({
       clinicId: clinicMatch,
-      status: { $nin: ["completed", "cancelled", "rejected"] },
+      status: { $nin: ["completed", "cancelled", "rejected", "slot_assigned"] },
       $and: [
         {
           $or: [
@@ -2377,11 +2380,11 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
         {
           $or: [
             { status: "no_show" },
-            { proposedAt: { $lt: now } },
-            { preferredAt: { $lt: now } },
-            { clinicScheduledAt: { $lt: now } },
-            { adminSuggestedAt: { $lt: now } },
-            { createdAt: { $lt: now } }
+            { proposedAt: { $lt: startOfToday } },
+            { preferredAt: { $lt: startOfToday } },
+            { clinicScheduledAt: { $lt: startOfToday } },
+            { adminSuggestedAt: { $lt: startOfToday } },
+            { createdAt: { $lt: startOfToday } }
           ]
         }
       ]
@@ -2829,13 +2832,14 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
 
     if (status && status !== "all") {
       if (status === "no_show") {
-        const now = new Date();
+        const startOfToday = new Date();
+        startOfToday.setHours(0, 0, 0, 0);
         const noShowSessionCondition = {
           $or: [
             { status: "no_show" },
             {
-              status: { $nin: ["completed", "cancelled", "rejected"] },
-              scheduledAt: { $lt: now }
+              status: { $nin: ["completed", "cancelled", "rejected", "slot_assigned"] },
+              scheduledAt: { $lt: startOfToday }
             }
           ]
         };
@@ -2845,11 +2849,11 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
           $or: [
             { status: "no_show" },
             {
-              status: { $nin: ["completed", "cancelled", "rejected"] },
+              status: { $nin: ["completed", "cancelled", "rejected", "slot_assigned"] },
               $or: [
-                { proposedAt: { $lt: now } },
-                { preferredAt: { $lt: now } },
-                { createdAt: { $lt: now } }
+                { proposedAt: { $lt: startOfToday } },
+                { preferredAt: { $lt: startOfToday } },
+                { createdAt: { $lt: startOfToday } }
               ]
             }
           ]

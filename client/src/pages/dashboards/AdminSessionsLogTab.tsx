@@ -100,12 +100,15 @@ export default function AdminSessionsLogTab() {
 
   const filteredSessions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    const now = new Date();
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
     return sessions.filter(s => {
       if (filterClinic !== "all" && String(s.clinicId) !== filterClinic) return false;
       if (status === "no_show") {
-        const isScheduled = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status);
-        const isPast = s.scheduledAt && new Date(s.scheduledAt) < now;
+        // slot_assigned = admin sent suggested dates to clinic, don't treat as no_show
+        const isScheduled = ['request_received', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status);
+        // Don't consider same-day bookings as missed until the day ends
+        const isPast = s.scheduledAt && new Date(s.scheduledAt) < startOfToday;
         const isNoShow = s.status === 'no_show' || (isScheduled && isPast);
         if (!isNoShow) return false;
       }
@@ -133,7 +136,8 @@ export default function AdminSessionsLogTab() {
       }
 
       const isAwaiting = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status);
-      const isPast = s.scheduledAt && new Date(s.scheduledAt) < now;
+      const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+      const isPast = s.scheduledAt && new Date(s.scheduledAt) < startOfToday;
       if (isAwaiting && !isPast) {
         awaitingAttendance++;
       }
@@ -398,13 +402,14 @@ export default function AdminSessionsLogTab() {
                   const clinicName = ar() ? clinic?.nameAr : clinic?.nameEn;
 
                   // Derive attendance status from appointment status
-                  const isScheduledStatus = ['request_received', 'slot_assigned', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status);
-                  const isPast = s.scheduledAt && new Date(s.scheduledAt) < new Date();
+                  const isScheduledStatus = ['request_received', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status);
+                  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+                  const isPast = s.scheduledAt && new Date(s.scheduledAt) < startOfToday;
 
                   const attendanceStatus = ['checked_in', 'in_progress'].includes(s.status) ? 'checked_in'
                     : s.status === 'completed' ? 'attended'
                     : s.status === 'no_show' || (isScheduledStatus && isPast) ? 'no_show'
-                    : isScheduledStatus ? 'awaiting'
+                    : (isScheduledStatus || s.status === 'slot_assigned') ? 'awaiting'
                     : 'n_a';
 
                   const attendanceLabel = attendanceStatus === 'awaiting' ? (ar() ? 'في الانتظار' : 'Awaiting')
@@ -532,6 +537,7 @@ export default function AdminSessionsLogTab() {
                             : isScheduledStatus && isPast
                             ? (ar() ? "فائت (لم يحضر)" : "Missed (No Show)")
                             : s.status === 'slot_accepted' ? (ar() ? "مجدول" : "Scheduled")
+                            : s.status === 'slot_assigned' ? (ar() ? "تم تحديد الموعد" : "Slot Assigned")
                             : s.status.replace(/_/g, ' ')}
                         </span>
                       </td>
