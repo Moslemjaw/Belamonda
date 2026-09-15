@@ -1233,7 +1233,12 @@ schedulingRouter.get("/clinic/requests", authRequired, requireRole(["clinicStaff
   const status = (typeof req.query.status === "string" ? req.query.status : "open") as AppointmentStatus | "all" | "open";
   const filter: Parameters<typeof bookingRequestsStore.list>[0] = { status };
   if (clinicId) filter.clinicId = clinicId;
-  const items = await bookingRequestsStore.list(filter);
+  let items = await bookingRequestsStore.list(filter);
+
+  // Clinic staff should only see requests that have been forwarded by admin (not request_received)
+  if (req.auth!.role === "clinicStaff") {
+    items = items.filter(i => i.status !== "request_received");
+  }
 
   const uniqueUserIds = [...new Set(items.map((i) => i.userId))];
   const users = uniqueUserIds.length > 0
