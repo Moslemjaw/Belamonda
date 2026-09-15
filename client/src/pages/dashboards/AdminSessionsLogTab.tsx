@@ -431,7 +431,7 @@ export default function AdminSessionsLogTab() {
                   
                   return (
                     <Fragment key={s.id}>
-                    <tr className={`hover:bg-surface-50 transition-colors ${isExpanded ? 'bg-brand-pink-50/30' : ''}`}>
+                    <tr className={`hover:bg-surface-50 ${isExpanded ? 'bg-brand-pink-50/30' : ''}`}>
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-2">
                           <button
@@ -572,7 +572,7 @@ export default function AdminSessionsLogTab() {
                                   alert(err.message || "Failed to mark as paid");
                                 }
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-xs transition-all active:scale-95 cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-800 transition-colors duration-100 cursor-pointer"
                               title={ar() ? "تأكيد استلام الدفع" : "Confirm payment received"}
                             >
                               <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -605,7 +605,7 @@ export default function AdminSessionsLogTab() {
                                   alert(err.message || "Failed to mark as unpaid");
                                 }
                               }}
-                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-rose-300 text-rose-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-xs transition-all active:scale-95 cursor-pointer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 hover:border-rose-400 hover:text-rose-800 transition-colors duration-100 cursor-pointer"
                               title={ar() ? "إلغاء حالة الدفع" : "Revert payment status"}
                             >
                               <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -637,7 +637,7 @@ export default function AdminSessionsLogTab() {
                                 }
                               }
                             }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-surface-200 text-surface-600 hover:bg-surface-100 hover:text-surface-900 shadow-xs transition-all active:scale-95 cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-surface-200 text-surface-600 hover:bg-surface-50 hover:text-surface-900 transition-colors duration-100 cursor-pointer"
                           >
                             <svg className="w-3 h-3 text-surface-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
@@ -683,7 +683,7 @@ export default function AdminSessionsLogTab() {
                                     alert(err.message || "Failed to mark as attended");
                                   }
                                 }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-xs transition-all active:scale-95 cursor-pointer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-800 transition-colors duration-100 cursor-pointer"
                                 title={ar() ? "تسجيل حضور العميل" : "Mark customer as attended"}
                               >
                                 <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -714,7 +714,7 @@ export default function AdminSessionsLogTab() {
                                     alert(err.message || "Failed to update status");
                                   }
                                 }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-rose-300 text-rose-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-xs transition-all active:scale-95 cursor-pointer"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 hover:border-rose-400 hover:text-rose-800 transition-colors duration-100 cursor-pointer"
                                 title={ar() ? "إلغاء التحضير وتعيينه لم يحضر" : "Unmark and set as No Show"}
                               >
                                 <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
