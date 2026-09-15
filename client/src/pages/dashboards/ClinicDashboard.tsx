@@ -205,8 +205,8 @@ function ScheduleTable({
   const dayAfterTomorrow = new Date(today);
   dayAfterTomorrow.setDate(today.getDate() + 2);
 
-  // Hide request_received sessions from clinic view — only forwarded sessions should appear
-  const filteredSessions = sessions.filter((s) => s.status !== "request_received");
+  // Allow all sessions including request_received to appear on clinic schedule
+  const filteredSessions = sessions;
 
   const groups = {
     today: filteredSessions.filter((s) => {
@@ -416,7 +416,7 @@ function ClinicInvoicesTab({ clinicId: _clinicId }: { clinicId: string }) {
   const { data, loading } = useMyClinicReport({ from, to });
 
   const invoices = data?.invoices ?? [];
-  const activeInvoices = invoices.filter(inv => inv.status !== 'completed' && inv.status !== 'request_received');
+  const activeInvoices = invoices.filter(inv => inv.status !== 'completed');
   
   const filteredInvoices = activeInvoices.filter(inv =>
     !search || inv.customerName?.toLowerCase().includes(search.toLowerCase()) ||

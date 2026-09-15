@@ -1617,16 +1617,26 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
 
   const clinic = await ClinicModel.findById(clinicId).select("nameEn nameAr").lean().catch(() => null);
 
+  const clinicObjId = mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : null;
+  const clinicMatch = clinicObjId ? { $in: [clinicId, clinicObjId, String(clinicId)] } : clinicId;
+
   // Sessions
   const sessionQ: Record<string, unknown> = {
-    clinicId: mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId,
+    clinicId: clinicMatch,
   };
   if (dateFilter) sessionQ.scheduledAt = dateFilter;
   const sessions = await BookingSessionModel.find(sessionQ).sort({ scheduledAt: -1 }).limit(300).lean();
 
   // Booking requests (invoices)
-  const brQ: Record<string, unknown> = { clinicId };
-  if (dateFilter) brQ.createdAt = dateFilter;
+  const brQ: Record<string, unknown> = { clinicId: clinicMatch };
+  if (dateFilter) {
+    brQ.$or = [
+      { createdAt: dateFilter },
+      { clinicScheduledAt: dateFilter },
+      { proposedAt: dateFilter },
+      { preferredAt: dateFilter },
+    ];
+  }
   let bookingReqs = await BookingRequestModel.find(brQ).sort({ createdAt: -1 }).limit(300).lean();
 
   const seenBrSessions = new Set<string>();
@@ -1738,7 +1748,7 @@ export async function computeClinicDetail(clinicId: string, filters: { from?: st
         clinicPaymentStatus: br.clinicPaymentStatus ?? "payment_pending",
         membershipType: br.membershipType ?? null,
         createdAt: br.createdAt,
-        scheduledAt: brSession?.scheduledAt ?? br.createdAt,
+        scheduledAt: brSession?.scheduledAt ?? (br as any).clinicScheduledAt ?? (br as any).proposedAt ?? (br as any).preferredAt ?? br.createdAt,
         confirmedAt: br.confirmedAt ?? null,
         combinedSessionStatus: combinedStatus,
       };

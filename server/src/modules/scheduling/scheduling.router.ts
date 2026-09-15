@@ -2019,13 +2019,41 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
     }
     const from = typeof req.query.from === "string" ? req.query.from : new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const to = typeof req.query.to === "string" ? req.query.to : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const clinicId = req.params.clinicId;
+    const clinicObjId = mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : null;
+    const clinicMatch = clinicObjId ? { $in: [clinicId, clinicObjId, String(clinicId)] } : clinicId;
     const sessions = await sessionsStore.listByClinic(req.params.clinicId, from, to);
 
-    if (sessions.length === 0) return res.json({ items: [] });
+    const fromDate = new Date(from);
+    const toDate = new Date(to);
+
+    const standaloneRequests = await BookingRequestModel.find({
+      clinicId: clinicMatch,
+      status: { $nin: ["cancelled", "rejected"] },
+      $and: [
+        {
+          $or: [
+            { scheduledSessionId: { $exists: false } },
+            { scheduledSessionId: null },
+            { scheduledSessionId: "" }
+          ]
+        },
+        {
+          $or: [
+            { clinicScheduledAt: { $gte: fromDate, $lte: toDate } },
+            { proposedAt: { $gte: fromDate, $lte: toDate } },
+            { preferredAt: { $gte: fromDate, $lte: toDate } },
+            { createdAt: { $gte: fromDate, $lte: toDate } },
+          ]
+        }
+      ]
+    }).lean();
+
+    if (sessions.length === 0 && standaloneRequests.length === 0) return res.json({ items: [] });
 
     // ── Collect unique IDs for batch lookups ─────────────────────────────
-    const uniqueUserIds       = [...new Set(sessions.map(s => s.userId))];
-    const uniqueUserOfferIds  = [...new Set(sessions.map(s => s.userOfferId).filter(id => mongoose.isValidObjectId(id)))];
+    const uniqueUserIds       = [...new Set([...sessions.map(s => s.userId), ...standaloneRequests.map((r: any) => r.userId?.toString())].filter(Boolean))];
+    const uniqueUserOfferIds  = [...new Set([...sessions.map(s => s.userOfferId), ...standaloneRequests.map((r: any) => r.userOfferId?.toString())].filter(id => id && mongoose.isValidObjectId(id)))];
     const validSessionIds     = sessions.map(s => s.id).filter(id => mongoose.isValidObjectId(id));
 
     // ── Round 1: 4 parallel batch queries ────────────────────────────────
@@ -2066,7 +2094,7 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
     const offerMap = new Map((offerDocs as any[]).map(o => [o._id.toString(), o]));
 
     // ── Build response — pure in-memory, zero additional DB calls ─────────
-    const items = sessions.map((s) => {
+    const sessionItems = sessions.map((s) => {
       const uoDoc    = mongoose.isValidObjectId(s.userOfferId) ? uoMap.get(s.userOfferId) : null;
       const offerDoc = uoDoc ? offerMap.get(uoDoc.offerId?.toString()) : null;
       const breq     = breqBySession.get(s.id);
@@ -2104,6 +2132,43 @@ schedulingRouter.get("/clinic/:clinicId/schedule", authRequired, requireRole(["c
         },
       };
     });
+
+    const sessionIds = new Set(sessions.map(s => s.id));
+    const requestItems = standaloneRequests
+      .filter((r: any) => !sessionIds.has(r._id.toString()))
+      .map((r: any) => {
+        const uoDoc    = r.userOfferId && mongoose.isValidObjectId(r.userOfferId) ? uoMap.get(r.userOfferId) : null;
+        const offerDoc = uoDoc ? offerMap.get(uoDoc.offerId?.toString()) : null;
+        const user     = userMap.get(r.userId?.toString());
+        const scheduledDate = r.clinicScheduledAt ?? r.adminSuggestedAt ?? r.proposedAt ?? r.preferredAt ?? r.createdAt;
+        return {
+          id: r._id.toString(),
+          type: "request",
+          userId: r.userId,
+          clinicId: r.clinicId,
+          userOfferId: r.userOfferId ?? null,
+          scheduledAt: scheduledDate instanceof Date ? scheduledDate.toISOString() : (scheduledDate ? new Date(scheduledDate).toISOString() : new Date().toISOString()),
+          status: r.status,
+          customerName: (user as any)?.fullName ?? null,
+          customerPhone: (user as any)?.phone ?? null,
+          offerName: r.standaloneName ?? (offerDoc as any)?.name ?? "Standalone Booking",
+          bookingRequestId: r._id.toString(),
+          clinicPaymentStatus: r.clinicPaymentStatus ?? "pending",
+          sessionPriceKwd: r.sessionPriceKwd ?? null,
+          cashbackDeductedKwd: r.cashbackDeductedKwd ?? null,
+          membershipType: r.membershipType ?? uoDoc?.membershipType ?? "none",
+          isStandalone: r.isStandalone ?? true,
+          eligibility: {
+            offerActive: uoDoc?.status === "active",
+            paymentConfirmed: uoDoc?.status === "active",
+            intervalMet: true,
+          },
+        };
+      });
+
+    const items = [...sessionItems, ...requestItems].sort((a: any, b: any) =>
+      new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+    );
 
     return res.json({ items });
   } catch (e) {
