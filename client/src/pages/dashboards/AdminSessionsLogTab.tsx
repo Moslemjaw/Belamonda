@@ -545,6 +545,10 @@ export default function AdminSessionsLogTab() {
                             <button
                               onClick={async () => {
                                 if (!window.confirm(ar() ? "تأكيد الدفع؟" : "Confirm payment?")) return;
+                                // Optimistic update
+                                setSessions(prev => prev.map(row =>
+                                  row.id === s.id ? { ...row, clinicPaymentStatus: 'paid' } : row
+                                ));
                                 try {
                                   const reqId = s.requestId || s.id;
                                   await apiFetch(`/scheduling/requests/${reqId}/mark-paid`, {
@@ -552,8 +556,12 @@ export default function AdminSessionsLogTab() {
                                     headers: getAuthHeader(),
                                     body: JSON.stringify({})
                                   });
-                                  fetchSessions();
+                                  fetchSessions(false);
                                 } catch (err: any) {
+                                  // Revert
+                                  setSessions(prev => prev.map(row =>
+                                    row.id === s.id ? { ...row, clinicPaymentStatus: 'pending' } : row
+                                  ));
                                   alert(err.message || "Failed to mark as paid");
                                 }
                               }}
@@ -566,6 +574,10 @@ export default function AdminSessionsLogTab() {
                             <button
                               onClick={async () => {
                                 if (!window.confirm(ar() ? "هل تريد إلغاء الدفع؟" : "Mark as unpaid?")) return;
+                                // Optimistic update
+                                setSessions(prev => prev.map(row =>
+                                  row.id === s.id ? { ...row, clinicPaymentStatus: 'pending' } : row
+                                ));
                                 try {
                                   const reqId = s.requestId || s.id;
                                   await apiFetch(`/scheduling/requests/${reqId}/mark-unpaid`, {
@@ -573,8 +585,12 @@ export default function AdminSessionsLogTab() {
                                     headers: getAuthHeader(),
                                     body: JSON.stringify({})
                                   });
-                                  fetchSessions();
+                                  fetchSessions(false);
                                 } catch (err: any) {
+                                  // Revert
+                                  setSessions(prev => prev.map(row =>
+                                    row.id === s.id ? { ...row, clinicPaymentStatus: 'paid' } : row
+                                  ));
                                   alert(err.message || "Failed to mark as unpaid");
                                 }
                               }}
@@ -628,6 +644,10 @@ export default function AdminSessionsLogTab() {
                               <button
                                 onClick={async () => {
                                   if (!window.confirm(ar() ? "تأكيد حضور العميل؟" : "Mark customer as attended?")) return;
+                                  // Optimistic update: immediately flip the row to completed
+                                  setSessions(prev => prev.map(row =>
+                                    row.id === s.id ? { ...row, status: 'completed', completedAt: new Date().toISOString() } : row
+                                  ));
                                   try {
                                     if (s.type === "session") {
                                       await apiFetch(`/scheduling/clinic/sessions/${s.id}/mark`, {
@@ -642,8 +662,13 @@ export default function AdminSessionsLogTab() {
                                         body: JSON.stringify({ scheduledAt: s.scheduledAt, notes: "Marked attended by admin" })
                                       });
                                     }
-                                    fetchSessions();
+                                    // Silently refresh in background (no loading spinner)
+                                    fetchSessions(false);
                                   } catch (err: any) {
+                                    // Revert optimistic update on failure
+                                    setSessions(prev => prev.map(row =>
+                                      row.id === s.id ? { ...row, status: s.status, completedAt: s.completedAt } : row
+                                    ));
                                     alert(err.message || "Failed to mark as attended");
                                   }
                                 }}
