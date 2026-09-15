@@ -698,7 +698,7 @@ export default function AdminSessionsLogTab() {
                               </button>
                             )}
                           </div>
-                          {attendanceStatus === 'attended' && s.markedByName && (
+                          {attendanceStatus === 'attended' && !s.hasScanHistory && s.markedByName && (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200" title={ar() ? `تم التحضير بواسطة ${s.markedByName}` : `Marked by ${s.markedByName}`}>
                               <svg className="w-3.5 h-3.5 text-blue-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
