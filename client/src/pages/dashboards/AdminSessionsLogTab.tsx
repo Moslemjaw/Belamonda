@@ -544,7 +544,8 @@ export default function AdminSessionsLogTab() {
                       {/* Payment Status */}
                       <td className="px-5 py-4">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${paymentStyle}`}>
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide ${paymentStyle}`}>
+                            <span className="w-1.5 h-1.5 rounded-full bg-current opacity-75"></span>
                             {paymentLabel}
                           </span>
                           {s.clinicPaymentStatus !== 'paid' && (
@@ -571,9 +572,13 @@ export default function AdminSessionsLogTab() {
                                   alert(err.message || "Failed to mark as paid");
                                 }
                               }}
-                              className="text-[10px] font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-2 py-1 rounded transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-xs transition-all active:scale-95 cursor-pointer"
+                              title={ar() ? "تأكيد استلام الدفع" : "Confirm payment received"}
                             >
-                              {ar() ? "دفع" : "Paid"}
+                              <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                              {ar() ? "تأكيد الدفع" : "Mark Paid"}
                             </button>
                           )}
                           {s.clinicPaymentStatus === 'paid' && (
@@ -600,9 +605,13 @@ export default function AdminSessionsLogTab() {
                                   alert(err.message || "Failed to mark as unpaid");
                                 }
                               }}
-                              className="text-[10px] font-bold bg-red-50 text-red-600 hover:bg-red-100 px-2 py-1 rounded transition-colors"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-rose-300 text-rose-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-xs transition-all active:scale-95 cursor-pointer"
+                              title={ar() ? "إلغاء حالة الدفع" : "Revert payment status"}
                             >
-                              {ar() ? "غير مدفوع" : "Unpaid"}
+                              <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              {ar() ? "إلغاء الدفع" : "Mark Unpaid"}
                             </button>
                           )}
                           <button
@@ -628,8 +637,11 @@ export default function AdminSessionsLogTab() {
                                 }
                               }
                             }}
-                            className="text-[10px] font-bold bg-surface-100 text-surface-600 hover:bg-surface-200 px-2 py-1 rounded transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-surface-200 text-surface-600 hover:bg-surface-100 hover:text-surface-900 shadow-xs transition-all active:scale-95 cursor-pointer"
                           >
+                            <svg className="w-3 h-3 text-surface-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
                             {ar() ? "تعديل السعر" : "Edit Price"}
                           </button>
                         </div>
@@ -641,9 +653,10 @@ export default function AdminSessionsLogTab() {
                       </td>
                       {/* Attendance Status */}
                       <td className="px-5 py-4">
-                        <div className="flex flex-col gap-1 items-start">
+                        <div className="flex flex-col gap-1.5 items-start">
                           <div className="flex items-center gap-2">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${attendanceStyle}`}>
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold tracking-wide ${attendanceStyle}`}>
+                              <span className="w-1.5 h-1.5 rounded-full bg-current opacity-75"></span>
                               {attendanceLabel}
                             </span>
                             {(attendanceStatus === 'awaiting' || attendanceStatus === 'no_show') && (
@@ -670,9 +683,13 @@ export default function AdminSessionsLogTab() {
                                     alert(err.message || "Failed to mark as attended");
                                   }
                                 }}
-                                className="text-[10px] font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-2 py-1 rounded transition-colors"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-emerald-300 text-emerald-700 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 shadow-xs transition-all active:scale-95 cursor-pointer"
+                                title={ar() ? "تسجيل حضور العميل" : "Mark customer as attended"}
                               >
-                                {ar() ? "حضر" : "Attended"}
+                                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                {ar() ? "تسجيل حضور" : "Mark Attended"}
                               </button>
                             )}
                             {attendanceStatus === 'attended' && (
@@ -697,10 +714,13 @@ export default function AdminSessionsLogTab() {
                                     alert(err.message || "Failed to update status");
                                   }
                                 }}
-                                className="text-[10px] font-bold bg-rose-50 text-rose-600 hover:bg-rose-100 px-2 py-1 rounded transition-colors"
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white border border-rose-300 text-rose-700 hover:bg-rose-600 hover:text-white hover:border-rose-600 shadow-xs transition-all active:scale-95 cursor-pointer"
                                 title={ar() ? "إلغاء التحضير وتعيينه لم يحضر" : "Unmark and set as No Show"}
                               >
-                                {ar() ? "لم يحضر" : "No Show"}
+                                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                {ar() ? "تعيين غائب" : "Mark No Show"}
                               </button>
                             )}
                           </div>
