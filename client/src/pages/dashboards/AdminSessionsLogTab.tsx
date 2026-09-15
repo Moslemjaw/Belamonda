@@ -624,7 +624,7 @@ export default function AdminSessionsLogTab() {
                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide ${attendanceStyle}`}>
                               {attendanceLabel}
                             </span>
-                            {attendanceStatus === 'awaiting' && (
+                            {(attendanceStatus === 'awaiting' || attendanceStatus === 'no_show') && (
                               <button
                                 onClick={async () => {
                                   if (!window.confirm(ar() ? "تأكيد حضور العميل؟" : "Mark customer as attended?")) return;
