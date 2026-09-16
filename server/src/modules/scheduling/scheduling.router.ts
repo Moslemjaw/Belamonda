@@ -1636,8 +1636,16 @@ schedulingRouter.post("/requests/:id/mark-paid", authRequired, requireRole(["cli
   totalBillKwd = (basePrice + extraSum).toFixed(3);
   finalPaidKwd = Math.max(0, basePrice + extraSum - cbToDeduct).toFixed(3);
 
+  let finalStatus = breq.status;
+  if (breq.scheduledSessionId) {
+    const linkedSess = await BookingSessionModel.findById(breq.scheduledSessionId).select("status").lean();
+    if ((linkedSess as any)?.status === "completed") {
+      finalStatus = "completed";
+    }
+  }
+
   const updated = await bookingRequestsStore.update(breq.id, {
-    status: "scheduled",
+    status: finalStatus,
     clinicPaymentStatus: "paid",
     clinicPaymentMarkedAt: new Date().toISOString(),
     clinicPaymentMarkedBy: req.auth!.userId,
@@ -2626,15 +2634,25 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
         notifySessionCompletedCashback(uo.userId, updated.id, cashbackUnlocked);
       }
 
-      // Auto-sync the associated booking request status & shownAt timestamp
-      const breq = await bookingRequestsStore.findBySessionId(session.id);
+      // Auto-sync all associated booking requests status & shownAt timestamp
       const nowIso = new Date().toISOString();
-      if (breq) {
-        await bookingRequestsStore.update(breq.id, {
-          status: "completed",
-          shownAt: nowIso
-        });
-      }
+      const sessObjId = mongoose.isValidObjectId(session.id) ? new mongoose.Types.ObjectId(session.id) : null;
+      await BookingRequestModel.updateMany(
+        {
+          $or: [
+            { scheduledSessionId: session.id },
+            ...(sessObjId ? [{ scheduledSessionId: sessObjId }] : []),
+            { _id: session.id },
+            ...(sessObjId ? [{ _id: sessObjId }] : [])
+          ]
+        },
+        {
+          $set: {
+            status: "completed",
+            shownAt: nowIso
+          }
+        }
+      );
 
       // NOTE: Removed code that was overwriting scheduledAt with completedAt.
       // The original scheduledAt should always be preserved.
@@ -3100,16 +3118,30 @@ schedulingRouter.get("/admin/session-details", authRequired, requireRole(["admin
       : [];
     const staffMap = new Map(staffDocs.map((st: any) => [st._id.toString(), st.fullName || st.username || "Staff"]));
 
+    // Linked sessions status lookup for guaranteed consistency
+    const reqSessionIds = requestDocs.map(r => r.scheduledSessionId).filter(Boolean);
+    const linkedSessions = reqSessionIds.length > 0
+      ? await BookingSessionModel.find({
+          $or: [
+            { _id: { $in: reqSessionIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { _id: { $in: reqSessionIds } }
+          ]
+        }).select("_id status").lean()
+      : [];
+    const linkedSessionStatusMap = new Map((linkedSessions as any[]).map(s => [s._id.toString(), s.status]));
+
     const requests = requestDocs.map((r: any) => {
       const c = clinicMap.get(r.clinicId?.toString()) || { nameEn: "Clinic", nameAr: "العيادة" };
+      const linkedSessStatus = r.scheduledSessionId ? linkedSessionStatusMap.get(r.scheduledSessionId.toString()) : null;
+      const effectiveStatus = (linkedSessStatus === "completed" || r.status === "completed") ? "completed" : r.status;
       return {
         id: r._id.toString(),
         clinicNameEn: c.nameEn,
         clinicNameAr: c.nameAr,
         offerName: r.offerId ? (offerMap.get(r.offerId.toString()) || "Booking") : (r.standaloneName || "Booking"),
-        status: r.status,
+        status: effectiveStatus,
         adminSuggestedAt: r.adminSuggestedAt || r.proposedAt || null,
-        clinicScheduledAt: r.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(r.status) && r.proposedAt ? r.proposedAt : null),
+        clinicScheduledAt: r.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(effectiveStatus) && r.proposedAt ? r.proposedAt : null),
         shownAt: r.shownAt || null,
         createdAt: r.createdAt || null
       };
