@@ -116,7 +116,11 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
       updatedAt: u.updatedAt ? new Date(u.updatedAt).toISOString() : undefined,
       referredByUsername: u.referredBy ? (referrerMap[String(u.referredBy)] ?? null) : null
     }));
-    return res.json({ items });
+
+    // Get real total customer count (not limited by pagination)
+    const totalCustomers = await UserModel.countDocuments({ role: "customer" });
+
+    return res.json({ items, totalCustomers });
   } catch (e) {
     next(e);
   }
