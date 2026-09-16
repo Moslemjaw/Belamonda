@@ -134,8 +134,8 @@ export const bookingRequestsStore = {
     if (filter?.isStandalone !== undefined) query.isStandalone = filter.isStandalone;
     if (filter?.bookingRoute) query.bookingRoute = filter.bookingRoute;
 
-    const docs = await BookingRequestModel.find(query).sort({ createdAt: -1 });
-    return docs.map(mapDoc);
+    const docs = await BookingRequestModel.find(query).sort({ createdAt: -1 }).lean();
+    return (docs as any[]).map(mapDoc);
   },
 
   async update(id: string, patch: Partial<BookingRequestRecord>): Promise<BookingRequestRecord | null> {

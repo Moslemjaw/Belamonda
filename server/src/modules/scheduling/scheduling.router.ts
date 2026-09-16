@@ -1175,48 +1175,49 @@ schedulingRouter.get("/cs/requests", authRequired, requireRole(["cs", "legal", "
   }
   const items = await bookingRequestsStore.list(filter);
 
-  // Enrich with customer names
-  const uniqueUserIds = [...new Set(items.map((i) => i.userId))];
-  const users = uniqueUserIds.length > 0
-    ? (await UserModel.find({ _id: { $in: uniqueUserIds } }).select("_id fullName phone").lean()) as Array<{ _id: { toString(): string }; fullName?: string; phone?: string }>
-    : [];
-  const userMap = new Map(users.map((u) => [u._id.toString(), { fullName: u.fullName, phone: u.phone }]));
-
-  // Enrich with offer names and financials
+  // Enrich with users, offers, userOffers, and clinics in a single parallel batch
+  const uniqueUserIds = [...new Set(items.map((i) => i.userId))].filter(Boolean);
   const uniqueOfferIds = [...new Set(items.map((it) => it.offerId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
-  const offerDocs = uniqueOfferIds.length > 0
-    ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).lean<OfferDoc[]>()
-    : [];
-  const offerMap = new Map(offerDocs.map((o) => [String(o._id), mapOfferDocToSched(o)]));
+  const uniqueUserOfferIds = [...new Set(items.map((it) => it.userOfferId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
+  const uniqueClinicIds = [...new Set(items.map((it) => it.clinicId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
 
-  let userOfferMap = new Map<string, any>();
-  try {
-    const uniqueUserOfferIds = [...new Set(items.map((it) => it.userOfferId).filter((id): id is string => !!id && mongoose.isValidObjectId(id)))];
-    if (uniqueUserOfferIds.length > 0) {
-      const userOfferDocs = await UserOfferModel.find({ _id: { $in: uniqueUserOfferIds } }).lean();
-      userOfferMap = new Map(userOfferDocs.map((uo) => [String(uo._id), uo]));
-    }
-  } catch (_e) { /* non-fatal */ }
+  const [users, offerDocs, userOfferDocs, clinicDocs] = await Promise.all([
+    uniqueUserIds.length > 0
+      ? UserModel.find({ _id: { $in: uniqueUserIds } }).select("_id fullName phone").lean()
+      : Promise.resolve([]),
+    uniqueOfferIds.length > 0
+      ? OfferModel.find({ _id: { $in: uniqueOfferIds } }).lean<OfferDoc[]>()
+      : Promise.resolve([]),
+    uniqueUserOfferIds.length > 0
+      ? UserOfferModel.find({ _id: { $in: uniqueUserOfferIds } }).lean()
+      : Promise.resolve([]),
+    uniqueClinicIds.length > 0
+      ? ClinicModel.find({ _id: { $in: uniqueClinicIds } }).select("nameEn nameAr").lean()
+      : Promise.resolve([])
+  ]);
 
-  const enriched = await Promise.all(
-    items.map(async (it) => {
-      const c = await getClinicNames(it.clinicId);
-      const offer = it.offerId && mongoose.isValidObjectId(it.offerId)
-        ? (offerMap.get(it.offerId) ?? null)
-        : null;
-      const financials = computeBookingRequestFinancials(it, offer);
-      return {
-        ...it,
-        customerName: userMap.get(it.userId)?.fullName ?? null,
-        customerPhone: userMap.get(it.userId)?.phone ?? null,
-        clinicNameEn: c.nameEn,
-        clinicNameAr: c.nameAr,
-        offerName: it.standaloneName ?? offer?.name ?? null,
-        userOffer: it.userOfferId && mongoose.isValidObjectId(it.userOfferId) ? userOfferMap.get(it.userOfferId) ?? null : null,
-        ...financials,
-      };
-    })
-  );
+  const userMap = new Map((users as any[]).map((u) => [u._id.toString(), { fullName: u.fullName, phone: u.phone }]));
+  const offerMap = new Map((offerDocs as any[]).map((o) => [String(o._id), mapOfferDocToSched(o)]));
+  const userOfferMap = new Map((userOfferDocs as any[]).map((uo) => [String(uo._id), uo]));
+  const clinicMap = new Map((clinicDocs as any[]).map((c) => [c._id.toString(), c]));
+
+  const enriched = items.map((it) => {
+    const c = clinicMap.get(it.clinicId) || {};
+    const offer = it.offerId && mongoose.isValidObjectId(it.offerId)
+      ? (offerMap.get(it.offerId) ?? null)
+      : null;
+    const financials = computeBookingRequestFinancials(it, offer);
+    return {
+      ...it,
+      customerName: userMap.get(it.userId)?.fullName ?? null,
+      customerPhone: userMap.get(it.userId)?.phone ?? null,
+      clinicNameEn: (c as any).nameEn,
+      clinicNameAr: (c as any).nameAr,
+      offerName: it.standaloneName ?? offer?.name ?? null,
+      userOffer: it.userOfferId && mongoose.isValidObjectId(it.userOfferId) ? userOfferMap.get(it.userOfferId) ?? null : null,
+      ...financials,
+    };
+  });
   return res.json({ items: enriched });
   } catch (err: any) {
     console.error("[/cs/requests] Error:", err);
@@ -2199,23 +2200,29 @@ schedulingRouter.get("/clinic/:clinicId/today-expected-scans", authRequired, req
     const clinicObjId = mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : null;
     const clinicMatch = clinicObjId ? { $in: [clinicId, clinicObjId] } : clinicId;
 
-    // 1. Fetch sessions for today
-    // 1. Fetch sessions for today (only confirmed/scheduled sessions, exclude slot_assigned)
-    const sessions = await BookingSessionModel.find({
-      clinicId: clinicMatch,
-      status: { $nin: ["slot_assigned", "request_received", "cancelled", "rejected"] },
-      scheduledAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc }
-    }).sort({ scheduledAt: 1 }).lean();
+    // Round 1: Fetch sessions, requests, and today's scans concurrently in parallel
+    const [sessions, requests, todayScans] = await Promise.all([
+      BookingSessionModel.find({
+        clinicId: clinicMatch,
+        status: { $nin: ["slot_assigned", "request_received", "cancelled", "rejected"] },
+        scheduledAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc }
+      }).select("_id userId offerId standaloneName scheduledAt status").sort({ scheduledAt: 1 }).lean(),
 
-    // 2. Fetch booking requests for today (only confirmed/scheduled requests, strictly exclude slot_assigned)
-    const requests = await BookingRequestModel.find({
-      clinicId: clinicMatch,
-      status: { $in: ["scheduled", "completed", "checked_in", "in_progress"] },
-      $or: [
-        { clinicScheduledAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc } },
-        { proposedAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc } }
-      ]
-    }).sort({ clinicScheduledAt: 1, proposedAt: 1 }).lean();
+      BookingRequestModel.find({
+        clinicId: clinicMatch,
+        status: { $in: ["scheduled", "completed", "checked_in", "in_progress"] },
+        $or: [
+          { clinicScheduledAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc } },
+          { proposedAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc } }
+        ]
+      }).select("_id userId offerId standaloneName scheduledSessionId clinicScheduledAt proposedAt adminSuggestedAt status").sort({ clinicScheduledAt: 1, proposedAt: 1 }).lean(),
+
+      ScanLogModel.find({
+        clinicId: clinicMatch,
+        scannedAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc },
+        status: "attended"
+      }).select("userId scannedAt status").sort({ scannedAt: -1 }).lean()
+    ]);
 
     // Filter requests not already linked to an existing session
     const sessionIdsSet = new Set(sessions.map((s: any) => s._id.toString()));
@@ -2227,22 +2234,29 @@ schedulingRouter.get("/clinic/:clinicId/today-expected-scans", authRequired, req
     ].filter(Boolean);
     const uniqueUserIds = [...new Set(allUserIds.map(id => id.toString()))];
 
-    const users = uniqueUserIds.length > 0
-      ? await UserModel.find({
-          $or: [
-            { _id: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
-            { _id: { $in: uniqueUserIds } }
-          ]
-        }).select("_id fullName phone publicToken shortId").lean()
-      : [];
-    const userMap = new Map((users as any[]).map(u => [u._id.toString(), u]));
+    const allOfferIds = [
+      ...sessions.map((s: any) => s.offerId?.toString()),
+      ...standaloneRequests.map((r: any) => r.offerId?.toString())
+    ].filter(Boolean);
+    const uniqueOfferIds = [...new Set(allOfferIds)];
 
-    // Fetch scan logs for today at this clinic — only scans that had a scheduled session
-    const todayScans = await ScanLogModel.find({
-      clinicId: clinicMatch,
-      scannedAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc },
-      status: "attended"
-    }).sort({ scannedAt: -1 }).lean();
+    // Round 2: Fetch users and offers concurrently in parallel
+    const [users, offerDocs] = await Promise.all([
+      uniqueUserIds.length > 0
+        ? UserModel.find({
+            $or: [
+              { _id: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+              { _id: { $in: uniqueUserIds } }
+            ]
+          }).select("_id fullName phone publicToken shortId").lean()
+        : Promise.resolve([]),
+      uniqueOfferIds.length > 0
+        ? OfferModel.find({ _id: { $in: uniqueOfferIds.filter(id => mongoose.isValidObjectId(id)) } }).select("_id name titleAr titleEn").lean()
+        : Promise.resolve([])
+    ]);
+
+    const userMap = new Map((users as any[]).map(u => [u._id.toString(), u]));
+    const offerMap = new Map((offerDocs as any[]).map(o => [o._id.toString(), (o as any).titleAr || (o as any).titleEn || (o as any).name]));
 
     const scanMap = new Map<string, any>();
     for (const sc of todayScans) {
@@ -2250,17 +2264,6 @@ schedulingRouter.get("/clinic/:clinicId/today-expected-scans", authRequired, req
         scanMap.set((sc as any).userId.toString(), sc);
       }
     }
-
-    // Offers lookup
-    const allOfferIds = [
-      ...sessions.map((s: any) => s.offerId?.toString()),
-      ...standaloneRequests.map((r: any) => r.offerId?.toString())
-    ].filter(Boolean);
-    const uniqueOfferIds = [...new Set(allOfferIds)];
-    const offerDocs = uniqueOfferIds.length > 0
-      ? await OfferModel.find({ _id: { $in: uniqueOfferIds.filter(id => mongoose.isValidObjectId(id)) } }).select("_id name titleAr titleEn").lean()
-      : [];
-    const offerMap = new Map((offerDocs as any[]).map(o => [o._id.toString(), (o as any).titleAr || (o as any).titleEn || (o as any).name]));
 
     const items: any[] = [];
 
@@ -2306,7 +2309,7 @@ schedulingRouter.get("/clinic/:clinicId/today-expected-scans", authRequired, req
       const schedAt = r.clinicScheduledAt || r.proposedAt || r.adminSuggestedAt;
 
       let attendanceStatus = "awaiting";
-      if (r.status === "completed" || scan) {
+      if (r.status === "completed" || (scan && (scan as any).status === "attended")) {
         attendanceStatus = "attended";
       } else if (r.status === "checked_in" || r.status === "in_progress") {
         attendanceStatus = "checked_in";
@@ -3388,44 +3391,52 @@ schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin", "cs_
 
   const items = await bookingRequestsStore.list({ status, clinicId });
   
-  // Batch-fetch all unique user IDs for name and phone lookup
+  // Batch-fetch all unique user IDs and clinic IDs in parallel
   const uniqueUserIds = [...new Set(items.map(it => it.userId))].filter(id => Boolean(id));
-  const userDocs = uniqueUserIds.length
-    ? await UserModel.find({
-        $or: [
-          { _id: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
-          { _id: { $in: uniqueUserIds } }
-        ]
-      }).select("fullName phone username shortId").lean()
-    : [];
+  const uniqueClinicIds = [...new Set(items.map(it => it.clinicId))].filter(id => Boolean(id) && mongoose.isValidObjectId(id));
+
+  const [userDocs, clinicDocs] = await Promise.all([
+    uniqueUserIds.length
+      ? UserModel.find({
+          $or: [
+            { _id: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+            { _id: { $in: uniqueUserIds } }
+          ]
+        }).select("fullName phone username shortId").lean()
+      : Promise.resolve([]),
+    uniqueClinicIds.length
+      ? ClinicModel.find({ _id: { $in: uniqueClinicIds } }).select("nameEn nameAr").lean()
+      : Promise.resolve([])
+  ]);
+
   const usersMap = new Map<string, { fullName?: string; phone?: string; username?: string; shortId?: string }>();
-  for (const u of userDocs) {
-    const uid = (u as any)._id.toString();
+  for (const u of userDocs as any[]) {
+    const uid = u._id.toString();
     usersMap.set(uid, {
-      fullName: (u as any).fullName,
-      phone: (u as any).phone,
-      username: (u as any).username,
-      shortId: (u as any).shortId
+      fullName: u.fullName,
+      phone: u.phone,
+      username: u.username,
+      shortId: u.shortId
     });
   }
-  
-  const enriched = await Promise.all(
-    items.map(async (it) => {
-      const c = await getClinicNames(it.clinicId);
-      const uInfo = usersMap.get(it.userId);
-      return { 
-        ...it, 
-        clinicNameEn: c.nameEn, 
-        clinicNameAr: c.nameAr,
-        userName: uInfo?.fullName || uInfo?.username || it.userId,
-        userPhone: uInfo?.phone || "",
-        userShortId: uInfo?.shortId || "",
-        adminSuggestedAt: it.adminSuggestedAt || it.proposedAt || null,
-        clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? it.proposedAt : null),
-        shownAt: it.shownAt || null
-      };
-    })
-  );
+
+  const clinicMap = new Map((clinicDocs as any[]).map(c => [c._id.toString(), c]));
+
+  const enriched = items.map((it) => {
+    const c = clinicMap.get(it.clinicId) || {};
+    const uInfo = usersMap.get(it.userId);
+    return { 
+      ...it, 
+      clinicNameEn: (c as any).nameEn, 
+      clinicNameAr: (c as any).nameAr,
+      userName: uInfo?.fullName || uInfo?.username || it.userId,
+      userPhone: uInfo?.phone || "",
+      userShortId: uInfo?.shortId || "",
+      adminSuggestedAt: it.adminSuggestedAt || it.proposedAt || null,
+      clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? it.proposedAt : null),
+      shownAt: it.shownAt || null
+    };
+  });
   return res.json({ items: enriched });
 });
 

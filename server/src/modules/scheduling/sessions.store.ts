@@ -60,8 +60,8 @@ export const sessionsStore = {
     const docs = await BookingSessionModel.find({
       clinicId,
       scheduledAt: { $gte: new Date(fromIso), $lte: new Date(toIso) }
-    }).sort({ scheduledAt: 1 });
-    return docs.map(mapDoc);
+    }).sort({ scheduledAt: 1 }).lean();
+    return (docs as any[]).map(mapDoc);
   },
 
   async listMissedByClinic(clinicId: string): Promise<SessionRecord[]> {
