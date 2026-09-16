@@ -2941,10 +2941,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
         : Promise.resolve([]),
       uniqueUserIds.length > 0
         ? ScanLogModel.find({
-            $or: [
-              { userId: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
-              { userId: { $in: uniqueUserIds } }
-            ]
+            userId: { $in: uniqueUserIds.map(String) }
           }).select("userId").lean()
         : Promise.resolve([]),
       validMarkedByIds.length > 0

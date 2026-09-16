@@ -82,7 +82,12 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
       ];
     }
 
-    const rows = await UserModel.find(filter).sort({ createdAt: -1 }).limit(500).lean<UserLean[]>();
+    const limitNum = req.query.limit ? Math.min(Math.max(1, Number(req.query.limit)), 500) : 200;
+    const rows = await UserModel.find(filter)
+      .select("_id username fullName email phone role clinicId isActive isConfirmationCallDone civilIdNumberMasked createdAt updatedAt referredBy shortId")
+      .sort({ createdAt: -1 })
+      .limit(limitNum)
+      .lean<UserLean[]>();
 
     const referrerIds = [...new Set(
       rows.filter((u) => u.referredBy).map((u) => String(u.referredBy))

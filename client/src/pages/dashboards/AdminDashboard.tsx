@@ -3963,7 +3963,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
       referredByUsername?: string | null;
     }
     interface AdminUsersResponse { items: AdminUserItem[]; }
-    let url = "/users/admin?";
+    let url = "/users/admin?limit=100&";
     if (from) url += `from=${from}&`;
     if (to) url += `to=${to}&`;
     if (search) url += `q=${encodeURIComponent(search.trim())}&`;
