@@ -69,7 +69,6 @@ BookingRequestSchema.index({ clinicId: 1, status: 1, createdAt: -1 });
 BookingRequestSchema.index({ userOfferId: 1, status: 1 });
 BookingRequestSchema.index({ createdAt: -1 });
 BookingRequestSchema.index({ status: 1, createdAt: -1 });
-BookingRequestSchema.index({ scheduledSessionId: 1 });
 
 export const BookingRequestModel =
   mongoose.models.BookingRequest ?? mongoose.model("BookingRequest", BookingRequestSchema);

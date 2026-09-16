@@ -42,6 +42,30 @@ export type BookingRequestRecord = {
 
 import { BookingRequestModel } from "../../models/bookingRequest.model.js";
 
+function toIso(val: any): string | undefined {
+  if (!val) return undefined;
+  if (val instanceof Date) {
+    return isNaN(val.getTime()) ? undefined : val.toISOString();
+  }
+  if (typeof val === "string") {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? val : d.toISOString();
+  }
+  if (typeof val?.toISOString === "function") {
+    try {
+      return val.toISOString();
+    } catch {
+      return String(val);
+    }
+  }
+  try {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? undefined : d.toISOString();
+  } catch {
+    return undefined;
+  }
+}
+
 function mapDoc(doc: any): BookingRequestRecord {
   return {
     id: String(doc._id),
@@ -53,15 +77,15 @@ function mapDoc(doc: any): BookingRequestRecord {
     isStandalone: doc.isStandalone,
     bookingRoute: doc.bookingRoute,
     standaloneName: doc.standaloneName,
-    preferredAt: doc.preferredAt ? doc.preferredAt.toISOString() : undefined,
-    proposedAt: doc.proposedAt ? doc.proposedAt.toISOString() : undefined,
+    preferredAt: toIso(doc.preferredAt),
+    proposedAt: toIso(doc.proposedAt),
     proposedBy: doc.proposedBy,
-    adminSuggestedAt: doc.adminSuggestedAt ? doc.adminSuggestedAt.toISOString() : undefined,
-    clinicScheduledAt: doc.clinicScheduledAt ? doc.clinicScheduledAt.toISOString() : undefined,
-    acceptedAt: doc.acceptedAt ? doc.acceptedAt.toISOString() : undefined,
-    confirmedAt: doc.confirmedAt ? doc.confirmedAt.toISOString() : undefined,
+    adminSuggestedAt: toIso(doc.adminSuggestedAt),
+    clinicScheduledAt: toIso(doc.clinicScheduledAt),
+    acceptedAt: toIso(doc.acceptedAt),
+    confirmedAt: toIso(doc.confirmedAt),
     confirmedBy: doc.confirmedBy,
-    rejectedAt: doc.rejectedAt ? doc.rejectedAt.toISOString() : undefined,
+    rejectedAt: toIso(doc.rejectedAt),
     rejectedBy: doc.rejectedBy,
     rejectionReason: doc.rejectionReason,
     scheduledSessionId: doc.scheduledSessionId,
@@ -71,16 +95,16 @@ function mapDoc(doc: any): BookingRequestRecord {
     membershipType: doc.membershipType,
     hadCashback: doc.hadCashback,
     clinicPaymentStatus: doc.clinicPaymentStatus,
-    clinicPaymentMarkedAt: doc.clinicPaymentMarkedAt ? doc.clinicPaymentMarkedAt.toISOString() : undefined,
+    clinicPaymentMarkedAt: toIso(doc.clinicPaymentMarkedAt),
     clinicPaymentMarkedBy: doc.clinicPaymentMarkedBy,
     notes: doc.notes,
     conversationId: doc.conversationId,
     extraItems: doc.extraItems,
     totalBillKwd: doc.totalBillKwd,
     finalPaidKwd: doc.finalPaidKwd,
-    shownAt: doc.shownAt ? doc.shownAt.toISOString() : undefined,
-    createdAt: doc.createdAt.toISOString(),
-    updatedAt: doc.updatedAt.toISOString(),
+    shownAt: toIso(doc.shownAt),
+    createdAt: toIso(doc.createdAt) || new Date().toISOString(),
+    updatedAt: toIso(doc.updatedAt) || new Date().toISOString(),
   };
 }
 
