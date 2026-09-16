@@ -2870,88 +2870,104 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
       }
     }
 
-    let sessionDocs: any[] = [];
     const isSessionStatus = !status || status === "all" || ["scheduled", "completed", "no_show", "cancelled"].includes(status as string);
-    if (isSessionStatus) {
-      sessionDocs = await BookingSessionModel.find(sessionQuery).sort({ scheduledAt: -1 }).limit(2000).lean();
-    }
-
-    let requestDocs: any[] = [];
     const isRequestStatus = !status || status === "all" || ["request_received", "slot_assigned", "scheduled", "cancelled", "no_show", "checked_in", "completed"].includes(status as string);
-    if (isRequestStatus) {
-      const rawRequestDocs = await BookingRequestModel.find(requestQuery).sort({ createdAt: -1 }).limit(2000).lean();
-      requestDocs = rawRequestDocs.filter((r: any) => !r.scheduledSessionId);
-    }
+
+    const [sessionDocs, rawRequestDocs] = await Promise.all([
+      isSessionStatus
+        ? BookingSessionModel.find(sessionQuery)
+            .select("userId clinicId scheduledAt status offerId sessionPriceKwd clinicPaymentStatus bookingRequestId notes markedBy createdAt")
+            .sort({ scheduledAt: -1 })
+            .limit(1000)
+            .lean()
+        : Promise.resolve([]),
+      isRequestStatus
+        ? BookingRequestModel.find(requestQuery)
+            .select("userId clinicId status offerId sessionPriceKwd clinicPaymentStatus scheduledSessionId notes createdAt preferredAt proposedAt bookingRoute isStandalone standaloneName")
+            .sort({ createdAt: -1 })
+            .limit(1000)
+            .lean()
+        : Promise.resolve([])
+    ]);
+
+    const requestDocs = rawRequestDocs.filter((r: any) => !r.scheduledSessionId);
 
     const userIds = [
       ...sessionDocs.map((i: any) => i.userId),
       ...requestDocs.map((i: any) => i.userId)
     ];
     const uniqueUserIds = [...new Set(userIds.filter(Boolean))];
-    const users = uniqueUserIds.length > 0
-      ? await UserModel.find({
-          $or: [
-            { _id: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
-            { _id: { $in: uniqueUserIds } }
-          ]
-        }).select("_id fullName phone").lean()
-      : [];
-    const userMap = new Map(users.map((u: any) => [u._id.toString(), { fullName: u.fullName, phone: u.phone }]));
 
     const offerIds = [
       ...sessionDocs.map((i: any) => i.offerId),
       ...requestDocs.map((i: any) => i.offerId)
     ];
     const uniqueOfferIds = [...new Set(offerIds.filter(id => !!id && mongoose.isValidObjectId(id)))];
-    const offerDocs = uniqueOfferIds.length > 0 ? await OfferModel.find({ _id: { $in: uniqueOfferIds } }).lean() : [];
-    const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o.titleAr || o.titleEn || o.title || o.name]));
-    
-    // Fetch associated requests for sessions to get payment status
-    const sessionIds = sessionDocs.map(s => s._id.toString());
+
+    const sessionIds = sessionDocs.map((s: any) => s._id.toString());
     const reqIdsFromSessions = sessionDocs.map(s => (s as any).bookingRequestId).filter(Boolean);
-    const requestsForSessions = (sessionIds.length > 0 || reqIdsFromSessions.length > 0)
-      ? await BookingRequestModel.find({
-          $or: [
-            { scheduledSessionId: { $in: sessionIds } },
-            { _id: { $in: reqIdsFromSessions } }
-          ]
-        }).lean()
-      : [];
+    const reqSessionIds = requestDocs.map(r => r.scheduledSessionId).filter(Boolean);
+
+    const markedByIds = [...new Set(sessionDocs.map((s: any) => s.markedBy).filter(Boolean))];
+    const validMarkedByIds = markedByIds.filter(id => mongoose.isValidObjectId(id));
+
+    // Parallelize all secondary lookups concurrently
+    const [users, offerDocs, requestsForSessions, sessionsForRequests, userScans, markedByUsers] = await Promise.all([
+      uniqueUserIds.length > 0
+        ? UserModel.find({
+            $or: [
+              { _id: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+              { _id: { $in: uniqueUserIds } }
+            ]
+          }).select("_id fullName phone").lean()
+        : Promise.resolve([]),
+      uniqueOfferIds.length > 0
+        ? OfferModel.find({ _id: { $in: uniqueOfferIds } }).select("_id titleAr titleEn title name").lean()
+        : Promise.resolve([]),
+      (sessionIds.length > 0 || reqIdsFromSessions.length > 0)
+        ? BookingRequestModel.find({
+            $or: [
+              { scheduledSessionId: { $in: sessionIds } },
+              { _id: { $in: reqIdsFromSessions } }
+            ]
+          }).select("_id scheduledSessionId clinicPaymentStatus sessionPriceKwd").lean()
+        : Promise.resolve([]),
+      reqSessionIds.length > 0
+        ? BookingSessionModel.find({ _id: { $in: reqSessionIds } }).select("_id status clinicPaymentStatus").lean()
+        : Promise.resolve([]),
+      uniqueUserIds.length > 0
+        ? ScanLogModel.find({
+            $or: [
+              { userId: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
+              { userId: { $in: uniqueUserIds } }
+            ]
+          }).select("userId").lean()
+        : Promise.resolve([]),
+      validMarkedByIds.length > 0
+        ? UserModel.find({
+            _id: { $in: validMarkedByIds.map(id => new mongoose.Types.ObjectId(id)) }
+          }).select("_id fullName role").lean()
+        : Promise.resolve([])
+    ]);
+
+    const userMap = new Map(users.map((u: any) => [u._id.toString(), { fullName: u.fullName, phone: u.phone }]));
+    const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), (o as any).titleAr || (o as any).titleEn || (o as any).title || (o as any).name]));
+
     const requestsBySessionMap = new Map<string, any>();
     for (const r of requestsForSessions) {
       if ((r as any).scheduledSessionId) requestsBySessionMap.set(String((r as any).scheduledSessionId), r);
       if ((r as any)._id) requestsBySessionMap.set(String((r as any)._id), r);
     }
 
-    // Fetch associated sessions for requests to get session status
-    const reqSessionIds = requestDocs.map(r => r.scheduledSessionId).filter(Boolean);
-    const sessionsForRequests = reqSessionIds.length > 0 ? await BookingSessionModel.find({ _id: { $in: reqSessionIds } }).lean() : [];
     const sessionsByReqMap = new Map(sessionsForRequests.map((s: any) => [s._id.toString(), s]));
 
-    // Fetch scan history count for users
-    const userScans = uniqueUserIds.length > 0
-      ? await ScanLogModel.find({
-          $or: [
-            { userId: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
-            { userId: { $in: uniqueUserIds } }
-          ]
-        }).select("userId").lean()
-      : [];
     const scanCountMap = new Map<string, number>();
     for (const sc of userScans) {
       const uid = (sc as any).userId?.toString();
       if (uid) scanCountMap.set(uid, (scanCountMap.get(uid) || 0) + 1);
     }
 
-    // Fetch markedBy user names for sessions
-    const markedByIds = [...new Set(sessionDocs.map((s: any) => s.markedBy).filter(Boolean))];
-    const validMarkedByIds = markedByIds.filter(id => mongoose.isValidObjectId(id));
-    const markedByUsers = validMarkedByIds.length > 0
-      ? await UserModel.find({
-          _id: { $in: validMarkedByIds.map(id => new mongoose.Types.ObjectId(id)) }
-        }).select("_id fullName role").lean()
-      : [];
-    const markedByMap = new Map(markedByUsers.map((u: any) => [u._id.toString(), u.fullName || (u.role === 'admin' ? 'Admin' : u.role)]));
+    const markedByMap = new Map(markedByUsers.map((u: any) => [u._id.toString(), (u as any).fullName || ((u as any).role === 'admin' ? 'Admin' : (u as any).role)]));
 
     const enrichedSessions = sessionDocs.map((doc: any) => {
       const req = requestsBySessionMap.get(doc._id.toString()) || (doc.bookingRequestId ? requestsBySessionMap.get(doc.bookingRequestId.toString()) : null);

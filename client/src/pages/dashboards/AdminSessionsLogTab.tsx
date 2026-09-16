@@ -29,19 +29,34 @@ const SESSION_STATUS_STYLE: Record<string, string> = {
   pending: "bg-amber-50 text-amber-700",
 };
 
+function getThisMonthRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+  const lastDayStr = String(lastDay).padStart(2, "0");
+  return {
+    start: `${year}-${month}-01`,
+    end: `${year}-${month}-${lastDayStr}`
+  };
+}
+
 export default function AdminSessionsLogTab() {
   const { getAuthHeader } = useAuth();
   const { data: clinicsData } = useApi<{ items: any[] }>("/clinics/admin");
   const apiClinics = clinicsData?.items || [];
 
+  const defaultMonth = useMemo(() => getThisMonthRange(), []);
   const [sessions, setSessions] = useState<any[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
+  const [fromDate, setFromDate] = useState(defaultMonth.start);
+  const [toDate, setToDate] = useState(defaultMonth.end);
   const [status, setStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClinic, setFilterClinic] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
 
   const [changeClinicTarget, setChangeClinicTarget] = useState<any>(null);
   const [newClinicSelection, setNewClinicSelection] = useState("");
@@ -119,6 +134,16 @@ export default function AdminSessionsLogTab() {
       return name.includes(q) || phone.includes(q) || offer.includes(q);
     });
   }, [sessions, filterClinic, searchQuery, status]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterClinic, status, fromDate, toDate, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSessions.length / pageSize));
+  const paginatedSessions = useMemo(() => {
+    const startIdx = (currentPage - 1) * pageSize;
+    return filteredSessions.slice(startIdx, startIdx + pageSize);
+  }, [filteredSessions, currentPage, pageSize]);
 
   const analytics = useMemo(() => {
     let completed = 0;
@@ -368,6 +393,48 @@ export default function AdminSessionsLogTab() {
               className="input-field w-full font-medium text-surface-700" 
             />
           </div>
+          <div className="flex items-center gap-1 bg-surface-100 p-1 rounded-xl shrink-0 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => {
+                const r = getThisMonthRange();
+                setFromDate(r.start);
+                setToDate(r.end);
+              }}
+              className={`px-2.5 py-1.5 rounded-lg transition-colors ${
+                fromDate === defaultMonth.start && toDate === defaultMonth.end
+                  ? "bg-white text-brand-pink-600 shadow-xs font-bold"
+                  : "text-surface-600 hover:text-surface-900"
+              }`}
+            >
+              {ar() ? "هذا الشهر" : "This Month"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const today = new Date().toISOString().split("T")[0];
+                setFromDate(today);
+                setToDate(today);
+              }}
+              className="px-2.5 py-1.5 rounded-lg text-surface-600 hover:text-surface-900 transition-colors"
+            >
+              {ar() ? "اليوم" : "Today"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setFromDate("");
+                setToDate("");
+              }}
+              className={`px-2.5 py-1.5 rounded-lg transition-colors ${
+                !fromDate && !toDate
+                  ? "bg-white text-brand-pink-600 shadow-xs font-bold"
+                  : "text-surface-600 hover:text-surface-900"
+              }`}
+            >
+              {ar() ? "الكل" : "All"}
+            </button>
+          </div>
         </div>
         <button onClick={() => fetchSessions(false)} disabled={refreshing} className="btn-secondary w-full sm:hidden flex justify-center items-center gap-2">
           <svg className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
@@ -397,7 +464,7 @@ export default function AdminSessionsLogTab() {
                   </td>
                 </tr>
               ) : (
-                filteredSessions.map((s) => {
+                paginatedSessions.map((s) => {
                   const clinic = apiClinics.find(c => String(c.id || c._id) === String(s.clinicId));
                   const clinicName = ar() ? clinic?.nameAr : clinic?.nameEn;
 
@@ -892,6 +959,56 @@ export default function AdminSessionsLogTab() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Bar */}
+        {filteredSessions.length > 0 && (
+          <div className="border-t border-surface-200 px-5 py-3.5 bg-surface-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-surface-600">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span>
+                {ar()
+                  ? `عرض ${(currentPage - 1) * pageSize + 1} إلى ${Math.min(currentPage * pageSize, filteredSessions.length)} من أصل ${filteredSessions.length} جلسة`
+                  : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(currentPage * pageSize, filteredSessions.length)} of ${filteredSessions.length} sessions`}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-surface-300">|</span>
+                <span>{ar() ? "لكل صفحة:" : "Per page:"}</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  className="bg-white border border-surface-200 rounded-lg px-2 py-1 text-xs font-semibold text-surface-700"
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                className="px-3 py-1.5 rounded-lg border border-surface-200 bg-white font-semibold text-surface-700 hover:bg-surface-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {ar() ? "السابق" : "Previous"}
+              </button>
+
+              <div className="px-3 py-1 font-bold text-surface-800 bg-white border border-surface-200 rounded-lg">
+                {ar() ? `صفحة ${currentPage} من ${totalPages}` : `Page ${currentPage} of ${totalPages}`}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage >= totalPages}
+                className="px-3 py-1.5 rounded-lg border border-surface-200 bg-white font-semibold text-surface-700 hover:bg-surface-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {ar() ? "التالي" : "Next"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {changeClinicTarget && (

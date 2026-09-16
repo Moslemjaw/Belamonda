@@ -45,6 +45,9 @@ const BookingSessionSchema = new Schema(
 
 BookingSessionSchema.index({ clinicId: 1, scheduledAt: 1, status: 1 });
 BookingSessionSchema.index({ userOfferId: 1, scheduledAt: 1 });
+BookingSessionSchema.index({ scheduledAt: -1 });
+BookingSessionSchema.index({ status: 1, scheduledAt: -1 });
+BookingSessionSchema.index({ clinicId: 1, scheduledAt: -1 });
 
 BookingSessionSchema.pre("save", async function (next) {
   if (this.isNew && !this.shortId) {
