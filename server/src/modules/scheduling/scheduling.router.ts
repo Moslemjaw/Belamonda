@@ -2237,10 +2237,11 @@ schedulingRouter.get("/clinic/:clinicId/today-expected-scans", authRequired, req
       : [];
     const userMap = new Map((users as any[]).map(u => [u._id.toString(), u]));
 
-    // Fetch scan logs for today at this clinic
+    // Fetch scan logs for today at this clinic — only scans that had a scheduled session
     const todayScans = await ScanLogModel.find({
       clinicId: clinicMatch,
-      scannedAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc }
+      scannedAt: { $gte: startOfTodayKuwaitUtc, $lte: endOfTodayKuwaitUtc },
+      status: "attended"
     }).sort({ scannedAt: -1 }).lean();
 
     const scanMap = new Map<string, any>();
@@ -2270,7 +2271,7 @@ schedulingRouter.get("/clinic/:clinicId/today-expected-scans", authRequired, req
       const offerName = s.offerId ? (offerMap.get(s.offerId.toString()) || "Session") : (s.standaloneName || "Session");
 
       let attendanceStatus = "awaiting";
-      if (s.status === "completed" || scan) {
+      if (s.status === "completed" || (scan && (scan as any).status === "attended")) {
         attendanceStatus = "attended";
       } else if (s.status === "checked_in" || s.status === "in_progress") {
         attendanceStatus = "checked_in";
