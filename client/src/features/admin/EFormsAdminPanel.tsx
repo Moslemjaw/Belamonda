@@ -271,7 +271,7 @@ export function EFormsAdminPanel() {
     return `/eforms/admin/submissions?${params.toString()}`;
   }, [filterFormId, searchQuery, subPage, subPageSize]);
 
-  const { data: subsData, refetch: refetchSubs } = useApi<{ items: SubmissionItem[]; total: number; totalPages: number }>(subsEndpoint, { deps: [subsEndpoint] });
+  const { data: subsData, loading: subsLoading, refetch: refetchSubs } = useApi<{ items: SubmissionItem[]; total: number; totalPages: number }>(subsEndpoint, { deps: [subsEndpoint] });
   const submissions = subsData?.items ?? [];
   const totalSubs = subsData?.total ?? 0;
 
@@ -763,22 +763,35 @@ export function EFormsAdminPanel() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedSubs.map((s) => (
-                  <tr key={s.id} className="border-t border-surface-100">
-                    <td className="p-3 font-medium">{s.formTitle} <span className="text-xs text-surface-400">v{s.formVersion}</span></td>
-                    <td className="p-3 text-xs text-surface-500 font-mono">{s.userName || s.userId}</td>
-                    <td className="p-3 text-xs text-surface-500">{s.createdAt ? fmtDateTime(s.createdAt) : "—"}</td>
-                    <td className="p-3">
-                      <div className="flex gap-1.5 flex-wrap">
-                        <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => setSelectedSubmission(s)}>{ar() ? "عرض" : "View"}</button>
-                        <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => downloadPdf(s)}>{ar() ? "تنزيل PDF" : "Download PDF"}</button>
-                        <button type="button" className="btn-secondary btn-sm text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => deleteSubmission(s)}>{ar() ? "حذف" : "Delete"}</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {totalSubs === 0 && (
-                  <tr><td colSpan={4} className="p-6 text-center text-surface-400">{ar() ? "لا توجد تعبئات" : "No submissions yet"}</td></tr>
+                {subsLoading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <tr key={`skel-${i}`} className="border-t border-surface-100 animate-pulse">
+                      <td className="p-3"><div className="h-4 bg-surface-200 rounded w-3/4"></div></td>
+                      <td className="p-3"><div className="h-4 bg-surface-200 rounded w-1/2"></div></td>
+                      <td className="p-3"><div className="h-4 bg-surface-200 rounded w-2/3"></div></td>
+                      <td className="p-3"><div className="flex gap-1.5"><div className="h-6 bg-surface-200 rounded w-12"></div><div className="h-6 bg-surface-200 rounded w-24"></div><div className="h-6 bg-surface-200 rounded w-12"></div></div></td>
+                    </tr>
+                  ))
+                ) : (
+                  <>
+                    {paginatedSubs.map((s) => (
+                      <tr key={s.id} className="border-t border-surface-100">
+                        <td className="p-3 font-medium">{s.formTitle} <span className="text-xs text-surface-400">v{s.formVersion}</span></td>
+                        <td className="p-3 text-xs text-surface-500 font-mono">{s.userName || s.userId}</td>
+                        <td className="p-3 text-xs text-surface-500">{s.createdAt ? fmtDateTime(s.createdAt) : "—"}</td>
+                        <td className="p-3">
+                          <div className="flex gap-1.5 flex-wrap">
+                            <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => setSelectedSubmission(s)}>{ar() ? "عرض" : "View"}</button>
+                            <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => downloadPdf(s)}>{ar() ? "تنزيل PDF" : "Download PDF"}</button>
+                            <button type="button" className="btn-secondary btn-sm text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => deleteSubmission(s)}>{ar() ? "حذف" : "Delete"}</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {totalSubs === 0 && (
+                      <tr><td colSpan={4} className="p-6 text-center text-surface-400">{ar() ? "لا توجد تعبئات" : "No submissions yet"}</td></tr>
+                    )}
+                  </>
                 )}
               </tbody>
             </table>
