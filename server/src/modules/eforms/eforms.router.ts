@@ -422,11 +422,11 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
       ];
     }
 
-    // Run count + paginated query in parallel; exclude huge formSnapshot & answers fields
+    // Run count + paginated query in parallel; exclude huge formSnapshot, answers, signatureRef (base64 images), uploadedFileRefs
     const [total, rows] = await Promise.all([
       EFormSubmissionModel.countDocuments(filter),
       EFormSubmissionModel.find(filter)
-        .select("-formSnapshot -answers")
+        .select("-formSnapshot -answers -signatureRef -uploadedFileRefs")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -434,7 +434,8 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
     ]);
 
     const userIds = [...new Set(rows.map(r => r.userId).filter(Boolean))];
-    const users = await UserModel.find({ _id: { $in: userIds } }).select("username fullName phone email").lean();
+    const validObjectIds = userIds.filter(id => mongoose.isValidObjectId(id));
+    const users = await UserModel.find({ _id: { $in: validObjectIds } }).select("username fullName phone email").lean();
     const userMap = new Map(users.map(u => [String(u._id), u]));
 
     const items = rows.map((r) => {
@@ -450,6 +451,31 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
 
     const totalPages = Math.ceil(total / limit);
     return res.json({ items, total, page, limit, totalPages });
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ── Admin: get single submission details ──
+eformsRouter.get("/admin/submissions/:id", authRequired, requireRole(["admin", "legal", "cs_director", "finance"]), async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: "NOT_FOUND" });
+    const sub = await EFormSubmissionModel.findById(req.params.id).lean<EFormSubmissionDoc | null>();
+    if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
+
+    const user = mongoose.isValidObjectId(sub.userId)
+      ? await UserModel.findById(sub.userId).select("username fullName phone email").lean<any>()
+      : null;
+
+    const s = serializeSubmission(sub);
+    return res.json({
+      submission: {
+        ...s,
+        userName: user ? (user.fullName || user.username) : "—",
+        userPhone: user ? user.phone : "—",
+        userEmail: user ? user.email : "—",
+      }
+    });
   } catch (e) {
     next(e);
   }

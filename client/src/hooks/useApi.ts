@@ -125,6 +125,27 @@ export function useApi<T>(
     }
   }, [path, getAuthHeader, method, ...(options?.deps || [])]);
 
+  // When path changes, immediately reset state to match the new path's cache (or clear it)
+  const prevPathRef = useRef(path);
+  useEffect(() => {
+    if (prevPathRef.current !== path) {
+      prevPathRef.current = path;
+      if (!path || !isGet) {
+        setData(null);
+        setLoading(false);
+      } else {
+        const cached = getCached<T>(path);
+        if (cached !== undefined) {
+          setData(cached);
+          setLoading(false);
+        } else {
+          setData(null);
+          setLoading(true);
+        }
+      }
+    }
+  }, [path, isGet]);
+
   useEffect(() => {
     mountedRef.current = true;
     if (!options?.lazy) fetchData();

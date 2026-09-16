@@ -1,5 +1,5 @@
 import { fmtDateTime } from "../../lib/dateFormat";
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import i18n from "../../app/i18n";
 import { useAuth } from "../../app/AuthContext";
 import { useApi } from "../../hooks/useApi";
@@ -258,22 +258,48 @@ export function EFormsAdminPanel() {
   const [filterFormId, setFilterFormId] = useState<string>("");
   const [previewForm, setPreviewForm] = useState<FormItem | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null);
+  const [viewingSubLoading, setViewingSubLoading] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [subPage, setSubPage] = useState(1);
   const [subPageSize, setSubPageSize] = useState(100);
+  const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
+  const [totalSubs, setTotalSubs] = useState(0);
+  const [totalSubPages, setTotalSubPages] = useState(1);
+  const [subsLoading, setSubsLoading] = useState(false);
 
-  const subsEndpoint = useMemo(() => {
-    const params = new URLSearchParams();
-    if (filterFormId) params.set("formId", filterFormId);
-    if (searchQuery.trim()) params.set("q", searchQuery.trim());
-    params.set("page", String(subPage));
-    params.set("limit", String(subPageSize));
-    return `/eforms/admin/submissions?${params.toString()}`;
-  }, [filterFormId, searchQuery, subPage, subPageSize]);
+  // Debounce search input
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
 
-  const { data: subsData, loading: subsLoading, refetch: refetchSubs } = useApi<{ items: SubmissionItem[]; total: number; totalPages: number }>(subsEndpoint, { deps: [subsEndpoint] });
-  const submissions = subsData?.items ?? [];
-  const totalSubs = subsData?.total ?? 0;
+  const loadSubmissions = useCallback(async () => {
+    setSubsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filterFormId) params.set("formId", filterFormId);
+      if (searchQuery) params.set("q", searchQuery);
+      params.set("page", String(subPage));
+      params.set("limit", String(subPageSize));
+      const res: any = await apiFetch(`/eforms/admin/submissions?${params.toString()}`, { headers: getAuthHeader() });
+      setSubmissions(res?.items ?? []);
+      setTotalSubs(res?.total ?? 0);
+      setTotalSubPages(Math.max(1, res?.totalPages ?? 1));
+    } catch (err) {
+      console.error("[EFormsAdminPanel] Failed to load submissions:", err);
+    } finally {
+      setSubsLoading(false);
+    }
+  }, [filterFormId, searchQuery, subPage, subPageSize, getAuthHeader]);
+
+  useEffect(() => {
+    loadSubmissions();
+  }, [loadSubmissions]);
+
+  const refetchSubs = loadSubmissions;
 
   // Send form state
   const [sendFormModal, setSendFormModal] = useState<FormItem | null>(null);
@@ -284,16 +310,32 @@ export function EFormsAdminPanel() {
   const customers = usersData?.items ?? [];
 
   const offersById = useMemo(() => new Map(offers.map((o) => [o.id, o.name])), [offers]);
-  // Server handles filtering now
   const filteredSubs = submissions;
-
+  const paginatedSubs = submissions;
 
   useEffect(() => {
     setSubPage(1);
   }, [filterFormId, searchQuery, subPageSize]);
 
-  const totalSubPages = Math.max(1, subsData?.totalPages ?? 1);
-  const paginatedSubs = submissions;
+  const handleViewSubmission = async (s: SubmissionItem) => {
+    if (s.answers && s.answers.length > 0 && s.formSnapshot && s.formSnapshot.length > 0) {
+      setSelectedSubmission(s);
+      return;
+    }
+    setViewingSubLoading(true);
+    try {
+      const res: any = await apiFetch(`/eforms/admin/submissions/${s.id}`, { headers: getAuthHeader() });
+      if (res?.submission) {
+        setSelectedSubmission(res.submission);
+      } else {
+        setSelectedSubmission(s);
+      }
+    } catch {
+      setSelectedSubmission(s);
+    } finally {
+      setViewingSubLoading(false);
+    }
+  };
 
   const startCreate = () => {
     setEditingId(null);
@@ -746,8 +788,8 @@ export function EFormsAdminPanel() {
                 type="text"
                 className="input-field max-w-[200px]"
                 placeholder={ar() ? "اسم العميلة..." : "Customer name..."}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
               />
             </div>
             <button type="button" className="btn-secondary btn-sm text-xs ms-auto sm:ms-0" onClick={() => void refetchSubs()}>↻</button>
@@ -781,7 +823,14 @@ export function EFormsAdminPanel() {
                         <td className="p-3 text-xs text-surface-500">{s.createdAt ? fmtDateTime(s.createdAt) : "—"}</td>
                         <td className="p-3">
                           <div className="flex gap-1.5 flex-wrap">
-                            <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => setSelectedSubmission(s)}>{ar() ? "عرض" : "View"}</button>
+                            <button
+                              type="button"
+                              className="btn-secondary btn-sm text-xs flex items-center gap-1"
+                              onClick={() => void handleViewSubmission(s)}
+                              disabled={viewingSubLoading}
+                            >
+                              {ar() ? "عرض" : "View"}
+                            </button>
                             <button type="button" className="btn-secondary btn-sm text-xs" onClick={() => downloadPdf(s)}>{ar() ? "تنزيل PDF" : "Download PDF"}</button>
                             <button type="button" className="btn-secondary btn-sm text-xs text-red-600 border-red-200 hover:bg-red-50" onClick={() => deleteSubmission(s)}>{ar() ? "حذف" : "Delete"}</button>
                           </div>
