@@ -259,17 +259,21 @@ export function EFormsAdminPanel() {
   const [previewForm, setPreviewForm] = useState<FormItem | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionItem | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [subPage, setSubPage] = useState(1);
+  const [subPageSize, setSubPageSize] = useState(100);
 
   const subsEndpoint = useMemo(() => {
     const params = new URLSearchParams();
     if (filterFormId) params.set("formId", filterFormId);
     if (searchQuery.trim()) params.set("q", searchQuery.trim());
-    const qStr = params.toString();
-    return `/eforms/admin/submissions${qStr ? `?${qStr}` : ""}`;
-  }, [filterFormId, searchQuery]);
+    params.set("page", String(subPage));
+    params.set("limit", String(subPageSize));
+    return `/eforms/admin/submissions?${params.toString()}`;
+  }, [filterFormId, searchQuery, subPage, subPageSize]);
 
-  const { data: subsData, refetch: refetchSubs } = useApi<{ items: SubmissionItem[] }>(subsEndpoint, { deps: [subsEndpoint] });
+  const { data: subsData, refetch: refetchSubs } = useApi<{ items: SubmissionItem[]; total: number; totalPages: number }>(subsEndpoint, { deps: [subsEndpoint] });
   const submissions = subsData?.items ?? [];
+  const totalSubs = subsData?.total ?? 0;
 
   // Send form state
   const [sendFormModal, setSendFormModal] = useState<FormItem | null>(null);
@@ -280,29 +284,16 @@ export function EFormsAdminPanel() {
   const customers = usersData?.items ?? [];
 
   const offersById = useMemo(() => new Map(offers.map((o) => [o.id, o.name])), [offers]);
-  const filteredSubs = submissions.filter((s) => {
-    if (filterFormId && s.formId !== filterFormId) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      const customerName = (s.userName || s.userId || "").toLowerCase();
-      const phone = (s.userPhone || "").toLowerCase();
-      if (!customerName.includes(q) && !phone.includes(q)) return false;
-    }
-    return true;
-  });
+  // Server handles filtering now
+  const filteredSubs = submissions;
 
-  const [subPage, setSubPage] = useState(1);
-  const [subPageSize, setSubPageSize] = useState(20);
 
   useEffect(() => {
     setSubPage(1);
   }, [filterFormId, searchQuery, subPageSize]);
 
-  const totalSubPages = Math.max(1, Math.ceil(filteredSubs.length / subPageSize));
-  const paginatedSubs = useMemo(() => {
-    const start = (subPage - 1) * subPageSize;
-    return filteredSubs.slice(start, start + subPageSize);
-  }, [filteredSubs, subPage, subPageSize]);
+  const totalSubPages = Math.max(1, subsData?.totalPages ?? 1);
+  const paginatedSubs = submissions;
 
   const startCreate = () => {
     setEditingId(null);
@@ -786,20 +777,20 @@ export function EFormsAdminPanel() {
                     </td>
                   </tr>
                 ))}
-                {filteredSubs.length === 0 && (
+                {totalSubs === 0 && (
                   <tr><td colSpan={4} className="p-6 text-center text-surface-400">{ar() ? "لا توجد تعبئات" : "No submissions yet"}</td></tr>
                 )}
               </tbody>
             </table>
 
             {/* Pagination Bar */}
-            {filteredSubs.length > 0 && (
+            {totalSubs > 0 && (
               <div className="border-t border-surface-200 px-5 py-3.5 bg-surface-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-surface-600">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span>
                     {ar()
-                      ? `عرض ${(subPage - 1) * subPageSize + 1} إلى ${Math.min(subPage * subPageSize, filteredSubs.length)} من أصل ${filteredSubs.length} تعبئة`
-                      : `Showing ${(subPage - 1) * subPageSize + 1} to ${Math.min(subPage * subPageSize, filteredSubs.length)} of ${filteredSubs.length} submissions`}
+                      ? `عرض ${(subPage - 1) * subPageSize + 1} إلى ${Math.min(subPage * subPageSize, totalSubs)} من أصل ${totalSubs} تعبئة`
+                      : `Showing ${(subPage - 1) * subPageSize + 1} to ${Math.min(subPage * subPageSize, totalSubs)} of ${totalSubs} submissions`}
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-surface-300">|</span>

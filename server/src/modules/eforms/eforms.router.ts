@@ -386,6 +386,11 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
     const filter: Record<string, unknown> = {};
     const { formId, userId, from, to, q } = req.query;
 
+    // Pagination params
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 100));
+    const skip = (page - 1) * limit;
+
     if (typeof formId === "string" && formId.trim() && mongoose.isValidObjectId(formId.trim())) {
       filter.formId = new mongoose.Types.ObjectId(formId.trim());
     }
@@ -417,9 +422,16 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
       ];
     }
 
-    const rows = await EFormSubmissionModel.find(filter)
-      .sort({ createdAt: -1 })
-      .lean<EFormSubmissionDoc[]>();
+    // Run count + paginated query in parallel; exclude huge formSnapshot & answers fields
+    const [total, rows] = await Promise.all([
+      EFormSubmissionModel.countDocuments(filter),
+      EFormSubmissionModel.find(filter)
+        .select("-formSnapshot -answers")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean<EFormSubmissionDoc[]>(),
+    ]);
 
     const userIds = [...new Set(rows.map(r => r.userId).filter(Boolean))];
     const users = await UserModel.find({ _id: { $in: userIds } }).select("username fullName phone email").lean();
@@ -436,7 +448,8 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
       };
     });
 
-    return res.json({ items });
+    const totalPages = Math.ceil(total / limit);
+    return res.json({ items, total, page, limit, totalPages });
   } catch (e) {
     next(e);
   }
