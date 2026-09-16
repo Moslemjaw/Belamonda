@@ -265,6 +265,7 @@ export function EFormsAdminPanel() {
   const [subPageSize, setSubPageSize] = useState(100);
   const [submissions, setSubmissions] = useState<SubmissionItem[]>([]);
   const [totalSubs, setTotalSubs] = useState(0);
+  const [dbTotal, setDbTotal] = useState(0);
   const [totalSubPages, setTotalSubPages] = useState(1);
   const [subsLoading, setSubsLoading] = useState(false);
 
@@ -287,6 +288,7 @@ export function EFormsAdminPanel() {
       const res: any = await apiFetch(`/eforms/admin/submissions?${params.toString()}`, { headers: getAuthHeader() });
       setSubmissions(res?.items ?? []);
       setTotalSubs(res?.total ?? 0);
+      setDbTotal(res?.dbTotal ?? res?.total ?? 0);
       setTotalSubPages(Math.max(1, res?.totalPages ?? 1));
     } catch (err) {
       console.error("[EFormsAdminPanel] Failed to load submissions:", err);
@@ -562,10 +564,15 @@ export function EFormsAdminPanel() {
               </button>
               <button
                 type="button"
-                className={`px-3 py-1.5 ${view === "submissions" ? "bg-brand-pink-500 text-white" : "bg-white text-surface-600"}`}
+                className={`px-3 py-1.5 flex items-center gap-1.5 transition-all ${view === "submissions" ? "bg-brand-pink-500 text-white" : "bg-white text-surface-600 hover:bg-surface-50"}`}
                 onClick={() => { setView("submissions"); void refetchSubs(); }}
               >
-                {ar() ? "التعبئات" : "Submissions"}
+                <span>{ar() ? "التعبئات" : "Submissions"}</span>
+                {dbTotal > 0 && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${view === "submissions" ? "bg-white/25 text-white" : "bg-brand-pink-50 text-brand-pink-600 border border-brand-pink-200"}`}>
+                    {dbTotal.toLocaleString()}
+                  </span>
+                )}
               </button>
             </div>
           )}
@@ -772,28 +779,169 @@ export function EFormsAdminPanel() {
       )}
 
       {view === "submissions" && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-surface-500">{ar() ? "تصفية حسب النموذج" : "Filter by form"}:</span>
-              <select className="select-field max-w-xs" value={filterFormId} onChange={(e) => setFilterFormId(e.target.value)}>
-                <option value="">{ar() ? "كل النماذج" : "All forms"}</option>
-                {forms.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}
-              </select>
+        <div className="space-y-4">
+          {/* Submissions Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Total in DB */}
+            <div className="bg-white border border-surface-200/90 rounded-2xl p-4 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+              <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-fuchsia-500 to-pink-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-fuchsia-200">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-surface-400">{ar() ? "إجمالي التعبئات في القاعدة" : "Total Submissions in DB"}</div>
+                <div className="text-2xl font-black text-surface-900 mt-0.5">
+                  {dbTotal.toLocaleString()}
+                  <span className="text-xs font-normal text-surface-400 ms-1.5">{ar() ? "تعبئة مسجلة" : "submissions"}</span>
+                </div>
+              </div>
             </div>
-            <div className="hidden sm:block w-px h-6 bg-surface-200"></div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-surface-500">{ar() ? "بحث بالاسم" : "Search by name"}:</span>
-              <input
-                type="text"
-                className="input-field max-w-[200px]"
-                placeholder={ar() ? "اسم العميلة..." : "Customer name..."}
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-              />
+
+            {/* Filtered / Active Search Card */}
+            {(searchQuery || filterFormId) ? (
+              <div className="bg-gradient-to-br from-brand-pink-500/10 via-brand-pink-500/5 to-white border border-brand-pink-300 rounded-2xl p-4 shadow-sm flex items-center gap-3.5">
+                <div className="h-12 w-12 rounded-2xl bg-brand-pink-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-pink-200">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-brand-pink-600">{ar() ? "نتائج البحث والتصفية" : "Matching Results"}</div>
+                  <div className="text-2xl font-black text-brand-pink-900 mt-0.5">
+                    {totalSubs.toLocaleString()}
+                    <span className="text-xs font-normal text-brand-pink-600 ms-1.5">{ar() ? "مطابقة" : "found"}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white border border-surface-200/90 rounded-2xl p-4 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+                <div className="h-12 w-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-xs font-semibold uppercase tracking-wider text-surface-400">{ar() ? "حالة البيانات" : "Data Status"}</div>
+                  <div className="text-sm font-bold text-emerald-600 mt-0.5 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    {ar() ? "مزامنة لحظية مباشرة" : "Live & Real-time"}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Total Forms Available */}
+            <div className="bg-white border border-surface-200/90 rounded-2xl p-4 shadow-sm flex items-center gap-3.5 hover:shadow-md transition-shadow">
+              <div className="h-12 w-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-wider text-surface-400">{ar() ? "النماذج النشطة" : "Active Form Templates"}</div>
+                <div className="text-2xl font-black text-surface-900 mt-0.5">
+                  {forms.length}
+                  <span className="text-xs font-normal text-surface-400 ms-1.5">{ar() ? "قوالب" : "templates"}</span>
+                </div>
+              </div>
             </div>
-            <button type="button" className="btn-secondary btn-sm text-xs ms-auto sm:ms-0" onClick={() => void refetchSubs()}>↻</button>
           </div>
+
+          {/* Enhanced Filter Bar */}
+          <div className="bg-white p-4 rounded-2xl border border-surface-200 shadow-sm space-y-3">
+            <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+              {/* Search by Name, Phone, or Title */}
+              <div className="relative flex-1">
+                <div className="absolute inset-y-0 start-0 ps-3.5 flex items-center pointer-events-none text-surface-400">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  className="input-field ps-10 pe-9 py-2.5 text-xs w-full bg-surface-50 focus:bg-white transition-colors"
+                  placeholder={ar() ? "بحث بالاسم، رقم الهاتف، أو اسم النموذج..." : "Search by customer name, phone number, form title..."}
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                />
+                {searchInput && (
+                  <button
+                    type="button"
+                    onClick={() => { setSearchInput(""); setSearchQuery(""); }}
+                    className="absolute inset-y-0 end-0 pe-3 flex items-center text-surface-400 hover:text-surface-600 text-xs"
+                    title={ar() ? "مسح البحث" : "Clear search"}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Form Dropdown Filter */}
+              <div className="flex items-center gap-2">
+                <div className="relative min-w-[200px]">
+                  <select
+                    className="select-field py-2.5 text-xs w-full bg-surface-50 focus:bg-white transition-colors cursor-pointer font-medium"
+                    value={filterFormId}
+                    onChange={(e) => setFilterFormId(e.target.value)}
+                  >
+                    <option value="">{ar() ? "📄 كل النماذج" : "📄 All forms"}</option>
+                    {forms.map((f) => (
+                      <option key={f.id} value={f.id}>{f.title}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Reset filters button */}
+                {(filterFormId || searchInput) && (
+                  <button
+                    type="button"
+                    onClick={() => { setFilterFormId(""); setSearchInput(""); setSearchQuery(""); setSubPage(1); }}
+                    className="btn-secondary btn-sm text-xs px-3 py-2 text-surface-600 hover:text-red-600 hover:border-red-200 transition-colors shrink-0"
+                    title={ar() ? "إعادة ضبط التصفية" : "Reset filters"}
+                  >
+                    {ar() ? "إلغاء التصفية" : "Reset"}
+                  </button>
+                )}
+
+                {/* Refresh button */}
+                <button
+                  type="button"
+                  className={`btn-secondary btn-sm text-xs px-3 py-2 shrink-0 ${subsLoading ? "opacity-60 cursor-not-allowed" : ""}`}
+                  onClick={() => void refetchSubs()}
+                  disabled={subsLoading}
+                  title={ar() ? "تحديث" : "Refresh"}
+                >
+                  <svg className={`w-4 h-4 text-surface-600 ${subsLoading ? "animate-spin text-brand-pink-500" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Active search filter indicator tag */}
+            {(searchQuery || filterFormId) && (
+              <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-surface-100 text-xs">
+                <span className="text-surface-400 text-[11px] font-medium">{ar() ? "الفلاتر النشطة:" : "Active Filters:"}</span>
+                {searchQuery && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-pink-50 text-brand-pink-700 border border-brand-pink-200 text-[11px] font-medium">
+                    <span>{ar() ? "بحث:" : "Search:"} "{searchQuery}"</span>
+                    <button type="button" onClick={() => { setSearchInput(""); setSearchQuery(""); }} className="hover:text-brand-pink-900 font-bold leading-none">✕</button>
+                  </span>
+                )}
+                {filterFormId && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-fuchsia-50 text-fuchsia-700 border border-fuchsia-200 text-[11px] font-medium">
+                    <span>{forms.find(f => f.id === filterFormId)?.title || "Form"}</span>
+                    <button type="button" onClick={() => setFilterFormId("")} className="hover:text-fuchsia-900 font-bold leading-none">✕</button>
+                  </span>
+                )}
+                <span className="text-surface-400 text-[11px] ms-auto">
+                  {ar() ? `تم العثور على ${totalSubs} تعبئة` : `${totalSubs} results found`}
+                </span>
+              </div>
+            )}
+          </div>
+
           <div className="card-elevated overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-surface-50 text-xs uppercase text-surface-500">
@@ -817,9 +965,29 @@ export function EFormsAdminPanel() {
                 ) : (
                   <>
                     {paginatedSubs.map((s) => (
-                      <tr key={s.id} className="border-t border-surface-100">
-                        <td className="p-3 font-medium">{s.formTitle} <span className="text-xs text-surface-400">v{s.formVersion}</span></td>
-                        <td className="p-3 text-xs text-surface-500 font-mono">{s.userName || s.userId}</td>
+                      <tr key={s.id} className="border-t border-surface-100 hover:bg-surface-50/60 transition-colors">
+                        <td className="p-3">
+                          <div className="font-semibold text-surface-900">{s.formTitle}</div>
+                          <div className="text-xs text-surface-400">v{s.formVersion}</div>
+                        </td>
+                        <td className="p-3">
+                          <div className="font-semibold text-surface-900">{s.userName || "—"}</div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {s.userPhone && s.userPhone !== "—" ? (
+                              <button
+                                type="button"
+                                onClick={() => { setSearchInput(s.userPhone!); setSearchQuery(s.userPhone!); }}
+                                className="inline-flex items-center gap-1 font-mono text-[11px] bg-surface-100 hover:bg-brand-pink-50 hover:text-brand-pink-700 text-surface-600 px-2 py-0.5 rounded-md transition-colors"
+                                title={ar() ? "اضغط للبحث بهذا الرقم" : "Click to search this phone"}
+                              >
+                                <span>📞</span>
+                                <span dir="ltr">{s.userPhone}</span>
+                              </button>
+                            ) : (
+                              <span className="text-[10px] text-surface-400 font-mono">ID: {s.userId?.slice(-6) || "—"}</span>
+                            )}
+                          </div>
+                        </td>
                         <td className="p-3 text-xs text-surface-500">{s.createdAt ? fmtDateTime(s.createdAt) : "—"}</td>
                         <td className="p-3">
                           <div className="flex gap-1.5 flex-wrap">

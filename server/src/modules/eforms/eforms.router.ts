@@ -404,27 +404,41 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
       };
     }
     if (typeof q === "string" && q.trim()) {
-      const searchRegex = new RegExp(q.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      const cleanQ = q.trim();
+      const searchRegex = new RegExp(cleanQ.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      
+      const userOrConditions: Record<string, unknown>[] = [
+        { fullName: searchRegex },
+        { username: searchRegex },
+        { phone: searchRegex },
+        { email: searchRegex },
+        { shortId: searchRegex }
+      ];
+
+      // If user typed digits, also search phone with digits only (handles spaces, hyphens, country codes)
+      const digitsOnly = cleanQ.replace(/\D/g, "");
+      if (digitsOnly.length >= 4) {
+        userOrConditions.push({ phone: new RegExp(digitsOnly, "i") });
+      }
+
       const matchedUsers = await UserModel.find({
-        $or: [
-          { fullName: searchRegex },
-          { username: searchRegex },
-          { phone: searchRegex },
-          { email: searchRegex },
-          { shortId: searchRegex }
-        ]
+        $or: userOrConditions
       }).select("_id").lean();
       const matchedUserIds = matchedUsers.map(u => String(u._id));
       
       filter.$or = [
         { userId: { $in: matchedUserIds } },
+        { userId: searchRegex },
         { formTitle: searchRegex }
       ];
     }
 
-    // Run count + paginated query in parallel; exclude huge formSnapshot, answers, signatureRef (base64 images), uploadedFileRefs
-    const [total, rows] = await Promise.all([
+    const hasFilter = Object.keys(filter).length > 0;
+
+    // Run count, dbTotal, and paginated query in parallel
+    const [total, dbTotal, rows] = await Promise.all([
       EFormSubmissionModel.countDocuments(filter),
+      hasFilter ? EFormSubmissionModel.estimatedDocumentCount() : EFormSubmissionModel.countDocuments({}),
       EFormSubmissionModel.find(filter)
         .select("-formSnapshot -answers -signatureRef -uploadedFileRefs")
         .sort({ createdAt: -1 })
@@ -450,7 +464,7 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
     });
 
     const totalPages = Math.ceil(total / limit);
-    return res.json({ items, total, page, limit, totalPages });
+    return res.json({ items, total, dbTotal: hasFilter ? dbTotal : total, page, limit, totalPages });
   } catch (e) {
     next(e);
   }
