@@ -3855,7 +3855,8 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
   const [filterStatus, setFilterStatus] = useState("all");
   const [users, setUsers] = useState<any[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(100);
+  const [totalUsers, setTotalUsers] = useState(0);
 
   const [showAddModal, setShowAddModal] = useState(false);
   
@@ -3962,8 +3963,12 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
       isConfirmationCallDone?: boolean;
       referredByUsername?: string | null;
     }
-    interface AdminUsersResponse { items: AdminUserItem[]; }
-    let url = "/users/admin?limit=100&";
+    interface AdminUsersResponse {
+      items: AdminUserItem[];
+      total?: number;
+      totalPages?: number;
+    }
+    let url = `/users/admin?page=${currentPage}&limit=${pageSize}&`;
     if (from) url += `from=${from}&`;
     if (to) url += `to=${to}&`;
     if (search) url += `q=${encodeURIComponent(search.trim())}&`;
@@ -3972,7 +3977,9 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
 
     apiFetch(url, { headers: getAuthHeader() })
       .then((d) => {
-        setUsers(((d as AdminUsersResponse).items || []).map((u) => ({
+        const resp = d as AdminUsersResponse;
+        if (typeof resp.total === "number") setTotalUsers(resp.total);
+        setUsers((resp.items || []).map((u) => ({
           id: u.id,
           fullName: u.fullName,
           username: u.username,
@@ -3988,7 +3995,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
       .catch((err: unknown) => {
         console.error("[UsersManager] Failed to load users:", err);
       });
-  }, [from, to, search, filterRole, filterStatus, getAuthHeader]);
+  }, [from, to, search, filterRole, filterStatus, currentPage, pageSize, getAuthHeader]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -4003,11 +4010,8 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
     setCurrentPage(1);
   }, [search, filterRole, filterStatus, pageSize]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
-  const paginatedUsers = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filtered.slice(start, start + pageSize);
-  }, [filtered, currentPage, pageSize]);
+  const totalPages = Math.max(1, Math.ceil(totalUsers / pageSize));
+  const paginatedUsers = users;
 
   const openUser = (u: any) => { setSelectedUser(u); };
 
@@ -4245,8 +4249,8 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
               <div className="flex items-center gap-3 flex-wrap">
                 <span>
                   {ar()
-                    ? `عرض ${(currentPage - 1) * pageSize + 1} إلى ${Math.min(currentPage * pageSize, filtered.length)} من أصل ${filtered.length} مستخدم`
-                    : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(currentPage * pageSize, filtered.length)} of ${filtered.length} users`}
+                    ? `عرض ${(currentPage - 1) * pageSize + 1} إلى ${Math.min(currentPage * pageSize, totalUsers)} من أصل ${totalUsers} مستخدم`
+                    : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(currentPage * pageSize, totalUsers)} of ${totalUsers} users`}
                 </span>
                 <div className="flex items-center gap-1.5">
                   <span className="text-surface-300">|</span>

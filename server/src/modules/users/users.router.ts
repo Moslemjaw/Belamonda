@@ -82,12 +82,20 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
       ];
     }
 
-    const limitNum = req.query.limit ? Math.min(Math.max(1, Number(req.query.limit)), 500) : 200;
-    const rows = await UserModel.find(filter)
-      .select("_id username fullName email phone role clinicId isActive isConfirmationCallDone civilIdNumberMasked createdAt updatedAt referredBy shortId")
-      .sort({ createdAt: -1 })
-      .limit(limitNum)
-      .lean<UserLean[]>();
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limitNum = req.query.limit ? Math.min(Math.max(1, Number(req.query.limit)), 500) : 100;
+    const skip = (page - 1) * limitNum;
+
+    const [total, totalCustomers, rows] = await Promise.all([
+      UserModel.countDocuments(filter),
+      UserModel.countDocuments({ role: "customer" }),
+      UserModel.find(filter)
+        .select("_id username fullName email phone role clinicId isActive isConfirmationCallDone civilIdNumberMasked createdAt updatedAt referredBy shortId")
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNum)
+        .lean<UserLean[]>()
+    ]);
 
     const referrerIds = [...new Set(
       rows.filter((u) => u.referredBy).map((u) => String(u.referredBy))
@@ -117,10 +125,14 @@ usersRouter.get("/admin", authRequired, requireRole([...STAFF_ROLES]), async (re
       referredByUsername: u.referredBy ? (referrerMap[String(u.referredBy)] ?? null) : null
     }));
 
-    // Get real total customer count (not limited by pagination)
-    const totalCustomers = await UserModel.countDocuments({ role: "customer" });
-
-    return res.json({ items, totalCustomers });
+    return res.json({
+      items,
+      total,
+      totalCustomers,
+      page,
+      limit: limitNum,
+      totalPages: Math.max(1, Math.ceil(total / limitNum))
+    });
   } catch (e) {
     next(e);
   }
