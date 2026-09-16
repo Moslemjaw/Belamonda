@@ -3408,65 +3408,74 @@ schedulingRouter.get("/admin/customer-session-status", authRequired, requireRole
 });
 
 // ── Admin overview of all booking requests ────────────────────────────────
-schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res) => {
-  const userRole = (req as any).user?.role;
-  const userClinicId = (req as any).user?.clinicId;
+schedulingRouter.get("/admin/requests", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res, next) => {
+  try {
+    const userRole = req.auth?.role;
+    const userClinicId = req.auth?.clinicId;
 
-  const status = (typeof req.query.status === "string" ? req.query.status : "all") as AppointmentStatus | "all" | "open";
-  let clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
-  if (userRole === "clinicStaff" && userClinicId) {
-    clinicId = userClinicId.toString();
-  }
+    const status = (typeof req.query.status === "string" ? req.query.status : "all") as AppointmentStatus | "all" | "open";
+    let clinicId = typeof req.query.clinicId === "string" ? req.query.clinicId : undefined;
+    if (userRole === "clinicStaff" && userClinicId) {
+      clinicId = userClinicId.toString();
+    }
 
-  const items = await bookingRequestsStore.list({ status, clinicId });
-  
-  // Batch-fetch all unique user IDs and clinic IDs in parallel
-  const uniqueUserIds = [...new Set(items.map(it => it.userId))].filter(id => Boolean(id));
-  const uniqueClinicIds = [...new Set(items.map(it => it.clinicId))].filter(id => Boolean(id) && mongoose.isValidObjectId(id));
+    const page = parseInt(req.query.page as string) || 0;
+    const limit = parseInt(req.query.limit as string) || 0;
 
-  const [userDocs, clinicDocs] = await Promise.all([
-    uniqueUserIds.length
-      ? UserModel.find({
-          $or: [
-            { _id: { $in: uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id)) } },
-            { _id: { $in: uniqueUserIds } }
-          ]
-        }).select("fullName phone username shortId").lean()
-      : Promise.resolve([]),
-    uniqueClinicIds.length
-      ? ClinicModel.find({ _id: { $in: uniqueClinicIds } }).select("nameEn nameAr").lean()
-      : Promise.resolve([])
-  ]);
-
-  const usersMap = new Map<string, { fullName?: string; phone?: string; username?: string; shortId?: string }>();
-  for (const u of userDocs as any[]) {
-    const uid = u._id.toString();
-    usersMap.set(uid, {
-      fullName: u.fullName,
-      phone: u.phone,
-      username: u.username,
-      shortId: u.shortId
+    const items = await bookingRequestsStore.list({
+      status,
+      clinicId,
+      ...(limit > 0 ? { limit, skip: Math.max(0, (page - 1) * limit) } : {})
     });
+    
+    // Batch-fetch all unique user IDs and clinic IDs in parallel safely
+    const uniqueUserIds = [...new Set(items.map(it => it.userId))].filter(Boolean);
+    const validUserObjectIds = uniqueUserIds.filter(id => mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id));
+    const uniqueClinicIds = [...new Set(items.map(it => it.clinicId))].filter(id => Boolean(id) && mongoose.isValidObjectId(id)).map(id => new mongoose.Types.ObjectId(id));
+
+    const [userDocs, clinicDocs] = await Promise.all([
+      validUserObjectIds.length
+        ? UserModel.find({ _id: { $in: validUserObjectIds } }).select("fullName phone username shortId").lean()
+        : Promise.resolve([]),
+      uniqueClinicIds.length
+        ? ClinicModel.find({ _id: { $in: uniqueClinicIds } }).select("nameEn nameAr").lean()
+        : Promise.resolve([])
+    ]);
+
+    const usersMap = new Map<string, { fullName?: string; phone?: string; username?: string; shortId?: string }>();
+    for (const u of userDocs as any[]) {
+      const uid = u._id.toString();
+      usersMap.set(uid, {
+        fullName: u.fullName,
+        phone: u.phone,
+        username: u.username,
+        shortId: u.shortId
+      });
+    }
+
+    const clinicMap = new Map((clinicDocs as any[]).map(c => [c._id.toString(), c]));
+
+    const enriched = items.map((it) => {
+      const c = clinicMap.get(it.clinicId) || {};
+      const uInfo = usersMap.get(it.userId);
+      return { 
+        ...it, 
+        clinicNameEn: (c as any).nameEn, 
+        clinicNameAr: (c as any).nameAr,
+        userName: uInfo?.fullName || uInfo?.username || it.userId,
+        userPhone: uInfo?.phone || "",
+        userShortId: uInfo?.shortId || "",
+        adminSuggestedAt: it.adminSuggestedAt || it.proposedAt || null,
+        clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? it.proposedAt : null),
+        shownAt: it.shownAt || null
+      };
+    });
+
+    return res.json({ items: enriched });
+  } catch (err: any) {
+    console.error("[/admin/requests] Error:", err);
+    return res.status(500).json({ error: "INTERNAL_ERROR", items: [] });
   }
-
-  const clinicMap = new Map((clinicDocs as any[]).map(c => [c._id.toString(), c]));
-
-  const enriched = items.map((it) => {
-    const c = clinicMap.get(it.clinicId) || {};
-    const uInfo = usersMap.get(it.userId);
-    return { 
-      ...it, 
-      clinicNameEn: (c as any).nameEn, 
-      clinicNameAr: (c as any).nameAr,
-      userName: uInfo?.fullName || uInfo?.username || it.userId,
-      userPhone: uInfo?.phone || "",
-      userShortId: uInfo?.shortId || "",
-      adminSuggestedAt: it.adminSuggestedAt || it.proposedAt || null,
-      clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? it.proposedAt : null),
-      shownAt: it.shownAt || null
-    };
-  });
-  return res.json({ items: enriched });
 });
 
 // ── Admin / CS: manually adjust sessionsUsed on a membership ────────────────

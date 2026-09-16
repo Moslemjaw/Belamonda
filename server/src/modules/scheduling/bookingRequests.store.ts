@@ -119,6 +119,8 @@ export const bookingRequestsStore = {
     userId?: string;
     isStandalone?: boolean;
     bookingRoute?: "cs" | "clinic";
+    limit?: number;
+    skip?: number;
   }): Promise<BookingRequestRecord[]> {
     const query: any = {};
     
@@ -134,7 +136,11 @@ export const bookingRequestsStore = {
     if (filter?.isStandalone !== undefined) query.isStandalone = filter.isStandalone;
     if (filter?.bookingRoute) query.bookingRoute = filter.bookingRoute;
 
-    const docs = await BookingRequestModel.find(query).sort({ createdAt: -1 }).lean();
+    let cursor = BookingRequestModel.find(query).sort({ createdAt: -1 });
+    if (filter?.skip) cursor = cursor.skip(filter.skip);
+    if (filter?.limit) cursor = cursor.limit(filter.limit);
+
+    const docs = await cursor.lean();
     return (docs as any[]).map(mapDoc);
   },
 
