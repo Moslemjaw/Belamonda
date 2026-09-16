@@ -3854,6 +3854,8 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
   const [filterRole, setFilterRole] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [users, setUsers] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const [showAddModal, setShowAddModal] = useState(false);
   
@@ -3997,6 +3999,16 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
 
   const filtered = users;
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterRole, filterStatus, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginatedUsers = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
+
   const openUser = (u: any) => { setSelectedUser(u); };
 
   const toggleConfirmationCall = async (id: string, currentVal: boolean) => {
@@ -4101,7 +4113,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
         <div className="card-elevated overflow-hidden bg-white">
           {/* Mobile view (Cards) */}
           <div className="md:hidden divide-y divide-surface-100">
-            {filtered.map((u: any) => (
+            {paginatedUsers.map((u: any) => (
               <div key={u.id} className="p-4 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -4153,7 +4165,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((u: any) => (
+                {paginatedUsers.map((u: any) => (
                   <tr key={u.id}>
                     <td className="font-medium">
                       <div className="flex items-center gap-3">
@@ -4226,9 +4238,56 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-2 border-t border-surface-100 text-xs text-surface-400">
-            {filtered.length} {ar() ? "مستخدم" : "user(s)"}{filterRole !== "all" || filterStatus !== "all" || search ? ` ${ar() ? "من" : "of"} ${users.length}` : ""}
-          </div>
+
+          {/* Pagination Bar */}
+          {filtered.length > 0 && (
+            <div className="border-t border-surface-200 px-5 py-3.5 bg-surface-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-surface-600">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span>
+                  {ar()
+                    ? `عرض ${(currentPage - 1) * pageSize + 1} إلى ${Math.min(currentPage * pageSize, filtered.length)} من أصل ${filtered.length} مستخدم`
+                    : `Showing ${(currentPage - 1) * pageSize + 1} to ${Math.min(currentPage * pageSize, filtered.length)} of ${filtered.length} users`}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-surface-300">|</span>
+                  <span>{ar() ? "لكل صفحة:" : "Per page:"}</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="bg-white border border-surface-200 rounded-lg px-2 py-1 text-xs font-semibold text-surface-700"
+                  >
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage <= 1}
+                  className="px-3 py-1.5 rounded-lg border border-surface-200 bg-white font-semibold text-surface-700 hover:bg-surface-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {ar() ? "السابق" : "Previous"}
+                </button>
+
+                <div className="px-3 py-1 font-bold text-surface-800 bg-white border border-surface-200 rounded-lg">
+                  {ar() ? `صفحة ${currentPage} من ${totalPages}` : `Page ${currentPage} of ${totalPages}`}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage >= totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-surface-200 bg-white font-semibold text-surface-700 hover:bg-surface-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  {ar() ? "التالي" : "Next"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

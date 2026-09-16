@@ -291,6 +291,19 @@ export function EFormsAdminPanel() {
     return true;
   });
 
+  const [subPage, setSubPage] = useState(1);
+  const [subPageSize, setSubPageSize] = useState(20);
+
+  useEffect(() => {
+    setSubPage(1);
+  }, [filterFormId, searchQuery, subPageSize]);
+
+  const totalSubPages = Math.max(1, Math.ceil(filteredSubs.length / subPageSize));
+  const paginatedSubs = useMemo(() => {
+    const start = (subPage - 1) * subPageSize;
+    return filteredSubs.slice(start, start + subPageSize);
+  }, [filteredSubs, subPage, subPageSize]);
+
   const startCreate = () => {
     setEditingId(null);
     setDraft(blankForm());
@@ -759,7 +772,7 @@ export function EFormsAdminPanel() {
                 </tr>
               </thead>
               <tbody>
-                {filteredSubs.map((s) => (
+                {paginatedSubs.map((s) => (
                   <tr key={s.id} className="border-t border-surface-100">
                     <td className="p-3 font-medium">{s.formTitle} <span className="text-xs text-surface-400">v{s.formVersion}</span></td>
                     <td className="p-3 text-xs text-surface-500 font-mono">{s.userName || s.userId}</td>
@@ -778,6 +791,56 @@ export function EFormsAdminPanel() {
                 )}
               </tbody>
             </table>
+
+            {/* Pagination Bar */}
+            {filteredSubs.length > 0 && (
+              <div className="border-t border-surface-200 px-5 py-3.5 bg-surface-50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-surface-600">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span>
+                    {ar()
+                      ? `عرض ${(subPage - 1) * subPageSize + 1} إلى ${Math.min(subPage * subPageSize, filteredSubs.length)} من أصل ${filteredSubs.length} تعبئة`
+                      : `Showing ${(subPage - 1) * subPageSize + 1} to ${Math.min(subPage * subPageSize, filteredSubs.length)} of ${filteredSubs.length} submissions`}
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-surface-300">|</span>
+                    <span>{ar() ? "لكل صفحة:" : "Per page:"}</span>
+                    <select
+                      value={subPageSize}
+                      onChange={(e) => setSubPageSize(Number(e.target.value))}
+                      className="bg-white border border-surface-200 rounded-lg px-2 py-1 text-xs font-semibold text-surface-700"
+                    >
+                      <option value={20}>20</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSubPage((p) => Math.max(1, p - 1))}
+                    disabled={subPage <= 1}
+                    className="px-3 py-1.5 rounded-lg border border-surface-200 bg-white font-semibold text-surface-700 hover:bg-surface-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {ar() ? "السابق" : "Previous"}
+                  </button>
+
+                  <div className="px-3 py-1 font-bold text-surface-800 bg-white border border-surface-200 rounded-lg">
+                    {ar() ? `صفحة ${subPage} من ${totalSubPages}` : `Page ${subPage} of ${totalSubPages}`}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSubPage((p) => Math.min(totalSubPages, p + 1))}
+                    disabled={subPage >= totalSubPages}
+                    className="px-3 py-1.5 rounded-lg border border-surface-200 bg-white font-semibold text-surface-700 hover:bg-surface-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {ar() ? "التالي" : "Next"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
