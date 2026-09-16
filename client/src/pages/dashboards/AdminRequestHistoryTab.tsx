@@ -63,6 +63,8 @@ export default function AdminRequestHistoryTab() {
   const [loading, setLoading] = useState(false);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteText, setEditingNoteText] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -120,6 +122,16 @@ export default function AdminRequestHistoryTab() {
       return true;
     });
   }, [items, fromDate, toDate, searchQuery, statusFilter]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [clinicId, fromDate, toDate, searchQuery, statusFilter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   const saveNote = async (requestId: string) => {
     try {
@@ -236,7 +248,7 @@ export default function AdminRequestHistoryTab() {
               </tr>
             </thead>
             <tbody className="text-sm">
-              {filtered.map((it) => (
+              {paginatedItems.map((it) => (
                 <tr key={it.id}>
                   <td>{ar() ? (it.clinicNameAr ?? it.clinicNameEn ?? it.clinicId) : (it.clinicNameEn ?? it.clinicNameAr ?? it.clinicId)}</td>
                   <td className="font-medium text-surface-700">
@@ -291,6 +303,35 @@ export default function AdminRequestHistoryTab() {
               )}
             </tbody>
           </table>
+
+          {/* Pagination */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 px-4 py-3 border-t border-border bg-card/50">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{ar() ? "عرض" : "Showing"} {Math.min((currentPage - 1) * pageSize + 1, filtered.length)}–{Math.min(currentPage * pageSize, filtered.length)} {ar() ? "من" : "of"} {filtered.length}</span>
+              <select
+                className="border border-border rounded px-2 py-1 text-xs bg-background"
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+              >
+                {[20, 50, 100].map((n) => (
+                  <option key={n} value={n}>{n} / {ar() ? "صفحة" : "page"}</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                className="px-3 py-1 text-xs rounded border border-border disabled:opacity-40"
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => p - 1)}
+              >{ar() ? "السابق" : "Previous"}</button>
+              <span className="px-3 py-1 text-xs">{ar() ? `صفحة ${currentPage} من ${totalPages}` : `Page ${currentPage} of ${totalPages}`}</span>
+              <button
+                className="px-3 py-1 text-xs rounded border border-border disabled:opacity-40"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => p + 1)}
+              >{ar() ? "التالي" : "Next"}</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
