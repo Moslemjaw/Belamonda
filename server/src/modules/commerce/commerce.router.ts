@@ -16,6 +16,7 @@ import { UserModel } from "../../models/user.model.js";
 import { ClinicChangeRequestModel } from "../../models/clinicChangeRequest.model.js";
 import { BookingRequestModel } from "../../models/bookingRequest.model.js";
 import { BookingSessionModel } from "../../models/bookingSession.model.js";
+import { AuditLogModel } from "../../models/auditLog.model.js";
 import { getProviderForMethod } from "../../services/paymentProvider.service.js";
 import { allowedPurchaseClinicIds, resolvePurchaseClinicObjectId } from "../../services/checkout.service.js";
 
@@ -986,8 +987,35 @@ commerceRouter.patch("/admin/user-offers/:id", authRequired, requireRole(["admin
 
     if (Object.keys(mongoUpdates).length === 0) return res.json({ ok: true });
 
+    const beforeState = await UserOfferModel.findById(req.params.id).lean();
     const uo = await UserOfferModel.findByIdAndUpdate(req.params.id, mongoUpdates, { new: true });
     if (!uo) return res.status(404).json({ error: "Membership not found" });
+
+    try {
+      await AuditLogModel.create({
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.role,
+        actionType: "update_user_offer",
+        targetEntityType: "UserOffer",
+        targetEntityId: uo._id,
+        beforeState: {
+          bookingOverrideUnlocked: (beforeState as any)?.bookingOverrideUnlocked,
+          bookingCooldownEndOverrideAt: (beforeState as any)?.bookingCooldownEndOverrideAt,
+          status: (beforeState as any)?.status
+        },
+        afterState: {
+          bookingOverrideUnlocked: (uo as any)?.bookingOverrideUnlocked,
+          bookingCooldownEndOverrideAt: (uo as any)?.bookingCooldownEndOverrideAt,
+          status: (uo as any)?.status
+        },
+        metadata: {
+          updates,
+          unsets
+        }
+      });
+    } catch (logErr) {
+      console.error("[audit] Failed to create audit log for user offer update:", logErr);
+    }
 
     return res.json({ ok: true, uo });
   } catch (e) {
