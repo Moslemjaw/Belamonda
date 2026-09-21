@@ -605,7 +605,7 @@ export default function AdminSessionsLogTab() {
                             ? (ar() ? "فائت (لم يحضر)" : "Missed (No Show)")
                             : s.status === 'slot_accepted' ? (ar() ? "مجدول" : "Scheduled")
                             : s.status === 'slot_assigned' ? (ar() ? "تم تحديد الموعد" : "Slot Assigned")
-                            : s.status.replace(/_/g, ' ')}
+                            : (s.status ? s.status.replace(/_/g, ' ') : '—')}
                         </span>
                       </td>
                       {/* Payment Status */}

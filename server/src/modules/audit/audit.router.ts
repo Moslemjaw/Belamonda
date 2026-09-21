@@ -83,22 +83,22 @@ auditRouter.get("/", authRequired, requireRole(["admin"]), async (req, res) => {
     const entityNames = new Map<string, string>();
     usersList.forEach((u: any) => entityNames.set(`User:${u._id}`, u.fullName || u.phone || String(u._id)));
     offersList.forEach((o: any) => entityNames.set(`Offer:${o._id}`, o.name || String(o._id)));
-    paymentsList.forEach((p: any) => entityNames.set(`Payment:${p._id}`, `${p.amountKwd} KWD (${p.purpose.replace(/_/g, " ")})`));
+    paymentsList.forEach((p: any) => entityNames.set(`Payment:${p._id}`, `${p.amountKwd} KWD (${(p.purpose || "").replace(/_/g, " ")})`));
     kycList.forEach((k: any) => entityNames.set(`KycSubmission:${k._id}`, entityNames.get(`User:${k.userId}`) || String(k._id)));
 
     res.json({
       items: items.map(i => {
         const actorId = String(i.actorId);
-        const targetId = String(i.targetEntityId);
+        const targetId = String(i.targetEntityId || (i as any).targetId || "");
         return {
           id:               String(i._id),
           actorId,
           actorName:        actorId === "system" ? "System" : (entityNames.get(`User:${actorId}`) || "Unknown User"),
-          actorRole:        i.actorRole,
-          actionType:       i.actionType,
-          targetEntityType: i.targetEntityType,
+          actorRole:        i.actorRole || "system",
+          actionType:       i.actionType || (i as any).action || "UNKNOWN_ACTION",
+          targetEntityType: i.targetEntityType || (i as any).targetType || "Unknown",
           targetEntityId:   targetId,
-          targetEntityName: entityNames.get(`${i.targetEntityType}:${targetId}`) || null,
+          targetEntityName: entityNames.get(`${i.targetEntityType || (i as any).targetType}:${targetId}`) || null,
           beforeState:      i.beforeState,
           afterState:       i.afterState,
           metadata:         i.metadata,

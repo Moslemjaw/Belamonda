@@ -40,7 +40,7 @@ function statusLabel(status: string): string {
   };
   const pair = map[status];
   if (pair) return ar() ? pair[1] : pair[0];
-  return status.replace(/_/g, " ");
+  return (status || "").replace(/_/g, " ");
 }
 
 /**

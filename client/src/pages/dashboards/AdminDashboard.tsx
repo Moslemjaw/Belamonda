@@ -4790,7 +4790,7 @@ function AuditLogViewer() {
                       </td>
                       <td>
                         <span className="font-semibold text-surface-900 text-xs">
-                          {ACTION_LABELS[log.actionType] ?? log.actionType.replace(/_/g, " ")}
+                          {ACTION_LABELS[log.actionType] ?? (log.actionType ? log.actionType.replace(/_/g, " ") : "—")}
                         </span>
                       </td>
                       <td className="text-xs">
@@ -5457,7 +5457,7 @@ export default function AdminDashboard() {
                     </span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-surface-900">{ACTION_LABELS[log.actionType] ?? log.actionType.replace(/_/g, " ")}</span>
+                        <span className="text-xs font-bold text-surface-900">{ACTION_LABELS[log.actionType] ?? (log.actionType ? log.actionType.replace(/_/g, " ") : "—")}</span>
                         <span className="text-[10px] text-surface-400 bg-surface-50 px-1.5 py-0.5 rounded font-medium">{log.targetEntityType}</span>
                       </div>
                       {log.metadata?.username && <div className="text-[10px] text-surface-500 mt-0.5">@{log.metadata.username}</div>}
