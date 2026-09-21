@@ -783,20 +783,35 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [scheduleForm, setScheduleForm] = useState<{ scheduledAt: string; notes: string }>({ scheduledAt: "", notes: "" });
 
-  const schedule = async (requestId: string) => {
+  const schedule = async (requestId: string, forceOverride: boolean = false) => {
     setProcessing(requestId);
     try {
       const iso = scheduleForm.scheduledAt ? new Date(scheduleForm.scheduledAt).toISOString() : undefined;
       await apiFetch(`/scheduling/cs/requests/${encodeURIComponent(requestId)}/propose`, {
         method: "POST",
         headers: getAuthHeader(),
-        body: JSON.stringify({ scheduledAt: iso, notes: scheduleForm.notes || undefined })
+        body: JSON.stringify({
+          scheduledAt: iso,
+          notes: scheduleForm.notes || undefined,
+          forceOverride: forceOverride || undefined
+        })
       });
       setScheduleForm({ scheduledAt: "", notes: "" });
       invalidateCache("/scheduling/cs/requests");
       await refetch(true);
       setSelectedBooking(null);
     } catch (e: any) {
+      if (e.message === "INTERVAL_WARNING" || e.data?.code === "INTERVAL_WARNING" || e.data?.error === "INTERVAL_WARNING") {
+        const warnMsg = (ar() ? e.data?.messageAr : e.data?.message) || e.data?.messageAr || e.data?.message || (ar() ? "الموعد يبعد أقل من 25 يوماً عن آخر جلسة للعميلة." : "The selected date is less than 25 days from the last completed session.");
+        const promptMsg = ar()
+          ? `⚠️ تنبيه فترة التباعد:\n\n${warnMsg}\n\nهل تريد تأكيد الموعد وتجاوز التحذير؟`
+          : `⚠️ Interval Warning:\n\n${warnMsg}\n\nDo you want to proceed and override this warning?`;
+        if (window.confirm(promptMsg)) {
+          return schedule(requestId, true);
+        }
+        return;
+      }
+
       const code = e.message || "UNKNOWN_ERROR";
       const friendly: Record<string, string> = {
         OFFER_NOT_ACTIVE: "The customer's membership is not active yet.",

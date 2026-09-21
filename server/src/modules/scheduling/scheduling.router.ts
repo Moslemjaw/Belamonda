@@ -43,12 +43,14 @@ const RequestSchema = z.object({
 const ScheduleSchema = z.object({
   userOfferId: z.string().min(1),
   scheduledAt: z.string().datetime(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  forceOverride: z.boolean().optional()
 });
 
 const ProposeSchema = z.object({
   scheduledAt: z.string().datetime().optional(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  forceOverride: z.boolean().optional()
 });
 
 const RejectSchema = z.object({ reason: z.string().min(1).max(500) });
@@ -292,6 +294,151 @@ async function eligibilityError(
     }
   }
   return null;
+}
+
+/**
+ * Validates whether a proposed/confirmed appointment date respects the customer's session interval (e.g. 25 days).
+ * Used across CS propose, Clinic confirm, Chat propose/confirm, CS direct schedule, and Reschedule.
+ * Allows override with audit logging if forceOverride is explicitly confirmed.
+ */
+async function checkStaffIntervalConstraint({
+  userOfferId,
+  userId,
+  targetDate,
+  forceOverride,
+  actorId,
+  actorRole,
+  actionContext
+}: {
+  userOfferId?: string | null;
+  userId: string;
+  targetDate: Date;
+  forceOverride?: boolean;
+  actorId?: string;
+  actorRole?: string;
+  actionContext: string;
+}): Promise<{
+  allowed: boolean;
+  code?: string;
+  error?: string;
+  message?: string;
+  messageAr?: string;
+  lastCompletedAt?: string;
+  nextEligibleAt?: string;
+  daysSinceLast?: number;
+  requiredIntervalDays?: number;
+}> {
+  if (!userOfferId || !mongoose.isValidObjectId(userOfferId)) {
+    return { allowed: true };
+  }
+
+  const uo = await loadUserOffer(userOfferId);
+  if (!uo) return { allowed: true };
+
+  const offer = await loadOffer(uo.offerId);
+  const intervalDays = offer && typeof offer.sessionIntervalDays === "number" && offer.sessionIntervalDays > 0
+    ? offer.sessionIntervalDays
+    : 25;
+
+  const uoDoc = await UserOfferModel.findById(userOfferId).select("bookingCooldownEndOverrideAt lastManualSessionAt").lean();
+  const cooldownOverrideAt = (uoDoc as any)?.bookingCooldownEndOverrideAt ? new Date((uoDoc as any).bookingCooldownEndOverrideAt) : null;
+
+  // 1. Check custom cooldown end override
+  if (cooldownOverrideAt && targetDate < cooldownOverrideAt) {
+    if (forceOverride) {
+      if (actorId) {
+        await logAuditAction({
+          actorId,
+          actorRole: (actorRole as any) || "staff",
+          actionType: "override_interval_warning",
+          targetEntityType: "UserOffer",
+          targetEntityId: userOfferId,
+          beforeState: { bookingCooldownEndOverrideAt: cooldownOverrideAt.toISOString() },
+          afterState: { targetDate: targetDate.toISOString(), forceOverride: true },
+          metadata: { actionContext, reason: "Staff forced schedule before cooldown end override" }
+        });
+      }
+      return { allowed: true };
+    }
+
+    const targetDateStr = targetDate.toISOString().split("T")[0];
+    const cooldownStr = cooldownOverrideAt.toISOString().split("T")[0];
+    return {
+      allowed: false,
+      code: "INTERVAL_WARNING",
+      error: "INTERVAL_WARNING",
+      message: `The selected date (${targetDateStr}) is before the required cooldown date (${cooldownStr}).`,
+      messageAr: `الموعد المختار (${targetDateStr}) قبل تاريخ انتهاء فترة التبريد المقررة (${cooldownStr}).`,
+      nextEligibleAt: cooldownOverrideAt.toISOString(),
+      requiredIntervalDays: intervalDays
+    };
+  }
+
+  // 2. Find last completed session
+  const lastSessionDoc = await BookingSessionModel.findOne({
+    userOfferId,
+    status: "completed"
+  }).sort({ completedAt: -1, scheduledAt: -1 }).lean();
+
+  const d1 = (lastSessionDoc as any)?.completedAt
+    ? new Date((lastSessionDoc as any).completedAt).getTime()
+    : ((lastSessionDoc as any)?.scheduledAt ? new Date((lastSessionDoc as any).scheduledAt).getTime() : 0);
+  const d2 = (uoDoc as any)?.lastManualSessionAt ? new Date((uoDoc as any).lastManualSessionAt).getTime() : 0;
+
+  let lastCompletedDate: Date | null = null;
+  if (d1 > 0 || d2 > 0) {
+    lastCompletedDate = new Date(Math.max(d1, d2));
+  } else {
+    // Fallback: search by userId
+    const userLastDoc = await BookingSessionModel.findOne({
+      userId: uo.userId,
+      status: "completed"
+    }).sort({ completedAt: -1, scheduledAt: -1 }).lean();
+    if (userLastDoc) {
+      const dUser = (userLastDoc as any)?.completedAt
+        ? new Date((userLastDoc as any).completedAt).getTime()
+        : ((userLastDoc as any)?.scheduledAt ? new Date((userLastDoc as any).scheduledAt).getTime() : 0);
+      if (dUser > 0) lastCompletedDate = new Date(dUser);
+    }
+  }
+
+  if (lastCompletedDate) {
+    const nextEligible = new Date(lastCompletedDate.getTime() + intervalDays * 24 * 60 * 60 * 1000);
+    if (targetDate < nextEligible) {
+      if (forceOverride) {
+        if (actorId) {
+          await logAuditAction({
+            actorId,
+            actorRole: (actorRole as any) || "staff",
+            actionType: "override_interval_warning",
+            targetEntityType: "UserOffer",
+            targetEntityId: userOfferId,
+            beforeState: { lastCompletedAt: lastCompletedDate.toISOString(), nextEligibleAt: nextEligible.toISOString() },
+            afterState: { targetDate: targetDate.toISOString(), forceOverride: true },
+            metadata: { actionContext, reason: `Staff forced appointment before ${intervalDays}-day interval` }
+          });
+        }
+        return { allowed: true };
+      }
+
+      const daysGap = Math.floor((targetDate.getTime() - lastCompletedDate.getTime()) / (24 * 60 * 60 * 1000));
+      const lastStr = lastCompletedDate.toISOString().split("T")[0];
+      const nextStr = nextEligible.toISOString().split("T")[0];
+      return {
+        allowed: false,
+        code: "INTERVAL_WARNING",
+        error: "INTERVAL_WARNING",
+        message: `The proposed date is only ${daysGap} day(s) after the last completed session on ${lastStr}. Minimum gap required is ${intervalDays} days (next eligible date: ${nextStr}).`,
+        messageAr: `الموعد المختار يبعد ${daysGap} يوماً فقط عن آخر جلسة مسجلة للعميلة (${lastStr}). يشترط فاصل ${intervalDays} يوماً على الأقل (أقرب موعد مسموح: ${nextStr}).`,
+        lastCompletedAt: lastCompletedDate.toISOString(),
+        nextEligibleAt: nextEligible.toISOString(),
+        daysSinceLast: daysGap,
+        requiredIntervalDays: intervalDays
+      };
+    }
+  }
+
+  return { allowed: true };
 }
 
 // ── Booking-request / chat helpers (from Task #4) ─────────────────────────
@@ -1360,6 +1507,22 @@ schedulingRouter.post("/requests/:id/propose", authRequired, requireRole(["clini
   if (!["request_received", "slot_assigned"].includes(breq.status)) {
     return res.status(409).json({ error: "INVALID_STATE" });
   }
+
+  if (parsed.data.scheduledAt && breq.userOfferId) {
+    const check = await checkStaffIntervalConstraint({
+      userOfferId: breq.userOfferId,
+      userId: breq.userId,
+      targetDate: new Date(parsed.data.scheduledAt),
+      forceOverride: parsed.data.forceOverride,
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      actionContext: "requests_propose"
+    });
+    if (!check.allowed) {
+      return res.status(409).json(check);
+    }
+  }
+
   const updated = await bookingRequestsStore.update(breq.id, {
     status: "slot_assigned",
     proposedAt: parsed.data.scheduledAt,
@@ -1401,6 +1564,21 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
 
   if (!breq.userOfferId) {
     return res.status(400).json({ error: "STANDALONE_USE_SCHEDULE_ENDPOINT" });
+  }
+
+  if (breq.userOfferId && scheduledAt) {
+    const check = await checkStaffIntervalConstraint({
+      userOfferId: breq.userOfferId,
+      userId: breq.userId,
+      targetDate: new Date(scheduledAt),
+      forceOverride: bodyParsed.success ? bodyParsed.data?.forceOverride : false,
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      actionContext: "requests_confirm"
+    });
+    if (!check.allowed) {
+      return res.status(409).json(check);
+    }
   }
 
   const uo = await loadUserOffer(breq.userOfferId);
@@ -1825,12 +2003,17 @@ schedulingRouter.post("/cs/schedule", authRequired, requireRole(["cs", "legal", 
     const scheduledAtDate = new Date(parsed.data.scheduledAt);
     if (!isWithinOfferValidity(uo, scheduledAtDate)) return res.status(409).json({ error: "OFFER_OUT_OF_VALIDITY" });
 
-    const lastCompletedAt = await sessionsStore.lastCompletedAt(uo.id, req.auth!.userId);
-    if (lastCompletedAt && offer.sessionIntervalDays > 0) {
-      const nextEligible = new Date(new Date(lastCompletedAt).getTime() + offer.sessionIntervalDays * 24 * 60 * 60 * 1000);
-      if (scheduledAtDate < nextEligible) {
-        return res.status(409).json({ error: "INTERVAL_NOT_MET", nextEligibleAt: nextEligible.toISOString() });
-      }
+    const check = await checkStaffIntervalConstraint({
+      userOfferId: uo.id,
+      userId: uo.userId,
+      targetDate: scheduledAtDate,
+      forceOverride: parsed.data.forceOverride,
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      actionContext: "cs_schedule"
+    });
+    if (!check.allowed) {
+      return res.status(409).json(check);
     }
 
     // if (await sessionsStore.isSlotTaken(uo.clinicId, parsed.data.scheduledAt)) {
@@ -1866,6 +2049,21 @@ schedulingRouter.post(
     if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
     if (["confirmed", "cancelled", "rejected"].includes(breq.status)) {
       return res.status(409).json({ error: "INVALID_STATE" });
+    }
+
+    if (parsed.data.scheduledAt && breq.userOfferId) {
+      const check = await checkStaffIntervalConstraint({
+        userOfferId: breq.userOfferId,
+        userId: breq.userId,
+        targetDate: new Date(parsed.data.scheduledAt),
+        forceOverride: parsed.data.forceOverride,
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.role,
+        actionContext: "cs_requests_propose"
+      });
+      if (!check.allowed) {
+        return res.status(409).json(check);
+      }
     }
 
     const updated = await bookingRequestsStore.update(breq.id, {
@@ -1939,6 +2137,19 @@ schedulingRouter.post(
     if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
     const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
+
+    const check = await checkStaffIntervalConstraint({
+      userOfferId: breq.userOfferId,
+      userId: breq.userId,
+      targetDate: new Date(scheduledAt),
+      forceOverride: parsed.data.forceOverride,
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      actionContext: "clinic_requests_confirm"
+    });
+    if (!check.allowed) {
+      return res.status(409).json(check);
+    }
 
     const sessionClinicId = breq.clinicId || uo.clinicId;
     // if (await sessionsStore.isSlotTaken(sessionClinicId, scheduledAt)) {
@@ -2736,7 +2947,8 @@ schedulingRouter.get("/clinic/requests/:id/customer-context", authRequired, requ
 // ── Clinic staff: reschedule a confirmed session ────────────────────────────
 const RescheduleSchema = z.object({
   scheduledAt: z.string().datetime(),
-  notes: z.string().optional()
+  notes: z.string().optional(),
+  forceOverride: z.boolean().optional()
 });
 
 schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, requireRole(["clinicStaff", "admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
@@ -2749,6 +2961,21 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
 
     if (session.status !== "scheduled" && session.status !== "no_show") {
       return res.status(409).json({ error: "INVALID_STATE", detail: "Only scheduled or missed sessions can be rescheduled" });
+    }
+
+    if (session.userOfferId) {
+      const check = await checkStaffIntervalConstraint({
+        userOfferId: session.userOfferId,
+        userId: session.userId,
+        targetDate: new Date(parsed.data.scheduledAt),
+        forceOverride: parsed.data.forceOverride,
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.role,
+        actionContext: "clinic_reschedule"
+      });
+      if (!check.allowed) {
+        return res.status(409).json(check);
+      }
     }
 
     // if (parsed.data.scheduledAt !== session.scheduledAt && await sessionsStore.isSlotTaken(session.clinicId, parsed.data.scheduledAt)) {

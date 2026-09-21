@@ -2388,16 +2388,28 @@ export default function ClinicDashboard() {
     } catch (e: any) { alert(e.message); }
   };
 
-  const rescheduleSession = async (sessionId: string, scheduledAt: string) => {
+  const rescheduleSession = async (sessionId: string, scheduledAt: string, forceOverride: boolean = false) => {
     try {
       await apiFetch(`/scheduling/clinic/sessions/${sessionId}/reschedule`, {
         method: "POST", headers: getAuthHeader(),
-        body: JSON.stringify({ scheduledAt }),
+        body: JSON.stringify({ scheduledAt, forceOverride: forceOverride || undefined }),
       });
       invalidateCache("/scheduling/clinic/");
       void refetch(true);
       setRescheduleSessionId(null);
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) {
+      if (e?.message === "INTERVAL_WARNING" || e?.data?.code === "INTERVAL_WARNING" || e?.data?.error === "INTERVAL_WARNING") {
+        const warnMsg = (ar() ? e.data?.messageAr : e.data?.message) || e.data?.messageAr || e.data?.message || (ar() ? "الموعد المختار يبعد أقل من 25 يوماً عن آخر جلسة للعميلة." : "The selected date is less than 25 days from the last completed session.");
+        const promptMsg = ar()
+          ? `⚠️ تنبيه فترة التباعد:\n\n${warnMsg}\n\nهل تريد إعادة الجدولة وتجاوز التنبيه؟`
+          : `⚠️ Interval Warning:\n\n${warnMsg}\n\nDo you want to reschedule anyway and override this warning?`;
+        if (window.confirm(promptMsg)) {
+          return rescheduleSession(sessionId, scheduledAt, true);
+        }
+        return;
+      }
+      alert(e.message);
+    }
   };
 
   const saveClinicSettings = async () => {

@@ -32,7 +32,7 @@ export default function ClinicBookingRequestsTab({ clinicId, onCountLoaded }: { 
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
 
-  const confirmDate = async (requestId: string, overrideDate?: string) => {
+  const confirmDate = async (requestId: string, overrideDate?: string, forceOverride: boolean = false) => {
     const req = requests.find((r: any) => r.id === requestId);
     if (!req) return;
 
@@ -45,7 +45,11 @@ export default function ClinicBookingRequestsTab({ clinicId, onCountLoaded }: { 
       await apiFetch(`/scheduling/clinic/requests/${encodeURIComponent(requestId)}/confirm`, {
         method: "POST",
         headers: getAuthHeader(),
-        body: JSON.stringify({ scheduledAt: iso, notes: scheduleForm.notes || undefined })
+        body: JSON.stringify({
+          scheduledAt: iso,
+          notes: scheduleForm.notes || undefined,
+          forceOverride: forceOverride || undefined
+        })
       });
 
       setScheduleForm({ scheduledAt: "", notes: "" });
@@ -53,6 +57,16 @@ export default function ClinicBookingRequestsTab({ clinicId, onCountLoaded }: { 
       await fetchRequests();
       alert(ar() ? "تم تأكيد الموعد بنجاح!" : "Booking confirmed successfully!");
     } catch (e: any) {
+      if (e.message === "INTERVAL_WARNING" || e.data?.code === "INTERVAL_WARNING" || e.data?.error === "INTERVAL_WARNING") {
+        const warnMsg = (ar() ? e.data?.messageAr : e.data?.message) || e.data?.messageAr || e.data?.message || (ar() ? "الموعد يبعد أقل من 25 يوماً عن آخر جلسة للعميلة." : "The selected date is less than 25 days from the last completed session.");
+        const promptMsg = ar()
+          ? `⚠️ تنبيه فترة التباعد:\n\n${warnMsg}\n\nهل تريد بالتأكيد تأكيد الموعد وتجاوز التنبيه؟`
+          : `⚠️ Interval Warning:\n\n${warnMsg}\n\nDo you want to confirm anyway and override this warning?`;
+        if (window.confirm(promptMsg)) {
+          return confirmDate(requestId, overrideDate, true);
+        }
+        return;
+      }
       alert(e.message || "Failed to confirm booking.");
     } finally {
       setProcessing(null);

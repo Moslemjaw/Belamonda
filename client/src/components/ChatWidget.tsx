@@ -312,22 +312,35 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
     }
   };
 
-  const proposeSlot = async () => {
+  const proposeSlot = async (forceOverride: boolean = false) => {
     if (!bookingRequest || !proposeAt) return;
     try {
       await apiFetch(`/scheduling/requests/${bookingRequest.id}/propose`, {
         method: "POST",
         headers: getAuthHeader(),
-        body: JSON.stringify({ scheduledAt: new Date(proposeAt).toISOString() })
+        body: JSON.stringify({
+          scheduledAt: new Date(proposeAt).toISOString(),
+          forceOverride: forceOverride || undefined
+        })
       });
       setProposeAt("");
       if (selectedId) loadConversation(selectedId);
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.message === "INTERVAL_WARNING" || e?.data?.code === "INTERVAL_WARNING" || e?.data?.error === "INTERVAL_WARNING") {
+        const warnMsg = (ar() ? e.data?.messageAr : e.data?.message) || e.data?.messageAr || e.data?.message || (ar() ? "الموعد المقترح يبعد أقل من 25 يوماً عن آخر جلسة للعميلة." : "The proposed date is less than 25 days from the last completed session.");
+        const promptMsg = ar()
+          ? `⚠️ تنبيه فترة التباعد:\n\n${warnMsg}\n\nهل تريد اقتراح الموعد وتجاوز التنبيه؟`
+          : `⚠️ Interval Warning:\n\n${warnMsg}\n\nDo you want to propose anyway and override this warning?`;
+        if (window.confirm(promptMsg)) {
+          return proposeSlot(true);
+        }
+        return;
+      }
       alert(e instanceof Error ? e.message : String(e));
     }
   };
 
-  const confirmBooking = async () => {
+  const confirmBooking = async (forceOverride: boolean = false) => {
     if (!bookingRequest) return;
     
     // Determine the scheduled time:
@@ -347,10 +360,23 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
       await apiFetch(`/scheduling/requests/${bookingRequest.id}/confirm`, {
         method: "POST",
         headers: getAuthHeader(),
-        body: JSON.stringify({ scheduledAt: new Date(finalDate).toISOString() })
+        body: JSON.stringify({
+          scheduledAt: new Date(finalDate).toISOString(),
+          forceOverride: forceOverride || undefined
+        })
       });
       if (selectedId) loadConversation(selectedId);
-    } catch (e) {
+    } catch (e: any) {
+      if (e?.message === "INTERVAL_WARNING" || e?.data?.code === "INTERVAL_WARNING" || e?.data?.error === "INTERVAL_WARNING") {
+        const warnMsg = (ar() ? e.data?.messageAr : e.data?.message) || e.data?.messageAr || e.data?.message || (ar() ? "الموعد يبعد أقل من 25 يوماً عن آخر جلسة للعميلة." : "The proposed date is less than 25 days from the last completed session.");
+        const promptMsg = ar()
+          ? `⚠️ تنبيه فترة التباعد:\n\n${warnMsg}\n\nهل تريد تأكيد الموعد وتجاوز التنبيه؟`
+          : `⚠️ Interval Warning:\n\n${warnMsg}\n\nDo you want to confirm anyway and override this warning?`;
+        if (window.confirm(promptMsg)) {
+          return confirmBooking(true);
+        }
+        return;
+      }
       alert(e instanceof Error ? e.message : String(e));
     }
   };
