@@ -225,9 +225,31 @@ export async function listRequiredFormsForUser(
   })
     .select("formId")
     .lean<{ formId: mongoose.Types.ObjectId }[]>();
+
+  // If user has already signed ANY form matching these targets, contract requirement is satisfied!
+  if (submissions.length > 0) {
+    return [] as any[];
+  }
+
+  // Also check if user has a submission recorded by targetRefId or userOfferId
+  if (targetRefIds.length > 0) {
+    const subByTarget = await EFormSubmissionModel.exists({
+      userId,
+      $or: [
+        { targetRefId: { $in: targetRefIds } },
+        ...(userOfferId ? [{ userOfferId }] : [])
+      ]
+    });
+    if (subByTarget) return [] as any[];
+  }
+
+  // Ensure at most ONE form is required per package
   const signed = new Set(submissions.map((s) => String(s.formId)));
-  
-  const result = filtered.filter((f) => !signed.has(String(f._id))).map((f) => serializeForm(f as EFormDoc));
+  const result = filtered
+    .filter((f) => !signed.has(String(f._id)))
+    .slice(0, 1)
+    .map((f) => serializeForm(f as EFormDoc));
+
   console.log("[DEBUG] listRequiredFormsForUser", {
     userId,
     targetRefIds,
@@ -359,6 +381,14 @@ eformsRouter.post("/admin/assignments", authRequired, requireRole(["admin", "leg
     const user = await UserModel.findOne({ $or: [{ shortId: parsed.data.userId }, { _id: mongoose.isValidObjectId(parsed.data.userId) ? parsed.data.userId : undefined }] }).lean<UserDoc | null>();
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
     const userId = String(user._id);
+
+    const alreadySigned = await EFormSubmissionModel.exists({
+      formId: form._id,
+      userId: userId
+    });
+    if (alreadySigned) {
+      return res.status(400).json({ error: "ALREADY_SIGNED", message: "User has already signed this form." });
+    }
 
     try {
       await EFormAssignmentModel.create({
@@ -545,26 +575,62 @@ eformsRouter.get("/me/available", authRequired, async (req, res, next) => {
     });
 
     const allForms = await EFormModel.find({ archived: { $ne: true } }).lean<EFormDoc[]>();
-    const contextForms = allForms.filter(f => contexts.some(ctx => doesFormMatchContext(f.targets || [], ctx)));
+
+    // Check which offers the user has ALREADY signed a contract for
+    const userSubmissions = await EFormSubmissionModel.find({
+      userId: req.auth!.userId
+    }).select({ formId: 1, formVersion: 1, targetRefId: 1, userOfferId: 1 }).lean();
+
+    const signedFormIds = new Set(userSubmissions.map(s => String(s.formId)));
+
+    // Offers already satisfied by signed submissions
+    const satisfiedOfferIds = new Set<string>();
+    for (const u of userOffers) {
+      const offerId = String(u.offerId);
+      const isSigned = userSubmissions.some(s => {
+        if (s.userOfferId && s.userOfferId === String(u._id)) return true;
+        if (s.targetRefId && s.targetRefId === offerId) return true;
+        const matchingForms = allForms.filter(f => doesFormMatchContext(f.targets || [], [{ kind: "offer", refId: offerId }]));
+        return matchingForms.some(f => String(f._id) === String(s.formId));
+      });
+      if (isSigned) {
+        satisfiedOfferIds.add(offerId);
+      }
+    }
+
+    // Filter contexts to only unsatisfied packages
+    const unsatisfiedContexts = contexts.filter(ctx => {
+      const offTarget = ctx.find(c => c.kind === "offer");
+      return offTarget ? !satisfiedOfferIds.has(String(offTarget.refId)) : true;
+    });
+
+    const contextForms = allForms.filter(f => unsatisfiedContexts.some(ctx => doesFormMatchContext(f.targets || [], ctx)));
 
     const assignments = await EFormAssignmentModel.find({ userId: req.auth!.userId }).lean();
     const assignedFormIds = new Set(assignments.map(a => String(a.formId)));
-    const assignedForms = allForms.filter(f => assignedFormIds.has(String(f._id)));
+    const assignedForms = allForms.filter(f => assignedFormIds.has(String(f._id)) && !signedFormIds.has(String(f._id)));
+
+    // Only allow at most ONE form per offer in contextForms
+    const seenOffers = new Set<string>();
+    const deduplicatedContextForms: EFormDoc[] = [];
+    for (const f of contextForms) {
+      const offTarget = (f.targets || []).find(t => t.kind === "offer");
+      if (offTarget) {
+        if (seenOffers.has(String(offTarget.refId))) continue;
+        seenOffers.add(String(offTarget.refId));
+      }
+      deduplicatedContextForms.push(f);
+    }
 
     const formMap = new Map();
-    for (const f of [...contextForms, ...assignedForms]) {
+    for (const f of [...deduplicatedContextForms, ...assignedForms]) {
       formMap.set(String(f._id), f);
     }
     const forms = Array.from(formMap.values());
 
     if (forms.length === 0) return res.json({ items: [] });
 
-    const submitted = await EFormSubmissionModel.find({
-      userId: req.auth!.userId,
-      formId: { $in: forms.map((f) => String(f._id)) }
-    }).select({ formId: 1, formVersion: 1 }).lean();
-
-    const subKey = new Set(submitted.map((s) => `${s.formId}:${s.formVersion}`));
+    const subKey = new Set(userSubmissions.map((s) => `${s.formId}:${s.formVersion}`));
     const items = forms
       .filter((f) => !subKey.has(`${String(f._id)}:${f.version}`))
       .map((f) => serializeForm(f as EFormDoc));
