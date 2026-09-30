@@ -2596,7 +2596,7 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
 
     const standaloneRequests = await BookingRequestModel.find({
       clinicId: clinicMatch,
-      status: { $nin: ["completed", "cancelled", "rejected", "slot_assigned"] },
+      status: { $nin: ["completed", "cancelled", "rejected", "slot_assigned", "request_received"] },
       $and: [
         {
           $or: [
@@ -2609,10 +2609,8 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
           $or: [
             { status: "no_show" },
             { proposedAt: { $lt: startOfToday } },
-            { preferredAt: { $lt: startOfToday } },
             { clinicScheduledAt: { $lt: startOfToday } },
-            { adminSuggestedAt: { $lt: startOfToday } },
-            { createdAt: { $lt: startOfToday } }
+            { adminSuggestedAt: { $lt: startOfToday } }
           ]
         }
       ]
@@ -2681,7 +2679,7 @@ schedulingRouter.get("/clinic/:clinicId/missed-sessions", authRequired, requireR
           userOfferId: r.userOfferId,
           clinicId: r.clinicId,
           status: r.status,
-          scheduledAt: r.clinicScheduledAt ?? r.adminSuggestedAt ?? r.proposedAt ?? r.preferredAt ?? r.createdAt,
+          scheduledAt: r.clinicScheduledAt ?? r.adminSuggestedAt ?? r.proposedAt ?? r.preferredAt,
           customerName: (user as any)?.fullName ?? null,
           customerPhone: (user as any)?.phone ?? null,
           offerName: r.standaloneName ?? (offerDoc as any)?.name ?? null,
