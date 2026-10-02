@@ -1,3 +1,4 @@
+import { displayTags } from "../lib/offerSystem";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -259,7 +260,7 @@ export default function MembershipPage() {
               const accent = accents[idx % accents.length];
               const months = Math.round(o.validityDays / 30);
               const displayName = isAr ? (o.nameAr || o.name) : o.name;
-              const tags = (isAr ? o.tagsAr : o.tagsEn) ?? [];
+              const tags = displayTags(isAr ? o.tagsAr : o.tagsEn);
               const isPopular = o.featured || idx === 0;
 
               return (

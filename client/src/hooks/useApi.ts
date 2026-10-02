@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../app/AuthContext";
-import { cacheDelete, cacheGet, cacheHas, cacheInvalidate, cacheSet } from "../lib/apiCache";
+import { cacheDelete, cacheGet, cacheHas, cacheInvalidate, cacheSet, cacheSubscribe } from "../lib/apiCache";
 
 // GET responses are cached per user in lib/apiCache (stale-while-revalidate).
 // Cached data renders instantly, but is always revalidated against the server on
@@ -96,6 +96,14 @@ export function useApi<T>(
         }
       }
     }
+  }, [path, isGet]);
+
+  // Pick up fresh data fetched by other components for the same path.
+  useEffect(() => {
+    if (!path || !isGet) return;
+    return cacheSubscribe(path, (fresh) => {
+      if (mountedRef.current) setData(fresh as T);
+    });
   }, [path, isGet]);
 
   useEffect(() => {

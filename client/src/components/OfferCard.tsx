@@ -1,3 +1,4 @@
+import { displayTags } from "../lib/offerSystem";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { getCategoryIcon } from "./CategoryIcons";
@@ -25,7 +26,7 @@ export type PublicOffer = {
 export default function OfferCard({ offer }: { offer: PublicOffer }) {
   const { i18n } = useTranslation();
   const isAr = i18n.language === "ar";
-  const tags = (isAr ? offer.tagsAr : offer.tagsEn) ?? [];
+  const tags = displayTags(isAr ? offer.tagsAr : offer.tagsEn);
   const cashback = parseFloat(offer.signupCashbackKwd ?? "0");
   const perSession = parseFloat(offer.cashbackPerSessionKwd ?? "0");
 

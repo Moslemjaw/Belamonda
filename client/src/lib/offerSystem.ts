@@ -303,3 +303,12 @@ export function seedDefaultOffers() {
   
   saveOfferTemplates(defaults);
 }
+
+/**
+ * Offer tags without cashback amounts. Cashback is always rendered from the
+ * offer's live signupCashbackKwd (editable by admin), so a free-text tag like
+ * "300 KWD Cashback" could go stale and contradict it.
+ */
+export function displayTags(tags: string[] | undefined): string[] {
+  return (tags ?? []).filter((t) => !/cash\s*-?\s*back|كاش\s*باك/i.test(t));
+}

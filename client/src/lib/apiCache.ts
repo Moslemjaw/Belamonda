@@ -57,9 +57,24 @@ export function cacheHas(path: string) {
   return _cache.has(keyFor(path));
 }
 
+// Hooks showing the same path subscribe here so a refetch in one component
+// (e.g. a queue after approving an item) also updates counters elsewhere.
+const _listeners = new Map<string, Set<(data: unknown) => void>>();
+
+export function cacheSubscribe(path: string, fn: (data: unknown) => void) {
+  const key = keyFor(path);
+  if (!_listeners.has(key)) _listeners.set(key, new Set());
+  _listeners.get(key)!.add(fn);
+  return () => {
+    _listeners.get(key)?.delete(fn);
+  };
+}
+
 export function cacheSet(path: string, data: unknown) {
-  _cache.set(keyFor(path), { data, ts: Date.now() });
+  const key = keyFor(path);
+  _cache.set(key, { data, ts: Date.now() });
   persistSoon();
+  _listeners.get(key)?.forEach((fn) => fn(data));
 }
 
 export function cacheDelete(path: string) {

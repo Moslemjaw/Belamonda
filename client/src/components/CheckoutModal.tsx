@@ -566,16 +566,14 @@ export default function CheckoutModal({
                               "Clinic change requests: 1st = 10 KWD, 2nd = 20 KWD, 3rd = 30 KWD (escalates). Subject to CS approval.",
                               "رسوم تغيير العيادة: الطلب الأول 10 د.ك، الثاني 20 د.ك، الثالث 30 د.ك (متصاعدة). تخضع لموافقة خدمة العملاء."
                             )
-                          : offer.clinicLocked === false
-                          ? t("You can switch clinics later at no extra charge.", "يمكنك التغيير لاحقاً دون رسوم.")
                           : parseFloat(offer.clinicTransferFeeKwd || "0") > 0
                           ? t(
                               `Later transfers to another listed branch cost ${offer.clinicTransferFeeKwd} KWD.`,
                               `نقل الاشتراك لفرع آخر من الفروع المعتمدة لاحقاً يكلف ${offer.clinicTransferFeeKwd} د.ك.`
                             )
                           : t(
-                              "You can move to another listed branch later if the offer allows it.",
-                              "يمكنك الانتقال لفرع آخر من الفروع المعتمدة لاحقاً إن كان العرض يسمح بذلك."
+                              "Need a different branch later? Customer service can transfer you — a transfer fee may apply.",
+                              "تحتاج فرعاً آخر لاحقاً؟ يمكن لخدمة العملاء نقلك — قد تُطبَّق رسوم نقل."
                             )}
                       </div>
                     </div>
@@ -733,7 +731,7 @@ export default function CheckoutModal({
                   <svg className="h-4 w-4 text-brand-pink-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-brand-pink-600 uppercase tracking-wide">{t("Required before booking", "مطلوب قبل الحجز")}</div>
+                  <div className="text-xs font-bold text-brand-pink-600 uppercase tracking-wide">{t("Contract — required before purchase", "العقد — مطلوب قبل الشراء")}</div>
                   <div className="text-sm font-bold text-surface-900">{eformDef ? (ar && (eformDef as any).titleAr ? (eformDef as any).titleAr : eformDef.title) : t("Loading form…", "جاري التحميل…")}</div>
                 </div>
               </div>
@@ -808,7 +806,7 @@ export default function CheckoutModal({
                       disabled={eformSubmitting}
                       onClick={() => void submitEForm()}
                     >
-                      {eformSubmitting ? t("Submitting…", "جاري الإرسال…") : t("Sign & complete booking", "توقيع وإتمام الحجز")}
+                      {eformSubmitting ? t("Submitting…", "جاري الإرسال…") : t("Sign & complete purchase", "توقيع وإتمام الشراء")}
                     </button>
                   </div>
                 </div>

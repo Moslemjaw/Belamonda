@@ -90,7 +90,7 @@ export function KycQueue() {
                 <div className={`priority-${priority} shrink-0 hidden sm:block`} aria-hidden="true" />
                 <span className="sr-only">{priority === "red" ? (ar() ? "أولوية عالية" : "High priority") : priority === "yellow" ? (ar() ? "أولوية متوسطة" : "Medium priority") : (ar() ? "أولوية منخفضة" : "Low priority")}</span>
                 <div className="avatar avatar-sm sm:avatar-md" aria-hidden="true">{(k.userName || "?")?.charAt(0)?.toUpperCase()}</div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-[9rem]">
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <div className="text-xs sm:text-sm font-bold text-surface-900 truncate">{k.userName || "Unknown User"}</div>
                     <span className="text-[9px] sm:text-[10px] font-bold text-surface-400 bg-surface-100 px-1 sm:px-1.5 py-0.5 rounded shrink-0" title={fmtDateTime(k.createdAt)}>{fmtAge(k.createdAt)}</span>
@@ -3058,7 +3058,7 @@ export default function CsDashboard() {
   const isCsDirector = auth?.role === "cs_director";
   const isElevated = isLegalOrAdmin || isCsDirector;
   const [activeNav, setActiveNav] = useState("home");
-  const { data: kycData } = useKycQueue();
+  const { data: kycData } = useKycQueue({ lazy: !isLegalOrAdmin });
   const { data: paymentsData } = usePendingPayments();
   const { data: complaintsData, refetch: refetchComplaints } = useComplaints();
   const { data: bookingRequestsData } = useBookingRequests("pending");
@@ -3166,7 +3166,7 @@ export default function CsDashboard() {
                 </div>
                 <h3 className="text-base font-bold text-surface-900">{ar() ? "قوائم العمل" : "Action Queues"}</h3>
               </div>
-              <div className={`grid gap-6 ${isLegalOrAdmin ? 'lg:grid-cols-3' : 'lg:grid-cols-2'}`}>
+              <div className={`grid gap-6 xl:grid-cols-2 ${isLegalOrAdmin ? '2xl:grid-cols-3' : ''}`}>
                 {isLegalOrAdmin && <KycQueue />}
                 <PaymentQueue />
                 <BookingRequestsQueue onTransfer={(id, clinicId) => {

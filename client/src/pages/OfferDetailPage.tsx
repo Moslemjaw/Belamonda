@@ -1,3 +1,4 @@
+import { displayTags } from "../lib/offerSystem";
 import { useEffect, useState } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -93,7 +94,7 @@ export default function OfferDetailPage() {
     );
   }
 
-  const tags = (isAr ? offer.tagsAr : offer.tagsEn) ?? [];
+  const tags = displayTags(isAr ? offer.tagsAr : offer.tagsEn);
   const cashback = parseFloat(offer.signupCashbackKwd ?? "0");
   const perSession = parseFloat(offer.cashbackPerSessionKwd ?? "0");
 

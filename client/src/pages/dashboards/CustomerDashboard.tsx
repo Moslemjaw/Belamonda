@@ -1789,7 +1789,7 @@ export default function CustomerDashboard() {
                   {fmtDate(new Date())}
                 </div>
                 <div className={`text-2xl font-black ${titleCls} leading-tight`}>
-                  {ar() ? "مرحباً" : "Welcome back"}{cardData?.card?.displayName ? `, ${cardData.card.displayName}` : ''} 👋
+                  {ar() ? "مرحباً" : "Welcome back"}{displayName !== "—" ? `, ${displayName}` : ''} 👋
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -1805,7 +1805,7 @@ export default function CustomerDashboard() {
                   {unreadNotifs > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />}
                 </button>
                 <button onClick={() => setActiveTab("profile")} className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm transition-all ms-1 ${avatarCls}`}>
-                  {(cardData?.card?.displayName || auth?.userId || '?').charAt(0).toUpperCase()}
+                  {(displayName !== "—" ? displayName : "?").charAt(0).toUpperCase()}
                 </button>
               </div>
             </div>
@@ -3420,7 +3420,7 @@ export default function CustomerDashboard() {
                   <div className="min-w-0">
                     <div className="text-xs font-bold uppercase tracking-widest text-white/60 mb-0.5">{ar() ? "حسابي" : "My Account"}</div>
                     <div className="text-xl font-black leading-tight truncate">{profileForm.name || profileForm.username}</div>
-                    <div className="text-sm text-white/70 mt-0.5 font-mono truncate" dir="ltr">@{profileForm.username}</div>
+                    <div className="text-sm text-white/70 mt-0.5 font-mono truncate" dir="ltr">{profileForm.username ? `@${profileForm.username}` : profileForm.phone}</div>
                   </div>
                   <div className="ms-auto shrink-0">
                     {kycStatus === 'approved' ? (
@@ -3487,7 +3487,11 @@ export default function CustomerDashboard() {
                         {isEditingProfile ? (
                           <input type="text" className="input-field py-1 text-sm" value={profileForm.username} onChange={e => setProfileForm({...profileForm, username: e.target.value})} dir="ltr" />
                         ) : (
-                          <div className="font-bold text-brand-pink-600 font-mono text-sm">@{profileForm.username}</div>
+                          profileForm.username ? (
+                            <div className="font-bold text-brand-pink-600 font-mono text-sm">@{profileForm.username}</div>
+                          ) : (
+                            <div className="text-sm text-surface-400">{ar() ? "غير محدد" : "Not set"}</div>
+                          )
                         )}
                       </div>
                     </div>
