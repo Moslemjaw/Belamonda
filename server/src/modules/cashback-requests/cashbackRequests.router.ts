@@ -1,6 +1,6 @@
 import { Router } from "express";
 import mongoose from "mongoose";
-import { v2 as cloudinary } from "cloudinary";
+import { cloudinary } from "../../services/cloudinary.service.js";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { CashbackRequestModel } from "../../models/cashbackRequest.model.js";
@@ -8,12 +8,6 @@ import { UserModel } from "../../models/user.model.js";
 import { WalletModel } from "../../models/kyc.model.js";
 import { kycStore } from "../kyc/kyc.store.js";
 import { env } from "../../config/env.js";
-
-cloudinary.config({
-  cloud_name: "dyxzbgiic",
-  api_key: "525168948871956",
-  api_secret: "q4Qf-Y32H9yVJYm-G-m1ufJ15Ns"
-});
 
 export const cashbackRequestsRouter = Router();
 

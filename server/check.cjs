@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-mongoose.connect('mongodb+srv://moslem:0aXGkC0p0b7xXz8a@belamondadb.iicok.mongodb.net/belamonda?retryWrites=true&w=majority&appName=BelamondaDB')
+mongoose.connect(process.env.MONGODB_URI)
   .then(async () => {
     const db = mongoose.connection.db;
     const docs = await db.collection('bookingsessions').find({ scheduledAt: { $lt: new Date('2026-07-01') } }).toArray();

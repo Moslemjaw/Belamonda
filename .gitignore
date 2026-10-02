@@ -30,3 +30,14 @@ logs/
 
 client/tsconfig.tsbuildinfo
 
+
+# Customer data, credentials & generated reports (never commit PII)
+client_credentials.json
+clients_data_mock.txt
+server/scripts/clients-batch-*.ts
+*.xlsx
+clinic_reports/
+customer_status_report*
+server/output_results.json
+server/uploads/
+uploads/

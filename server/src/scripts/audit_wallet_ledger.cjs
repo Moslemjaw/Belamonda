@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const MONGO_URI = process.env.MONGODB_URI || "mongodb+srv://moslemjawich:MMjj2005@forall.9ryif9r.mongodb.net/?appName=ForAll/";
+const MONGO_URI = process.env.MONGODB_URI;
 
 const UserSchema = new mongoose.Schema({ fullName: String, phone: String, status: String }, { strict: false });
 const User = mongoose.model("DeepUser", UserSchema, "users");

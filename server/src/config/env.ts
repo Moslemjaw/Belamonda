@@ -13,7 +13,11 @@ const EnvSchema = z.object({
   SEED_DEMO: z.coerce.boolean().default(false),
   // Comma-separated list of allowed origins (recommended). If omitted, falls back to CLIENT_ORIGIN.
   CLIENT_ORIGINS: z.string().optional(),
-  CLIENT_ORIGIN: z.string().url().optional()
+  CLIENT_ORIGIN: z.string().url().optional(),
+  // Image uploads (KYC documents, offer/promo images, cashback invoices)
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional()
 });
 
 const parsed = EnvSchema.safeParse(process.env);

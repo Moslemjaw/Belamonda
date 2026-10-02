@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const MONGO_URI = "mongodb+srv://moslemjawich:MMjj2005@forall.9ryif9r.mongodb.net/?appName=ForAll/";
+const MONGO_URI = process.env.MONGODB_URI;
 
 const BookingSessionSchema = new mongoose.Schema({}, { strict: false });
 const BookingSession = mongoose.model("AlaaBS", BookingSessionSchema, "bookingsessions");

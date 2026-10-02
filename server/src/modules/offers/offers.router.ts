@@ -6,13 +6,7 @@ import { createOffer, getOffer, listOffersAdmin, listOffersPublic, updateOffer, 
 import { kycStore } from "../kyc/kyc.store.js";
 import { notifyNewOfferAlert } from "../notifications/notifications.service.js";
 import { logAuditAction } from "../../services/audit.service.js";
-import { v2 as cloudinary } from "cloudinary";
-
-cloudinary.config({
-  cloud_name: "dyxzbgiic",
-  api_key: "525168948871956",
-  api_secret: "q4Qf-Y32H9yVJYm-G-m1ufJ15Ns"
-});
+import { cloudinary } from "../../services/cloudinary.service.js";
 
 async function uploadToCloudinary(base64Image: string): Promise<string> {
   if (!base64Image || !base64Image.startsWith("data:image")) return base64Image;
