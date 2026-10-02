@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, type ReactNode } from
 import type { Role } from "@belamonda/shared";
 import { passwordLogin, passwordRegister } from "../lib/demoTokens";
 import { API_BASE_URL } from "../lib/api";
+import { clearApiCache } from "../lib/apiCache";
 
 interface AuthState {
   token: string;
@@ -47,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithPassword = useCallback(async (identifier: string, password: string) => {
     const { accessToken, clinicId, role, userId } = await passwordLogin({ identifier, password });
     const state: AuthState = { token: accessToken, userId: userId || identifier, role: role as Role, clinicId };
+    clearApiCache();
     setAuth(state);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
   }, []);
@@ -67,11 +69,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const registerCustomer = useCallback(async (input: { username?: string; email?: string; phone?: string; fullName?: string; gender?: "female" | "male" | "other"; password: string; referralCode?: string }) => {
     const { accessToken, role, userId } = await passwordRegister(input);
     const state: AuthState = { token: accessToken, userId, role: role as Role };
+    clearApiCache();
     setAuth(state);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
   }, []);
 
   const logout = useCallback(() => {
+    clearApiCache();
     setAuth(null);
     localStorage.removeItem(AUTH_STORAGE_KEY);
     sessionStorage.removeItem(AUTH_STORAGE_KEY);
@@ -95,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!res.ok) throw new Error(data.error || "Failed to impersonate");
 
     const state: AuthState = { token: data.accessToken, userId: data.userId || `impersonated_${clinicId}`, role: data.role as Role, clinicId: data.clinicId };
+    clearApiCache();
     setAuth(state);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
   }, [getAuthHeader]);
@@ -117,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: data.role as Role,
       clinicId: data.clinicId,
     };
+    clearApiCache();
     setAuth(state);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(state));
   }, [getAuthHeader]);

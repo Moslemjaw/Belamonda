@@ -1,3 +1,5 @@
+import { clearApiCache } from "./apiCache";
+
 /** Render / local API origin. Leave empty locally so Vite dev proxy routes `/auth`, `/public`, … to the backend. */
 function normalizeApiBase(raw: string | undefined): string {
   const t = (raw ?? "").trim();
@@ -23,6 +25,7 @@ function handleSessionExpired() {
   (window as any).__bel_session_expired = true;
   localStorage.removeItem(AUTH_STORAGE_KEY);
   sessionStorage.removeItem(AUTH_STORAGE_KEY);
+  clearApiCache();
   // Redirect to login with a return-to path
   const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
   window.location.href = `/login?expired=1&next=${returnTo}`;
