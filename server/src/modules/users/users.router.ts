@@ -4,7 +4,7 @@ import { z } from "zod";
 import mongoose from "mongoose";
 import * as XLSX from "xlsx";
 import bcrypt from "bcryptjs";
-import { authRequired } from "../../middlewares/authRequired.js";
+import { authRequired, forgetAccountStatus } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { ClinicModel } from "../../models/clinic.model.js";
 import { UserModel } from "../../models/user.model.js";
@@ -1054,6 +1054,7 @@ usersRouter.patch("/admin/:id", authRequired, requireRole(["admin", "cs", "legal
       .select("_id username email phone role clinicId isActive isConfirmationCallDone fullName")
       .lean<UserLean>();
     if (!doc) return res.status(404).json({ error: "NOT_FOUND" });
+    forgetAccountStatus(req.params.id);
 
     // Determine action type
     let actionType = "update_user";

@@ -3,6 +3,7 @@ import { Server as IOServer, type Socket } from "socket.io";
 import type { Role } from "@belamonda/shared";
 import { env } from "../../config/env.js";
 import { verifyAccessToken } from "../auth/token.js";
+import { isTokenAccountValid } from "../../middlewares/authRequired.js";
 import { chatStore } from "./chat.store.js";
 import { ensureConversationById } from "./chat.rehydrate.js";
 import { notifyChatRelatedUsers } from "../notifications/notifications.service.chat.js";
@@ -55,7 +56,7 @@ export function initChatSocket(httpServer: HttpServer) {
     maxHttpBufferSize: 1024 * 64
   });
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const token =
         (socket.handshake.auth?.token as string | undefined) ??
@@ -64,6 +65,7 @@ export function initChatSocket(httpServer: HttpServer) {
           : undefined);
       if (!token) return next(new Error("UNAUTHORIZED"));
       const payload = verifyAccessToken(token);
+      if (!(await isTokenAccountValid(payload))) return next(new Error("UNAUTHORIZED"));
       (socket as AuthSocket).data = { userId: payload.sub, role: payload.role, clinicId: payload.clinicId, rateBucket: [] };
       return next();
     } catch {
