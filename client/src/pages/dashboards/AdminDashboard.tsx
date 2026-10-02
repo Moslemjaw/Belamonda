@@ -150,6 +150,7 @@ function OffersManager() {
 
   const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[], allowExtraPaidSessions: false, extraSessionPriceKwd: "", branchExtraSessionPrices: [] as { clinicId: string, priceKwd: string }[], allowAppointmentBooking: true, bookingFlow: "admin_forward" as "admin_forward" | "direct_clinic" };
   const [form, setForm] = useState(emptyForm);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const offers = apiOffersData?.items || [];
   const [localOffers, setLocalOffers] = useState<any[]>([]);
@@ -171,6 +172,7 @@ function OffersManager() {
   const openCreate = () => {
     const firstClinic = clinicsData?.clinics?.[0]?.id ?? "";
     setForm({ ...emptyForm, clinicId: firstClinic, extraClinicIds: [] });
+    setFormError(null);
     setEditingId(null);
     setShowForm(true);
   };
@@ -231,12 +233,29 @@ function OffersManager() {
       })),
       bookingFlow: o.bookingFlow || "admin_forward"
     });
+    setFormError(null);
     setEditingId(o.id || o._id); 
     setShowForm(true);
   };
 
+  const validateForm = (): string | null => {
+    if (!form.nameEn.trim()) return ar() ? "اسم العرض (EN) مطلوب." : "Offer name (EN) is required.";
+    if (!(Number(form.price) >= 0) || form.price === "") return ar() ? "أدخل سعراً صحيحاً." : "Enter a valid price.";
+    if (!(parseInt(form.validityDays) >= 1)) return ar() ? "المدة يجب أن تكون يوماً واحداً على الأقل." : "Validity must be at least 1 day.";
+    if (!form.unlimitedSessions && !(parseInt(form.maxSessions) >= 1)) return ar() ? "أدخل عدد الجلسات (1 على الأقل) أو اختر غير محدود." : "Enter max sessions (at least 1) or choose Unlimited.";
+    if (!(parseInt(form.sessionIntervalDays || "0") >= 0)) return ar() ? "الحد الأدنى للأيام لا يمكن أن يكون سالباً." : "Minimum days between sessions can't be negative.";
+    if (!form.clinicId) return ar() ? "اختر العيادة الرئيسية." : "Select a primary clinic.";
+    if (!form.allowFullPayment && !form.allowInstallments && !form.allowDeposit && !form.allowENet) return ar() ? "فعّل طريقة دفع واحدة على الأقل." : "Enable at least one payment option.";
+    if (form.allowInstallments && !(parseInt(form.maxInstallments) >= 2)) return ar() ? "عدد الأقساط يجب أن يكون 2 على الأقل." : "Installments must allow at least 2 payments.";
+    if (form.allowDeposit && !(Number(form.depositAmount) > 0)) return ar() ? "أدخل مبلغ العربون." : "Enter the deposit amount.";
+    if (form.isGroupOffer && !(parseInt(form.groupSizeRequired) >= 2)) return ar() ? "حجم المجموعة يجب أن يكون 2 على الأقل." : "Group size must be at least 2.";
+    return null;
+  };
+
   const saveOffer = async () => {
-    if (!form.nameEn) return;
+    const problem = validateForm();
+    setFormError(problem);
+    if (problem) return;
     const clinicId = form.clinicId || "";
     try {
       const url = editingId ? `/offers/admin/${editingId}` : "/offers/admin";
@@ -312,9 +331,9 @@ function OffersManager() {
                 .filter((o) => o.clinicId && o.priceKwd !== "" && !Number.isNaN(Number(o.priceKwd)))
                 .map((o) => ({ clinicId: o.clinicId, priceKwd: `${Number(o.priceKwd).toFixed(3)}` }))
             : [],
-          status: "active",
-          active: true,
-          featured: false
+          // Publishing state is managed from the offer list; editing must not re-publish
+          // a draft/hidden offer or un-feature a featured one.
+          ...(editingId ? {} : { status: "active", active: true, featured: false })
         })
       });
       invalidateCache("/offers");
@@ -323,7 +342,7 @@ function OffersManager() {
       setShowForm(false);
       refresh();
     } catch (e: any) {
-      alert(e.message);
+      setFormError(e.message || (ar() ? "تعذر حفظ العرض." : "Could not save the offer."));
     }
   };
 
@@ -441,17 +460,17 @@ function OffersManager() {
               <div>
                 <div className="text-sm font-bold text-surface-900">
                   {ar()
-                    ? (form.clinicLocked ? "مقيّد — العميل يختار مرة واحدة" : "مفتوح — العميل يختار بحرية")
-                    : (form.clinicLocked ? "Locked — customer picks once, then locked" : "Open — customer can switch clinic freely")}
+                    ? (form.clinicLocked ? "مقيّد — العميل يختار مرة واحدة" : "مفتوح — يمكن للعميل تغيير العيادة")
+                    : (form.clinicLocked ? "Locked — customer picks once, then locked" : "Open — customer can change clinic")}
                 </div>
                 <div className="text-xs text-surface-500 mt-0.5">
                   {ar()
                     ? (form.clinicLocked
                         ? "العميل يختار عيادته عند الاشتراك ويُقيَّد بها. تغييرها لاحقاً يستلزم رسوم متصاعدة: 10 → 20 → 30 د.ك، وتحتاج موافقة خدمة العملاء."
-                        : "العميل يختار أي عيادة نشطة عند الاشتراك ويمكنه التغيير لاحقاً دون رسوم.")
+                        : "العميل يختار أي عيادة نشطة عند الاشتراك. يُطبَّق رسوم نقل العضوية المحددة أدناه عند التغيير لاحقاً.")
                     : (form.clinicLocked
                         ? "Customer picks any active clinic at checkout and is locked to it. Changing later costs 10 → 20 → 30 KWD (escalating) and requires CS approval."
-                        : "Customer picks any active clinic at checkout and can switch later at no charge.")}
+                        : "Customer picks any active clinic at checkout. Later changes are charged the Clinic Transfer Fee below.")}
                 </div>
               </div>
             </label>
@@ -466,6 +485,23 @@ function OffersManager() {
                 </span>
               </div>
             )}
+          </div>
+
+          {/* ── Primary clinic & transfer fee ── */}
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {F(ar() ? "العيادة الرئيسية" : "Primary Clinic", <div>
+              <select className="select-field w-full" value={form.clinicId} onChange={e => setForm({...form, clinicId: e.target.value})}>
+                <option value="">{ar() ? "اختر العيادة..." : "Select Clinic..."}</option>
+                {(clinicsData?.clinics || []).map((c: any) => <option key={c.id} value={c.id}>{ar() ? (c.nameAr || c.nameEn) : c.nameEn}</option>)}
+              </select>
+              <p className="text-[11px] text-surface-500 mt-1">{ar()
+                ? (form.requireBranchSelection ? "تُستخدم كعيادة افتراضية للعرض." : "كل الاشتراكات ستُسجَّل في هذه العيادة.")
+                : (form.requireBranchSelection ? "Used as the offer's default clinic." : "Every purchase is assigned to this clinic.")}</p>
+            </div>)}
+            {!form.clinicLocked && F(ar() ? "رسوم نقل العضوية لعيادة أخرى (KWD)" : "Clinic Transfer Fee (KWD)", <div>
+              <input className="input-field" type="number" min={0} step="0.001" value={form.clinicTransferFee} onChange={e => setForm({...form, clinicTransferFee: e.target.value})} />
+              <p className="text-[11px] text-surface-500 mt-1">{ar() ? "تُعرض للعميل عند الشراء وعند طلب تغيير العيادة. 0 = بدون رسوم." : "Shown to the customer at checkout and when changing clinic. 0 = free."}</p>
+            </div>)}
           </div>
 
           {/* ── Booking Flow selector ── */}
@@ -540,8 +576,12 @@ function OffersManager() {
             <h5 className="flex items-center gap-2.5 text-sm font-bold text-surface-900 mb-4 pb-3 border-b border-surface-100 before:content-[''] before:h-4 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-brand-pink-500 before:to-brand-sage-300 before:shrink-0">{ar() ? "قواعد الجلسات" : "Session Rules"}</h5>
             <div className="grid gap-4 md:grid-cols-2">
               {F(ar() ? "الجلسات" : "Max Sessions", <div className="flex items-center gap-2"><input className="input-field flex-1" type={form.unlimitedSessions ? "text" : "number"} value={form.unlimitedSessions ? "∞" : form.maxSessions} onChange={e => setForm({...form, maxSessions: e.target.value})} disabled={form.unlimitedSessions} /><label className="flex items-center gap-1 text-xs whitespace-nowrap"><input type="checkbox" checked={form.unlimitedSessions} onChange={e => setForm({...form, unlimitedSessions: e.target.checked})} className="accent-brand-pink-500 w-4 h-4 rounded" />{ar() ? "غير محدود" : "Unlimited"}</label></div>)}
-              {F(ar() ? "رصيد الكاش باك المشمول (KWD)" : "Included Cashback Balance (KWD)", <input className="input-field" type="number" value={form.signupCashback} onChange={e => setForm({...form, signupCashback: e.target.value})} placeholder="0.000" />)}
-              {F(ar() ? "فترة الانتظار بين الجلسات (أيام)" : "Session Interval Cooldown (days)", <input className="input-field" type="number" value={form.sessionIntervalDays} onChange={e => setForm({...form, sessionIntervalDays: e.target.value})} />)}
+              {F(ar() ? "الحد الأدنى للأيام بين الجلسات" : "Minimum Days Between Sessions", <div>
+                <input className="input-field" type="number" min={0} value={form.sessionIntervalDays} onChange={e => setForm({...form, sessionIntervalDays: e.target.value})} />
+                <p className="text-[11px] text-surface-500 mt-1">{ar()
+                  ? "لا يمكن للعميل طلب جلسة جديدة قبل انقضاء هذه المدة من آخر جلسة مكتملة. يحصل الموظفون على تحذير (مع إمكانية التجاوز) عند الجدولة قبلها."
+                  : "Customers can't request a new session until this many days after their last completed one. Staff get a warning (with override) when scheduling sooner."}</p>
+              </div>)}
             </div>
           </div>
 
@@ -681,7 +721,7 @@ function OffersManager() {
             </div>
             <div className="mt-4">
               <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${form.isCashbackOnly ? 'border-emerald-500 bg-emerald-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
-                <input type="checkbox" checked={form.isCashbackOnly} onChange={e => setForm({...form, isCashbackOnly: e.target.checked})} className="accent-emerald-500 w-4 h-4" />
+                <input type="checkbox" checked={form.isCashbackOnly} onChange={e => setForm({...form, isCashbackOnly: e.target.checked, allowAppointmentBooking: e.target.checked ? false : form.allowAppointmentBooking})} className="accent-emerald-500 w-4 h-4" />
                 <div>
                   <span className="font-bold text-sm text-surface-900">{ar() ? "كاش باك فقط (بدون حجز مواعيد)" : "Cashback Only (No Appointment Booking)"}</span>
                   <p className="text-xs text-surface-500 mt-0.5">{ar() ? "هذا العرض للكاش باك فقط ولا يتطلب حجز جلسات أو مواعيد" : "This offer is for cashback only — no sessions or appointments needed"}</p>
@@ -818,7 +858,7 @@ function OffersManager() {
             <h5 className="flex items-center gap-2.5 text-sm font-bold text-surface-900 mb-4 pb-3 border-b border-surface-100 before:content-[''] before:h-4 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-brand-pink-500 before:to-brand-sage-300 before:shrink-0">{ar() ? "خيارات العرض" : "Display Options"}</h5>
             <div className="mt-4">
               <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${form.allowAppointmentBooking ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
-                <input type="checkbox" checked={form.allowAppointmentBooking} onChange={e => setForm({...form, allowAppointmentBooking: e.target.checked})} className="accent-brand-pink-500 w-4 h-4" />
+                <input type="checkbox" checked={form.allowAppointmentBooking} disabled={form.isCashbackOnly} onChange={e => setForm({...form, allowAppointmentBooking: e.target.checked})} className="accent-brand-pink-500 w-4 h-4 disabled:opacity-50" />
                 <div>
                   <span className="font-bold text-sm text-surface-900">{ar() ? "إظهار زر حجز موعد" : "Show \"Book Appointment\" Button"}</span>
                   <p className="text-xs text-surface-500 mt-0.5">{ar() ? "فعّل هذا الخيار لإظهار زر حجز الموعد لهذه العضوية. إيقافه سيقوم بإخفاء الزر بالكامل." : "Enable this option to display a Book Appointment button for this membership. Disabling it will hide the button."}</p>
@@ -837,7 +877,8 @@ function OffersManager() {
 
           </div>
           <div className="px-6 py-4 bg-white/95 backdrop-blur-md border-t border-surface-200 flex items-center justify-end gap-2 shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
-            <button className="btn-secondary" onClick={() => { setShowForm(false); setEditingId(null); }}>{ar() ? "إلغاء" : "Cancel"}</button>
+            {formError && <div role="alert" className="me-auto text-sm font-semibold text-red-600">{formError}</div>}
+            <button className="btn-secondary" onClick={() => { setShowForm(false); setEditingId(null); setFormError(null); }}>{ar() ? "إلغاء" : "Cancel"}</button>
             <button className="btn-primary" onClick={() => void saveOffer()}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
               {editingId ? (ar() ? "حفظ التغييرات" : "Save Changes") : (ar() ? "إنشاء العرض" : "Create Offer")}
@@ -5386,7 +5427,7 @@ export default function AdminDashboard() {
                 </div>
                 <h3 className="text-base font-bold text-surface-900">{ar() ? "يحتاج إلى اهتمام" : "Needs Attention"}</h3>
               </div>
-              <div className="grid gap-6 lg:grid-cols-3 items-start">
+              <div className="grid gap-6 xl:grid-cols-2 2xl:grid-cols-3 items-start">
                 <KycQueue />
                 <PaymentQueue />
                 <BookingRequestsQueue onTransfer={(id, clinicId) => {

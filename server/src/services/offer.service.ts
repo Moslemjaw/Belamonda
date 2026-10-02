@@ -377,6 +377,8 @@ type OfferInput = {
   allowENet?: boolean;
   enetEFormId?: string;
   bookingFlow?: "admin_forward" | "direct_clinic";
+  allowAppointmentBooking?: boolean;
+  branchSubscriptionPrices?: { clinicId: string; priceKwd: string }[];
 };
 
 export async function createOffer(input: OfferInput) {
@@ -476,7 +478,9 @@ export async function createOffer(input: OfferInput) {
     isCashbackOnly: input.isCashbackOnly ?? false,
     cashbackEligible: input.cashbackEligible ?? true,
     maxCashbackPerPurchaseKwd: input.maxCashbackPerPurchaseKwd,
-    bookingFlow: input.bookingFlow ?? "admin_forward"
+    bookingFlow: input.bookingFlow ?? "admin_forward",
+    allowAppointmentBooking: input.allowAppointmentBooking ?? true,
+    branchSubscriptionPrices: (input.branchSubscriptionPrices ?? []).filter((b) => b.clinicId && b.priceKwd)
   });
 
   clearAdminOffersCache();

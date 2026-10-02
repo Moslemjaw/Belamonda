@@ -50,6 +50,10 @@ const OfferBaseSchema = z.object({
     clinicId: z.string().min(1),
     sessionPriceKwd: KwdString
   })).optional(),
+  branchSubscriptionPrices: z.array(z.object({
+    clinicId: z.string().min(1),
+    priceKwd: KwdString
+  })).optional(),
 
   // Sessions & Booking
   validityDays: z.number().int().positive(),
