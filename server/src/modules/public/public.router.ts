@@ -401,6 +401,9 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
       });
     }
 
+    // ?refresh=1 re-reads the card after an action (e.g. marking attendance) — it is not a
+    // new physical scan, so it must not write a ScanLog or move the session time.
+    const isRefresh = req.query.refresh === "1";
     const now = new Date();
     const activeScheduledSession = clinicSessions.find((s: any) => s.status === "scheduled" || s.status === "slot_assigned");
     const hasScheduled = !!activeScheduledSession;
@@ -408,7 +411,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     // Reschedule ONLY for late arrivals (scanned AFTER their originally scheduled session date/time)
     const isLateArrival = activeScheduledSession && activeScheduledSession.scheduledAt && new Date(now).getTime() > new Date(activeScheduledSession.scheduledAt).getTime();
 
-    if (activeScheduledSession && isLateArrival) {
+    if (!isRefresh && activeScheduledSession && isLateArrival) {
       await BookingSessionModel.findByIdAndUpdate(activeScheduledSession.id, {
         $set: { scheduledAt: now }
       });
@@ -433,7 +436,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
 
     const firstActiveMembership = memberships.find((m: any) => m.status === "active") || memberships[0];
 
-    await ScanLogModel.create({
+    if (!isRefresh) await ScanLogModel.create({
       userId: String(user._id),
       scannedByUserId: req.auth!.userId,
       clinicId: clinicId || "admin",

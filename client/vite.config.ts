@@ -1,5 +1,26 @@
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, type ProxyOptions } from "vite";
+
+const API = "http://localhost:8080";
+
+// API path prefixes forwarded to the backend in dev. Some of them (/clinics,
+// /offers, and /me as a prefix of /memberships) collide with SPA routes, so
+// browser page navigations (Accept: text/html) are served the app instead.
+const API_PREFIXES = [
+  "/auth", "/offers", "/clinics", "/categories", "/commerce", "/checkout", "/chat",
+  "/eforms", "/referral", "/public", "/session-types", "/dashboards", "/users", "/kyc",
+  "/payments", "/scheduling", "/wallet", "/notifications", "/tasks", "/reporting",
+  "/complaints", "/products", "/uploads", "/health", "/promotions", "/subscriptions",
+  "/cashback-requests", "/audit", "/notices", "/settings"
+];
+
+const apiProxy: ProxyOptions = {
+  target: API,
+  changeOrigin: true,
+  bypass(req) {
+    if (req.headers.accept?.includes("text/html")) return "/index.html";
+  }
+};
 
 export default defineConfig({
   plugins: [react()],
@@ -8,42 +29,9 @@ export default defineConfig({
     host: "0.0.0.0",
     allowedHosts: true,
     proxy: {
-      "/auth": { target: "http://localhost:8080", changeOrigin: true },
-      "/offers": { target: "http://localhost:8080", changeOrigin: true },
-      "/clinics": { target: "http://localhost:8080", changeOrigin: true },
-      "/categories": { target: "http://localhost:8080", changeOrigin: true },
-      "/commerce": { target: "http://localhost:8080", changeOrigin: true },
-      "/checkout": { target: "http://localhost:8080", changeOrigin: true },
-      "/chat": { target: "http://localhost:8080", changeOrigin: true },
-      "/eforms": { target: "http://localhost:8080", changeOrigin: true },
-      "/referral": { target: "http://localhost:8080", changeOrigin: true },
-      "/public": { target: "http://localhost:8080", changeOrigin: true },
-      "/session-types": { target: "http://localhost:8080", changeOrigin: true },
-      "/dashboards": { target: "http://localhost:8080", changeOrigin: true },
-      "/users": { target: "http://localhost:8080", changeOrigin: true },
-      "/kyc": { target: "http://localhost:8080", changeOrigin: true },
-      "/payments": { target: "http://localhost:8080", changeOrigin: true },
-      "/scheduling": { target: "http://localhost:8080", changeOrigin: true },
-      "/wallet": { target: "http://localhost:8080", changeOrigin: true },
-      "/notifications": { target: "http://localhost:8080", changeOrigin: true },
-      "/tasks": { target: "http://localhost:8080", changeOrigin: true },
-      "/reporting": { target: "http://localhost:8080", changeOrigin: true },
-      "/complaints": { target: "http://localhost:8080", changeOrigin: true },
-      "/products": { target: "http://localhost:8080", changeOrigin: true },
-      "/uploads": { target: "http://localhost:8080", changeOrigin: true },
-      "/me": { target: "http://localhost:8080", changeOrigin: true },
-      "/health": { target: "http://localhost:8080", changeOrigin: true },
-      "/promotions": { target: "http://localhost:8080", changeOrigin: true },
-      "/subscriptions": { target: "http://localhost:8080", changeOrigin: true },
-      "/cashback-requests": { target: "http://localhost:8080", changeOrigin: true },
-      "/audit": { target: "http://localhost:8080", changeOrigin: true },
-      "/notices": { target: "http://localhost:8080", changeOrigin: true },
-      "/settings": { target: "http://localhost:8080", changeOrigin: true },
-      "/socket.io": {
-        target: "http://localhost:8080",
-        changeOrigin: true,
-        ws: true
-      }
+      ...Object.fromEntries(API_PREFIXES.map((p) => [`^${p}(/|$|\\?)`, apiProxy])),
+      "^/me$": apiProxy,
+      "/socket.io": { target: API, changeOrigin: true, ws: true }
     }
   }
 });

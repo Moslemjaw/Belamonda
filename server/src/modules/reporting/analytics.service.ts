@@ -893,10 +893,9 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
   let expectedTotalMils = 0;
   let paidTowardMembershipsMils = 0;
 
-  if (!dateFilter && globalMetric) {
-    expectedTotalMils = globalMetric.totalExpectedMembershipRevenueMils || 0;
-    paidTowardMembershipsMils = globalMetric.totalPaidTowardMembershipsMils || 0;
-  } else {
+  // Always computed live: the stored metric is only refreshed by the 12-hourly
+  // reconciliation job, so it lagged behind confirmed payments on the dashboard.
+  {
     const uoQ: any = { status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] } };
     if (dateFilter) uoQ.createdAt = dateFilter;
 
@@ -936,7 +935,6 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
   // Unpaid = Expected - Paid
   const unpaidInstallmentsMils = Math.max(0, expectedTotalMils - paidTowardMembershipsMils);
 
-  console.log("[FinanceSnapshot] expectedTotalMils:", expectedTotalMils, "paidTowardMembershipsMils:", paidTowardMembershipsMils, "unpaidInstallmentsMils:", unpaidInstallmentsMils);
 
   return {
     revenueKwd,

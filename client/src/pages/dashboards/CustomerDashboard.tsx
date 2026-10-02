@@ -1208,10 +1208,14 @@ export default function CustomerDashboard() {
   const myClinicChanges = myClinicChangesData?.items || [];
 
   useEffect(() => {
+    // Only re-render when the stored ledger actually changes (this polls every second).
+    let lastRaw: string | null = null;
     const sync = () => {
        try { 
-          const ledger = JSON.parse(localStorage.getItem('bel_financial_ledger_v1') || '[]');
-          setLocalLedger(ledger);
+          const raw = localStorage.getItem('bel_financial_ledger_v1') || '[]';
+          if (raw === lastRaw) return;
+          lastRaw = raw;
+          setLocalLedger(JSON.parse(raw));
        } catch {}
     };
     window.addEventListener('storage', sync);
