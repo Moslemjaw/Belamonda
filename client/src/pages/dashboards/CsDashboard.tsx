@@ -12,7 +12,7 @@ import { addFinancialEntry, upsertSubscription, getSubscriptions, getFinancialLe
 import { sharedClinics } from "../../lib/clinics";
 import { clinics as treatmentClinics, allTreatments, treatmentCategories } from "../../lib/treatments";
 import { getCategoryIcon } from "../../components/CategoryIcons";
-import { KycQueue, PaymentQueue, BookingRequestsQueue } from "./CsDashboardQueues";
+import ClinicChangeModal from "../../components/ClinicChangeModal";
 import { KpiCard } from "../../components/KpiCard";
 import ChatWidget from "../../components/ChatWidget";
 import ShareLinkPage from "../../components/ShareLinkPage";
