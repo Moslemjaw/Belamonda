@@ -2709,6 +2709,9 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
 
     const session = await sessionsStore.get(req.params.sessionId);
     if (!session) return res.status(404).json({ error: "NOT_FOUND" });
+    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, String(session.clinicId)))) {
+      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+    }
 
     const uo = session.userOfferId ? await loadUserOffer(session.userOfferId) : null;
     
@@ -2956,6 +2959,9 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
 
     const session = await sessionsStore.get(req.params.sessionId);
     if (!session) return res.status(404).json({ error: "NOT_FOUND" });
+    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, String(session.clinicId)))) {
+      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+    }
 
     if (session.status !== "scheduled" && session.status !== "no_show") {
       return res.status(409).json({ error: "INVALID_STATE", detail: "Only scheduled or missed sessions can be rescheduled" });
@@ -3015,16 +3021,17 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
 schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res, next) => {
   try {
     const { from, to, status, clinicId, search } = req.query;
-    const userRole = (req as any).user?.role;
-    const userClinicId = (req as any).user?.clinicId;
-
     const sessionQuery: any = {};
     const requestQuery: any = { status: { $ne: "confirmed" } };
 
-    // Clinic scoping
+    // Clinic scoping — clinic staff only ever see their own clinic
     let targetClinicId = clinicId;
-    if (userRole === "clinicStaff" && userClinicId) {
-      targetClinicId = userClinicId.toString();
+    if (req.auth!.role === "clinicStaff") {
+      const myClinicId = req.auth!.userId.startsWith("impersonated_")
+        ? req.auth!.userId.replace("impersonated_", "")
+        : req.auth!.clinicId || (await getUserClinicId(req.auth!.userId));
+      if (!myClinicId) return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+      targetClinicId = myClinicId;
     }
 
     if (targetClinicId && targetClinicId !== "all") {
@@ -3290,7 +3297,7 @@ schedulingRouter.get("/admin/sessions-log", authRequired, requireRole(["admin", 
 });
 
 // ── Session row detail: booking requests + scans for a user ───────────────────
-schedulingRouter.get("/admin/session-details", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res, next) => {
+schedulingRouter.get("/admin/session-details", authRequired, requireRole(["admin", "cs_director", "legal", "cs"]), async (req, res, next) => {
   try {
     const userId = typeof req.query.userId === "string" ? req.query.userId.trim() : "";
     if (!userId) return res.json({ requests: [], scans: [] });
@@ -3392,7 +3399,7 @@ schedulingRouter.get("/admin/session-details", authRequired, requireRole(["admin
 });
 
 // ── Customer 360 Session Status (Sessions + Requests + Scans) ────────────────
-schedulingRouter.get("/admin/customer-session-status", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res, next) => {
+schedulingRouter.get("/admin/customer-session-status", authRequired, requireRole(["admin", "cs_director", "legal", "cs"]), async (req, res, next) => {
   try {
     const q = (typeof req.query.query === "string" ? req.query.query : (typeof req.query.q === "string" ? req.query.q : "")).trim();
     const userIdParam = typeof req.query.userId === "string" ? req.query.userId.trim() : "";
