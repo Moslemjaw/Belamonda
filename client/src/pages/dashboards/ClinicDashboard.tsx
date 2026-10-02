@@ -1747,7 +1747,7 @@ function ClinicScannerTab({ clinicId, onMarkSession }: { clinicId?: string; onMa
       setResult(null);
     }
     try {
-      const data = await apiFetch(`/public/clinic/scan/${extracted}`, {
+      const data = await apiFetch<any>(`/public/clinic/scan/${extracted}`, {
         headers: getAuthHeader(),
       });
       setResult(data);

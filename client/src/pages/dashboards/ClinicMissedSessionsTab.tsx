@@ -28,8 +28,8 @@ function RescheduleModal({ isOpen, session, onClose, onSubmit }: {
 
   // Determine the minimum allowed date
   // If adminSuggestedAt exists, lock dates before it. Otherwise allow any date (or just today).
-  // The DatePicker takes minDate in YYYY-MM-DD format.
-  const minDate = session.adminSuggestedAt ? new Date(session.adminSuggestedAt).toISOString().split('T')[0] : undefined;
+  // Earliest selectable day is the admin-suggested date (DatePicker expects a Date).
+  const minDate = session.adminSuggestedAt ? new Date(new Date(session.adminSuggestedAt).setHours(0, 0, 0, 0)) : undefined;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">

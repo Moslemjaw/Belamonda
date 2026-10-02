@@ -1145,6 +1145,7 @@ export default function CustomerDashboard() {
               groupInviteCode: existingUo.groupInviteCode,
               membersJoined: (existingUo.sharedWith || []).length,
               membersNeeded: (offer.groupSizeRequired || 2) - 1,
+              loading: false,
             });
           } else {
              setCheckoutPkg({ ...offer, userOfferId: existingUo.id });
@@ -1157,6 +1158,7 @@ export default function CustomerDashboard() {
                step: "confirm",
                membersJoined: 0,
                membersNeeded: (offer.groupSizeRequired || 2) - 1,
+               loading: false,
              });
           } else {
              setCheckoutPkg(offer);

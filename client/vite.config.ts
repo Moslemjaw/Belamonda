@@ -33,6 +33,12 @@ export default defineConfig({
       "/uploads": { target: "http://localhost:8080", changeOrigin: true },
       "/me": { target: "http://localhost:8080", changeOrigin: true },
       "/health": { target: "http://localhost:8080", changeOrigin: true },
+      "/promotions": { target: "http://localhost:8080", changeOrigin: true },
+      "/subscriptions": { target: "http://localhost:8080", changeOrigin: true },
+      "/cashback-requests": { target: "http://localhost:8080", changeOrigin: true },
+      "/audit": { target: "http://localhost:8080", changeOrigin: true },
+      "/notices": { target: "http://localhost:8080", changeOrigin: true },
+      "/settings": { target: "http://localhost:8080", changeOrigin: true },
       "/socket.io": {
         target: "http://localhost:8080",
         changeOrigin: true,

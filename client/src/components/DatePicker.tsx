@@ -1,8 +1,8 @@
 import React from 'react';
 import ReactDatePicker, { registerLocale } from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import ar from 'date-fns/locale/ar-SA';
-import enGB from 'date-fns/locale/en-GB';
+import { arSA as ar } from 'date-fns/locale/ar-SA';
+import { enGB } from 'date-fns/locale/en-GB';
 import i18n from '../app/i18n';
 
 registerLocale('ar', ar);

@@ -516,10 +516,10 @@ export default function ChatWidget({ conversationId: initialConvId, adminMode, s
                           value={proposeAt}
                           onChange={(e) => setProposeAt(e.target.value)}
                         />
-                        <button className="btn-secondary btn-sm" onClick={proposeSlot} disabled={!proposeAt}>
+                        <button className="btn-secondary btn-sm" onClick={() => void proposeSlot()} disabled={!proposeAt}>
                           {ar() ? "اقتراح وقت" : "Propose"}
                         </button>
-                        <button className="btn-primary btn-sm bg-emerald-500 hover:bg-emerald-600" onClick={confirmBooking}>
+                        <button className="btn-primary btn-sm bg-emerald-500 hover:bg-emerald-600" onClick={() => void confirmBooking()}>
                           {ar() ? "تأكيد" : "Confirm"}
                         </button>
                         <button

@@ -12,7 +12,7 @@ export function SurveySubmissionsModal({ promotionId, promotionTitle, onClose }:
   const { t, i18n } = useTranslation();
   const ar = () => i18n.language === "ar";
 
-  const { data, isLoading, error } = useApi<{ items: any[] }>(`/promotions/admin/${promotionId}/submissions`);
+  const { data, loading: isLoading, error } = useApi<{ items: any[] }>(`/promotions/admin/${promotionId}/submissions`);
   const submissions = data?.items || [];
 
   return (
@@ -33,7 +33,7 @@ export function SurveySubmissionsModal({ promotionId, promotionTitle, onClose }:
 
         <div className="flex-1 overflow-auto p-6 bg-surface-50">
           {error && (
-            <div className="p-4 bg-red-50 text-red-600 rounded-xl mb-4 font-bold">{error.message || "Failed to load"}</div>
+            <div className="p-4 bg-red-50 text-red-600 rounded-xl mb-4 font-bold">{error || "Failed to load"}</div>
           )}
 
           {!isLoading && submissions.length === 0 && !error && (

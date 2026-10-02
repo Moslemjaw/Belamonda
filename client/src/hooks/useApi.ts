@@ -202,6 +202,7 @@ export function useWallet(opts?: { lazy?: boolean }) {
 export type MyOfferItem = {
   id: string; offerId: string; clinicId: string; status: string;
   sessionsUsed: number; activatedAt?: string; expiresAt?: string;
+  groupInviteCode?: string; sharedWith?: string[];
   purchaseMode?: "full" | "installments" | "deposit" | "enet" | "deposit_completed" | "free" | "discount";
   installmentCount?: number;
   installmentsPaid?: number;
@@ -645,6 +646,7 @@ export type ClinicDetailInvoice = {
   id: string; userId: string; customerName: string; customerPhone?: string | null;
   status: string; sessionPriceKwd?: string | null; cashbackDeductedKwd?: string | null;
   clinicPaymentStatus: string; membershipType?: string | null; createdAt: string; confirmedAt?: string | null;
+  scheduledAt?: string | null;
   combinedSessionStatus?: string;
 };
 export type ClinicDetailSummary = {
