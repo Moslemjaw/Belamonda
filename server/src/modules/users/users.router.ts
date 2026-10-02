@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import * as XLSX from "xlsx";
 import bcrypt from "bcryptjs";
 import { authRequired, forgetAccountStatus } from "../../middlewares/authRequired.js";
+import { kwDate, kwDateTime } from "../../utils/kwDate.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { ClinicModel } from "../../models/clinic.model.js";
 import { UserModel } from "../../models/user.model.js";
@@ -437,7 +438,7 @@ usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "financ
       "Civil ID": user.civilIdNumberMasked ?? "—",
       "Role": user.role ?? "—",
       "Status": user.isActive ? "Active" : "Disabled",
-      "Account Created": user.createdAt ? new Date(user.createdAt).toLocaleString() : "—",
+      "Account Created": user.createdAt ? kwDateTime(user.createdAt) : "—",
       "Total Memberships": memberships.length,
       "Total Payments": payments.length,
       "Total Sessions": bookingSessions.length,
@@ -454,9 +455,9 @@ usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "financ
       "Sessions Used": m.sessionsUsed ?? 0,
       "Installments Paid": `${m.installmentsPaid ?? 0} / ${m.installmentCount ?? "—"}`,
       "Amount (KWD)": m.paymentAmountKwd ?? "0.000",
-      "Activated At": m.activatedAt ? new Date(m.activatedAt).toLocaleString() : "—",
-      "Expires At": m.expiresAt ? new Date(m.expiresAt).toLocaleDateString() : "—",
-      "Next Installment": m.nextInstallmentDueAt ? new Date(m.nextInstallmentDueAt).toLocaleDateString() : "—",
+      "Activated At": m.activatedAt ? kwDateTime(m.activatedAt) : "—",
+      "Expires At": m.expiresAt ? kwDate(m.expiresAt) : "—",
+      "Next Installment": m.nextInstallmentDueAt ? kwDate(m.nextInstallmentDueAt) : "—",
       "Membership ID": String(m._id),
     }));
     const membershipSheet = XLSX.utils.json_to_sheet(membershipRows);
@@ -467,10 +468,10 @@ usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "financ
     const sessionRows = bookingSessions.map((s: any) => ({
       "Offer": offerMap[String(s.offerId)] ?? "—",
       "Status": s.status,
-      "Scheduled At": s.scheduledAt ? new Date(s.scheduledAt).toLocaleString() : "—",
+      "Scheduled At": s.scheduledAt ? kwDateTime(s.scheduledAt) : "—",
       "Short ID": s.shortId ?? "—",
       "Clinic ID": s.clinicId ? String(s.clinicId) : "—",
-      "Created At": s.createdAt ? new Date(s.createdAt).toLocaleString() : "—",
+      "Created At": s.createdAt ? kwDateTime(s.createdAt) : "—",
     }));
     const sessionSheet = XLSX.utils.json_to_sheet(sessionRows);
     sessionSheet["!cols"] = [{ wch: 30 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 20 }];
@@ -485,7 +486,7 @@ usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "financ
       "Method": p.method,
       "Purpose": p.purpose,
       "Status": p.status,
-      "Confirmed At": p.confirmedAt ? new Date(p.confirmedAt).toLocaleString() : "—",
+      "Confirmed At": p.confirmedAt ? kwDateTime(p.confirmedAt) : "—",
       "Payment ID": String(p._id),
     }));
     const paymentSheet = XLSX.utils.json_to_sheet(paymentRows);
@@ -497,7 +498,7 @@ usersRouter.get("/admin/:id/export", authRequired, requireRole(["admin", "financ
       "Type": t.type,
       "Amount (KWD)": t.amountKwd,
       "Reason": t.reason ?? "—",
-      "Date": t.createdAt ? new Date(t.createdAt).toLocaleString() : "—",
+      "Date": t.createdAt ? kwDateTime(t.createdAt) : "—",
       "Txn ID": String(t._id),
     }));
     const txnSheet = XLSX.utils.json_to_sheet(txnRows);

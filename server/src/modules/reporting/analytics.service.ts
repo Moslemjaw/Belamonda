@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { kwDate, kwDateTime } from "../../utils/kwDate.js";
 import * as clinicService from "../../services/clinic.service.js";
 import * as offerService from "../../services/offer.service.js";
 import * as userOfferService from "../../services/userOffer.service.js";
@@ -526,21 +527,21 @@ export async function computeDetailedCustomersReport(filters: { from?: string; t
       const sched = uo.installmentSchedule || [];
       if (sched[0]) {
          depositAmt = sched[0].amountKwd;
-         if (sched[0].paid) firstDate = sched[0].paidAt ? new Date(sched[0].paidAt).toISOString().slice(0,10) : "";
+         if (sched[0].paid) firstDate = sched[0].paidAt ? kwDate(sched[0].paidAt) : "";
       }
       if (sched[1]) {
          inst2Amt = sched[1].amountKwd;
-         if (sched[1].paid) secDate = sched[1].paidAt ? new Date(sched[1].paidAt).toISOString().slice(0,10) : "";
+         if (sched[1].paid) secDate = sched[1].paidAt ? kwDate(sched[1].paidAt) : "";
       }
       if (sched[2]) {
          inst3Amt = sched[2].amountKwd;
-         if (sched[2].paid) thirdDate = sched[2].paidAt ? new Date(sched[2].paidAt).toISOString().slice(0,10) : "";
+         if (sched[2].paid) thirdDate = sched[2].paidAt ? kwDate(sched[2].paidAt) : "";
       }
     } else {
-      firstDate = uo.paymentConfirmedAt ? new Date(uo.paymentConfirmedAt).toISOString().slice(0, 10) : "";
+      firstDate = uo.paymentConfirmedAt ? kwDate(uo.paymentConfirmedAt) : "";
       if (uo.purchaseMode === "deposit") {
          depositAmt = uo.depositAmountKwd || "0.000";
-         firstDate = uo.depositPaidAt ? new Date(uo.depositPaidAt).toISOString().slice(0, 10) : firstDate;
+         firstDate = uo.depositPaidAt ? kwDate(uo.depositPaidAt) : firstDate;
       }
     }
 
@@ -553,7 +554,7 @@ export async function computeDetailedCustomersReport(filters: { from?: string; t
       customerPhone: user.phone || "",
       service: offer?.name || "",
       clinicName: clinic?.nameEn || "",
-      expiryDate: uo.expiresAt ? new Date(uo.expiresAt).toISOString().slice(0,10) : "",
+      expiryDate: uo.expiresAt ? kwDate(uo.expiresAt) : "",
       reference: refString,
       totalPaymentKwd: fmtKwd(totalMils),
       paidAmountKwd: fmtKwd(paidMils),
@@ -566,7 +567,7 @@ export async function computeDetailedCustomersReport(filters: { from?: string; t
       secondPaymentDate: secDate,
       thirdPaymentDate: thirdDate,
       notes: uo.enetReason || "",
-      packageDate: uo.createdAt ? new Date(uo.createdAt).toISOString().slice(0,10) : "",
+      packageDate: uo.createdAt ? kwDate(uo.createdAt) : "",
     };
   });
   
@@ -991,7 +992,7 @@ export async function computeDormantCustomersReport(filters: { from?: string; to
       customerName: u.fullName || u.username,
       phone: u.phone || "—",
       email: u.email || "—",
-      joinedAt: u.createdAt ? new Date(u.createdAt).toISOString().slice(0, 10) : "—",
+      joinedAt: u.createdAt ? kwDate(u.createdAt) : "—",
     })).sort((a, b) => new Date(a.joinedAt).getTime() - new Date(b.joinedAt).getTime())
   };
 }
@@ -1099,8 +1100,8 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
   ws.getCell("A1").font = { size: 16, bold: true, color: { argb: "FF0F172A" } };
   ws.getCell("A1").alignment = { vertical: "middle", horizontal: rtl ? "right" : "left" };
 
-  const from = filters.from ? new Date(filters.from).toISOString().slice(0, 10) : "—";
-  const to = filters.to ? new Date(filters.to).toISOString().slice(0, 10) : "—";
+  const from = filters.from ? kwDate(filters.from) : "—";
+  const to = filters.to ? kwDate(filters.to) : "—";
   ws.getCell("A2").value = `Range: ${from} → ${to}`;
   ws.getCell("A2").font = { size: 11, color: { argb: "FF334155" } };
   ws.getCell("A2").alignment = { vertical: "middle", horizontal: rtl ? "right" : "left" };
@@ -1383,7 +1384,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         installmentNumber: i.installmentNumber,
         amountKwd: Number.parseFloat(i.amountKwd ?? "0"),
         amountLeftKwd: Number.parseFloat(i.amountLeftKwd ?? "0"),
-        dueDate: i.dueDate ? new Date(i.dueDate).toISOString().slice(0, 10) : "",
+        dueDate: i.dueDate ? kwDate(i.dueDate) : "",
         status: i.status,
       })),
     );
@@ -1476,7 +1477,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
 
       const row = wsS.getRow(idx + 4);
       row.values = [
-        s.scheduledAt ? new Date(s.scheduledAt).toISOString().slice(0, 16).replace("T", " ") : "",
+        s.scheduledAt ? kwDateTime(s.scheduledAt) : "",
         u.fullName || u.username || s.userId,
         u.phone || "",
         c,
@@ -1916,9 +1917,9 @@ export async function exportClinicReportXlsx(clinicId: string, filters: { from?:
     const sessionType = offer.offerKind ?? offer.category ?? "—";
     const extraItems = (s.extraItems || []).map((e: any) => `${e.name} (${e.qty})`).join(", ") || "—";
     const sessionStatus = s.status === "completed" ? "معتمد" : s.status === "no_show" ? "غير معتمد" : s.status;
-    const sessionDate = s.scheduledAt ? new Date(s.scheduledAt).toISOString().slice(0, 10) : "";
-    const packageDate = userOffer.activatedAt ? new Date(userOffer.activatedAt).toISOString().slice(0, 10) : (userOffer.createdAt ? new Date(userOffer.createdAt).toISOString().slice(0, 10) : "");
-    const expiryDate = userOffer.expiresAt ? new Date(userOffer.expiresAt).toISOString().slice(0, 10) : "";
+    const sessionDate = s.scheduledAt ? kwDate(s.scheduledAt) : "";
+    const packageDate = userOffer.activatedAt ? kwDate(userOffer.activatedAt) : (userOffer.createdAt ? kwDate(userOffer.createdAt) : "");
+    const expiryDate = userOffer.expiresAt ? kwDate(userOffer.expiresAt) : "";
 
 
     const values = [
@@ -1975,7 +1976,7 @@ export async function exportClinicReportXlsx(clinicId: string, filters: { from?:
   data.invoices.forEach((inv, idx) => {
     const row = wsI.getRow(idx + 2);
     row.values = [
-      new Date(inv.createdAt).toISOString().slice(0, 10),
+      kwDate(inv.createdAt),
       inv.customerName,
       inv.customerPhone ?? "",
       inv.sessionPriceKwd ? parseFloat(inv.sessionPriceKwd) : "",
@@ -2144,7 +2145,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
     users.map((u: any) => [
       String(u._id), u.fullName ?? "", u.username ?? "", u.phone ?? "", u.email ?? "",
       u.civilIdNumberMasked ?? "", u.role ?? "", u.isActive !== false ? "Active" : "Disabled",
-      u.createdAt ? new Date(u.createdAt).toISOString().slice(0, 10) : ""
+      u.createdAt ? kwDate(u.createdAt) : ""
     ])
   );
 
@@ -2168,7 +2169,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
         sched.forEach((s: any, i: number) => {
           if (s.paid) paidMils += parseKwd(s.amountKwd || "0");
           if (i < 4 && s.dueDate && !s.paid) {
-            dates[i] = new Date(s.dueDate).toISOString().slice(0, 10);
+            dates[i] = kwDate(s.dueDate);
           }
         });
       } else if (m.purchaseMode === "deposit") {
@@ -2187,8 +2188,8 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
         totalPriceKwd,
         balanceKwd.toFixed(3),
         ...dates,
-        m.activatedAt ? new Date(m.activatedAt).toISOString().slice(0, 10) : "",
-        m.createdAt ? new Date(m.createdAt).toISOString().slice(0, 10) : ""
+        m.activatedAt ? kwDate(m.activatedAt) : "",
+        m.createdAt ? kwDate(m.createdAt) : ""
       ];
     }),
     [7, 9, 10, 11] // Totals for: Sessions Used, Installments Paid, Total Price, Amount Left
@@ -2267,7 +2268,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
       const u = userMap[p.userId] || {};
       return [
         String(p._id),
-        p.createdAt ? new Date(p.createdAt).toISOString().slice(0, 16).replace("T", " ") : "",
+        p.createdAt ? kwDateTime(p.createdAt) : "",
         u.fullName || u.username || "", u.phone || "",
         offerMap[String(p.offerId)] ?? "", clinicMap[String(p.clinicId)] ?? "",
         p.amountKwd, p.grossAmountKwd ?? p.amountKwd, p.cashbackAppliedKwd ?? "0",

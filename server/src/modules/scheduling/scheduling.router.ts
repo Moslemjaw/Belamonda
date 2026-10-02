@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { kwDate, kwDateTime } from "../../utils/kwDate.js";
 import mongoose from "mongoose";
 import { z } from "zod";
 import { authRequired } from "../../middlewares/authRequired.js";
@@ -361,8 +362,8 @@ async function checkStaffIntervalConstraint({
       return { allowed: true };
     }
 
-    const targetDateStr = targetDate.toISOString().split("T")[0];
-    const cooldownStr = cooldownOverrideAt.toISOString().split("T")[0];
+    const targetDateStr = kwDate(targetDate);
+    const cooldownStr = kwDate(cooldownOverrideAt);
     return {
       allowed: false,
       code: "INTERVAL_WARNING",
@@ -422,8 +423,8 @@ async function checkStaffIntervalConstraint({
       }
 
       const daysGap = Math.floor((targetDate.getTime() - lastCompletedDate.getTime()) / (24 * 60 * 60 * 1000));
-      const lastStr = lastCompletedDate.toISOString().split("T")[0];
-      const nextStr = nextEligible.toISOString().split("T")[0];
+      const lastStr = kwDate(lastCompletedDate);
+      const nextStr = kwDate(nextEligible);
       return {
         allowed: false,
         code: "INTERVAL_WARNING",
@@ -704,7 +705,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
          postSystemMessage(
            conv.id,
            "booking_requested",
-           `Customer requested a CS booking for ${parsed.data.standaloneName}${parsed.data.preferredAt ? ` (preferred ${parsed.data.preferredAt})` : ""}.${parsed.data.notes ? ` Note: ${parsed.data.notes}` : ""}`,
+           `Customer requested a CS booking for ${parsed.data.standaloneName}${parsed.data.preferredAt ? ` (preferred ${kwDateTime(parsed.data.preferredAt)})` : ""}.${parsed.data.notes ? ` Note: ${parsed.data.notes}` : ""}`,
            { bookingRequestId: breq.id, preferredAt: parsed.data.preferredAt }
          );
        }
@@ -912,7 +913,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         postSystemMessage(
           payConv.id,
           "booking_requested",
-          `Customer requested a booking (payment pending: ${amountToPay} KWD).${parsed.data.preferredAt ? ` Preferred: ${parsed.data.preferredAt}` : ""}`,
+          `Customer requested a booking (payment pending: ${amountToPay} KWD).${parsed.data.preferredAt ? ` Preferred: ${kwDateTime(parsed.data.preferredAt)}` : ""}`,
           { bookingRequestId: breq.id, preferredAt: parsed.data.preferredAt }
         );
       }
@@ -985,7 +986,7 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
       postSystemMessage(
         conv.id,
         "booking_requested",
-        `Customer requested a booking${parsed.data.preferredAt ? ` (preferred ${parsed.data.preferredAt})` : ""}.${parsed.data.notes ? ` Note: ${parsed.data.notes}` : ""}`,
+        `Customer requested a booking${parsed.data.preferredAt ? ` (preferred ${kwDateTime(parsed.data.preferredAt)})` : ""}.${parsed.data.notes ? ` Note: ${parsed.data.notes}` : ""}`,
         { bookingRequestId: breq.id, preferredAt: parsed.data.preferredAt }
       );
       const recipients = conv.participants.map((p) => p.userId).filter((u) => u !== req.auth!.userId);
@@ -1124,7 +1125,7 @@ schedulingRouter.post("/me/requests/:id/pay-session", authRequired, async (req, 
       postSystemMessage(
         conv.id,
         "booking_requested",
-        `Customer paid session fee (${breq.sessionPriceKwd ?? ""} KWD) and submitted booking request${breq.preferredAt ? ` (preferred ${breq.preferredAt})` : ""}.${breq.notes ? ` Note: ${breq.notes}` : ""}`,
+        `Customer paid session fee (${breq.sessionPriceKwd ?? ""} KWD) and submitted booking request${breq.preferredAt ? ` (preferred ${kwDateTime(breq.preferredAt)})` : ""}.${breq.notes ? ` Note: ${breq.notes}` : ""}`,
         { bookingRequestId: breq.id, preferredAt: breq.preferredAt }
       );
       const recipients = conv.participants.map((p: any) => p.userId).filter((u: any) => u !== req.auth!.userId);
@@ -1232,7 +1233,7 @@ schedulingRouter.post("/me/requests/:id/accept", authRequired, async (req, res, 
       postSystemMessage(
         updated.conversationId,
         "booking_confirmed",
-        `Customer accepted the proposed time. Booking is confirmed for ${scheduledAt}.`,
+        `Customer accepted the proposed time. Booking is confirmed for ${kwDateTime(scheduledAt)}.`,
         { bookingRequestId: updated.id, sessionId: session.id, scheduledAt },
         req.auth!.userId
       );
@@ -1244,7 +1245,7 @@ schedulingRouter.post("/me/requests/:id/accept", authRequired, async (req, res, 
     notifyChatRelatedUsers({
       userIds: [uo.userId],
       kind: "booking_confirmed",
-      body: `Your booking is confirmed for ${scheduledAt}`,
+      body: `Your booking is confirmed for ${kwDateTime(scheduledAt)}`,
       payload: { sessionId: session.id, bookingRequestId: breq.id }
     });
 
@@ -1254,7 +1255,7 @@ schedulingRouter.post("/me/requests/:id/accept", authRequired, async (req, res, 
     notifyChatRelatedUsers({
       userIds: Array.from(new Set([...clinicStaff, ...csIds])),
       kind: "booking_confirmed",
-      body: `Customer accepted and confirmed the booking for ${scheduledAt}`,
+      body: `Customer accepted and confirmed the booking for ${kwDateTime(scheduledAt)}`,
       payload: { sessionId: session.id, bookingRequestId: breq.id }
     });
 
@@ -1534,14 +1535,14 @@ schedulingRouter.post("/requests/:id/propose", authRequired, requireRole(["clini
     postSystemMessage(
       conv.id,
       "slot_proposed",
-      `Proposed time: ${parsed.data.scheduledAt}${parsed.data.notes ? ` — ${parsed.data.notes}` : ""}`,
+      `Proposed time: ${kwDateTime(parsed.data.scheduledAt)}${parsed.data.notes ? ` — ${parsed.data.notes}` : ""}`,
       { bookingRequestId: breq.id, scheduledAt: parsed.data.scheduledAt },
       req.auth!.userId
     );
     notifyChatRelatedUsers({
       userIds: [breq.userId],
       kind: "booking_slot_proposed",
-      body: `New time proposed: ${parsed.data.scheduledAt}`,
+      body: `New time proposed: ${kwDateTime(parsed.data.scheduledAt)}`,
       payload: { bookingRequestId: breq.id }
     });
   }
@@ -1643,7 +1644,7 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
     postSystemMessage(
       updated.conversationId,
       "booking_confirmed",
-      `Booking confirmed for ${scheduledAt}.`,
+      `Booking confirmed for ${kwDateTime(scheduledAt)}.`,
       { bookingRequestId: updated.id, sessionId: session.id, scheduledAt },
       req.auth!.userId
     );
@@ -1653,7 +1654,7 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   notifyChatRelatedUsers({
     userIds: [uo.userId],
     kind: "booking_confirmed",
-    body: `Your booking is confirmed for ${scheduledAt}`,
+    body: `Your booking is confirmed for ${kwDateTime(scheduledAt)}`,
     payload: { sessionId: session.id, bookingRequestId: breq.id }
   });
   emitToUser(uo.userId, "booking:confirmed", { request: updated, session });
@@ -2078,7 +2079,7 @@ schedulingRouter.post(
       postSystemMessage(
         updated.conversationId,
         "slot_proposed",
-        `Date suggested for clinic: ${parsed.data.scheduledAt ? new Date(parsed.data.scheduledAt).toLocaleString() : "Not specified"}. Notes: ${parsed.data.notes || "None"}`,
+        `Date suggested for clinic: ${parsed.data.scheduledAt ? kwDateTime(parsed.data.scheduledAt) : "Not specified"}. Notes: ${parsed.data.notes || "None"}`,
         { bookingRequestId: updated.id }
       );
     }
@@ -2117,7 +2118,7 @@ schedulingRouter.post(
         postSystemMessage(
           updated.conversationId,
           "booking_confirmed",
-          `Booking confirmed by clinic for ${scheduledAt}.`,
+          `Booking confirmed by clinic for ${kwDateTime(scheduledAt)}.`,
           { bookingRequestId: updated.id }
         );
       }
@@ -2125,7 +2126,7 @@ schedulingRouter.post(
       notifyChatRelatedUsers({
         userIds: [breq.userId],
         kind: "booking_confirmed",
-        body: `Your booking is confirmed for ${scheduledAt}`,
+        body: `Your booking is confirmed for ${kwDateTime(scheduledAt)}`,
         payload: { bookingRequestId: breq.id }
       });
       return res.status(201).json({ session: null, request: updated });
@@ -2193,7 +2194,7 @@ schedulingRouter.post(
       postSystemMessage(
         updated.conversationId,
         "booking_confirmed",
-        `Booking confirmed by clinic for ${scheduledAt}.`,
+        `Booking confirmed by clinic for ${kwDateTime(scheduledAt)}.`,
         { bookingRequestId: updated.id, sessionId: session.id }
       );
     }
@@ -2201,7 +2202,7 @@ schedulingRouter.post(
     notifyChatRelatedUsers({
       userIds: [uo.userId],
       kind: "booking_confirmed",
-      body: `Your booking is confirmed for ${scheduledAt}`,
+      body: `Your booking is confirmed for ${kwDateTime(scheduledAt)}`,
       payload: { sessionId: session.id }
     });
     return res.status(201).json({ session, request: updated });
@@ -2994,11 +2995,32 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
     });
 
     const breq = await bookingRequestsStore.findBySessionId(session.id);
+    // Keep the booking request (history pages) in step with the session: a missed
+    // session that is rescheduled is scheduled again.
+    if (breq) {
+      await BookingRequestModel.findByIdAndUpdate(breq.id, {
+        $set: {
+          status: "scheduled",
+          clinicScheduledAt: new Date(parsed.data.scheduledAt),
+          proposedAt: new Date(parsed.data.scheduledAt)
+        }
+      });
+    }
+    await logAuditAction({
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role as any,
+      actionType: "reschedule_session",
+      targetEntityType: "BookingSession",
+      targetEntityId: session.id,
+      beforeState: { scheduledAt: session.scheduledAt, status: session.status },
+      afterState: { scheduledAt: parsed.data.scheduledAt, status: "scheduled" },
+      metadata: { bookingRequestId: breq?.id, notes: parsed.data.notes }
+    });
     if (breq?.conversationId) {
       postSystemMessage(
         breq.conversationId,
         "slot_proposed",
-        `Session rescheduled to ${parsed.data.scheduledAt}${parsed.data.notes ? ` — ${parsed.data.notes}` : ""}`,
+        `Session rescheduled to ${kwDateTime(parsed.data.scheduledAt)}${parsed.data.notes ? ` — ${parsed.data.notes}` : ""}`,
         { sessionId: session.id, scheduledAt: parsed.data.scheduledAt },
         req.auth!.userId
       );
@@ -3007,7 +3029,7 @@ schedulingRouter.post("/clinic/sessions/:sessionId/reschedule", authRequired, re
     notifyChatRelatedUsers({
       userIds: [session.userId],
       kind: "booking_slot_proposed",
-      body: `Your session has been rescheduled to ${parsed.data.scheduledAt}`,
+      body: `Your session has been rescheduled to ${kwDateTime(parsed.data.scheduledAt)}`,
       payload: { sessionId: session.id }
     });
 
@@ -3762,7 +3784,7 @@ schedulingRouter.post("/admin/user-offers/:uoId/adjust-sessions", authRequired, 
 });
 
 // ── Admin: Edit Date on any session or booking request (regardless of status) ──
-schedulingRouter.post("/admin/sessions-log/:id/edit-date", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
+schedulingRouter.post("/admin/sessions-log/:id/edit-date", authRequired, requireRole(["admin", "cs", "legal", "cs_director", "clinicStaff"]), async (req, res, next) => {
   try {
     const { scheduledAt, type } = req.body;
     if (!scheduledAt || isNaN(new Date(scheduledAt).getTime())) {
@@ -3770,6 +3792,17 @@ schedulingRouter.post("/admin/sessions-log/:id/edit-date", authRequired, require
     }
     const newDate = new Date(scheduledAt);
     const id = req.params.id;
+
+    // Clinic staff may only move appointments that belong to their own clinic.
+    const target = mongoose.isValidObjectId(id)
+      ? ((await BookingSessionModel.findById(id).select("clinicId scheduledAt status").lean()) as any) ??
+        ((await BookingRequestModel.findById(id).select("clinicId proposedAt status").lean()) as any)
+      : null;
+    if (req.auth!.role === "clinicStaff") {
+      if (!target || !(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, String(target.clinicId)))) {
+        return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
+      }
+    }
 
     let updated = false;
 
@@ -3877,6 +3910,17 @@ schedulingRouter.post("/admin/sessions-log/:id/edit-date", authRequired, require
     if (!updated) {
       return res.status(404).json({ error: "NOT_FOUND" });
     }
+
+    await logAuditAction({
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role as any,
+      actionType: "edit_appointment_date",
+      targetEntityType: target?.scheduledAt !== undefined ? "BookingSession" : "BookingRequest",
+      targetEntityId: id,
+      beforeState: { scheduledAt: target?.scheduledAt ?? target?.proposedAt, status: target?.status },
+      afterState: { scheduledAt: newDate.toISOString() },
+      metadata: { notes: req.body?.notes }
+    });
 
     return res.json({ ok: true, scheduledAt: newDate.toISOString() });
   } catch (e) {

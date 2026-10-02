@@ -221,7 +221,7 @@ function ScheduleTable({
   };
 
   const formatTimeOnly = (iso: string) => {
-    return new Date(iso).toLocaleTimeString(ar() ? "ar-KW" : "en-KW", {
+    return new Date(iso).toLocaleTimeString(ar() ? "ar-KW" : "en-GB", {
       hour: "2-digit",
       minute: "2-digit",
       timeZone: "Asia/Kuwait",
@@ -229,7 +229,7 @@ function ScheduleTable({
   };
 
   const formatDateOnly = (iso: string) => {
-    return new Date(iso).toLocaleDateString(ar() ? "ar-KW" : "en-KW", {
+    return new Date(iso).toLocaleDateString(ar() ? "ar-KW" : "en-GB", {
       month: "short",
       day: "numeric",
       timeZone: "Asia/Kuwait",
@@ -1377,9 +1377,9 @@ function ScanTabs({ tabs, kyc, memberships, payments, clinicSessions, clinicBook
                 )}
               </div>
               <div className="text-[10px] text-surface-400 flex gap-3 flex-wrap">
-                {m.activatedAt && <span>{ar() ? "مفعلة:" : "Activated:"} {m.activatedAt}</span>}
-                {m.expiresAt && <span>{ar() ? "تنتهي:" : "Expires:"} {m.expiresAt}</span>}
-                {m.createdAt && <span>{ar() ? "أنشئت:" : "Created:"} {m.createdAt}</span>}
+                {m.activatedAt && <span>{ar() ? "مفعلة:" : "Activated:"} {fmtDate(m.activatedAt)}</span>}
+                {m.expiresAt && <span>{ar() ? "تنتهي:" : "Expires:"} {fmtDate(m.expiresAt)}</span>}
+                {m.createdAt && <span>{ar() ? "أنشئت:" : "Created:"} {fmtDate(m.createdAt)}</span>}
               </div>
             </div>
           ))}
@@ -1927,7 +1927,7 @@ function ClinicScannerTab({ clinicId, onMarkSession }: { clinicId?: string; onMa
                     )}
                     {card.memberSince && (
                       <span className="text-[10px] font-bold text-surface-500 uppercase tracking-wider px-2.5 py-1 rounded-lg bg-surface-100/80">
-                        {ar() ? "عضو منذ" : "Since"} {card.memberSince}
+                        {ar() ? "عضو منذ" : "Since"} {fmtDate(card.memberSince)}
                       </span>
                     )}
                   </div>

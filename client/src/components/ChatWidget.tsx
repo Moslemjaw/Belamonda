@@ -11,7 +11,7 @@ function kwTime(iso: string | undefined, opts?: Intl.DateTimeFormatOptions): str
   if (!iso) return "";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
-  const locale = ar() ? "ar-KW" : "en-KW";
+  const locale = ar() ? "ar-KW" : "en-GB";
   return d.toLocaleString(locale, { timeZone: "Asia/Kuwait", ...opts });
 }
 

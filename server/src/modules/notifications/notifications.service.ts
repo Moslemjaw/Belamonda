@@ -1,4 +1,5 @@
 import { notificationsStore } from "./notifications.store.js";
+import { kwDate, kwDateTime } from "../../utils/kwDate.js";
 
 // ── KYC ───────────────────────────────────────────────────────────────────
 
@@ -98,7 +99,7 @@ export function notifyInstallmentDue(userId: string, userOfferId: string, n: num
     userId,
     type: "installment_due",
     title: `Installment ${n} of ${total} due soon`,
-    body: `Your next installment is due on ${new Date(dueAtIso).toLocaleDateString()}.`
+    body: `Your next installment is due on ${kwDate(dueAtIso)}.`
   });
   notificationsStore.pushOutbound({ userId, channel: "sms", template: "installment_due", payload: { userOfferId, n, total, dueAtIso } });
   notificationsStore.pushOutbound({ userId, channel: "email", template: "installment_due", payload: { userOfferId, n, total, dueAtIso } });
@@ -109,7 +110,7 @@ export function notifyDepositReserved(userId: string, userOfferId: string, expir
     userId,
     type: "deposit_reserved",
     title: "Deposit received — offer reserved",
-    body: `Your spot is held until ${new Date(expiresAtIso).toLocaleDateString()}. Complete the balance any time before then.`
+    body: `Your spot is held until ${kwDate(expiresAtIso)}. Complete the balance any time before then.`
   });
   notificationsStore.pushOutbound({ userId, channel: "email", template: "deposit_reserved", payload: { userOfferId, expiresAtIso } });
 }
@@ -119,7 +120,7 @@ export function notifyDepositExpiring(userId: string, userOfferId: string, expir
     userId,
     type: "deposit_expiring",
     title: "Reservation expiring soon",
-    body: `Your deposit reservation expires on ${new Date(expiresAtIso).toLocaleDateString()}. Complete the balance to keep your spot.`
+    body: `Your deposit reservation expires on ${kwDate(expiresAtIso)}. Complete the balance to keep your spot.`
   });
   notificationsStore.pushOutbound({ userId, channel: "sms", template: "deposit_expiring", payload: { userOfferId, expiresAtIso } });
 }
@@ -184,7 +185,7 @@ export function notifyBookingConfirmed(userId: string, sessionId: string, schedu
     userId,
     type: "booking_confirmed",
     title: "Booking confirmed",
-    body: `Your appointment is confirmed for ${new Date(scheduledAtIso).toLocaleString()}. Session: ${sessionId}`
+    body: `Your appointment is confirmed for ${kwDateTime(scheduledAtIso)}. Session: ${sessionId}`
   });
   notificationsStore.pushOutbound({ userId, channel: "sms", template: "booking_confirmed", payload: { sessionId, scheduledAtIso } });
   notificationsStore.pushOutbound({ userId, channel: "email", template: "booking_confirmed", payload: { sessionId, scheduledAtIso } });
@@ -227,7 +228,7 @@ export function notifySessionReminder(userId: string, sessionId: string, schedul
     userId,
     type: "session_reminder",
     title: "Session reminder",
-    body: `Reminder: you have a session scheduled for ${new Date(scheduledAtIso).toLocaleString()}.`
+    body: `Reminder: you have a session scheduled for ${kwDateTime(scheduledAtIso)}.`
   });
   notificationsStore.pushOutbound({ userId, channel: "sms", template: "session_reminder", payload: { sessionId, scheduledAtIso } });
   notificationsStore.pushOutbound({ userId, channel: "email", template: "session_reminder", payload: { sessionId, scheduledAtIso } });
@@ -269,7 +270,7 @@ export function notifyMembershipActivated(userId: string, userOfferId: string, o
     userId,
     type: "membership_activated",
     title: "Membership activated",
-    body: `Your ${offerName} membership is now active. Valid until ${new Date(expiresAtIso).toLocaleDateString()}.`
+    body: `Your ${offerName} membership is now active. Valid until ${kwDate(expiresAtIso)}.`
   });
   notificationsStore.pushOutbound({ userId, channel: "email", template: "membership_activated", payload: { userOfferId, offerName, expiresAtIso } });
 }
@@ -279,7 +280,7 @@ export function notifyMembershipExpiring(userId: string, userOfferId: string, of
     userId,
     type: "membership_expiring",
     title: "Membership expiring soon",
-    body: `Your ${offerName} membership expires on ${new Date(expiresAtIso).toLocaleDateString()}. Renew to keep your benefits.`
+    body: `Your ${offerName} membership expires on ${kwDate(expiresAtIso)}. Renew to keep your benefits.`
   });
   notificationsStore.pushOutbound({ userId, channel: "sms", template: "membership_expiring", payload: { userOfferId, offerName, expiresAtIso } });
   notificationsStore.pushOutbound({ userId, channel: "email", template: "membership_expiring", payload: { userOfferId, offerName, expiresAtIso } });

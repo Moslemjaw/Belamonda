@@ -1,6 +1,7 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { useApi } from "../hooks/useApi";
+import { fmtDateTime } from "../lib/dateFormat";
 
 interface SurveySubmissionsModalProps {
   promotionId: string;
@@ -60,7 +61,7 @@ export function SurveySubmissionsModal({ promotionId, promotionTitle, onClose }:
                       </div>
                     </div>
                     <div className="text-xs font-bold text-surface-400">
-                      {new Date(sub.createdAt).toLocaleString()}
+                      {fmtDateTime(sub.createdAt)}
                     </div>
                   </div>
                   
