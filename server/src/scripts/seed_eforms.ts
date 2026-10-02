@@ -123,6 +123,34 @@ const JAMALI_TERMS_EN = `Terms & Conditions:
 
 17) I confirm I have read and agree to the above terms and conditions.`;
 
+// ─── Jamali terms for FULL PAYMENT contracts ──────────────────────────────────
+// The Jamali terms above are written for installment plans. A full-payment
+// contract must not bind the client to an installment schedule or late-installment
+// fees, so clauses 5 and 10 are dropped and 7/8 are reworded without installments.
+
+function adaptTermsForFullPayment(terms: string, rewrites: Record<number, string>): string {
+  const [heading, ...clauses] = terms.split("\n\n");
+  const kept = clauses
+    .map((c) => {
+      const n = Number(c.match(/^(\d+)\)/)?.[1]);
+      if (n === 5 || n === 10) return null;
+      return rewrites[n] ? `${n}) ${rewrites[n]}` : c;
+    })
+    .filter((c): c is string => c !== null)
+    .map((c, i) => c.replace(/^\d+\)/, `${i + 1})`));
+  return [heading, ...kept].join("\n\n");
+}
+
+const JAMALI_FULL_TERMS_EN = adaptTermsForFullPayment(JAMALI_TERMS_EN, {
+  7: "If the client requests cancellation before the card is issued, the client must pay 50% of the full card value.",
+  8: "If the client requests cancellation after issuance, no amounts shall be refunded. All amounts paid are the company's right."
+});
+
+const JAMALI_FULL_TERMS_AR = adaptTermsForFullPayment(JAMALI_TERMS_AR, {
+  7: "في حالة طلب العميل إلغاء بطاقة جمالي قبل إصدارها يلتزم العميل بدفع 50% من قيمة البطاقة كاملة قبل الإلغاء.",
+  8: "في حالة طلب العميل إلغاء بطاقة جمالي بعد إصدارها لا ترد إليه أية مبالغ مالية من قيمة البطاقة المسددة للشركة وتلك المبالغ من خالص حق الشركة ولا يحق للعميل طلب استردادها."
+});
+
 // ─── Naumi Terms & Conditions (from Image 2 — dark form) ────────────────────
 
 const NAUMI_TERMS_AR = `الشروط والأحكام:
@@ -394,8 +422,8 @@ async function main() {
       offerName: "Jamali",
       offerNameAr: "جمالي",
       paymentType: pt,
-      termsAr: JAMALI_TERMS_AR,
-      termsEn: JAMALI_TERMS_EN,
+      termsAr: pt === "full_payment" ? JAMALI_FULL_TERMS_AR : JAMALI_TERMS_AR,
+      termsEn: pt === "full_payment" ? JAMALI_FULL_TERMS_EN : JAMALI_TERMS_EN,
     });
   }
 
@@ -405,8 +433,8 @@ async function main() {
       offerName: "Mini Jamali",
       offerNameAr: "ميني جمالي",
       paymentType: pt,
-      termsAr: JAMALI_TERMS_AR, // Same terms as Jamali
-      termsEn: JAMALI_TERMS_EN,
+      termsAr: pt === "full_payment" ? JAMALI_FULL_TERMS_AR : JAMALI_TERMS_AR, // Same terms as Jamali
+      termsEn: pt === "full_payment" ? JAMALI_FULL_TERMS_EN : JAMALI_TERMS_EN,
     });
   }
 
