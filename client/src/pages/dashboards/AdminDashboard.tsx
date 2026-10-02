@@ -579,8 +579,8 @@ function OffersManager() {
               {F(ar() ? "الحد الأدنى للأيام بين الجلسات" : "Minimum Days Between Sessions", <div>
                 <input className="input-field" type="number" min={0} value={form.sessionIntervalDays} onChange={e => setForm({...form, sessionIntervalDays: e.target.value})} />
                 <p className="text-[11px] text-surface-500 mt-1">{ar()
-                  ? "لا يمكن للعميل طلب جلسة جديدة قبل انقضاء هذه المدة من آخر جلسة مكتملة. يحصل الموظفون على تحذير (مع إمكانية التجاوز) عند الجدولة قبلها."
-                  : "Customers can't request a new session until this many days after their last completed one. Staff get a warning (with override) when scheduling sooner."}</p>
+                  ? "لا يمكن للعميل طلب جلسة جديدة قبل انقضاء هذه المدة من آخر جلسة مكتملة. يحصل الموظفون على تحذير (مع إمكانية التجاوز) عند الجدولة قبلها. 0 = بدون حد أدنى."
+                  : "Customers can't request a new session until this many days after their last completed one, and staff get a warning (with override) when scheduling sooner. 0 = no minimum."}</p>
               </div>)}
             </div>
           </div>
@@ -721,7 +721,7 @@ function OffersManager() {
             </div>
             <div className="mt-4">
               <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${form.isCashbackOnly ? 'border-emerald-500 bg-emerald-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
-                <input type="checkbox" checked={form.isCashbackOnly} onChange={e => setForm({...form, isCashbackOnly: e.target.checked, allowAppointmentBooking: e.target.checked ? false : form.allowAppointmentBooking})} className="accent-emerald-500 w-4 h-4" />
+                <input type="checkbox" checked={form.isCashbackOnly} onChange={e => setForm({...form, isCashbackOnly: e.target.checked})} className="accent-emerald-500 w-4 h-4" />
                 <div>
                   <span className="font-bold text-sm text-surface-900">{ar() ? "كاش باك فقط (بدون حجز مواعيد)" : "Cashback Only (No Appointment Booking)"}</span>
                   <p className="text-xs text-surface-500 mt-0.5">{ar() ? "هذا العرض للكاش باك فقط ولا يتطلب حجز جلسات أو مواعيد" : "This offer is for cashback only — no sessions or appointments needed"}</p>
@@ -858,7 +858,7 @@ function OffersManager() {
             <h5 className="flex items-center gap-2.5 text-sm font-bold text-surface-900 mb-4 pb-3 border-b border-surface-100 before:content-[''] before:h-4 before:w-1 before:rounded-full before:bg-gradient-to-b before:from-brand-pink-500 before:to-brand-sage-300 before:shrink-0">{ar() ? "خيارات العرض" : "Display Options"}</h5>
             <div className="mt-4">
               <label className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${form.allowAppointmentBooking ? 'border-brand-pink-500 bg-brand-pink-50/50' : 'border-surface-200 hover:border-surface-300'}`}>
-                <input type="checkbox" checked={form.allowAppointmentBooking} disabled={form.isCashbackOnly} onChange={e => setForm({...form, allowAppointmentBooking: e.target.checked})} className="accent-brand-pink-500 w-4 h-4 disabled:opacity-50" />
+                <input type="checkbox" checked={form.allowAppointmentBooking} onChange={e => setForm({...form, allowAppointmentBooking: e.target.checked})} className="accent-brand-pink-500 w-4 h-4" />
                 <div>
                   <span className="font-bold text-sm text-surface-900">{ar() ? "إظهار زر حجز موعد" : "Show \"Book Appointment\" Button"}</span>
                   <p className="text-xs text-surface-500 mt-0.5">{ar() ? "فعّل هذا الخيار لإظهار زر حجز الموعد لهذه العضوية. إيقافه سيقوم بإخفاء الزر بالكامل." : "Enable this option to display a Book Appointment button for this membership. Disabling it will hide the button."}</p>

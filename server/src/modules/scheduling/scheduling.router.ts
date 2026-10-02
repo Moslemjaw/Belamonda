@@ -337,9 +337,11 @@ async function checkStaffIntervalConstraint({
   if (!uo) return { allowed: true };
 
   const offer = await loadOffer(uo.offerId);
+  // The offer's "minimum days between sessions" is the single rule for customers and
+  // staff alike. 0 means the membership has no interval (e.g. Abraj, Sawa).
   const intervalDays = offer && typeof offer.sessionIntervalDays === "number" && offer.sessionIntervalDays > 0
     ? offer.sessionIntervalDays
-    : 25;
+    : 0;
 
   const uoDoc = await UserOfferModel.findById(userOfferId).select("bookingCooldownEndOverrideAt lastManualSessionAt").lean();
   const cooldownOverrideAt = (uoDoc as any)?.bookingCooldownEndOverrideAt ? new Date((uoDoc as any).bookingCooldownEndOverrideAt) : null;
@@ -374,6 +376,8 @@ async function checkStaffIntervalConstraint({
       requiredIntervalDays: intervalDays
     };
   }
+
+  if (intervalDays === 0) return { allowed: true };
 
   // 2. Find last completed session
   const lastSessionDoc = await BookingSessionModel.findOne({
