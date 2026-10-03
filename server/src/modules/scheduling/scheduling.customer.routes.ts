@@ -174,7 +174,12 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     const openStatuses = ["request_received", "slot_assigned", "scheduled"];
     const now = new Date();
 
-    // Auto-clear stale requests (>24h old) so past appointments don't block new bookings
+    // Auto-clear stale requests (>24h old) so past appointments don't block new bookings.
+    // A request keeps the status of its session: one whose session is still
+    // "scheduled" (clinic hasn't marked it yet) is left as is — it was previously
+    // cancelled here, leaving Request History and the Sessions Log disagreeing —
+    // and is ignored by the open-request check below instead.
+    const pastScheduledReqIds: unknown[] = [];
     const potentialStaleReqs = await BookingRequestModel.find({
       userOfferId: uo.id,
       userId: req.auth!.userId,
@@ -189,6 +194,10 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
         } else {
           linkedSess = await BookingSessionModel.findOne({ bookingRequestId: r._id }).lean();
         }
+        if (linkedSess?.status === "scheduled") {
+          pastScheduledReqIds.push(r._id);
+          continue;
+        }
         const newStatus = (linkedSess?.status === "completed" || linkedSess?.status === "no_show") ? linkedSess.status : "cancelled";
         await BookingRequestModel.findByIdAndUpdate(r._id, { $set: { status: newStatus } });
       }
@@ -197,7 +206,8 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     const existingReq = await BookingRequestModel.findOne({
       userOfferId: uo.id,
       userId: req.auth!.userId,
-      status: { $in: openStatuses }
+      status: { $in: openStatuses },
+      _id: { $nin: pastScheduledReqIds }
     });
     if (existingReq) {
       return res.status(409).json({ error: "ALREADY_HAVE_OPEN_REQUEST" });
@@ -544,7 +554,7 @@ customerRoutes.post("/me/requests/:id/accept", authRequired, async (req, res, ne
     if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
     const offer = await loadOffer(uo.offerId);
     if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
+    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true, scheduledAt });
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
     const sessionClinicId = breq.clinicId || uo.clinicId;

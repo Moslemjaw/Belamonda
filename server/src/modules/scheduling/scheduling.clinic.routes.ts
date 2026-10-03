@@ -568,7 +568,12 @@ clinicRoutes.post("/clinic/sessions/:sessionId/mark", authRequired, requireRole(
     }
 
     if (session.userOfferId) {
-      if (!uo || uo.status !== "active") return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
+      // A session booked inside the membership validity can still be marked after the
+      // membership expires (e.g. the clinic records yesterday's visit today).
+      const withinValidity = !!uo?.expiresAt && new Date(session.scheduledAt) <= new Date(uo.expiresAt);
+      if (!uo || !(uo.status === "active" || (uo.status === "expired" && withinValidity))) {
+        return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
+      }
       const offer = await loadOffer(uo.offerId);
       if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
     }

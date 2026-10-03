@@ -3506,10 +3506,18 @@ export default function CustomerDashboard() {
                  setTimeout(() => setSysAlert(null), 6000);
                } catch (e: any) {
                  const msg = e instanceof Error ? e.message : "Error";
+                 const data = (e as any)?.data as { forms?: EFormPending[]; nextEligibleAt?: string } | undefined;
+                 const nextDate = data?.nextEligibleAt ? fmtDate(data.nextEligibleAt) : "";
                  const friendly: Record<string, string> = {
                    INSTALLMENT_NOT_PAID_FOR_NEXT_SESSION: ar() ? "يجب دفع القسط التالي قبل حجز جلسة جديدة." : "Please pay your next installment before booking another session.",
+                   INTERVAL_NOT_MET: ar() ? `يجب مرور الفترة المحددة بين الجلسات. يمكنك الحجز من ${nextDate}.` : `Sessions need a minimum gap. You can book again from ${nextDate}.`,
+                   ALREADY_HAVE_OPEN_REQUEST: ar() ? "لديك طلب حجز قائم لهذه العضوية. انتظري تأكيده قبل طلب جلسة جديدة." : "You already have an open booking for this membership. Please wait for it to be confirmed.",
+                   MAX_SESSIONS_REACHED: ar() ? "تم استخدام جميع جلسات هذه العضوية." : "All sessions in this membership have been used.",
+                   MEMBERSHIP_EXPIRED: ar() ? "انتهت صلاحية هذه العضوية. يرجى التجديد لحجز جلسات جديدة." : "This membership has expired. Please renew to book new sessions.",
+                   OFFER_NOT_ACTIVE: ar() ? "العضوية غير مفعّلة بعد." : "This membership isn't active yet.",
+                   KYC_REQUIRED: ar() ? "يرجى إكمال التحقق من الهوية أولاً." : "Please complete identity verification first.",
+                   TOO_MANY_REQUESTS: ar() ? "يتم معالجة طلبك، يرجى الانتظار لحظة." : "Your request is being processed — please wait a moment.",
                  };
-                 const data = (e as any)?.data as { forms?: EFormPending[] } | undefined;
                  if (msg === "EFORMS_REQUIRED" && data?.forms?.[0]) {
                    const first = data.forms[0];
                    const resolvedUserOfferId = offer.userOfferId || offer.id;

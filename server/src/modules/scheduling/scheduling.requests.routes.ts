@@ -305,7 +305,7 @@ requestsRoutes.post("/requests/:id/confirm", authRequired, requireRole(["clinicS
   if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
   const offer = await loadOffer(uo.offerId);
   if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-  const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
+  const elErr = await eligibilityError(uo, offer, { skipSessionCap: true, scheduledAt });
   if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
   const sessionClinicId = breq.clinicId || uo.clinicId;
@@ -872,7 +872,7 @@ requestsRoutes.post(
     if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
     const offer = await loadOffer(uo.offerId);
     if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
+    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true, scheduledAt });
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
     const check = await checkStaffIntervalConstraint({

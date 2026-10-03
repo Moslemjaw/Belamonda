@@ -1,3 +1,4 @@
+import { logAuditAction } from "./audit.service.js";
 import mongoose from "mongoose";
 import { UserOfferModel, type UserOfferDoc } from "../models/userOffer.model.js";
 import { OfferModel } from "../models/offer.model.js";
@@ -74,6 +75,33 @@ export async function expireStalePendingPayments(): Promise<void> {
     { status: "pending_payment", pendingExpiresAt: { $lt: new Date() } },
     { $set: { status: "expired" }, $unset: { pendingExpiresAt: 1 } }
   );
+}
+
+/**
+ * Active memberships whose validity has ended become "expired" so they can no
+ * longer be booked. Each change is written to the audit log.
+ */
+export async function expireEndedMemberships(now: Date = new Date()): Promise<number> {
+  const ended = await UserOfferModel.find({ status: "active", expiresAt: { $lt: now } })
+    .select("_id expiresAt")
+    .lean<{ _id: mongoose.Types.ObjectId; expiresAt: Date }[]>();
+  let expired = 0;
+  for (const uo of ended) {
+    const res = await UserOfferModel.updateOne({ _id: uo._id, status: "active" }, { $set: { status: "expired" } });
+    if (res.modifiedCount !== 1) continue;
+    expired++;
+    await logAuditAction({
+      actorId: "system",
+      actorRole: "system",
+      actionType: "membership_expired",
+      targetEntityType: "UserOffer",
+      targetEntityId: uo._id,
+      beforeState: { status: "active" },
+      afterState: { status: "expired" },
+      metadata: { expiresAt: new Date(uo.expiresAt).toISOString() }
+    });
+  }
+  return expired;
 }
 
 export async function createPending(input: { userId: string; offerId: string; clinicId: string }) {

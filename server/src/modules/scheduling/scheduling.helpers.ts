@@ -251,9 +251,18 @@ export function maxAccessibleSessions(uo: SchedUO, offerMax: number | null): num
 export async function eligibilityError(
   uo: SchedUO,
   offer: SchedOffer,
-  opts?: { skipSessionCap?: boolean }
+  opts?: { skipSessionCap?: boolean; scheduledAt?: string | Date }
 ): Promise<{ code: string; status: number } | null> {
   if (uo.status === "reserved") return { code: "RESERVED_NEEDS_BALANCE", status: 409 };
+  // A membership past its end date cannot be booked, even if the expiry job has
+  // not flipped its status yet; nor can a session be placed after the end date.
+  const expiresAt = uo.expiresAt ? new Date(uo.expiresAt) : null;
+  if (uo.status === "expired" || (uo.status === "active" && expiresAt && expiresAt < new Date())) {
+    return { code: "MEMBERSHIP_EXPIRED", status: 409 };
+  }
+  if (expiresAt && opts?.scheduledAt && new Date(opts.scheduledAt) > expiresAt) {
+    return { code: "SCHEDULED_AFTER_EXPIRY", status: 409 };
+  }
   if (uo.status === "enet_pending") return { code: "ENET_PENDING", status: 409 };
   if (uo.status === "enet_rejected") return { code: "ENET_REJECTED", status: 409 };
   if (uo.status !== "active" && uo.status !== "pending_payment") {
