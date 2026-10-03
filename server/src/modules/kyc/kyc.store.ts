@@ -4,6 +4,7 @@ import { UserModel, type UserDoc } from "../../models/user.model.js";
 import { KycSubmissionModel, WalletModel, WalletTxnModel, type KycSubmissionDoc, type WalletDoc, type WalletTxnDoc } from "../../models/kyc.model.js";
 import { env } from "../../config/env.js";
 import { getSettings } from "../settings/settings.router.js";
+import { kwdToMils } from "../../utils/money.js";
 
 export type KycCheckboxes = {
   termsAndConditions: boolean;
@@ -13,10 +14,8 @@ export type KycCheckboxes = {
   paymentTermsAcknowledgment: boolean;
 };
 
-function parseKwd(s: string) {
-  const [a, b = "000"] = s.split(".");
-  return Number(a) * 1000 + Number(b.padEnd(3, "0").slice(0, 3));
-}
+// Sign-aware: the old local parser read "-5.500" as -4500 and "-0.500" as +500.
+const parseKwd = (s: string) => kwdToMils(s);
 
 function fmtKwd(mils: number) {
   const sign = mils < 0 ? "-" : "";

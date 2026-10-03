@@ -28,7 +28,7 @@ import { withTransaction } from "../../db/transaction.js";
 import { ApiError } from "../../utils/apiError.js";
 import * as bookingService from "./booking.service.js";
 import * as sessionService from "./session.service.js";
-import { ProposeSchema, RejectSchema, ScheduleSchema, canActOnClinic, checkStaffIntervalConstraint, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findCsUserIds, findFinanceUserIds, getUserClinicId, isWithinOfferValidity, loadOffer, loadUserOffer, mapOfferDocToSched, postSystemMessage } from "./scheduling.helpers.js";
+import { PosExtraItems, PosKwd, ProposeSchema, RejectSchema, ScheduleSchema, canActOnClinic, checkStaffIntervalConstraint, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findCsUserIds, findFinanceUserIds, getUserClinicId, isWithinOfferValidity, loadOffer, loadUserOffer, mapOfferDocToSched, postSystemMessage } from "./scheduling.helpers.js";
 import type { SchedOffer } from "./scheduling.helpers.js";
 
 export const requestsRoutes = Router();
@@ -394,8 +394,8 @@ requestsRoutes.post("/requests/:id/confirm", authRequired, requireRole(["clinicS
 });
 
 const MarkPaidSchema = z.object({
-  extraItems: z.array(z.object({ name: z.string(), priceKwd: z.string(), qty: z.number() })).optional(),
-  cashbackToDeductKwd: z.string().optional()
+  extraItems: PosExtraItems.optional(),
+  cashbackToDeductKwd: PosKwd.optional()
 });
 
 // ── Clinic marks a booking request payment as paid ──────────────────────────

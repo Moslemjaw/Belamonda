@@ -148,3 +148,56 @@ describe("clinic POS mark-paid: double click", () => {
     expect(await PaymentModel.countDocuments({ bookingRequestId: String(breq._id) })).toBe(1);
   });
 });
+
+describe("clinic POS input validation", () => {
+  async function scheduledRequest(walletKwd = "1.000") {
+    const customer = await makeUser("customer");
+    const staff = await makeUser("admin");
+    await makeWallet(customer.id, walletKwd);
+    const uoId = await makeUserOffer(customer.id, { cashbackBalanceKwd: walletKwd });
+    const breq = await BookingRequestModel.create({ userId: customer.id, userOfferId: uoId, clinicId, status: "scheduled", sessionPriceKwd: "20.000" });
+    return { customer, staff, breq };
+  }
+
+  it.each(["-5", "-5.000", "abc", "1e9"])("refuses cashbackToDeductKwd=%s and changes nothing", async (bad) => {
+    const s = await scheduledRequest();
+    const res = await api().post(`/scheduling/requests/${s.breq._id}/mark-paid`).set("Authorization", `Bearer ${s.staff.token}`).send({ cashbackToDeductKwd: bad });
+    expect(res.status).toBe(400);
+    expect(await walletUnlocked(s.customer.id)).toBe("1.000");
+  });
+
+  it("refuses a negative extra-item price", async () => {
+    const s = await scheduledRequest();
+    const res = await api().post(`/scheduling/requests/${s.breq._id}/mark-paid`).set("Authorization", `Bearer ${s.staff.token}`)
+      .send({ extraItems: [{ name: "x", priceKwd: "-30", qty: 1 }] });
+    expect(res.status).toBe(400);
+  });
+
+  it("still accepts the formats the clinic screen sends (\"3\", \"3.5\", \"3.500\")", async () => {
+    for (const ok of ["3", "3.5", "3.500"]) {
+      const s = await scheduledRequest("10.000");
+      const res = await api().post(`/scheduling/requests/${s.breq._id}/mark-paid`).set("Authorization", `Bearer ${s.staff.token}`).send({ cashbackToDeductKwd: ok });
+      expect(res.status).toBe(200);
+    }
+  });
+});
+
+describe("clinic Adjust Cashback input", () => {
+  it.each(["abc", "", "0", "5,000", "1e3", "--5"])("refuses amountKwd=%j", async (bad) => {
+    const customer = await makeUser("customer");
+    const staff = await makeUser("admin");
+    await makeWallet(customer.id, "1.000");
+    const res = await api().post("/public/clinic/wallet/adjust").set("Authorization", `Bearer ${staff.token}`).send({ userId: customer.id, amountKwd: bad, reason: "test" });
+    expect(res.status).toBe(400);
+    expect(await walletUnlocked(customer.id)).toBe("1.000");
+  });
+
+  it.each([["5", "6.000"], ["-0.5", "0.500"], ["2.250", "3.250"]])("accepts %s (what the window sends)", async (amt, after) => {
+    const customer = await makeUser("customer");
+    const staff = await makeUser("admin");
+    await makeWallet(customer.id, "1.000");
+    const res = await api().post("/public/clinic/wallet/adjust").set("Authorization", `Bearer ${staff.token}`).send({ userId: customer.id, amountKwd: amt, reason: "test" });
+    expect(res.status).toBe(200);
+    expect(await walletUnlocked(customer.id)).toBe(after);
+  });
+});

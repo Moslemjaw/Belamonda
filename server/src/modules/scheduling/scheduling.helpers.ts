@@ -45,11 +45,18 @@ export const ProposeSchema = z.object({
 export const RejectSchema = z.object({ reason: z.string().min(1).max(500) });
 export const CancelSchema = z.object({ reason: z.string().max(500).optional() });
 
+/**
+ * Clinic POS amounts: non-negative KWD with up to 3 decimals ("3", "3.5", "3.500").
+ * A negative deduction used to credit the customer's wallet; a negative price lowered the bill.
+ */
+export const PosKwd = z.string().trim().regex(/^\d{1,7}(\.\d{1,3})?$/, "INVALID_AMOUNT");
+export const PosExtraItems = z.array(z.object({ name: z.string(), priceKwd: PosKwd, qty: z.number().int().positive() }));
+
 export const MarkSchema = z.object({
   status: z.enum(["completed", "no_show", "cancelled"]),
   notes: z.string().optional(),
-  extraItems: z.array(z.object({ name: z.string(), priceKwd: z.string(), qty: z.number() })).optional(),
-  cashbackToDeductKwd: z.string().optional()
+  extraItems: PosExtraItems.optional(),
+  cashbackToDeductKwd: PosKwd.optional()
 });
 
 // ── Mongo/legacy-aware loaders (from Task #2) ─────────────────────────────

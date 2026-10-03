@@ -470,7 +470,8 @@ import { z } from "zod";
 
 const AdjustWalletSchema = z.object({
   userId: z.string().min(1),
-  amountKwd: z.string().min(1),
+  // Signed KWD with up to 3 decimals: positive adds cashback, negative deducts (clinic "Adjust Cashback")
+  amountKwd: z.string().trim().regex(/^-?\d{1,7}(\.\d{1,3})?$/).refine((v) => Number(v) !== 0),
   reason: z.string().min(1)
 });
 

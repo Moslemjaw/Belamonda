@@ -9,6 +9,7 @@ import { listByClinic } from "../../services/bookingSession.service.js";
 import * as offerService from "../../services/offer.service.js";
 import { OfferModel } from "../../models/offer.model.js";
 import { kycStore } from "../kyc/kyc.store.js";
+import { kwdToMils } from "../../utils/money.js";
 
 export const dashboardsRouter = Router();
 
@@ -33,10 +34,7 @@ dashboardsRouter.get("/finance/summary", authRequired, requireRole(["finance", "
       offerService.listOffersPublic({})
     ]);
 
-    function parseKwdOuter(s: string) {
-      const [a, b = "000"] = s.split(".");
-      return Number(a) * 1000 + Number(b.padEnd(3, "0").slice(0, 3));
-    }
+    const parseKwdOuter = (s: string) => kwdToMils(s);
 
     // Batch fetch all offers for pending queue
     const pendingOfferIds = [...new Set(pendingQueue.map((uo: any) => uo.offerId).filter(Boolean))].filter((id) => mongoose.isValidObjectId(id));

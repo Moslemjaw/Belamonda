@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { PaymentModel } from "../models/payment.model.js";
 import { serializePayment } from "../utils/serialize.js";
 import { incrementMetric } from "./metric.service.js";
+import { kwdToMils } from "../utils/money.js";
 
 
 export async function createCompletedEnrollmentPayment(input: {
@@ -133,10 +134,7 @@ export async function listPaymentsByUser(userId: string) {
   return rows.map((p) => serializePayment(p as any));
 }
 
-function parseKwdMils(s: string): number {
-  const [a, b = "000"] = s.split(".");
-  return Number(a) * 1000 + Number(b.padEnd(3, "0").slice(0, 3));
-}
+const parseKwdMils = (s: string): number => kwdToMils(s);
 
 function fmtKwdFromMils(mils: number): string {
   const sign = mils < 0 ? "-" : "";

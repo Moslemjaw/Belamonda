@@ -50,3 +50,14 @@ describe("adjustCashbackBalance", () => {
     expect(await adjustCashbackBalance(id, 0)).toBeNull();
   });
 });
+
+describe("wallet adjustments with negative decimals", () => {
+  it.each([["-5.500", "4.500"], ["-0.500", "9.500"], ["-10", "0.000"], ["2.250", "12.250"]])("adjust %s on 10.000 -> %s", async (delta, after) => {
+    const { kycStore } = await import("../src/modules/kyc/kyc.store.js");
+    const { WalletModel } = await import("../src/models/kyc.model.js");
+    await WalletModel.create({ userId: "u1", unlockedKwd: "10.000" });
+    const r = await kycStore.adjustUnlocked({ userId: "u1", amountKwd: delta, reason: "t", createdById: "a" });
+    expect("error" in r).toBe(false);
+    expect((await WalletModel.findOne({ userId: "u1" }).lean<{ unlockedKwd: string }>())?.unlockedKwd).toBe(after);
+  });
+});
