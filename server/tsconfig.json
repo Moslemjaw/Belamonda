@@ -11,6 +11,6 @@
     "types": ["node"]
   },
   "include": ["src"],
-  "exclude": ["src/scripts", "src/test_clinics.ts", "src/test_reports.ts"]
+  "exclude": ["src/scripts"]
 }
 

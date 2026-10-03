@@ -17,6 +17,7 @@ import { listRequiredFormsForUser } from "../eforms/eforms.router.js";
 import { createSessionPayment, confirmSessionPayment } from "../../services/payment.service.js";
 import { kwdToMils } from "../../utils/money.js";
 import { withTransaction } from "../../db/transaction.js";
+import * as bookingService from "./booking.service.js";
 import { CancelSchema, RequestSchema, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findClinicStaffUserIds, findCsUserIds, findFinanceUserIds, loadOffer, loadUserOffer, maxAccessibleSessions, postSystemMessage, resolveSessionPrice } from "./scheduling.helpers.js";
 
 export const customerRoutes = Router();
@@ -651,41 +652,19 @@ customerRoutes.post("/me/requests/:id/accept", authRequired, async (req, res, ne
 
 // ── Customer cancels their request ─────────────────────────────────────────
 customerRoutes.post("/me/requests/:id/cancel", authRequired, async (req, res) => {
-  const breq = await bookingRequestsStore.get(req.params.id);
-  if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
-  if (breq.userId !== req.auth!.userId) return res.status(403).json({ error: "FORBIDDEN" });
-  if (!["request_received", "slot_assigned"].includes(breq.status)) {
-    return res.status(409).json({ error: "INVALID_STATE" });
-  }
   const parsed = CancelSchema.safeParse(req.body ?? {});
-  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
-  const updated = await withTransaction(async () => {
-    // Re-check inside the transaction so two concurrent cancels can't both refund.
-    const current = await bookingRequestsStore.get(breq.id);
-    if (!current || !["request_received", "slot_assigned"].includes(current.status)) return null;
-    const result = await bookingRequestsStore.update(breq.id, { status: "cancelled" });
-
-    // Refund cashback if it was deducted
-    if (result?.cashbackDeductedKwd && breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
-      const refund = parseFloat(result.cashbackDeductedKwd);
-      if (refund > 0) {
-        await userOfferService.adjustCashbackBalance(breq.userOfferId, kwdToMils(refund));
-        await kycStore.adjustUnlocked({
-          userId: breq.userId,
-          amountKwd: refund.toFixed(3),
-          reason: "Refund from cancelled booking",
-          createdById: req.auth!.userId
-        });
-      }
-    }
-    return result;
-  });
-  if (!updated) return res.status(409).json({ error: "INVALID_STATE" });
+  // Same order of checks as before: request/ownership/state are verified before the body.
+  const pre = await bookingRequestsStore.get(req.params.id);
+  if (pre && pre.userId === req.auth!.userId && ["request_received", "slot_assigned"].includes(pre.status) && !parsed.success) {
+    return res.status(400).json({ error: "VALIDATION_ERROR" });
+  }
+  const { breq, updated } = await bookingService.cancelByCustomer({ userId: req.auth!.userId, role: req.auth!.role }, req.params.id);
+  const reason = parsed.success ? parsed.data.reason : undefined;
   if (updated.conversationId) {
     postSystemMessage(
       updated.conversationId,
       "booking_cancelled",
-      `Customer cancelled the request${parsed.data.reason ? `: ${parsed.data.reason}` : ""}.`,
+      `Customer cancelled the request${reason ? `: ${reason}` : ""}.`,
       { bookingRequestId: updated.id }
     );
   }
@@ -695,7 +674,7 @@ customerRoutes.post("/me/requests/:id/cancel", authRequired, async (req, res) =>
   notifyChatRelatedUsers({
     userIds: Array.from(new Set([...staffIds, ...csIds, ...financeIds])),
     kind: "booking_cancelled",
-    body: `Customer cancelled booking request ${breq.id}${parsed.data.reason ? `: ${parsed.data.reason}` : ""}`,
+    body: `Customer cancelled booking request ${breq.id}${reason ? `: ${reason}` : ""}`,
     payload: { bookingRequestId: breq.id }
   });
   return res.json({ request: updated });

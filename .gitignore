@@ -41,3 +41,6 @@ customer_status_report*
 server/output_results.json
 server/uploads/
 uploads/
+
+# TypeScript incremental build cache
+*.tsbuildinfo

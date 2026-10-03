@@ -3,7 +3,7 @@ import { ApiError } from "../utils/apiError.js";
 
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   if (err instanceof ApiError) {
-    return res.status(err.status).json({ error: err.code, ...err.body });
+    return res.status(err.status).json(err.rawBody && err.body ? err.body : { error: err.code, ...err.body });
   }
 
   // eslint-disable-next-line no-console

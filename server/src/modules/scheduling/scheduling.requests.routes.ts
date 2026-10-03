@@ -26,6 +26,7 @@ import { createSessionPayment } from "../../services/payment.service.js";
 import { kwdToMils } from "../../utils/money.js";
 import { withTransaction } from "../../db/transaction.js";
 import { ApiError } from "../../utils/apiError.js";
+import * as bookingService from "./booking.service.js";
 import { ProposeSchema, RejectSchema, ScheduleSchema, canActOnClinic, checkStaffIntervalConstraint, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findCsUserIds, findFinanceUserIds, getUserClinicId, isWithinOfferValidity, loadOffer, loadUserOffer, mapOfferDocToSched, postSystemMessage } from "./scheduling.helpers.js";
 import type { SchedOffer } from "./scheduling.helpers.js";
 
@@ -661,41 +662,7 @@ requestsRoutes.post("/requests/:id/update-price", authRequired, requireRole(["cl
 requestsRoutes.post("/requests/:id/reject", authRequired, requireRole(["clinicStaff", "cs", "legal", "admin", "cs_director"]), async (req, res) => {
   const parsed = RejectSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
-  const breq = await bookingRequestsStore.get(req.params.id);
-  if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
-  if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
-    return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
-  }
-  if (["confirmed", "cancelled", "rejected"].includes(breq.status)) {
-    return res.status(409).json({ error: "INVALID_STATE" });
-  }
-  const updated = await withTransaction(async () => {
-    // Re-check inside the transaction so a concurrent reject/cancel can't refund twice.
-    const current = await bookingRequestsStore.get(breq.id);
-    if (!current || ["confirmed", "cancelled", "rejected"].includes(current.status)) return null;
-    const result = await bookingRequestsStore.update(breq.id, {
-      status: "cancelled",
-      rejectedAt: new Date().toISOString(),
-      rejectedBy: req.auth!.userId,
-      rejectionReason: parsed.data.reason
-    });
-
-    // Refund cashback if it was deducted
-    if (result?.cashbackDeductedKwd && breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
-      const refund = parseFloat(result.cashbackDeductedKwd);
-      if (refund > 0) {
-        await userOfferService.adjustCashbackBalance(breq.userOfferId, kwdToMils(refund));
-        await kycStore.adjustUnlocked({
-          userId: breq.userId,
-          amountKwd: refund.toFixed(3),
-          reason: "Refund from cancelled booking",
-          createdById: req.auth!.userId
-        });
-      }
-    }
-    return result;
-  });
-  if (!updated) return res.status(409).json({ error: "INVALID_STATE" });
+  const { breq, updated } = await bookingService.rejectByStaff({ userId: req.auth!.userId, role: req.auth!.role }, req.params.id, parsed.data.reason);
   if (updated.conversationId) {
     postSystemMessage(
       updated.conversationId,
@@ -782,35 +749,7 @@ requestsRoutes.post(
   async (req, res) => {
     const parsed = ProposeSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
-    const breq = await bookingRequestsStore.get(req.params.id);
-    if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
-    if (["confirmed", "cancelled", "rejected"].includes(breq.status)) {
-      return res.status(409).json({ error: "INVALID_STATE" });
-    }
-
-    if (parsed.data.scheduledAt && breq.userOfferId) {
-      const check = await checkStaffIntervalConstraint({
-        userOfferId: breq.userOfferId,
-        userId: breq.userId,
-        targetDate: new Date(parsed.data.scheduledAt),
-        forceOverride: parsed.data.forceOverride,
-        actorId: req.auth!.userId,
-        actorRole: req.auth!.role,
-        actionContext: "cs_requests_propose"
-      });
-      if (!check.allowed) {
-        return res.status(409).json(check);
-      }
-    }
-
-    const updated = await bookingRequestsStore.update(breq.id, {
-      status: "slot_assigned",
-      proposedAt: parsed.data.scheduledAt,
-      proposedBy: req.auth!.userId,
-      adminSuggestedAt: parsed.data.scheduledAt,
-      notes: parsed.data.notes
-    });
-
+    const { updated } = await bookingService.forwardToClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.id, parsed.data);
     if (updated?.conversationId) {
       postSystemMessage(
         updated.conversationId,
@@ -832,24 +771,14 @@ requestsRoutes.post(
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
     if (!parsed.data.scheduledAt) return res.status(400).json({ error: "VALIDATION_ERROR", details: "scheduledAt is required" });
     const scheduledAt = parsed.data.scheduledAt;
-    const breq = await bookingRequestsStore.get(req.params.id);
-    if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
-    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
-      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
-    }
-    if (["confirmed", "cancelled", "rejected"].includes(breq.status)) {
-      return res.status(409).json({ error: "INVALID_STATE" });
-    }
-    
-    // Standalone CS booking requests are confirmed without creating UserOffer/session.
-    if (!breq.userOfferId) {
-      const updated = await bookingRequestsStore.update(breq.id, {
-        status: "scheduled",
-        confirmedAt: new Date().toISOString(),
-        confirmedBy: req.auth!.userId,
-        proposedAt: scheduledAt,
-        clinicScheduledAt: scheduledAt
-      });
+    const { breq, updated, session, uo } = await bookingService.confirmByClinic(
+      { userId: req.auth!.userId, role: req.auth!.role },
+      req.params.id,
+      { scheduledAt, notes: parsed.data.notes, forceOverride: parsed.data.forceOverride }
+    );
+
+    if (!session || !uo) {
+      // Standalone CS booking request (no membership/session)
       if (updated?.conversationId) {
         postSystemMessage(
           updated.conversationId,
@@ -868,64 +797,6 @@ requestsRoutes.post(
       return res.status(201).json({ session: null, request: updated });
     }
 
-    const uo = await loadUserOffer(breq.userOfferId);
-    if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
-    const offer = await loadOffer(uo.offerId);
-    if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true, scheduledAt });
-    if (elErr) return res.status(elErr.status).json({ error: elErr.code });
-
-    const check = await checkStaffIntervalConstraint({
-      userOfferId: breq.userOfferId,
-      userId: breq.userId,
-      targetDate: new Date(scheduledAt),
-      forceOverride: parsed.data.forceOverride,
-      actorId: req.auth!.userId,
-      actorRole: req.auth!.role,
-      actionContext: "clinic_requests_confirm"
-    });
-    if (!check.allowed) {
-      return res.status(409).json(check);
-    }
-
-    const sessionClinicId = breq.clinicId || uo.clinicId;
-    // if (await sessionsStore.isSlotTaken(sessionClinicId, scheduledAt)) {
-    //   return res.status(409).json({ error: "SLOT_TAKEN" });
-    // }
-    const session = await sessionsStore.create({
-      userOfferId: uo.id,
-      userId: uo.userId,
-      offerId: uo.offerId,
-      clinicId: sessionClinicId,
-      scheduledAt: scheduledAt,
-      scheduledBy: req.auth!.userId,
-      notes: parsed.data.notes
-    });
-
-    if (!breq.isStandalone && breq.userOfferId && mongoose.isValidObjectId(breq.userOfferId)) {
-      await UserOfferModel.findByIdAndUpdate(breq.userOfferId, { $inc: { sessionsUsed: 1 } });
-    }
-
-    const breqAfterCb = (await bookingRequestsStore.get(breq.id)) ?? breq;
-    const finPreview = computeBookingRequestFinancials(breqAfterCb, offer);
-    const isCsOrAdmin = req.auth!.role === "cs" || req.auth!.role === "legal" || req.auth!.role === "admin" || req.auth!.role === "cs_director";
-    const clinicTake = breqAfterCb.sessionPriceKwd && parseFloat(breqAfterCb.sessionPriceKwd) > 0 ? breqAfterCb.sessionPriceKwd : finPreview.clinicTakeKwd;
-    const cashbackUsed = breqAfterCb.cashbackDeductedKwd && parseFloat(breqAfterCb.cashbackDeductedKwd) > 0 ? breqAfterCb.cashbackDeductedKwd : finPreview.cashbackDeductedKwd;
-
-    const updated = await bookingRequestsStore.update(breq.id, {
-      status: "scheduled",
-      confirmedAt: new Date().toISOString(),
-      confirmedBy: req.auth!.userId,
-      scheduledSessionId: session.id,
-      proposedAt: scheduledAt,
-      clinicScheduledAt: scheduledAt,
-      sessionPriceKwd: clinicTake,
-      cashbackDeductedKwd: cashbackUsed,
-      clinicPaymentStatus: isCsOrAdmin ? "paid" : "payment_pending",
-      ...(isCsOrAdmin
-        ? { clinicPaymentMarkedAt: new Date().toISOString(), clinicPaymentMarkedBy: req.auth!.userId }
-        : {}),
-    });
     if (updated?.conversationId) {
       postSystemMessage(
         updated.conversationId,
