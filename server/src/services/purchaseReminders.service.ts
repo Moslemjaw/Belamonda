@@ -1,6 +1,7 @@
 import { UserOfferModel } from "../models/userOffer.model.js";
 import { OfferModel } from "../models/offer.model.js";
 import { sessionsStore } from "../modules/scheduling/sessions.store.js";
+import { expireEndedMemberships } from "./userOffer.service.js";
 import {
   notifyDepositExpiring,
   notifyDepositExpired,
@@ -30,6 +31,14 @@ function toIsoOrEmpty(v: DateLike): string {
 async function tick() {
   const now = new Date();
   const in24h = new Date(now.getTime() + ONE_DAY);
+
+  // 0) Memberships past their expiry date → expired (no more bookings)
+  try {
+    const n = await expireEndedMemberships(now);
+    if (n) console.log(`[purchaseReminders] expired ${n} ended membership(s)`);
+  } catch (e) {
+    console.warn("[purchaseReminders] membership-expiry tick failed", e);
+  }
 
   // 1) Deposit reservations expiring within 24h → remind (deduped)
   try {

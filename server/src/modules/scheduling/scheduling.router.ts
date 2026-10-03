@@ -263,9 +263,18 @@ function maxAccessibleSessions(uo: SchedUO, offerMax: number | null): number | n
 async function eligibilityError(
   uo: SchedUO,
   offer: SchedOffer,
-  opts?: { skipSessionCap?: boolean }
+  opts?: { skipSessionCap?: boolean; scheduledAt?: string | Date }
 ): Promise<{ code: string; status: number } | null> {
   if (uo.status === "reserved") return { code: "RESERVED_NEEDS_BALANCE", status: 409 };
+  // A membership past its end date cannot be booked, even if the expiry job has
+  // not flipped its status yet; nor can a session be placed after the end date.
+  const expiresAt = uo.expiresAt ? new Date(uo.expiresAt) : null;
+  if (uo.status === "expired" || (uo.status === "active" && expiresAt && expiresAt < new Date())) {
+    return { code: "MEMBERSHIP_EXPIRED", status: 409 };
+  }
+  if (expiresAt && opts?.scheduledAt && new Date(opts.scheduledAt) > expiresAt) {
+    return { code: "SCHEDULED_AFTER_EXPIRY", status: 409 };
+  }
   if (uo.status === "enet_pending") return { code: "ENET_PENDING", status: 409 };
   if (uo.status === "enet_rejected") return { code: "ENET_REJECTED", status: 409 };
   if (uo.status !== "active" && uo.status !== "pending_payment") {
@@ -802,7 +811,12 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     const openStatuses = ["request_received", "slot_assigned", "scheduled"];
     const now = new Date();
 
-    // Auto-clear stale requests (>24h old) so past appointments don't block new bookings
+    // Auto-clear stale requests (>24h old) so past appointments don't block new bookings.
+    // A request keeps the status of its session: one whose session is still
+    // "scheduled" (clinic hasn't marked it yet) is left as is — it was previously
+    // cancelled here, leaving Request History and the Sessions Log disagreeing —
+    // and is ignored by the open-request check below instead.
+    const pastScheduledReqIds: unknown[] = [];
     const potentialStaleReqs = await BookingRequestModel.find({
       userOfferId: uo.id,
       userId: req.auth!.userId,
@@ -817,6 +831,10 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
         } else {
           linkedSess = await BookingSessionModel.findOne({ bookingRequestId: r._id }).lean();
         }
+        if (linkedSess?.status === "scheduled") {
+          pastScheduledReqIds.push(r._id);
+          continue;
+        }
         const newStatus = (linkedSess?.status === "completed" || linkedSess?.status === "no_show") ? linkedSess.status : "cancelled";
         await BookingRequestModel.findByIdAndUpdate(r._id, { $set: { status: newStatus } });
       }
@@ -825,7 +843,8 @@ schedulingRouter.post("/me/request", authRequired, async (req, res, next) => {
     const existingReq = await BookingRequestModel.findOne({
       userOfferId: uo.id,
       userId: req.auth!.userId,
-      status: { $in: openStatuses }
+      status: { $in: openStatuses },
+      _id: { $nin: pastScheduledReqIds }
     });
     if (existingReq) {
       return res.status(409).json({ error: "ALREADY_HAVE_OPEN_REQUEST" });
@@ -1184,7 +1203,7 @@ schedulingRouter.post("/me/requests/:id/accept", authRequired, async (req, res, 
     if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
     const offer = await loadOffer(uo.offerId);
     if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
+    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true, scheduledAt });
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
     const sessionClinicId = breq.clinicId || uo.clinicId;
@@ -1590,7 +1609,7 @@ schedulingRouter.post("/requests/:id/confirm", authRequired, requireRole(["clini
   if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
   const offer = await loadOffer(uo.offerId);
   if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-  const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
+  const elErr = await eligibilityError(uo, offer, { skipSessionCap: true, scheduledAt });
   if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
   const sessionClinicId = breq.clinicId || uo.clinicId;
@@ -2140,7 +2159,7 @@ schedulingRouter.post(
     if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
     const offer = await loadOffer(uo.offerId);
     if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true });
+    const elErr = await eligibilityError(uo, offer, { skipSessionCap: true, scheduledAt });
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
     const check = await checkStaffIntervalConstraint({
@@ -2753,7 +2772,12 @@ schedulingRouter.post("/clinic/sessions/:sessionId/mark", authRequired, requireR
     }
 
     if (session.userOfferId) {
-      if (!uo || uo.status !== "active") return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
+      // A session booked inside the membership validity can still be marked after the
+      // membership expires (e.g. the clinic records yesterday's visit today).
+      const withinValidity = !!uo?.expiresAt && new Date(session.scheduledAt) <= new Date(uo.expiresAt);
+      if (!uo || !(uo.status === "active" || (uo.status === "expired" && withinValidity))) {
+        return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
+      }
       const offer = await loadOffer(uo.offerId);
       if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
     }

@@ -815,6 +815,8 @@ export function BookingRequestsQueue({ onTransfer }: { onTransfer?: (id: string,
       const code = e.message || "UNKNOWN_ERROR";
       const friendly: Record<string, string> = {
         OFFER_NOT_ACTIVE: "The customer's membership is not active yet.",
+        MEMBERSHIP_EXPIRED: "The customer's membership has expired.",
+        SCHEDULED_AFTER_EXPIRY: "That date is after the membership's end date — pick an earlier date.",
         MAX_SESSIONS_REACHED: "All sessions for this membership have been used.",
         INSTALLMENT_NOT_PAID_FOR_NEXT_SESSION: "The next installment hasn't been paid yet.",
         SLOT_TAKEN: "That time slot is already taken at this clinic.",
