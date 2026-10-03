@@ -131,3 +131,20 @@ describe("clinic POS mark-paid", () => {
     expect(await PaymentModel.countDocuments({ bookingRequestId: String(breq._id), status: "paid" })).toBe(1);
   });
 });
+
+describe("clinic POS mark-paid: double click", () => {
+  it("deducts the cashback once and records one payment", async () => {
+    const customer = await makeUser("customer");
+    const admin = await makeUser("admin");
+    await makeWallet(customer.id, "10.000");
+    const uoId = await makeUserOffer(customer.id, { cashbackBalanceKwd: "10.000" });
+    const breq = await BookingRequestModel.create({
+      userId: customer.id, userOfferId: uoId, clinicId, status: "scheduled", sessionPriceKwd: "20.000"
+    });
+    const send = () => api().post(`/scheduling/requests/${breq._id}/mark-paid`).set("Authorization", `Bearer ${admin.token}`).send({ cashbackToDeductKwd: "3.000" });
+    await Promise.all([send(), send()]);
+    expect(await walletUnlocked(customer.id)).toBe("7.000");
+    expect(await cashbackBalance(uoId)).toBe("7.000");
+    expect(await PaymentModel.countDocuments({ bookingRequestId: String(breq._id) })).toBe(1);
+  });
+});

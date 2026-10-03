@@ -249,3 +249,57 @@ describe("Book button throttle (4 seconds per customer)", () => {
     expect(lock).toBeTruthy();
   });
 });
+
+describe("completing a session: cashback reward and POS deduction", () => {
+  async function scheduledWithCashback(walletKwd: string) {
+    const { WalletModel } = await import("../src/models/kyc.model.js");
+    const customer = await makeUser("customer");
+    const admin = await makeUser("admin");
+    await WalletModel.create({ userId: customer.id, unlockedKwd: walletKwd });
+    const m = await makeMembership(customer.id, { offer: { cashbackPerSessionKwd: "2.000" } });
+    await UserOfferModel.collection.updateOne({ _id: new mongoose.Types.ObjectId(m.userOfferId) }, { $set: { cashbackBalanceKwd: walletKwd } });
+    const staff = await makeClinicStaff(m.clinicId);
+    const breqId = (await book(customer, m.userOfferId)).body.request.id;
+    const conf = await api().post(`/scheduling/clinic/requests/${breqId}/confirm`).set(auth(staff.token)).send({ scheduledAt: laterToday() });
+    return { customer, admin, m, sessionId: conf.body.session.id as string };
+  }
+  const wallet = async (uid: string) => {
+    const { WalletModel } = await import("../src/models/kyc.model.js");
+    return (await WalletModel.findOne({ userId: uid }).lean<{ unlockedKwd: string }>())?.unlockedKwd;
+  };
+
+  it("completing rewards the per-session cashback", async () => {
+    const s = await scheduledWithCashback("0.000");
+    const res = await api().post(`/scheduling/clinic/sessions/${s.sessionId}/mark`).set(auth(s.admin.token)).send({ status: "completed" });
+    expect(res.status).toBe(200);
+    expect(res.body.session.cashbackUnlockedKwd).toBe("2.000");
+    expect(await wallet(s.customer.id)).toBe("2.000");
+  });
+
+  it("re-marking an already-completed session does not reward twice", async () => {
+    const s = await scheduledWithCashback("0.000");
+    await api().post(`/scheduling/clinic/sessions/${s.sessionId}/mark`).set(auth(s.admin.token)).send({ status: "completed" });
+    await api().post(`/scheduling/clinic/sessions/${s.sessionId}/mark`).set(auth(s.admin.token)).send({ status: "completed" });
+    expect(await wallet(s.customer.id)).toBe("2.000");
+  });
+
+  it("a covered POS deduction is taken from the wallet and the membership balance", async () => {
+    const s = await scheduledWithCashback("5.000");
+    const res = await api().post(`/scheduling/clinic/sessions/${s.sessionId}/mark`).set(auth(s.admin.token))
+      .send({ status: "completed", cashbackToDeductKwd: "3.000" });
+    expect(res.status).toBe(200);
+    expect(await wallet(s.customer.id)).toBe("4.000"); // 5 + 2 reward - 3
+    const uo = await UserOfferModel.collection.findOne({ _id: new mongoose.Types.ObjectId(s.m.userOfferId) });
+    expect(uo?.cashbackBalanceKwd).toBe("2.000");
+  });
+
+  it("a refused deduction rolls everything back: no reward, session still scheduled", async () => {
+    const s = await scheduledWithCashback("1.000");
+    const res = await api().post(`/scheduling/clinic/sessions/${s.sessionId}/mark`).set(auth(s.admin.token))
+      .send({ status: "completed", cashbackToDeductKwd: "10.000" });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe("INSUFFICIENT_UNLOCKED");
+    expect(await wallet(s.customer.id)).toBe("1.000");
+    expect((await BookingSessionModel.findById(s.sessionId).lean<{ status: string }>())?.status).toBe("scheduled");
+  });
+});

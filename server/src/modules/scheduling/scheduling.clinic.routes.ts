@@ -22,6 +22,7 @@ import { kwdToMils } from "../../utils/money.js";
 import { withTransaction } from "../../db/transaction.js";
 import { ApiError } from "../../utils/apiError.js";
 import { MarkSchema, canActOnClinic, checkStaffIntervalConstraint, findCsUserIds, findFinanceUserIds, loadOffer, loadUserOffer, postSystemMessage } from "./scheduling.helpers.js";
+import * as sessionService from "./session.service.js";
 
 export const clinicRoutes = Router();
 
@@ -519,209 +520,29 @@ clinicRoutes.get("/clinic/:clinicId/missed-sessions", authRequired, requireRole(
 });
 
 // ── Clinic marks a session status (Mongo-aware) ────────────────────────────
-clinicRoutes.post("/clinic/sessions/:sessionId/mark", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res, next) => {
-  try {
-    const parsed = MarkSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+clinicRoutes.post("/clinic/sessions/:sessionId/mark", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res) => {
+  const parsed = MarkSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+  const actor = { userId: req.auth!.userId, role: req.auth!.role, clinicId: req.auth!.clinicId };
+  const out = await sessionService.markSession(actor, req.params.sessionId, parsed.data);
 
-    const session = await sessionsStore.get(req.params.sessionId);
-    if (!session) return res.status(404).json({ error: "NOT_FOUND" });
-    if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, String(session.clinicId)))) {
-      return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
-    }
-
-    const uo = session.userOfferId ? await loadUserOffer(session.userOfferId) : null;
-    
-    // For cancellations, skip offer validation — allow cancelling orphaned or expired sessions
-    if (parsed.data.status === "cancelled") {
-      const { result, breq } = await withTransaction(async () => {
-        const result = await sessionsStore.mark({
-          sessionId: req.params.sessionId,
-          status: "cancelled",
-          markedBy: req.auth!.userId,
-          notes: parsed.data.notes
-        });
-
-        if (session.userOfferId && mongoose.isValidObjectId(session.userOfferId)) {
-          await UserOfferModel.findOneAndUpdate(
-            { _id: session.userOfferId, sessionsUsed: { $gt: 0 } },
-            { $inc: { sessionsUsed: -1 } }
-          );
-        }
-        const breq = await bookingRequestsStore.findBySessionId(session.id);
-        if (breq) {
-          await bookingRequestsStore.update(breq.id, { status: "cancelled" });
-        }
-        return { result, breq };
-      });
-      const csIds = await findCsUserIds();
-      const financeIds = await findFinanceUserIds();
-      notifyChatRelatedUsers({
-        userIds: Array.from(new Set([...csIds, ...financeIds])),
-        kind: "booking_cancelled",
-        body: `Clinic cancelled session ${session.id}. Session quota restored for customer.`,
-        payload: { bookingRequestId: breq?.id, sessionId: session.id }
-      });
-      notifyBookingCancelled(session.userId, result!.id);
-
-      return res.json({ session: result });
-    }
-
-    if (session.userOfferId) {
-      // A session booked inside the membership validity can still be marked after the
-      // membership expires (e.g. the clinic records yesterday's visit today).
-      const withinValidity = !!uo?.expiresAt && new Date(session.scheduledAt) <= new Date(uo.expiresAt);
-      if (!uo || !(uo.status === "active" || (uo.status === "expired" && withinValidity))) {
-        return res.status(409).json({ error: "OFFER_NOT_ACTIVE" });
-      }
-      const offer = await loadOffer(uo.offerId);
-      if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-    }
-
-    let cashbackUnlocked = "0.000";
-    if (parsed.data.status === "completed") {
-      if (req.auth?.role === "clinicStaff") {
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const hasScan = await ScanLogModel.exists({
-          userId: session.userId,
-          clinicId: req.auth.clinicId || session.clinicId,
-          scannedAt: { $gte: twentyFourHoursAgo }
-        });
-        if (!hasScan) {
-          return res.status(403).json({
-            error: "SCAN_REQUIRED",
-            message: "Clinic staff cannot mark sessions as completed manually. Attendance must be recorded via QR card scan."
-          });
-        }
-      }
-
-      // Validate that session scheduledAt date is not in the future (after today)
-      if (session.scheduledAt) {
-        const schedDate = new Date(session.scheduledAt);
-        const endOfToday = new Date();
-        endOfToday.setHours(23, 59, 59, 999);
-        if (schedDate > endOfToday && req.auth?.role !== "admin") {
-          return res.status(400).json({
-            error: "FUTURE_SESSION_NOT_ALLOWED",
-            message: "Cannot mark a session as completed before its scheduled date."
-          });
-        }
-      }
-
-      if (uo) {
-        const offer = await loadOffer(uo.offerId);
-        if (offer) cashbackUnlocked = offer.cashbackPerSessionKwd ?? "0.000";
-      }
-    }
-
-    // Reward, POS deduction, session status and booking-request sync commit together, so a
-    // failed deduction can no longer leave the reward granted (and granted again on retry).
-    const updated = await withTransaction(async () => {
-      // If offer exists, unlock cashback
-      if (parsed.data.status === "completed" && uo && parseFloat(cashbackUnlocked) > 0) {
-        await kycStore.rewardSessionCashback({
-          userId: uo.userId,
-          amountKwd: cashbackUnlocked,
-          sessionId: session.id,
-          createdById: "system"
-        });
-      }
-
-      if (parsed.data.status === "completed" && parsed.data.cashbackToDeductKwd && parseFloat(parsed.data.cashbackToDeductKwd) > 0) {
-        const deductionAmount = parseFloat(parsed.data.cashbackToDeductKwd);
-        const resAdjust = await kycStore.deductUnlocked({
-          userId: session.userId,
-          amountKwd: deductionAmount.toFixed(3),
-          reference: { kind: "session", id: session.id },
-          createdBy: { kind: "admin", id: req.auth!.userId }
-        });
-        if ("error" in resAdjust) {
-          throw new ApiError(400, resAdjust.error ?? "CASHBACK_DEDUCTION_FAILED");
-        }
-        if (session.userOfferId) {
-          await userOfferService.adjustCashbackBalance(session.userOfferId, -kwdToMils(deductionAmount), { onlyIfSet: true });
-        }
-      }
-
-      let totalBillKwd: string | undefined;
-      let finalPaidKwd: string | undefined;
-      if (parsed.data.status === "completed") {
-         const extraSum = parsed.data.extraItems?.reduce((sum, item) => sum + parseFloat(item.priceKwd) * item.qty, 0) || 0;
-         totalBillKwd = extraSum.toFixed(3);
-         const cbDeduct = parseFloat(parsed.data.cashbackToDeductKwd || "0");
-         finalPaidKwd = Math.max(0, extraSum - cbDeduct).toFixed(3);
-      }
-
-      const updated = await sessionsStore.mark({
-        sessionId: session.id,
-        status: parsed.data.status,
-        markedBy: req.auth!.userId,
-        notes: parsed.data.notes,
-        cashbackUnlockedKwd: parsed.data.status === "completed" ? cashbackUnlocked : undefined,
-        extraItems: parsed.data.extraItems,
-        totalBillKwd,
-        finalPaidKwd
-      });
-
-      if (updated?.status === "completed") {
-        // Auto-sync all associated booking requests status & shownAt timestamp
-        const nowIso = new Date().toISOString();
-        const sessObjId = mongoose.isValidObjectId(session.id) ? new mongoose.Types.ObjectId(session.id) : null;
-        await BookingRequestModel.updateMany(
-          {
-            $or: [
-              { scheduledSessionId: session.id },
-              ...(sessObjId ? [{ scheduledSessionId: sessObjId }] : []),
-              { _id: session.id },
-              ...(sessObjId ? [{ _id: sessObjId }] : [])
-            ]
-          },
-          {
-            $set: {
-              status: "completed",
-              shownAt: nowIso
-            }
-          }
-        );
-
-        // NOTE: Removed code that was overwriting scheduledAt with completedAt.
-        // The original scheduledAt should always be preserved.
-
-        if (req.auth?.userId) {
-          await logAuditAction({
-            actorId: req.auth.userId,
-            actorRole: req.auth.role as any,
-            actionType: "admin_manual_session_complete",
-            targetEntityType: "BookingSession",
-            targetEntityId: session.id,
-            beforeState: { status: session.status },
-            afterState: { status: "completed" },
-            metadata: {
-              shortId: (session as any).shortId || session.id,
-              userId: session.userId,
-              clinicId: session.clinicId,
-              notes: parsed.data.notes
-            }
-          });
-        }
-      }
-
-      if (updated?.status === "no_show") {
-        const breq = await bookingRequestsStore.findBySessionId(session.id);
-        if (breq) {
-          await bookingRequestsStore.update(breq.id, { status: "no_show" });
-        }
-      }
-      return updated;
+  if (out.kind === "cancelled") {
+    const csIds = await findCsUserIds();
+    const financeIds = await findFinanceUserIds();
+    notifyChatRelatedUsers({
+      userIds: Array.from(new Set([...csIds, ...financeIds])),
+      kind: "booking_cancelled",
+      body: `Clinic cancelled session ${out.session.id}. Session quota restored for customer.`,
+      payload: { bookingRequestId: out.breq?.id, sessionId: out.session.id }
     });
-
-    if (updated?.status === "completed" && uo && parseFloat(cashbackUnlocked) > 0) {
-      notifySessionCompletedCashback(uo.userId, updated.id, cashbackUnlocked);
-    }
-    return res.json({ session: updated });
-  } catch (e) {
-    next(e);
+    notifyBookingCancelled(out.session.userId, out.result!.id);
+    return res.json({ session: out.result });
   }
+
+  if (out.updated?.status === "completed" && out.uo && parseFloat(out.cashbackUnlocked) > 0) {
+    notifySessionCompletedCashback(out.uo.userId, out.updated.id, out.cashbackUnlocked);
+  }
+  return res.json({ session: out.updated });
 });
 
 // ── Clinic staff: customer context for a booking request ──────────────────

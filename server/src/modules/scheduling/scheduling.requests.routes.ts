@@ -27,6 +27,7 @@ import { kwdToMils } from "../../utils/money.js";
 import { withTransaction } from "../../db/transaction.js";
 import { ApiError } from "../../utils/apiError.js";
 import * as bookingService from "./booking.service.js";
+import * as sessionService from "./session.service.js";
 import { ProposeSchema, RejectSchema, ScheduleSchema, canActOnClinic, checkStaffIntervalConstraint, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findCsUserIds, findFinanceUserIds, getUserClinicId, isWithinOfferValidity, loadOffer, loadUserOffer, mapOfferDocToSched, postSystemMessage } from "./scheduling.helpers.js";
 import type { SchedOffer } from "./scheduling.helpers.js";
 
@@ -401,171 +402,11 @@ const MarkPaidSchema = z.object({
 requestsRoutes.post("/requests/:id/mark-paid", authRequired, requireRole(["clinicStaff", "admin"]), async (req, res) => {
   const parsed = MarkPaidSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
-  let breq = await bookingRequestsStore.get(req.params.id);
-  if (!breq && mongoose.isValidObjectId(req.params.id)) {
-    const sess = await BookingSessionModel.findById(req.params.id).lean();
-    if (sess) {
-      const linkedReqId = (sess as any).bookingRequestId ? String((sess as any).bookingRequestId) : null;
-      if (linkedReqId) {
-        breq = await bookingRequestsStore.get(linkedReqId);
-      }
-      if (!breq) {
-        const reqBySess = await BookingRequestModel.findOne({ scheduledSessionId: (sess as any)._id }).lean();
-        if (reqBySess) {
-          breq = await bookingRequestsStore.get(String((reqBySess as any)._id));
-        } else {
-          await BookingSessionModel.findByIdAndUpdate((sess as any)._id, {
-            $set: { clinicPaymentStatus: "paid", clinicPaymentMarkedAt: new Date(), clinicPaymentMarkedBy: req.auth!.userId }
-          });
-          return res.json({ success: true });
-        }
-      }
-    }
-  }
-  if (!breq) return res.status(404).json({ error: "NOT_FOUND" });
-  if (!(await canActOnClinic({ userId: req.auth!.userId, role: req.auth!.role }, breq.clinicId))) {
-    return res.status(403).json({ error: "FORBIDDEN_CLINIC" });
-  }
-  if (breq.clinicPaymentStatus === "paid") {
-    if (breq.scheduledSessionId) {
-      await BookingSessionModel.findByIdAndUpdate(breq.scheduledSessionId, {
-        $set: { clinicPaymentStatus: "paid", clinicPaymentMarkedAt: new Date(), clinicPaymentMarkedBy: req.auth!.userId }
-      });
-    }
-    return res.json({ success: true, alreadyPaid: true });
-  }
+  const out = await sessionService.markClinicPaid({ userId: req.auth!.userId, role: req.auth!.role }, req.params.id, parsed.data);
+  if (out.kind === "session_only") return res.json({ success: true });
+  if (out.kind === "already_paid") return res.json({ success: true, alreadyPaid: true });
 
-  const bq = breq;
-  const updated = await withTransaction(async () => {
-    const breq = bq;
-    if (breq.sessionPaymentId) {
-      const oldPay = await PaymentModel.findByIdAndUpdate(breq.sessionPaymentId, {
-        status: "paid",
-        confirmedAt: new Date(),
-        confirmedBy: req.auth!.userId,
-        method: "cash" // or pos, we default to cash for clinic side payments
-      }).lean();
-    
-      if (oldPay && (oldPay as any).status !== "paid") {
-        const netKwd = parseFloat((oldPay as any).amountKwd) || 0;
-        const cbKwd = parseFloat((oldPay as any).cashbackAppliedKwd) || 0;
-        const grossKwdStr = (oldPay as any).grossAmountKwd;
-        const grossKwd = grossKwdStr ? parseFloat(grossKwdStr) : netKwd + cbKwd;
-      
-        const netMils = Math.round(netKwd * 1000);
-        const cbMils = Math.round(cbKwd * 1000);
-        const grossMils = Math.round(grossKwd * 1000);
-      
-        await incrementMetric({
-          totalRevenueMils: netMils,
-          totalGrossRevenueMils: grossMils,
-          totalCashbackAppliedMils: cbMils,
-          totalStandaloneSessionsSold: 1,
-          totalStandaloneSessionRevenueMils: netMils,
-          totalGrossStandaloneSessionRevenueMils: grossMils,
-        });
-      }
-    } else if (breq.sessionPriceKwd && parseFloat(breq.sessionPriceKwd) > 0) {
-      // Fallback if no pending payment existed
-      const cb = parseFloat(breq.cashbackDeductedKwd || "0");
-      const gross = parseFloat(breq.sessionPriceKwd) + cb;
-      const payDoc = await PaymentModel.create({
-        userId: breq.userId,
-        offerId: breq.offerId ? new mongoose.Types.ObjectId(breq.offerId) : undefined,
-        userOfferId: breq.userOfferId ? new mongoose.Types.ObjectId(breq.userOfferId) : undefined,
-        amountKwd: breq.sessionPriceKwd,
-        grossAmountKwd: gross.toFixed(3),
-        cashbackAppliedKwd: cb > 0 ? cb.toFixed(3) : undefined,
-        currency: "KWD",
-        method: "cash",
-        purpose: "session_payment",
-        status: "paid",
-        provider: "manual",
-        bookingRequestId: breq.id,
-        confirmedAt: new Date(),
-        confirmedBy: req.auth!.userId
-      });
-    
-      const netMils = Math.round(parseFloat(breq.sessionPriceKwd) * 1000);
-      const cbMils = Math.round(cb * 1000);
-      const grossMils = Math.round(gross * 1000);
-      await incrementMetric({
-        totalRevenueMils: netMils,
-        totalGrossRevenueMils: grossMils,
-        totalCashbackAppliedMils: cbMils,
-        totalStandaloneSessionsSold: 1,
-        totalStandaloneSessionRevenueMils: netMils,
-        totalGrossStandaloneSessionRevenueMils: grossMils,
-      });
-    
-      await bookingRequestsStore.update(breq.id, { sessionPaymentId: payDoc.id });
-    }
-
-    const cbToDeduct = parseFloat(parsed.data.cashbackToDeductKwd || "0");
-    const alreadyDeducted = parseFloat(breq.cashbackDeductedKwd || "0");
-    const diff = cbToDeduct - alreadyDeducted;
-
-    if (diff > 0) {
-      const resAdjust = await kycStore.deductUnlocked({
-        userId: breq.userId,
-        amountKwd: diff.toFixed(3),
-        reference: { kind: "session", id: breq.id },
-        createdBy: { kind: "admin", id: req.auth!.userId }
-      });
-      if ("error" in resAdjust) {
-        // Rolls back the payment/status writes above too.
-        throw new ApiError(400, resAdjust.error ?? "CASHBACK_DEDUCTION_FAILED");
-      }
-      if (breq.userOfferId) {
-        await userOfferService.adjustCashbackBalance(breq.userOfferId, -kwdToMils(diff), { onlyIfSet: true });
-      }
-    } else if (diff < 0) {
-      await kycStore.adjustUnlocked({
-        userId: breq.userId,
-        amountKwd: Math.abs(diff).toFixed(3),
-        reason: "Cashback un-applied at clinic POS",
-        createdById: req.auth!.userId
-      });
-      if (breq.userOfferId) {
-        await userOfferService.adjustCashbackBalance(breq.userOfferId, kwdToMils(Math.abs(diff)), { onlyIfSet: true });
-      }
-    }
-
-    let totalBillKwd: string | undefined;
-    let finalPaidKwd: string | undefined;
-  
-    const extraSum = parsed.data.extraItems?.reduce((sum, item) => sum + parseFloat(item.priceKwd) * item.qty, 0) || 0;
-    const basePrice = parseFloat(breq.sessionPriceKwd || "0");
-    totalBillKwd = (basePrice + extraSum).toFixed(3);
-    finalPaidKwd = Math.max(0, basePrice + extraSum - cbToDeduct).toFixed(3);
-
-    let finalStatus = breq.status;
-    if (breq.scheduledSessionId) {
-      const linkedSess = await BookingSessionModel.findById(breq.scheduledSessionId).select("status").lean();
-      if ((linkedSess as any)?.status === "completed") {
-        finalStatus = "completed";
-      }
-    }
-
-    const result = await bookingRequestsStore.update(breq.id, {
-      status: finalStatus,
-      clinicPaymentStatus: "paid",
-      clinicPaymentMarkedAt: new Date().toISOString(),
-      clinicPaymentMarkedBy: req.auth!.userId,
-      extraItems: parsed.data.extraItems,
-      totalBillKwd,
-      finalPaidKwd,
-      cashbackDeductedKwd: cbToDeduct > 0 ? cbToDeduct.toFixed(3) : undefined
-    });
-
-    if (breq.scheduledSessionId) {
-      await BookingSessionModel.findByIdAndUpdate(breq.scheduledSessionId, {
-        $set: { clinicPaymentStatus: "paid", clinicPaymentMarkedAt: new Date(), clinicPaymentMarkedBy: req.auth!.userId }
-      });
-    }
-    return result;
-  });
-
+  const { breq, updated } = out;
   if (updated?.conversationId) {
     postSystemMessage(
       updated.conversationId,
@@ -575,7 +416,6 @@ requestsRoutes.post("/requests/:id/mark-paid", authRequired, requireRole(["clini
       req.auth!.userId
     );
   }
-
   const csIds = await findCsUserIds();
   const financeIds = await findFinanceUserIds();
   notifyChatRelatedUsers({
@@ -584,7 +424,6 @@ requestsRoutes.post("/requests/:id/mark-paid", authRequired, requireRole(["clini
     body: `Clinic marked booking ${breq.id} as paid${breq.sessionPriceKwd ? ` (${breq.sessionPriceKwd} KWD)` : ""}.`,
     payload: { bookingRequestId: breq.id, clinicPaymentStatus: "paid" }
   });
-
   return res.json({ request: updated });
 });
 
