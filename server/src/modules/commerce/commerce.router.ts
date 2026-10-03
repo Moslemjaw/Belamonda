@@ -389,7 +389,12 @@ commerceRouter.post("/me/user-offers/:uoId/change-clinic", authRequired, require
       return res.status(403).json({ error: "CLINIC_LOCKED_USE_CHANGE_REQUEST" });
     }
 
-    const newOid = resolvePurchaseClinicObjectId(offer, parsed.data.newClinicId);
+    // "No branch selection" only applies at purchase (the offer's own clinic is used then).
+    // A change must always go to the clinic the customer chose.
+    const newOid = resolvePurchaseClinicObjectId({ ...(offer as object), requireBranchSelection: true }, parsed.data.newClinicId);
+    if (!newOid || !(await ClinicModel.exists({ _id: newOid, active: { $ne: false } }))) {
+      return res.status(400).json({ error: "CLINIC_NOT_AVAILABLE" });
+    }
     if (uo.clinicId && String(uo.clinicId) === String(newOid)) {
       return res.status(400).json({ error: "SAME_CLINIC" });
     }

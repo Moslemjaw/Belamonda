@@ -974,8 +974,20 @@ export default function CustomerDashboard() {
                          const overrideClinicIds = overrides.map((b: any) => b.clinicId);
                          pool = pool.filter((c: any) => overrideClinicIds.includes(c.id));
                       }
-                      const clinicOptionsPool = pool.length > 0 ? pool : (clinicsPublic?.items || []);
-                      return clinicOptionsPool.map((c: any) => <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}</option>);
+                      let clinicOptionsPool = pool.length > 0 ? pool : (clinicsPublic?.items || []);
+                      // The membership's current clinic may not be in the offer's per-clinic price list
+                      // (e.g. the offer's own clinic). Keep it in the list so the dropdown shows the
+                      // same clinic as the card instead of silently displaying the first option.
+                      const currentId = showChangeClinicModal.clinicId;
+                      if (currentId && !clinicOptionsPool.some((c: any) => c.id === currentId)) {
+                         const current = (clinicsPublic?.items || []).find((c: any) => c.id === currentId);
+                         if (current) clinicOptionsPool = [current, ...clinicOptionsPool];
+                      }
+                      return clinicOptionsPool.map((c: any) => (
+                         <option key={c.id} value={c.id}>
+                            {ar() ? c.nameAr : c.nameEn}{c.id === currentId ? (ar() ? " (الحالية)" : " (current)") : ""}
+                         </option>
+                      ));
                    })()}
                 </select>
              </div>
