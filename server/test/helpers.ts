@@ -63,7 +63,7 @@ export async function makeMembership(
     clinicId: clinic._id,
     membershipType: "free_sessions",
     sessionsUsed: 0,
-    activatedAt: new Date(),
+    activatedAt: (() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; })(), // start of today
     expiresAt: new Date(Date.now() + 365 * 24 * 3600 * 1000)
   });
   return { clinicId: String(clinic._id), offerId: String(offer._id), userOfferId };
@@ -75,11 +75,12 @@ export async function makeClinicStaff(clinicId: string) {
   return { id, token: signAccessToken({ sub: id, role: "clinicStaff", clinicId }) };
 }
 
-/** A datetime later today (so clinic staff may complete it today). */
+/** A datetime later today — always in the future and still today, whatever the time of day. */
 export function laterToday(hours = 1) {
-  const d = new Date(Date.now() + hours * 3600 * 1000);
-  const end = new Date(); end.setHours(23, 0, 0, 0);
-  return (d > end ? end : d).toISOString();
+  const now = Date.now();
+  const endOfDay = new Date(); endOfDay.setHours(23, 59, 0, 0);
+  const halfwayToMidnight = now + Math.max(0, endOfDay.getTime() - now) / 2;
+  return new Date(Math.min(now + hours * 3600 * 1000, halfwayToMidnight)).toISOString();
 }
 
 export async function cashbackBalance(userOfferId: string) {
