@@ -37,3 +37,17 @@ export async function withTransaction<T>(fn: () => Promise<T>): Promise<T> {
   if (!(await detectTransactionSupport())) return fn();
   return mongoose.connection.transaction(() => fn());
 }
+
+const RowLockModel =
+  mongoose.models.RowLock ??
+  mongoose.model("RowLock", new mongoose.Schema({ _id: String, n: Number }, { versionKey: false }), "row_locks");
+
+/**
+ * Inside withTransaction(): serialise every transaction that locks the same key.
+ * Two concurrent transactions that only INSERT new documents never conflict, so a
+ * double-clicked "create" would succeed twice; both touching this lock row makes the
+ * second one wait/retry and then see what the first created.
+ */
+export async function lockKey(key: string): Promise<void> {
+  await RowLockModel.updateOne({ _id: key }, { $inc: { n: 1 } }, { upsert: true });
+}

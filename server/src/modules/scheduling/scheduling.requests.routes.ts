@@ -683,62 +683,12 @@ requestsRoutes.post("/requests/:id/reject", authRequired, requireRole(["clinicSt
 });
 
 // ── CS direct-schedule (legacy / Mongo-aware) ─────────────────────────────
-requestsRoutes.post("/cs/schedule", authRequired, requireRole(["cs", "legal", "admin", "cs_director"]), async (req, res, next) => {
-  try {
-    const parsed = ScheduleSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
-
-    const uo = await loadUserOffer(parsed.data.userOfferId);
-    if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
-
-    const user = await kycStore.getUser(uo.userId);
-    if (user && user.verificationStatus !== "approved") return res.status(403).json({ error: "KYC_NOT_APPROVED" });
-
-    const offer = await loadOffer(uo.offerId);
-    if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
-
-    if (offer.payPerSession) {
-      return res.status(409).json({ error: "SESSION_PAYMENT_REQUIRED" });
-    }
-
-    const elErr = await eligibilityError(uo, offer);
-    if (elErr) return res.status(elErr.status).json({ error: elErr.code });
-
-    const scheduledAtDate = new Date(parsed.data.scheduledAt);
-    if (!isWithinOfferValidity(uo, scheduledAtDate)) return res.status(409).json({ error: "OFFER_OUT_OF_VALIDITY" });
-
-    const check = await checkStaffIntervalConstraint({
-      userOfferId: uo.id,
-      userId: uo.userId,
-      targetDate: scheduledAtDate,
-      forceOverride: parsed.data.forceOverride,
-      actorId: req.auth!.userId,
-      actorRole: req.auth!.role,
-      actionContext: "cs_schedule"
-    });
-    if (!check.allowed) {
-      return res.status(409).json(check);
-    }
-
-    // if (await sessionsStore.isSlotTaken(uo.clinicId, parsed.data.scheduledAt)) {
-    //   return res.status(409).json({ error: "SLOT_TAKEN" });
-    // }
-
-    const session = await sessionsStore.create({
-      userOfferId: uo.id,
-      userId: uo.userId,
-      offerId: uo.offerId,
-      clinicId: uo.clinicId,
-      scheduledAt: parsed.data.scheduledAt,
-      scheduledBy: req.auth!.userId,
-      notes: parsed.data.notes
-    });
-
-    notifyBookingConfirmed(uo.userId, session.id, session.scheduledAt);
-    return res.status(201).json({ session });
-  } catch (e) {
-    next(e);
-  }
+requestsRoutes.post("/cs/schedule", authRequired, requireRole(["cs", "legal", "admin", "cs_director"]), async (req, res) => {
+  const parsed = ScheduleSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+  const { uo, session } = await bookingService.scheduleByCs({ userId: req.auth!.userId, role: req.auth!.role }, parsed.data);
+  notifyBookingConfirmed(uo.userId, session.id, session.scheduledAt);
+  return res.status(201).json({ session });
 });
 
 // ── CS schedules from a specific request id ────────────────────────────────

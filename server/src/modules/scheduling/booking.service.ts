@@ -8,14 +8,16 @@ import { kycStore } from "../kyc/kyc.store.js";
 import { sessionsStore, type SessionRecord } from "./sessions.store.js";
 import { bookingRequestsStore, type BookingRequestRecord } from "./bookingRequests.store.js";
 import { UserOfferModel } from "../../models/userOffer.model.js";
+import { BookingSessionModel } from "../../models/bookingSession.model.js";
 import { kwdToMils } from "../../utils/money.js";
-import { withTransaction } from "../../db/transaction.js";
+import { withTransaction, lockKey } from "../../db/transaction.js";
 import { ApiError } from "../../utils/apiError.js";
 import {
   canActOnClinic,
   checkStaffIntervalConstraint,
   computeBookingRequestFinancials,
   eligibilityError,
+  isWithinOfferValidity,
   loadOffer,
   loadUserOffer,
   type SchedUO
@@ -198,4 +200,55 @@ export async function confirmByClinic(
     return { session, updated };
   });
   return { breq, updated, session, uo };
+}
+
+// ── CS schedules a session directly from a membership (no booking request) ──
+export async function scheduleByCs(
+  actor: Actor,
+  input: { userOfferId: string; scheduledAt: string; notes?: string; forceOverride?: boolean }
+) {
+  const uo = await loadUserOffer(input.userOfferId);
+  if (!uo) throw new ApiError(404, "USER_OFFER_NOT_FOUND");
+  const user = await kycStore.getUser(uo.userId);
+  if (user && user.verificationStatus !== "approved") throw new ApiError(403, "KYC_NOT_APPROVED");
+  const offer = await loadOffer(uo.offerId);
+  if (!offer) throw new ApiError(400, "OFFER_NOT_FOUND");
+  if (offer.payPerSession) throw new ApiError(409, "SESSION_PAYMENT_REQUIRED");
+  const elErr = await eligibilityError(uo, offer);
+  if (elErr) throw new ApiError(elErr.status, elErr.code);
+
+  const scheduledAtDate = new Date(input.scheduledAt);
+  if (!isWithinOfferValidity(uo, scheduledAtDate)) throw new ApiError(409, "OFFER_OUT_OF_VALIDITY");
+
+  const check = await checkStaffIntervalConstraint({
+    userOfferId: uo.id,
+    userId: uo.userId,
+    targetDate: scheduledAtDate,
+    forceOverride: input.forceOverride,
+    actorId: actor.userId,
+    actorRole: actor.role,
+    actionContext: "cs_schedule"
+  });
+  if (!check.allowed) throw new ApiError(409, check.code ?? check.error ?? "INTERVAL_NOT_MET", check as Record<string, unknown>, true);
+
+  const session = await withTransaction(async () => {
+    // One schedule per membership at a time; a double click finds the first click's session.
+    await lockKey(`schedule:${uo.id}`);
+    const duplicate = await BookingSessionModel.exists({
+      userOfferId: uo.id,
+      scheduledAt: scheduledAtDate,
+      status: "scheduled"
+    });
+    if (duplicate) throw new ApiError(409, "DUPLICATE_SESSION");
+    return sessionsStore.create({
+      userOfferId: uo.id,
+      userId: uo.userId,
+      offerId: uo.offerId,
+      clinicId: uo.clinicId,
+      scheduledAt: input.scheduledAt,
+      scheduledBy: actor.userId,
+      notes: input.notes
+    });
+  });
+  return { uo, session };
 }

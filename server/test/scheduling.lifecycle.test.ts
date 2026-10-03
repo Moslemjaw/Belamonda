@@ -208,3 +208,26 @@ describe("interval warning keeps its exact response shape", () => {
     expect(await BookingSessionModel.countDocuments({ userOfferId: m.userOfferId })).toBe(0);
   });
 });
+
+describe("CS schedules a session directly from a membership", () => {
+  it("creates the session", async () => {
+    const customer = await makeUser("customer");
+    const cs = await makeUser("cs");
+    const m = await makeMembership(customer.id, { offer: { payPerSession: false } });
+    const res = await api().post("/scheduling/cs/schedule").set(auth(cs.token)).send({ userOfferId: m.userOfferId, scheduledAt: laterToday() });
+    expect(res.status).toBe(201);
+    expect(res.body.session.status).toBe("scheduled");
+    expect(await BookingSessionModel.countDocuments({ userOfferId: m.userOfferId })).toBe(1);
+  });
+
+  it("a double-clicked Schedule creates only one session", async () => {
+    const customer = await makeUser("customer");
+    const cs = await makeUser("cs");
+    const m = await makeMembership(customer.id, { offer: { payPerSession: false } });
+    const when = laterToday();
+    const send = () => api().post("/scheduling/cs/schedule").set(auth(cs.token)).send({ userOfferId: m.userOfferId, scheduledAt: when });
+    const statuses = (await Promise.all([send(), send()])).map((r) => r.status).sort();
+    expect(statuses).toEqual([201, 409]);
+    expect(await BookingSessionModel.countDocuments({ userOfferId: m.userOfferId })).toBe(1);
+  });
+});
