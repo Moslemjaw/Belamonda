@@ -21,6 +21,8 @@ import { listRequiredFormsForUser } from "../modules/eforms/eforms.router.js";
 import { serializeUserOffer, serializePayment } from "../utils/serialize.js";
 import { applyOfferMembershipToUserOffer } from "./userOffer.service.js";
 import { getProviderForMethod } from "./paymentProvider.service.js";
+import { kwdToMils, milsToKwd } from "../utils/money.js";
+import { withTransaction } from "../db/transaction.js";
 import {
   notifyPaymentSuccess,
   notifyPaymentFailed,
@@ -32,16 +34,8 @@ import {
 } from "../modules/notifications/notifications.service.js";
 
 // ---- KWD math helpers (mils) ----
-function mils(s: string): number {
-  if (!s) return 0;
-  const [a, b = "000"] = s.split(".");
-  return Number(a) * 1000 + Number(b.padEnd(3, "0").slice(0, 3));
-}
-function fmt(m: number): string {
-  const sign = m < 0 ? "-" : "";
-  const abs = Math.abs(m);
-  return `${sign}${Math.floor(abs / 1000)}.${String(abs % 1000).padStart(3, "0")}`;
-}
+const mils = kwdToMils;
+const fmt = milsToKwd;
 
 function isWithinWindow(
   o: { startDate?: Date | null; endDate?: Date | null; offerExpirationDate?: Date | null },
@@ -504,37 +498,41 @@ export async function checkoutFull(input: {
   if (cb.netAmountKwd === "0.000") {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + offer.validityDays * 24 * 60 * 60 * 1000);
-    await cb.deduct("userOffer", String(uo._id));
-    const payment = await createPayment({
-      userId: input.userId,
-      offerId: String(offer._id),
-      userOfferId: String(uo._id),
-      amountKwd: "0.000",
-      cashbackAppliedKwd: cb.cashbackAppliedKwd,
-      grossAmountKwd: effectivePrice,
-      method: "card_mock",
-      purpose: "enrollment_full",
-      provider: "mock",
-      providerRef: "cashback_full_coverage",
-      status: "paid"
+    // Cashback deduction, payment, activation and cashback grant commit together.
+    const payment = await withTransaction(async () => {
+      await cb.deduct("userOffer", String(uo._id));
+      const payment = await createPayment({
+        userId: input.userId,
+        offerId: String(offer._id),
+        userOfferId: String(uo._id),
+        amountKwd: "0.000",
+        cashbackAppliedKwd: cb.cashbackAppliedKwd,
+        grossAmountKwd: effectivePrice,
+        method: "card_mock",
+        purpose: "enrollment_full",
+        provider: "mock",
+        providerRef: "cashback_full_coverage",
+        status: "paid"
+      });
+      await UserOfferModel.findByIdAndUpdate(uo._id, {
+        $set: {
+          status: "active",
+          activatedAt: now,
+          expiresAt,
+          paymentAmountKwd: "0.000",
+          paymentId: payment._id,
+          paymentConfirmedAt: now,
+          paymentConfirmedBy: "system_cashback"
+        },
+        $unset: { pendingExpiresAt: "" }
+      });
+      await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
+      await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
+      await snapshotWalletToPayment(payment._id, input.userId);
+      return payment;
     });
-    await UserOfferModel.findByIdAndUpdate(uo._id, {
-      $set: {
-        status: "active",
-        activatedAt: now,
-        expiresAt,
-        paymentAmountKwd: "0.000",
-        paymentId: payment._id,
-        paymentConfirmedAt: now,
-        paymentConfirmedBy: "system_cashback"
-      },
-      $unset: { pendingExpiresAt: "" }
-    });
-    await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
     notifyPaymentSuccess(input.userId, String(uo._id), "0.000");
     notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-    await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
-    await snapshotWalletToPayment(payment._id, input.userId);
     const activated = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
     return { userOffer: serializeUserOffer(activated!) };
   }
@@ -661,41 +659,45 @@ export async function checkoutInstallments(input: {
   // Fast-path: cashback covers 100% — activate immediately without waiting for CS
   if (cb.netAmountKwd === "0.000") {
     const expiresAt = new Date(now.getTime() + offer.validityDays * 24 * 60 * 60 * 1000);
-    await cb.deduct("userOffer", String(uo._id));
-    const payment = await createPayment({
-      userId: input.userId,
-      offerId: String(offer._id),
-      userOfferId: String(uo._id),
-      amountKwd: "0.000",
-      cashbackAppliedKwd: cb.cashbackAppliedKwd,
-      grossAmountKwd: effectivePrice,
-      method: "card_mock",
-      purpose: "enrollment_full",
-      provider: "mock",
-      providerRef: "cashback_full_coverage",
-      status: "paid"
+    // Cashback deduction, payment, activation and cashback grant commit together.
+    const payment = await withTransaction(async () => {
+      await cb.deduct("userOffer", String(uo._id));
+      const payment = await createPayment({
+        userId: input.userId,
+        offerId: String(offer._id),
+        userOfferId: String(uo._id),
+        amountKwd: "0.000",
+        cashbackAppliedKwd: cb.cashbackAppliedKwd,
+        grossAmountKwd: effectivePrice,
+        method: "card_mock",
+        purpose: "enrollment_full",
+        provider: "mock",
+        providerRef: "cashback_full_coverage",
+        status: "paid"
+      });
+      const paidSchedule = schedule.map(s => ({ ...s, paid: true, paidAt: now, paymentId: payment._id }));
+      await UserOfferModel.findByIdAndUpdate(uo._id, {
+        $set: {
+          status: "active",
+          activatedAt: now,
+          expiresAt,
+          paymentAmountKwd: "0.000",
+          paymentId: payment._id,
+          paymentConfirmedAt: now,
+          paymentConfirmedBy: "system_cashback",
+          installmentsPaid: input.count,
+          installmentSchedule: paidSchedule,
+          nextInstallmentDueAt: null
+        },
+        $unset: { pendingExpiresAt: "" }
+      });
+      await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
+      await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
+      await snapshotWalletToPayment(payment._id, input.userId);
+      return payment;
     });
-    const paidSchedule = schedule.map(s => ({ ...s, paid: true, paidAt: now, paymentId: payment._id }));
-    await UserOfferModel.findByIdAndUpdate(uo._id, {
-      $set: {
-        status: "active",
-        activatedAt: now,
-        expiresAt,
-        paymentAmountKwd: "0.000",
-        paymentId: payment._id,
-        paymentConfirmedAt: now,
-        paymentConfirmedBy: "system_cashback",
-        installmentsPaid: input.count,
-        installmentSchedule: paidSchedule,
-        nextInstallmentDueAt: null
-      },
-      $unset: { pendingExpiresAt: "" }
-    });
-    await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
     notifyPaymentSuccess(input.userId, String(uo._id), "0.000");
     notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-    await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
-    await snapshotWalletToPayment(payment._id, input.userId);
     const activated = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
     return { userOffer: serializeUserOffer(activated!) };
   }
@@ -881,42 +883,46 @@ export async function checkoutEnet4(input: {
   }
 
   // Approved → activate offer fully paid via ENET
-  await cb.deduct("userOffer", String(uo._id));
-  const payment = await createPayment({
-    userId: input.userId,
-    offerId: String(offer._id),
-    userOfferId: String(uo._id),
-    amountKwd: cb.netAmountKwd,
-    cashbackAppliedKwd: cb.cashbackAppliedKwd,
-    grossAmountKwd: effectivePrice,
-    method: "enet",
-    purpose: "enrollment_enet",
-    provider: "enet",
-    providerRef: result.providerRef,
-    status: "paid"
+  // Cashback deduction, payment, activation and cashback grant commit together.
+  const payment = await withTransaction(async () => {
+    await cb.deduct("userOffer", String(uo._id));
+    const payment = await createPayment({
+      userId: input.userId,
+      offerId: String(offer._id),
+      userOfferId: String(uo._id),
+      amountKwd: cb.netAmountKwd,
+      cashbackAppliedKwd: cb.cashbackAppliedKwd,
+      grossAmountKwd: effectivePrice,
+      method: "enet",
+      purpose: "enrollment_enet",
+      provider: "enet",
+      providerRef: result.providerRef,
+      status: "paid"
+    });
+
+    await UserOfferModel.findByIdAndUpdate(uo._id, {
+      $set: {
+        status: "active",
+        activatedAt: now,
+        expiresAt,
+        enetStatus: "approved",
+        enetTxnRef: result.providerRef,
+        paymentId: payment._id,
+        paymentAmountKwd: cb.netAmountKwd,
+        paymentConfirmedAt: now,
+        paymentConfirmedBy: "system_enet"
+      }
+    });
+
+    await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
+
+    await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
+    await snapshotWalletToPayment(payment._id, input.userId);
+    return payment;
   });
-
-  await UserOfferModel.findByIdAndUpdate(uo._id, {
-    $set: {
-      status: "active",
-      activatedAt: now,
-      expiresAt,
-      enetStatus: "approved",
-      enetTxnRef: result.providerRef,
-      paymentId: payment._id,
-      paymentAmountKwd: cb.netAmountKwd,
-      paymentConfirmedAt: now,
-      paymentConfirmedBy: "system_enet"
-    }
-  });
-
-  await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
-
   notifyEnetApproved(input.userId, String(uo._id));
   notifyPaymentSuccess(input.userId, String(uo._id), cb.netAmountKwd);
   notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-  await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
-  await snapshotWalletToPayment(payment._id, input.userId);
   const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
   return {
     userOffer: serializeUserOffer(fresh!),
@@ -1135,39 +1141,43 @@ export async function convertReservation(input: {
         enet: { approved: false, reason: result.failureReason ?? "ENET_REJECTED" }
       };
     }
-    await cb.deduct("userOffer", String(uo._id));
-    const payment = await createPayment({
-      userId: input.userId,
-      offerId: String(offer._id),
-      userOfferId: String(uo._id),
-      amountKwd: fmt(balanceNet),
-      cashbackAppliedKwd: cb.cashbackAppliedKwd,
-      grossAmountKwd: fmt(balanceGross),
-      method: "enet",
-      purpose: "enrollment_enet",
-      provider: "enet",
-      providerRef: result.providerRef,
-      status: "paid"
+    // Cashback deduction, payment, activation and cashback grant commit together.
+    const payment = await withTransaction(async () => {
+      await cb.deduct("userOffer", String(uo._id));
+      const payment = await createPayment({
+        userId: input.userId,
+        offerId: String(offer._id),
+        userOfferId: String(uo._id),
+        amountKwd: fmt(balanceNet),
+        cashbackAppliedKwd: cb.cashbackAppliedKwd,
+        grossAmountKwd: fmt(balanceGross),
+        method: "enet",
+        purpose: "enrollment_enet",
+        provider: "enet",
+        providerRef: result.providerRef,
+        status: "paid"
+      });
+      await UserOfferModel.findByIdAndUpdate(uo._id, {
+        $set: {
+          status: "active",
+          purchaseMode: "enet",
+          activatedAt: now,
+          expiresAt,
+          enetStatus: "approved",
+          enetTxnRef: result.providerRef,
+          paymentId: payment._id,
+          reservationConvertedAt: now
+        },
+        $unset: { reservationExpiresAt: "" }
+      });
+      await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
+      await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
+      await snapshotWalletToPayment(payment._id, input.userId);
+      return payment;
     });
-    await UserOfferModel.findByIdAndUpdate(uo._id, {
-      $set: {
-        status: "active",
-        purchaseMode: "enet",
-        activatedAt: now,
-        expiresAt,
-        enetStatus: "approved",
-        enetTxnRef: result.providerRef,
-        paymentId: payment._id,
-        reservationConvertedAt: now
-      },
-      $unset: { reservationExpiresAt: "" }
-    });
-    await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
     notifyEnetApproved(input.userId, String(uo._id));
     notifyPaymentSuccess(input.userId, String(uo._id), fmt(balanceNet));
     notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-    await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
-    await snapshotWalletToPayment(payment._id, input.userId);
     const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
     return {
       userOffer: serializeUserOffer(fresh!),
@@ -1201,36 +1211,40 @@ export async function convertReservation(input: {
       notifyPaymentFailed(input.userId, String(uo._id), result.failureReason ?? "PAYMENT_FAILED");
       throw httpErr(402, result.failureReason ?? "PAYMENT_FAILED");
     }
-    await cb.deduct("userOffer", String(uo._id));
-    const payment = await createPayment({
-      userId: input.userId,
-      offerId: String(offer._id),
-      userOfferId: String(uo._id),
-      amountKwd: fmt(balanceNet),
-      cashbackAppliedKwd: cb.cashbackAppliedKwd,
-      grossAmountKwd: fmt(balanceGross),
-      method: "card_mock",
-      purpose: "deposit_balance",
-      provider: "mock",
-      providerRef: result.providerRef,
-      status: "paid"
+    // Cashback deduction, payment, activation and cashback grant commit together.
+    const payment = await withTransaction(async () => {
+      await cb.deduct("userOffer", String(uo._id));
+      const payment = await createPayment({
+        userId: input.userId,
+        offerId: String(offer._id),
+        userOfferId: String(uo._id),
+        amountKwd: fmt(balanceNet),
+        cashbackAppliedKwd: cb.cashbackAppliedKwd,
+        grossAmountKwd: fmt(balanceGross),
+        method: "card_mock",
+        purpose: "deposit_balance",
+        provider: "mock",
+        providerRef: result.providerRef,
+        status: "paid"
+      });
+      await UserOfferModel.findByIdAndUpdate(uo._id, {
+        $set: {
+          status: "active",
+          purchaseMode: "full",
+          activatedAt: now,
+          expiresAt,
+          reservationConvertedAt: now,
+          paymentId: payment._id
+        },
+        $unset: { reservationExpiresAt: "" }
+      });
+      await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
+      await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
+      await snapshotWalletToPayment(payment._id, input.userId);
+      return payment;
     });
-    await UserOfferModel.findByIdAndUpdate(uo._id, {
-      $set: {
-        status: "active",
-        purchaseMode: "full",
-        activatedAt: now,
-        expiresAt,
-        reservationConvertedAt: now,
-        paymentId: payment._id
-      },
-      $unset: { reservationExpiresAt: "" }
-    });
-    await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
     notifyPaymentSuccess(input.userId, String(uo._id), fmt(balanceNet));
     notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-    await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, 1);
-    await snapshotWalletToPayment(payment._id, input.userId);
     const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
     return { userOffer: serializeUserOffer(fresh!) };
   }
@@ -1273,45 +1287,49 @@ export async function convertReservation(input: {
     notifyPaymentFailed(input.userId, String(uo._id), result.failureReason ?? "PAYMENT_FAILED");
     throw httpErr(402, result.failureReason ?? "PAYMENT_FAILED");
   }
-  await cb.deduct("userOffer", String(uo._id));
-  const payment = await createPayment({
-    userId: input.userId,
-    offerId: String(offer._id),
-    userOfferId: String(uo._id),
-    amountKwd: amounts[0],
-    cashbackAppliedKwd: cb.cashbackAppliedKwd,
-    grossAmountKwd: fmt(balanceGross),
-    method: "card_mock",
-    purpose: "installment",
-    provider: "mock",
-    providerRef: result.providerRef,
-    installmentNumber: 1,
-    status: "paid"
+  // Cashback deduction, payment, activation and cashback grant commit together.
+  const payment = await withTransaction(async () => {
+    await cb.deduct("userOffer", String(uo._id));
+    const payment = await createPayment({
+      userId: input.userId,
+      offerId: String(offer._id),
+      userOfferId: String(uo._id),
+      amountKwd: amounts[0],
+      cashbackAppliedKwd: cb.cashbackAppliedKwd,
+      grossAmountKwd: fmt(balanceGross),
+      method: "card_mock",
+      purpose: "installment",
+      provider: "mock",
+      providerRef: result.providerRef,
+      installmentNumber: 1,
+      status: "paid"
+    });
+    schedule[0].paid = true;
+    schedule[0].paidAt = new Date();
+    schedule[0].paymentId = payment._id;
+    await UserOfferModel.findByIdAndUpdate(uo._id, {
+      $set: {
+        status: "active",
+        purchaseMode: "installments",
+        activatedAt: now,
+        expiresAt,
+        installmentCount: count,
+        installmentsPaid: 1,
+        installmentSchedule: schedule,
+        nextInstallmentDueAt: schedule[1]?.dueDate,
+        reservationConvertedAt: now,
+        paymentId: payment._id
+      },
+      $unset: { reservationExpiresAt: "" }
+    });
+    await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
+    await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, count);
+    await snapshotWalletToPayment(payment._id, input.userId);
+    return payment;
   });
-  schedule[0].paid = true;
-  schedule[0].paidAt = new Date();
-  schedule[0].paymentId = payment._id;
-  await UserOfferModel.findByIdAndUpdate(uo._id, {
-    $set: {
-      status: "active",
-      purchaseMode: "installments",
-      activatedAt: now,
-      expiresAt,
-      installmentCount: count,
-      installmentsPaid: 1,
-      installmentSchedule: schedule,
-      nextInstallmentDueAt: schedule[1]?.dueDate,
-      reservationConvertedAt: now,
-      paymentId: payment._id
-    },
-    $unset: { reservationExpiresAt: "" }
-  });
-  await applyOfferMembershipToUserOffer(String(uo._id), String(offer._id));
   notifyPaymentSuccess(input.userId, String(uo._id), amounts[0]);
   notifyInstallmentPaid(input.userId, String(uo._id), 1, count);
   notifyMembershipActivated(input.userId, String(uo._id), offer.name, expiresAt.toISOString());
-  await grantCashbackForPayment(input.userId, offer, String(uo._id), 1, count);
-  await snapshotWalletToPayment(payment._id, input.userId);
   const fresh = await UserOfferModel.findById(uo._id).lean<UserOfferDoc | null>();
   return { userOffer: serializeUserOffer(fresh!) };
 }

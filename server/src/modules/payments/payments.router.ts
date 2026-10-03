@@ -13,6 +13,9 @@ import { PaymentModel } from "../../models/payment.model.js";
 import { UserModel } from "../../models/user.model.js";
 import { OfferModel } from "../../models/offer.model.js";
 import { ClinicModel } from "../../models/clinic.model.js";
+import { kwdToMils, milsToKwd } from "../../utils/money.js";
+import { withTransaction } from "../../db/transaction.js";
+import { ApiError } from "../../utils/apiError.js";
 
 const KwdString = z.string().regex(/^\d+(\.\d{3})$/);
 
@@ -117,53 +120,137 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin", "le
     const activatedAt = new Date().toISOString();
     const expiresAt = new Date(Date.now() + offer.validityDays * 24 * 60 * 60 * 1000).toISOString();
 
-    const cbKwd = (uo as any).cashbackAppliedKwd;
-    if (cbKwd && cbKwd !== "0.000") {
-      await kycStore.deductUnlocked({
+    const { updated, refreshedUo, freshPayment } = await withTransaction(async () => {
+      const cbKwd = (uo as any).cashbackAppliedKwd;
+      if (cbKwd && cbKwd !== "0.000") {
+        await kycStore.deductUnlocked({
+          userId: uo.userId,
+          amountKwd: cbKwd,
+          reference: { kind: "userOffer", id: uo.id },
+          createdBy: { kind: "cs", id: req.auth!.userId }
+        });
+      }
+
+      const payment = await paymentService.createCompletedEnrollmentPayment({
         userId: uo.userId,
-        amountKwd: cbKwd,
-        reference: { kind: "userOffer", id: uo.id },
-        createdBy: { kind: "cs", id: req.auth!.userId }
+        offerId: uo.offerId,
+        userOfferId: uo.id,
+        amountKwd: parsed.data.amountKwd,
+        method: parsed.data.method,
+        proofRef: parsed.data.proofRef,
+        confirmedBy: req.auth!.userId
       });
-    }
 
-    const payment = await paymentService.createCompletedEnrollmentPayment({
-      userId: uo.userId,
-      offerId: uo.offerId,
-      userOfferId: uo.id,
-      amountKwd: parsed.data.amountKwd,
-      method: parsed.data.method,
-      proofRef: parsed.data.proofRef,
-      confirmedBy: req.auth!.userId
+      const updated = await userOfferService.confirmPaymentAndActivate({
+        userOfferId: uo.id,
+        confirmedBy: req.auth!.userId,
+        proofRef: parsed.data.proofRef,
+        method: parsed.data.method,
+        amountKwd: parsed.data.amountKwd,
+        activatedAt,
+        expiresAt,
+        paymentId: payment.id
+      });
+
+      // Throwing here also rolls back the cashback deduction and payment created above
+      // (e.g. a double-clicked confirm no longer deducts twice).
+      if (!updated) throw new ApiError(404, "USER_OFFER_NOT_FOUND");
+      if (typeof updated === "object" && "error" in updated) throw new ApiError(409, updated.error);
+
+      const { logAuditAction } = await import("../../services/audit.service.js");
+      await logAuditAction({
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.role as any,
+        actionType: "confirm_payment",
+        targetEntityType: "Payment",
+        targetEntityId: payment.id,
+        afterState: { amountKwd: parsed.data.amountKwd, method: parsed.data.method, status: "completed" },
+        metadata: { userId: uo.userId, offerId: uo.offerId, userOfferId: uo.id },
+      });
+
+      await userOfferService.applyOfferMembershipToUserOffer(updated.id, uo.offerId);
+      const refreshedUo = await userOfferService.getUserOffer(updated.id);
+
+
+      // Grant signup cashback — per-installment aware
+      // Rules:
+      //   Full / ENET → 100% cashback unlocked immediately
+      //   Installments → even split (e.g. 50/50 for 2, 33/33/33 for 3)
+      //   Deposit → NO cashback until converted to full/installments
+      // For group offers, split cashback equally among group members
+      const signupBonus = getEffectiveSignupCashback(offer as any);
+      const [ia, ib = "000"] = signupBonus.split(".");
+      const signupBonusMils = Number(ia) * 1000 + Number(ib.padEnd(3, "0").slice(0, 3));
+      const isCashbackOnly = !!(offer as { isCashbackOnly?: boolean }).isCashbackOnly;
+      const isDeposit = (uo as any).purchaseMode === "deposit";
+      if (signupBonusMils > 0 && !isDeposit) {
+        const userId = refreshedUo?.userId ?? updated.userId;
+        const uoId = refreshedUo?.id ?? updated.id;
+        const isInstallments = (uo as any).purchaseMode === "installments";
+        const totalInstallments = isInstallments ? ((uo as any).installmentCount ?? 1) : 1;
+
+        // Step 1: Credit full amount to wallet locked pool on FIRST installment only
+        // creditOfferCashback has built-in dedup (only credits once per userOffer).
+        const currentInstallment = isInstallments ? (refreshedUo?.installmentsPaid ?? 1) : 1;
+        if (currentInstallment === 1) {
+          await kycStore.creditOfferCashback({
+            userId,
+            amountKwd: signupBonus,
+            userOfferId: uoId,
+            createdById: req.auth!.userId
+          });
+        }
+
+        // Step 2: Unlock proportional share — even split across installments
+        let thisAmountMils = signupBonusMils;
+        if (isInstallments && totalInstallments > 1) {
+          const perInstallment = Math.floor(signupBonusMils / totalInstallments);
+          const remainder = signupBonusMils - perInstallment * totalInstallments;
+          // First installment absorbs rounding remainder
+          thisAmountMils = perInstallment + (currentInstallment === 1 ? remainder : 0);
+        }
+
+        const fmtKwd = milsToKwd;
+
+        await kycStore.grantSignupCashback({
+          userId,
+          amountKwd: fmtKwd(thisAmountMils),
+          userOfferId: uoId,
+          createdById: req.auth!.userId,
+          createdByKind: "cs",
+          installmentNumber: totalInstallments > 1 ? currentInstallment : undefined
+        });
+
+        // Update userOffer tracking + set spendable cashback balance
+        const { UserOfferModel } = await import("../../models/userOffer.model.js");
+        const currentUo = await UserOfferModel.findById(uoId).select("cashbackGrantedKwd cashbackBalanceKwd").lean() as any;
+        const previousGranted = kwdToMils(currentUo?.cashbackGrantedKwd);
+        const previousBalance = kwdToMils(currentUo?.cashbackBalanceKwd);
+      
+        await UserOfferModel.findByIdAndUpdate(uoId, {
+          $set: {
+            totalSignupCashbackKwd: signupBonus,
+            cashbackGrantedKwd: fmtKwd(previousGranted + thisAmountMils),
+            cashbackBalanceKwd: fmtKwd(previousBalance + thisAmountMils)
+          }
+        });
+      }
+      // Always snapshot wallet balance after payment for accurate historical per-transaction balance
+      const wallet = await kycStore.getWallet(updated.userId);
+      let freshPayment = payment;
+      if (wallet && mongoose.isValidObjectId(payment.id)) {
+        const refreshed = await PaymentModel.findByIdAndUpdate(
+          payment.id,
+          { $set: { customerWalletBalanceAfterKwd: wallet.unlockedKwd } },
+          { new: true }
+        ).lean();
+        if (refreshed) {
+          const { serializePayment } = await import("../../utils/serialize.js");
+          freshPayment = serializePayment(refreshed as any);
+        }
+      }
+      return { updated, refreshedUo, freshPayment };
     });
-
-    const updated = await userOfferService.confirmPaymentAndActivate({
-      userOfferId: uo.id,
-      confirmedBy: req.auth!.userId,
-      proofRef: parsed.data.proofRef,
-      method: parsed.data.method,
-      amountKwd: parsed.data.amountKwd,
-      activatedAt,
-      expiresAt,
-      paymentId: payment.id
-    });
-
-    if (!updated) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
-    if (typeof updated === "object" && "error" in updated) return res.status(409).json({ error: updated.error });
-
-    const { logAuditAction } = await import("../../services/audit.service.js");
-    await logAuditAction({
-      actorId: req.auth!.userId,
-      actorRole: req.auth!.role as any,
-      actionType: "confirm_payment",
-      targetEntityType: "Payment",
-      targetEntityId: payment.id,
-      afterState: { amountKwd: parsed.data.amountKwd, method: parsed.data.method, status: "completed" },
-      metadata: { userId: uo.userId, offerId: uo.offerId, userOfferId: uo.id },
-    });
-
-    await userOfferService.applyOfferMembershipToUserOffer(updated.id, uo.offerId);
-    const refreshedUo = await userOfferService.getUserOffer(updated.id);
 
     notifyPaymentConfirmed(refreshedUo?.userId ?? updated.userId, refreshedUo?.id ?? updated.id);
     notifyMembershipActivated(
@@ -172,84 +259,6 @@ paymentsRouter.post("/cs/confirm", authRequired, requireRole(["cs", "admin", "le
       (offer as { name?: string }).name ?? "Offer",
       expiresAt
     );
-
-    // Grant signup cashback — per-installment aware
-    // Rules:
-    //   Full / ENET → 100% cashback unlocked immediately
-    //   Installments → even split (e.g. 50/50 for 2, 33/33/33 for 3)
-    //   Deposit → NO cashback until converted to full/installments
-    // For group offers, split cashback equally among group members
-    const signupBonus = getEffectiveSignupCashback(offer as any);
-    const [ia, ib = "000"] = signupBonus.split(".");
-    const signupBonusMils = Number(ia) * 1000 + Number(ib.padEnd(3, "0").slice(0, 3));
-    const isCashbackOnly = !!(offer as { isCashbackOnly?: boolean }).isCashbackOnly;
-    const isDeposit = (uo as any).purchaseMode === "deposit";
-    if (signupBonusMils > 0 && !isDeposit) {
-      const userId = refreshedUo?.userId ?? updated.userId;
-      const uoId = refreshedUo?.id ?? updated.id;
-      const isInstallments = (uo as any).purchaseMode === "installments";
-      const totalInstallments = isInstallments ? ((uo as any).installmentCount ?? 1) : 1;
-
-      // Step 1: Credit full amount to wallet locked pool on FIRST installment only
-      // creditOfferCashback has built-in dedup (only credits once per userOffer).
-      const currentInstallment = isInstallments ? (refreshedUo?.installmentsPaid ?? 1) : 1;
-      if (currentInstallment === 1) {
-        await kycStore.creditOfferCashback({
-          userId,
-          amountKwd: signupBonus,
-          userOfferId: uoId,
-          createdById: req.auth!.userId
-        });
-      }
-
-      // Step 2: Unlock proportional share — even split across installments
-      let thisAmountMils = signupBonusMils;
-      if (isInstallments && totalInstallments > 1) {
-        const perInstallment = Math.floor(signupBonusMils / totalInstallments);
-        const remainder = signupBonusMils - perInstallment * totalInstallments;
-        // First installment absorbs rounding remainder
-        thisAmountMils = perInstallment + (currentInstallment === 1 ? remainder : 0);
-      }
-
-      const fmtKwd = (m: number) => `${Math.floor(m / 1000)}.${String(m % 1000).padStart(3, "0")}`;
-
-      await kycStore.grantSignupCashback({
-        userId,
-        amountKwd: fmtKwd(thisAmountMils),
-        userOfferId: uoId,
-        createdById: req.auth!.userId,
-        createdByKind: "cs",
-        installmentNumber: totalInstallments > 1 ? currentInstallment : undefined
-      });
-
-      // Update userOffer tracking + set spendable cashback balance
-      const { UserOfferModel } = await import("../../models/userOffer.model.js");
-      const currentUo = await UserOfferModel.findById(uoId).select("cashbackGrantedKwd cashbackBalanceKwd").lean() as any;
-      const previousGranted = currentUo?.cashbackGrantedKwd ? (Number(currentUo.cashbackGrantedKwd.split(".")[0]) * 1000 + Number(currentUo.cashbackGrantedKwd.split(".")[1].padEnd(3, "0").slice(0, 3))) : 0;
-      const previousBalance = currentUo?.cashbackBalanceKwd ? (Number(currentUo.cashbackBalanceKwd.split(".")[0]) * 1000 + Number(currentUo.cashbackBalanceKwd.split(".")[1].padEnd(3, "0").slice(0, 3))) : 0;
-      
-      await UserOfferModel.findByIdAndUpdate(uoId, {
-        $set: {
-          totalSignupCashbackKwd: signupBonus,
-          cashbackGrantedKwd: fmtKwd(previousGranted + thisAmountMils),
-          cashbackBalanceKwd: fmtKwd(previousBalance + thisAmountMils)
-        }
-      });
-    }
-    // Always snapshot wallet balance after payment for accurate historical per-transaction balance
-    const wallet = await kycStore.getWallet(updated.userId);
-    let freshPayment = payment;
-    if (wallet && mongoose.isValidObjectId(payment.id)) {
-      const refreshed = await PaymentModel.findByIdAndUpdate(
-        payment.id,
-        { $set: { customerWalletBalanceAfterKwd: wallet.unlockedKwd } },
-        { new: true }
-      ).lean();
-      if (refreshed) {
-        const { serializePayment } = await import("../../utils/serialize.js");
-        freshPayment = serializePayment(refreshed as any);
-      }
-    }
 
     return res.json({ userOffer: refreshedUo ?? updated, payment: freshPayment });
   } catch (e) {

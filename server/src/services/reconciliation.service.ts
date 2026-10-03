@@ -4,6 +4,7 @@ import { BookingSessionModel } from "../models/bookingSession.model.js";
 import { SystemMetricModel } from "../models/metric.model.js";
 import { UserOfferModel } from "../models/userOffer.model.js";
 import { OfferModel } from "../models/offer.model.js";
+import { runExclusive } from "../jobs/lease.js";
 
 function parseKwd(k: string | undefined | null) {
   if (!k) return 0;
@@ -168,13 +169,12 @@ export async function reconcileMetrics() {
 }
 
 export function startReconciliationCron() {
-  // Reconcile every 12 hours
-  setInterval(() => {
-    reconcileMetrics().catch(console.error);
-  }, 12 * 60 * 60 * 1000);
-  
-  // Also run immediately on startup
+  // Reconcile every 12 hours; the lease makes sure only one instance runs it.
+  const run = () => runExclusive("reconcileMetrics", 11 * 60 * 60 * 1000, reconcileMetrics).catch(console.error);
+  setInterval(run, 12 * 60 * 60 * 1000);
+
+  // Also run shortly after every startup, as before (short lease: instances booting together run it once)
   setTimeout(() => {
-    reconcileMetrics().catch(console.error);
+    runExclusive("reconcileMetrics:startup", 5 * 60 * 1000, reconcileMetrics).catch(console.error);
   }, 5000);
 }

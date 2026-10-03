@@ -1,6 +1,7 @@
 import { UserOfferModel } from "../models/userOffer.model.js";
 import { OfferModel } from "../models/offer.model.js";
 import { sessionsStore } from "../modules/scheduling/sessions.store.js";
+import { runExclusive } from "../jobs/lease.js";
 import {
   notifyDepositExpiring,
   notifyDepositExpired,
@@ -152,12 +153,11 @@ async function tick() {
 
 export function startPurchaseReminders() {
   if (timer) return;
-  // Run frequently in dev so reminders surface promptly. Real prod should cron this.
-  timer = setInterval(() => {
-    tick().catch(() => {});
-  }, 60 * 1000);
+  // Every minute; the lease makes sure only one instance runs each tick.
+  const run = () => runExclusive("purchaseReminders", 55 * 1000, tick).catch(() => {});
+  timer = setInterval(run, 60 * 1000);
   // Kick off immediately so notifications appear shortly after server start.
-  tick().catch(() => {});
+  run();
 }
 
 export function stopPurchaseReminders() {

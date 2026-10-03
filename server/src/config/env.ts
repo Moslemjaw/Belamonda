@@ -11,6 +11,9 @@ const EnvSchema = z.object({
   JWT_SECRET: z.string().min(32),
   // Dev-only: when true, seeds demo users like cust1/admin1/fin1
   SEED_DEMO: z.coerce.boolean().default(false),
+  // Background jobs (reminders, reconciliation) run in the web process unless set to "false"
+  // — e.g. when they run in a separate `npm run start:worker` process instead.
+  RUN_JOBS: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
   // Comma-separated list of allowed origins (recommended). If omitted, falls back to CLIENT_ORIGIN.
   CLIENT_ORIGINS: z.string().optional(),
   CLIENT_ORIGIN: z.string().url().optional(),

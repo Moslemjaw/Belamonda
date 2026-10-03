@@ -3,12 +3,9 @@ import { UserOfferModel, type UserOfferDoc } from "../models/userOffer.model.js"
 import { OfferModel } from "../models/offer.model.js";
 import { serializeUserOffer } from "../utils/serialize.js";
 import { deriveMembershipType } from "./offer.service.js";
+import { kwdToMils, milsToKwd } from "../utils/money.js";
 
-function kwdMils(s: string | undefined): number {
-  if (!s) return 0;
-  const [a, b = "000"] = String(s).split(".");
-  return Number(a) * 1000 + Number(b.padEnd(3, "0").slice(0, 3));
-}
+const kwdMils = kwdToMils;
 
 /**
  * After activation, copy offer.membershipType and seed cashback session budget for TYPE-1 offers.
@@ -212,6 +209,38 @@ export async function incrementSessionsUsed(userOfferId: string) {
     { new: true }
   ).lean();
   return doc ? serializeUserOffer(doc as any) : null;
+}
+
+/**
+ * Add `deltaMils` (negative to deduct) to the string field cashbackBalanceKwd, floored at 0.
+ * `$inc` cannot be used because the field is stored as a "x.yyy" string, so this does a
+ * compare-and-set on the previous value and retries if another write got there first.
+ * `onlyIfSet: true` leaves offers without a balance untouched (POS adjustment semantics).
+ * Returns the new balance, or null if the offer was not found / skipped.
+ */
+export async function adjustCashbackBalance(
+  userOfferId: string,
+  deltaMils: number,
+  opts: { onlyIfSet?: boolean; session?: mongoose.ClientSession } = {}
+): Promise<string | null> {
+  if (!mongoose.isValidObjectId(userOfferId) || !deltaMils) return null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const uo = await UserOfferModel.findById(userOfferId)
+      .select("cashbackBalanceKwd")
+      .session(opts.session ?? null)
+      .lean() as { cashbackBalanceKwd?: string | null } | null;
+    if (!uo) return null;
+    const current = uo.cashbackBalanceKwd ?? null;
+    if (opts.onlyIfSet && !current) return null;
+    const next = milsToKwd(Math.max(0, kwdToMils(current) + deltaMils));
+    const res = await UserOfferModel.updateOne(
+      { _id: userOfferId, cashbackBalanceKwd: current },
+      { $set: { cashbackBalanceKwd: next } },
+      { session: opts.session }
+    );
+    if (res.matchedCount === 1) return next;
+  }
+  throw new Error(`adjustCashbackBalance: concurrent updates on ${userOfferId}`);
 }
 
 let _userOffersPromise: Promise<any[]> | null = null;

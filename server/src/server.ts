@@ -4,11 +4,9 @@ import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { connectMongo } from "./db/mongo.js";
 import { seedDefaultCategories, seedDefaultOffers, seedDefaultSessionTypesAndOfferings } from "./bootstrap/seedDefaults.js";
-import { startPurchaseReminders } from "./services/purchaseReminders.service.js";
-import { startFormSignatureReminders } from "./services/formSignatureReminders.service.js";
 import { initChatSocket } from "./modules/chat/chat.socket.js";
 import { UserModel } from "./models/user.model.js";
-import { startReconciliationCron } from "./services/reconciliation.service.js";
+import { startJobs } from "./jobs/index.js";
 
 async function backfillPublicTokens() {
   const missing = await UserModel.find({ publicToken: { $exists: false } }).select("_id").lean();
@@ -52,9 +50,7 @@ async function main() {
     await seedDefaultOffers();
   }
   const app = createApp();
-  startPurchaseReminders();
-  startFormSignatureReminders();
-  startReconciliationCron();
+  if (env.RUN_JOBS) startJobs();
   const httpServer = createServer(app);
   initChatSocket(httpServer);
 

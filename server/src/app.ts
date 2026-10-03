@@ -1,3 +1,6 @@
+// Must load before any router: forwards errors thrown in async handlers to errorHandler
+// instead of leaving the request hanging (Express 4 doesn't do this on its own).
+import "express-async-errors";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import cors from "cors";

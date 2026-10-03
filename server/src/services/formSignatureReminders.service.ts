@@ -4,6 +4,7 @@ import { UserOfferModel } from "../models/userOffer.model.js";
 import { BookingSessionModel } from "../models/bookingSession.model.js";
 import { FormReminderLogModel } from "../models/formReminderLog.model.js";
 import { notifyFormSignatureReminderSms } from "../modules/notifications/notifications.service.js";
+import { runExclusive } from "../jobs/lease.js";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const COOLDOWN_MS = ONE_DAY_MS; // 24h between SMS reminders per user+form
@@ -202,9 +203,10 @@ let timer: ReturnType<typeof setInterval> | null = null;
 export function startFormSignatureReminders(): void {
   if (timer) return;
   // Check every hour — well within the 24h cooldown window.
-  timer = setInterval(() => { tick().catch(() => {}); }, 60 * 60 * 1000);
+  const run = () => runExclusive("formSignatureReminders", 55 * 60 * 1000, tick).catch(() => {});
+  timer = setInterval(run, 60 * 60 * 1000);
   // Fire once at startup so reminders are sent shortly after boot.
-  tick().catch(() => {});
+  run();
 }
 
 /** Stop the background job (used in tests or clean shutdown). */
