@@ -26,6 +26,8 @@ const BookingSessionSchema = new Schema(
     },
     scheduledBy: { type: String, required: true },
     completedAt: { type: Date },
+    // When the customer's card was scanned for this session (the session time is set to it)
+    scannedAt: { type: Date },
     markedBy: { type: String },
     notes: { type: String },
     cashbackUnlockedKwd: { type: String, match: /^\d+(\.\d{3})$/ },

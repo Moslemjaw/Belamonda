@@ -408,12 +408,13 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     const activeScheduledSession = clinicSessions.find((s: any) => s.status === "scheduled" || s.status === "slot_assigned");
     const hasScheduled = !!activeScheduledSession;
 
-    // Reschedule ONLY for late arrivals (scanned AFTER their originally scheduled session date/time)
-    const isLateArrival = activeScheduledSession && activeScheduledSession.scheduledAt && new Date(now).getTime() > new Date(activeScheduledSession.scheduledAt).getTime();
-
-    if (!isRefresh && activeScheduledSession && isLateArrival) {
+    // The scan sets the session time: whenever the customer is scanned (early, on time or
+    // late) the session moves to the scan time, and completing it later keeps the scan time
+    // (sessions.store mark), so the next session's minimum gap counts from the scan.
+    // The admin's suggested date and the clinic's scheduled date are left as history.
+    if (!isRefresh && activeScheduledSession) {
       await BookingSessionModel.findByIdAndUpdate(activeScheduledSession.id, {
-        $set: { scheduledAt: now }
+        $set: { scheduledAt: now, scannedAt: now }
       });
       activeScheduledSession.scheduledAt = now;
 
@@ -427,7 +428,6 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
         {
           $set: {
             proposedAt: now.toISOString(),
-            adminSuggestedAt: now.toISOString(),
             shownAt: now.toISOString()
           }
         }

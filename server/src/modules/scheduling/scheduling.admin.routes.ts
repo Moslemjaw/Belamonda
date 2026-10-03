@@ -645,6 +645,13 @@ adminRoutes.get("/admin/customer-session-status", authRequired, requireRole(["ad
 });
 
 // ── Admin overview of all booking requests ────────────────────────────────
+/** proposedAt unless it was set by the card scan (the scan stamps proposedAt and shownAt together). */
+function plannedTime(r: { proposedAt?: string | null; shownAt?: string | null }) {
+  if (!r.proposedAt) return null;
+  if (r.shownAt && new Date(r.proposedAt).getTime() === new Date(r.shownAt).getTime()) return null;
+  return r.proposedAt;
+}
+
 adminRoutes.get("/admin/requests", authRequired, requireRole(["admin", "cs_director", "legal", "cs", "clinicStaff"]), async (req, res, next) => {
   try {
     const userRole = req.auth?.role;
@@ -702,8 +709,10 @@ adminRoutes.get("/admin/requests", authRequired, requireRole(["admin", "cs_direc
         userName: uInfo?.fullName || uInfo?.username || it.userId,
         userPhone: uInfo?.phone || "",
         userShortId: uInfo?.shortId || "",
-        adminSuggestedAt: it.adminSuggestedAt || it.proposedAt || null,
-        clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? it.proposedAt : null),
+        // Older requests only stored proposedAt, so fall back to it — but never for clinic-handled
+        // bookings (there is no admin step) and never when proposedAt is the card-scan time.
+        adminSuggestedAt: it.adminSuggestedAt || (it.bookingRoute !== "clinic" ? plannedTime(it) : null),
+        clinicScheduledAt: it.clinicScheduledAt || (['scheduled', 'completed', 'checked_in', 'in_progress', 'no_show'].includes(it.status) ? plannedTime(it) : null),
         shownAt: it.shownAt || null
       };
     });

@@ -150,8 +150,10 @@ export const sessionsStore = {
     };
     if (input.notes) update.notes = input.notes;
     if (input.status === "completed") {
-      const now = new Date();
-      update.completedAt = now;
+      // A scanned session counts as done at the scan time, so the next session's
+      // minimum gap runs from the scan even if staff mark it completed later.
+      const current = await BookingSessionModel.findById(input.sessionId).select("scannedAt").lean<{ scannedAt?: Date } | null>();
+      update.completedAt = current?.scannedAt ?? new Date();
       if (input.cashbackUnlockedKwd) update.cashbackUnlockedKwd = input.cashbackUnlockedKwd;
       if (input.extraItems) update.extraItems = input.extraItems;
       if (input.totalBillKwd) update.totalBillKwd = input.totalBillKwd;

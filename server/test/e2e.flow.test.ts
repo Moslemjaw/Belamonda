@@ -109,9 +109,9 @@ async function runFlow(bookingFlow: "admin_forward" | "direct_clinic") {
   expect(reqRow, "request in Request History").toBeTruthy();
   expect(reqRow.status).toBe("completed");
   expect(reqRow.clinicScheduledAt).toBeTruthy();
-  // (A scan after the booked time — a late arrival — moves the booking to the scan time
-  // and stamps adminSuggestedAt, by design; so the "no admin step" check is done above.)
+  // The scan sets the session time but never touches the admin's suggested date
   if (bookingFlow === "admin_forward") expect(reqRow.adminSuggestedAt).toBeTruthy();
+  else expect(reqRow.adminSuggestedAt ?? null).toBeNull();
 
   const scans = await api().get(`/scheduling/admin/scan-logs?clinicId=${clinicId}&limit=200`).set(auth(admin.token));
   const scanItems = scans.body.items ?? scans.body.logs ?? [];
