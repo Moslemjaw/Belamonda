@@ -1,5 +1,7 @@
 import type { BookingMode, OfferCategory, OfferKind, OfferStatus, OfferType, OfferVisibility } from "@belamonda/shared";
 import mongoose, { Schema } from "mongoose";
+import { watchModel } from "../utils/cache.js";
+import { offerCache, catalogCache } from "../utils/caches.js";
 
 const OfferSchema = new Schema(
   {
@@ -212,4 +214,7 @@ OfferSchema.index({ clinicIds: 1, status: 1 });
 OfferSchema.index({ categoryIds: 1, status: 1 });
 
 export type OfferDoc = mongoose.InferSchemaType<typeof OfferSchema> & { _id: mongoose.Types.ObjectId };
+// Any write to this model clears its read cache (utils/caches.ts)
+watchModel(OfferSchema, offerCache, catalogCache);
+
 export const OfferModel = mongoose.models.Offer ?? mongoose.model("Offer", OfferSchema);

@@ -11,7 +11,7 @@ import { bookingRequestsStore } from "../scheduling/bookingRequests.store.js";
 import { commerceStore } from "../commerce/commerce.store.js";
 import { emitToConversation } from "./chat.socket.js";
 import { notifyChatRelatedUsers } from "../notifications/notifications.service.chat.js";
-import { ensureConversationFor } from "../scheduling/scheduling.router.js";
+import { ensureConversationFor } from "../scheduling/scheduling.helpers.js";
 import { ensureConversationById } from "./chat.rehydrate.js";
 import { UserModel } from "../../models/user.model.js";
 

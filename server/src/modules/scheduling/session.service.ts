@@ -30,9 +30,20 @@ export type MarkInput = {
 export async function markSession(actor: Actor, sessionId: string, input: MarkInput) {
   const session = await sessionsStore.get(sessionId);
   if (!session) throw new ApiError(404, "NOT_FOUND");
-  if (!(await canActOnClinic(actor, String(session.clinicId)))) throw new ApiError(403, "FORBIDDEN_CLINIC");
-
-  const uo = session.userOfferId ? await loadUserOffer(session.userOfferId) : null;
+  // Independent reads in one round trip; the checks below keep their original order.
+  const needsScan = input.status === "completed" && actor.role === "clinicStaff";
+  const [allowed, uo, hasScanPre] = await Promise.all([
+    canActOnClinic(actor, String(session.clinicId)),
+    session.userOfferId ? loadUserOffer(session.userOfferId) : Promise.resolve(null),
+    needsScan
+      ? ScanLogModel.exists({
+          userId: session.userId,
+          clinicId: actor.clinicId || session.clinicId,
+          scannedAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        })
+      : Promise.resolve(null)
+  ]);
+  if (!allowed) throw new ApiError(403, "FORBIDDEN_CLINIC");
 
   // For cancellations, skip offer validation — allow cancelling orphaned or expired sessions
   if (input.status === "cancelled") {
@@ -65,12 +76,7 @@ export async function markSession(actor: Actor, sessionId: string, input: MarkIn
   let cashbackUnlocked = "0.000";
   if (input.status === "completed") {
     if (actor.role === "clinicStaff") {
-      const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const hasScan = await ScanLogModel.exists({
-        userId: session.userId,
-        clinicId: actor.clinicId || session.clinicId,
-        scannedAt: { $gte: twentyFourHoursAgo }
-      });
+      const hasScan = hasScanPre;
       if (!hasScan) {
         throw new ApiError(403, "SCAN_REQUIRED", {
           message: "Clinic staff cannot mark sessions as completed manually. Attendance must be recorded via QR card scan."

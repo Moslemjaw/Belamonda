@@ -1,6 +1,8 @@
 import type { Role, VerificationStatus } from "@belamonda/shared";
 import mongoose, { Schema, type Document, type Types } from "mongoose";
 import { CounterModel } from "./counter.model.js";
+import { watchModel } from "../utils/cache.js";
+import { userClinicCache } from "../utils/caches.js";
 
 export interface UserDoc extends Document {
   _id: Types.ObjectId;
@@ -116,5 +118,8 @@ UserSchema.pre("save", async function (next) {
     next();
   }
 });
+
+// Any write to users clears the staff-clinic cache (utils/caches.ts)
+watchModel(UserSchema, userClinicCache);
 
 export const UserModel = mongoose.models.User ?? mongoose.model<UserDoc>("User", UserSchema);

@@ -28,13 +28,18 @@ export const customerRoutes = Router();
 customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
   try {
     const userId = req.auth!.userId;
-    // One booking attempt per customer every 4 seconds — kept in the database so it holds
-    // across every server instance (was an in-memory Map).
-    if (!(await acquireLease(`booking:${userId}`, 4000))) {
+    const parsed = RequestSchema.safeParse(req.body);
+    // Load the membership while taking the throttle lease (independent round trips).
+    const isTempStandalone = parsed.success && !!parsed.data.isStandalone && parsed.data.userOfferId.startsWith("temp_");
+    const [leaseOk, preloadedUo] = await Promise.all([
+      // One booking attempt per customer every 4 seconds — kept in the database so it holds
+      // across every server instance (was an in-memory Map).
+      acquireLease(`booking:${userId}`, 4000),
+      parsed.success && !isTempStandalone ? loadUserOffer(parsed.data.userOfferId) : Promise.resolve(null)
+    ]);
+    if (!leaseOk) {
       return res.status(429).json({ error: "TOO_MANY_REQUESTS", message: "A booking request is already being processed. Please wait a moment." });
     }
-
-    const parsed = RequestSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
 
     let uoId = parsed.data.userOfferId;
@@ -71,7 +76,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
          preferredAt: parsed.data.preferredAt,
          notes: parsed.data.notes
        });
-       const { conv } = await ensureConversationFor(breq.id);
+       const { conv } = await ensureConversationFor(breq.id, breq);
        if (conv) {
          await postSystemMessage(
            conv.id,
@@ -100,7 +105,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
        return res.status(201).json({ request: breq, conversationId: conv?.id ?? null });
     }
 
-    const uo = await loadUserOffer(uoId);
+    const uo = preloadedUo;
     if (!uo) return res.status(404).json({ error: "USER_OFFER_NOT_FOUND" });
 
     // Ensure the customer is either the owner OR a group member
@@ -124,11 +129,17 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
        }
     }
 
-    // KYC + offer load + e-forms check — all independent, run in parallel
-    const [user, offer, pendingForms] = await Promise.all([
+    // Everything the checks below need, read in parallel (one round trip instead of six).
+    // The checks themselves still run in their original order.
+    const openStatuses = ["request_received", "slot_assigned", "scheduled"];
+    const [user, offer, pendingForms, uoDocForOverride, lastCompletedAtPre, potentialStaleReqs, committed] = await Promise.all([
       kycStore.getUser(req.auth!.userId),
       loadOffer(uo.offerId),
-      listRequiredFormsForUser(req.auth!.userId, [{ kind: "offer", refId: String(uo.offerId) }], "booking")
+      listRequiredFormsForUser(req.auth!.userId, [{ kind: "offer", refId: String(uo.offerId) }], "booking"),
+      UserOfferModel.findById(uo.id).lean(),
+      sessionsStore.lastCompletedAt(uo.id, req.auth!.userId),
+      BookingRequestModel.find({ userOfferId: uo.id, userId: req.auth!.userId, status: { $in: openStatuses } }),
+      sessionsStore.countCommitted(uo.id)
     ]);
 
     if (user && user.verificationStatus !== "approved") {
@@ -136,11 +147,10 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     }
     if (!offer) return res.status(400).json({ error: "OFFER_NOT_FOUND" });
 
-    const elErr = await eligibilityError(uo, offer);
+    const elErr = await eligibilityError(uo, offer, { committed });
     if (elErr) return res.status(elErr.status).json({ error: elErr.code });
 
     // Gate: session interval cooling period (respects admin overrides)
-    const uoDocForOverride = await UserOfferModel.findById(uo.id).lean();
     const isOverrideUnlocked = !!(uoDocForOverride as any)?.bookingOverrideUnlocked;
     const cooldownOverrideAt = (uoDocForOverride as any)?.bookingCooldownEndOverrideAt ? new Date((uoDocForOverride as any).bookingCooldownEndOverrideAt) : null;
 
@@ -150,7 +160,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
           return res.status(409).json({ error: "INTERVAL_NOT_MET", nextEligibleAt: cooldownOverrideAt.toISOString() });
         }
       } else if (offer.sessionIntervalDays > 0) {
-        const lastCompletedAt = await sessionsStore.lastCompletedAt(uo.id, req.auth!.userId);
+        const lastCompletedAt = lastCompletedAtPre;
         if (lastCompletedAt) {
           const nextEligible = new Date(new Date(lastCompletedAt).getTime() + offer.sessionIntervalDays * 24 * 60 * 60 * 1000);
           if (new Date() < nextEligible) {
@@ -166,7 +176,6 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     }
 
     // Gate: prevent multiple open booking requests for the same membership
-    const openStatuses = ["request_received", "slot_assigned", "scheduled"];
     const now = new Date();
 
     // Auto-clear stale requests (>24h old) so past appointments don't block new bookings.
@@ -175,11 +184,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     // cancelled here, leaving Request History and the Sessions Log disagreeing —
     // and is ignored by the open-request check below instead.
     const pastScheduledReqIds: unknown[] = [];
-    const potentialStaleReqs = await BookingRequestModel.find({
-      userOfferId: uo.id,
-      userId: req.auth!.userId,
-      status: { $in: openStatuses }
-    });
+    const closedNow = new Set<string>(); // stale requests given a final status just below
     for (const r of potentialStaleReqs) {
       const rDate = (r as any).proposedAt || (r as any).preferredAt || (r as any).createdAt;
       if (rDate && new Date(rDate) < new Date(now.getTime() - 24 * 60 * 60 * 1000)) {
@@ -195,22 +200,19 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
         }
         const newStatus = (linkedSess?.status === "completed" || linkedSess?.status === "no_show") ? linkedSess.status : "cancelled";
         await BookingRequestModel.findByIdAndUpdate(r._id, { $set: { status: newStatus } });
+        closedNow.add(String(r._id));
       }
     }
 
-    const existingReq = await BookingRequestModel.findOne({
-      userOfferId: uo.id,
-      userId: req.auth!.userId,
-      status: { $in: openStatuses },
-      _id: { $nin: pastScheduledReqIds }
-    });
+    // Still-open requests from the list loaded above (same rule as re-querying the database)
+    const pastScheduled = new Set(pastScheduledReqIds.map(String));
+    const existingReq = potentialStaleReqs.find((r) => !closedNow.has(String(r._id)) && !pastScheduled.has(String(r._id)));
     if (existingReq) {
       return res.status(409).json({ error: "ALREADY_HAVE_OPEN_REQUEST" });
     }
 
     // Calculate if this is an extra session
     const cap = maxAccessibleSessions(uo, offer.maxSessions);
-    const committed = await sessionsStore.countCommitted(uo.id);
     const consumed = Math.max(uo.sessionsUsed ?? 0, committed);
     const isExtraSession = !!(offer.allowExtraPaidSessions && cap != null && consumed >= cap);
 
@@ -273,7 +275,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
 
       // Create conversation and notify clinic/CS so the request is visible
       const [{ conv: payConv, csIds: payCsIds }, payFinanceIds] = await Promise.all([
-        ensureConversationFor(breq.id),
+        ensureConversationFor(breq.id, breq),
         findFinanceUserIds()
       ]);
       if (payConv) {
@@ -346,7 +348,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     });
 
     const [{ conv, csIds: convCsIds }, financeIds] = await Promise.all([
-      ensureConversationFor(breq.id),
+      ensureConversationFor(breq.id, breq),
       findFinanceUserIds()
     ]);
     if (conv) {
@@ -487,7 +489,7 @@ customerRoutes.post("/me/requests/:id/pay-session", authRequired, async (req, re
     });
 
     const [{ conv, csIds: convCsIds2 }, financeIds] = await Promise.all([
-      ensureConversationFor(breq.id),
+      ensureConversationFor(breq.id, breq),
       findFinanceUserIds()
     ]);
     if (conv) {

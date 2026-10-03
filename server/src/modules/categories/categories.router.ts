@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
+import { catalogCache } from "../../utils/caches.js";
 import {
   createCategory,
   deleteCategory,
@@ -25,7 +26,7 @@ export const categoriesRouter = Router();
 
 categoriesRouter.get("/", async (_req, res, next) => {
   try {
-    const items = await listCategoriesPublic();
+    const items = await catalogCache.get("categories", () => listCategoriesPublic());
     return res.json({ items });
   } catch (e) {
     next(e);

@@ -6,7 +6,7 @@ import { commerceStore, type UserOfferRecord } from "../commerce/commerce.store.
 import * as userOfferService from "../../services/userOffer.service.js";
 import { offersStore } from "../offers/offers.store.js";
 import { sessionsStore } from "./sessions.store.js";
-import { bookingRequestsStore } from "./bookingRequests.store.js";
+import { bookingRequestsStore, type BookingRequestRecord } from "./bookingRequests.store.js";
 import { chatStore, type ConversationRecord } from "../chat/chat.store.js";
 import { emitToConversation } from "../chat/chat.socket.js";
 import { UserModel } from "../../models/user.model.js";
@@ -15,6 +15,7 @@ import { UserOfferModel, type UserOfferDoc } from "../../models/userOffer.model.
 import { OfferModel, type OfferDoc } from "../../models/offer.model.js";
 import { BookingSessionModel } from "../../models/bookingSession.model.js";
 import { logAuditAction } from "../../services/audit.service.js";
+import { offerCache, userClinicCache } from "../../utils/caches.js";
 
 export const RequestSchema = z.object({
   userOfferId: z.string().min(1),
@@ -210,8 +211,13 @@ export function computeBookingRequestFinancials(
 
 export async function loadOffer(offerId: string): Promise<SchedOffer | null> {
   if (mongoose.isValidObjectId(offerId)) {
-    const o = await OfferModel.findById(offerId).lean<OfferDoc | null>();
-    if (o) return mapOfferDocToSched(o);
+    // Offers rarely change and one action used to read the same offer 2–4 times; cached
+    // briefly and dropped on any offer write (utils/caches.ts). Each caller gets its own copy.
+    const cached = await offerCache.get(`sched:${offerId}`, async () => {
+      const o = await OfferModel.findById(offerId).lean<OfferDoc | null>();
+      return o ? mapOfferDocToSched(o) : null;
+    });
+    if (cached) return structuredClone(cached as SchedOffer);
   }
   const legacy = offersStore.get(offerId);
   if (!legacy) return null;
@@ -258,7 +264,7 @@ export function maxAccessibleSessions(uo: SchedUO, offerMax: number | null): num
 export async function eligibilityError(
   uo: SchedUO,
   offer: SchedOffer,
-  opts?: { skipSessionCap?: boolean; scheduledAt?: string | Date }
+  opts?: { skipSessionCap?: boolean; scheduledAt?: string | Date; committed?: number }
 ): Promise<{ code: string; status: number } | null> {
   if (uo.status === "reserved") return { code: "RESERVED_NEEDS_BALANCE", status: 409 };
   // A membership past its end date cannot be booked, even if the expiry job has
@@ -283,7 +289,7 @@ export async function eligibilityError(
     // Count both already-consumed sessions AND future scheduled bookings — a
     // user shouldn't be able to pre-book the entire entitlement on the back of
     // a single installment payment.
-    const committed = await sessionsStore.countCommitted(uo.id);
+    const committed = opts?.committed ?? (await sessionsStore.countCommitted(uo.id));
     const consumed = Math.max(uo.sessionsUsed ?? 0, committed);
     if (consumed >= cap) {
       if (uo.purchaseMode === "installments") {
@@ -313,7 +319,8 @@ export async function checkStaffIntervalConstraint({
   forceOverride,
   actorId,
   actorRole,
-  actionContext
+  actionContext,
+  preloadedUo
 }: {
   userOfferId?: string | null;
   userId: string;
@@ -322,6 +329,8 @@ export async function checkStaffIntervalConstraint({
   actorId?: string;
   actorRole?: string;
   actionContext: string;
+  /** The membership if the caller already loaded it (saves a round trip). */
+  preloadedUo?: SchedUO | null;
 }): Promise<{
   allowed: boolean;
   code?: string;
@@ -337,9 +346,15 @@ export async function checkStaffIntervalConstraint({
     return { allowed: true };
   }
 
-  const uo = await loadUserOffer(userOfferId);
+  // Independent reads keyed by the membership id, fetched together in one round trip
+  // (the last-session lookup is only used further down).
+  const [loadedUo, uoDoc, lastSessionDocPre] = await Promise.all([
+    preloadedUo && preloadedUo.id === String(userOfferId) ? Promise.resolve(preloadedUo) : loadUserOffer(userOfferId),
+    UserOfferModel.findById(userOfferId).select("bookingCooldownEndOverrideAt lastManualSessionAt").lean(),
+    BookingSessionModel.findOne({ userOfferId, status: "completed" }).sort({ completedAt: -1, scheduledAt: -1 }).lean()
+  ]);
+  const uo = loadedUo;
   if (!uo) return { allowed: true };
-
   const offer = await loadOffer(uo.offerId);
   // The offer's "minimum days between sessions" is the single rule for customers and
   // staff alike. 0 means the membership has no interval (e.g. Abraj, Sawa).
@@ -347,7 +362,6 @@ export async function checkStaffIntervalConstraint({
     ? offer.sessionIntervalDays
     : 0;
 
-  const uoDoc = await UserOfferModel.findById(userOfferId).select("bookingCooldownEndOverrideAt lastManualSessionAt").lean();
   const cooldownOverrideAt = (uoDoc as any)?.bookingCooldownEndOverrideAt ? new Date((uoDoc as any).bookingCooldownEndOverrideAt) : null;
 
   // 1. Check custom cooldown end override
@@ -383,11 +397,8 @@ export async function checkStaffIntervalConstraint({
 
   if (intervalDays === 0) return { allowed: true };
 
-  // 2. Find last completed session
-  const lastSessionDoc = await BookingSessionModel.findOne({
-    userOfferId,
-    status: "completed"
-  }).sort({ completedAt: -1, scheduledAt: -1 }).lean();
+  // 2. Last completed session (fetched above)
+  const lastSessionDoc = lastSessionDocPre;
 
   const d1 = (lastSessionDoc as any)?.completedAt
     ? new Date((lastSessionDoc as any).completedAt).getTime()
@@ -518,8 +529,12 @@ export async function canActOnClinic(
 export async function getUserClinicId(userId: string): Promise<string | undefined> {
   if (!mongoose.isValidObjectId(userId)) return undefined;
   try {
-    const me = (await UserModel.findById(userId).select("clinicId").lean()) as UserLean | null;
-    return me?.clinicId ? String(me.clinicId) : undefined;
+    // Read on every clinic action; cached briefly and cleared on any user write.
+    const hit = await userClinicCache.get(userId, async () => {
+      const me = (await UserModel.findById(userId).select("clinicId").lean()) as UserLean | null;
+      return { clinicId: me?.clinicId ? String(me.clinicId) : undefined };
+    });
+    return hit?.clinicId;
   } catch {
     return undefined;
   }
@@ -571,8 +586,11 @@ export async function getClinicNames(clinicId: string): Promise<{ nameEn?: strin
   }
 }
 
-export async function ensureConversationFor(breqId: string): Promise<{ conv: ConversationRecord | null; csIds: string[] }> {
-  const breq = await bookingRequestsStore.get(breqId);
+export async function ensureConversationFor(
+  breqId: string,
+  preloaded?: BookingRequestRecord | null
+): Promise<{ conv: ConversationRecord | null; csIds: string[] }> {
+  const breq = preloaded && preloaded.id === breqId ? preloaded : await bookingRequestsStore.get(breqId);
   if (!breq) return { conv: null, csIds: [] };
 
   // If there's already a conversationId AND the conversation exists, return it.
@@ -622,13 +640,18 @@ export async function ensureConversationFor(breqId: string): Promise<{ conv: Con
   const seen = new Set<string>();
   const uniqParticipants = participants.filter((p) => (seen.has(p.userId) ? false : (seen.add(p.userId), true)));
 
-  const conv = await chatStore.createConversation({
-    kind: "booking",
-    title: `Booking @ ${clinicNames.nameEn ?? breq.clinicId}`,
-    bookingRequestId: breq.id,
-    participants: uniqParticipants
-  });
-  await bookingRequestsStore.setConversation(breq.id, conv.id);
+  // Create the conversation and link the request to it in one round trip
+  const convId = chatStore.newConversationId();
+  const [conv] = await Promise.all([
+    chatStore.createConversation({
+      id: convId,
+      kind: "booking",
+      title: `Booking @ ${clinicNames.nameEn ?? breq.clinicId}`,
+      bookingRequestId: breq.id,
+      participants: uniqParticipants
+    }),
+    bookingRequestsStore.setConversation(breq.id, convId)
+  ]);
   return { conv, csIds };
 }
 

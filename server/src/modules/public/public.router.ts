@@ -55,7 +55,7 @@ function offerIdStr(o: PopulatedOffer): string {
 async function buildFullCardData(user: UserCardFields) {
   const userId = String(user._id);
 
-  const [activeOffers, recentSessions, activeSessionCount] = await Promise.all([
+  const [activeOffers, recentSessions, activeSessionCount, kycUser, wallet] = await Promise.all([
     UserOfferModel.find({ userId, status: "active" })
       .populate<{ offerId: { _id: mongoose.Types.ObjectId; name: string } }>("offerId", "name")
       .lean() as unknown as Promise<PopulatedOffer[]>,
@@ -64,11 +64,10 @@ async function buildFullCardData(user: UserCardFields) {
       .sort({ scheduledAt: -1 })
       .limit(10)
       .lean<Array<{ _id: mongoose.Types.ObjectId; scheduledAt: Date; status: string; completedAt?: Date }>>(),
-    BookingSessionModel.countDocuments({ userId, status: "scheduled" })
+    BookingSessionModel.countDocuments({ userId, status: "scheduled" }),
+    kycStore.getUser(userId),
+    kycStore.getWallet(userId)
   ]);
-
-  const kycUser = await kycStore.getUser(userId);
-  const wallet = await kycStore.getWallet(userId);
   const displayName = user.fullName || user.username || "Member";
 
   return {
@@ -245,12 +244,52 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
       user = { ...user, publicToken: newToken };
     }
 
-    const card = await buildFullCardData(user);
     const userId = String(user._id);
+    const clinicId = req.auth!.clinicId;
+    const clinicMatch = clinicId && mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId;
+    const { KycSubmissionModel } = await import("../../models/kyc.model.js");
+    const { OfferModel } = await import("../../models/offer.model.js");
+    const { PaymentModel } = await import("../../models/payment.model.js");
+    const { BookingRequestModel } = await import("../../models/bookingRequest.model.js");
+    const { ClinicSessionOfferingModel } = await import("../../models/clinicSessionOffering.model.js");
+    const { SessionTypeModel } = await import("../../models/sessionType.model.js");
+
+    // Start every independent read at once (they used to run one after another, ~15 round
+    // trips); the code below waits on each result where it used to run the query.
+    const cardP = buildFullCardData(user);
+    const kycP = KycSubmissionModel.find({ userId }).sort({ createdAt: -1 }).limit(1).lean().exec();
+    const allOffersP = UserOfferModel.find({ userId }).sort({ createdAt: -1 }).lean().exec();
+    const paymentsP = PaymentModel.find({ userId }).sort({ createdAt: -1 }).limit(50).lean().exec();
+    const sessionsP = clinicId
+      ? BookingSessionModel.find({ userId, clinicId: clinicMatch })
+          .populate<{ offerId: { _id: any; cashbackPerSessionKwd?: string } }>("offerId", "cashbackPerSessionKwd")
+          .sort({ scheduledAt: -1 })
+          .limit(20)
+          .lean()
+          .exec()
+      : Promise.resolve([]);
+    const productsP = clinicId
+      ? ClinicSessionOfferingModel.find({ clinicId, isActive: true }).lean().then(async (offerings: any[]) => {
+          const sessionTypes = await SessionTypeModel.find({ _id: { $in: offerings.map((o: any) => o.sessionTypeId) } }).lean();
+          return { offerings, sessionTypes };
+        })
+      : Promise.resolve({ offerings: [] as any[], sessionTypes: [] as any[] });
+    const bookingsP = clinicId
+      ? BookingRequestModel.find({ userId, clinicId: clinicMatch }).sort({ createdAt: -1 }).limit(20).lean().then(async (bookings: any[]) => {
+          // BookingRequest.offerId is a String, not an ObjectId ref, so we manually look up offers
+          const ids = [...new Set(bookings.map((b: any) => b.offerId).filter(Boolean))];
+          const bookingOffers = ids.length ? await OfferModel.find({ _id: { $in: ids } }).select("cashbackPerSessionKwd name").lean() : [];
+          return { bookings, bookingOffers };
+        })
+      : Promise.resolve({ bookings: [] as any[], bookingOffers: [] as any[] });
+    // (.exec() makes each query a real promise that runs exactly once.) Keep unhandled-rejection
+    // noise out if an earlier step returns before awaiting these.
+    for (const pr of [cardP, kycP, allOffersP, paymentsP, sessionsP, productsP, bookingsP]) (pr as Promise<unknown>).catch(() => {});
+
+    const card = await cardP;
 
     // KYC documents
-    const { KycSubmissionModel } = await import("../../models/kyc.model.js");
-    const kycDocs = await KycSubmissionModel.find({ userId }).sort({ createdAt: -1 }).limit(1).lean();
+    const kycDocs = await kycP;
     const kycDoc = kycDocs[0] as any;
     const kyc = kycDoc ? {
       status: kycDoc.status,
@@ -264,9 +303,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     } : null;
 
     // All memberships (not just active)
-    const { OfferModel } = await import("../../models/offer.model.js");
-    const allOffers = await UserOfferModel.find({ userId })
-      .sort({ createdAt: -1 }).lean();
+    const allOffers = await allOffersP;
     const offerIds = [...new Set(allOffers.map((o: any) => String(o.offerId)).filter(Boolean))];
     const offers = offerIds.length ? await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr cashbackPerSessionKwd").lean() : [];
     const offerMap: Record<string, any> = {};
@@ -290,8 +327,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     }));
 
     // Payment history
-    const { PaymentModel } = await import("../../models/payment.model.js");
-    const payments = await PaymentModel.find({ userId }).sort({ createdAt: -1 }).limit(50).lean();
+    const payments = await paymentsP;
     const paymentItems = (payments as any[]).map((p: any) => ({
       id: String(p._id),
       amountKwd: p.amountKwd,
@@ -304,17 +340,9 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     }));
 
     // Clinic-specific sessions for this customer
-    const clinicId = req.auth!.clinicId;
     let clinicSessions: any[] = [];
     if (clinicId) {
-      const sessions = await BookingSessionModel.find({
-        userId,
-        clinicId: mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId,
-      })
-        .populate<{ offerId: { _id: any; cashbackPerSessionKwd?: string } }>("offerId", "cashbackPerSessionKwd")
-        .sort({ scheduledAt: -1 })
-        .limit(20)
-        .lean();
+      const sessions = (await sessionsP) as any[];
 
       clinicSessions = sessions.map((s: any) => ({
         id: s._id.toString(),
@@ -328,15 +356,9 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     }
 
     // Also check booking requests for mark-paid
-    const { BookingRequestModel } = await import("../../models/bookingRequest.model.js");
     let clinicProducts: any[] = [];
     if (clinicId) {
-      const { ClinicSessionOfferingModel } = await import("../../models/clinicSessionOffering.model.js");
-      const { SessionTypeModel } = await import("../../models/sessionType.model.js");
-      
-      const offerings = await ClinicSessionOfferingModel.find({ clinicId, isActive: true }).lean();
-      const sessionTypeIds = offerings.map((o: any) => o.sessionTypeId);
-      const sessionTypes = await SessionTypeModel.find({ _id: { $in: sessionTypeIds } }).lean();
+      const { offerings, sessionTypes } = await productsP;
       const stMap = new Map((sessionTypes as any[]).map((st) => [String(st._id), st]));
 
       clinicProducts = offerings.map((o: any) => {
@@ -354,18 +376,7 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
 
     let clinicBookings: any[] = [];
     if (clinicId) {
-      const bookings = await BookingRequestModel.find({
-        userId,
-        clinicId: mongoose.isValidObjectId(clinicId) ? new mongoose.Types.ObjectId(clinicId) : clinicId,
-      })
-        .sort({ createdAt: -1 })
-        .limit(20).lean();
-
-      // BookingRequest.offerId is a String, not an ObjectId ref, so we manually look up offers
-      const bookingOfferIds = [...new Set((bookings as any[]).map((b: any) => b.offerId).filter(Boolean))];
-      const bookingOffers = bookingOfferIds.length
-        ? await OfferModel.find({ _id: { $in: bookingOfferIds } }).select("cashbackPerSessionKwd name").lean()
-        : [];
+      const { bookings, bookingOffers } = await bookingsP;
       const bookingOfferMap: Record<string, { cb: string; name: string }> = {};
       (bookingOffers as any[]).forEach((o: any) => { 
         bookingOfferMap[String(o._id)] = { 
@@ -412,13 +423,15 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
     // late) the session moves to the scan time, and completing it later keeps the scan time
     // (sessions.store mark), so the next session's minimum gap counts from the scan.
     // The admin's suggested date and the clinic's scheduled date are left as history.
+    const firstActiveMembership = memberships.find((m: any) => m.status === "active") || memberships[0];
+    const writes: Promise<unknown>[] = [];
     if (!isRefresh && activeScheduledSession) {
-      await BookingSessionModel.findByIdAndUpdate(activeScheduledSession.id, {
+      writes.push(BookingSessionModel.findByIdAndUpdate(activeScheduledSession.id, {
         $set: { scheduledAt: now, scannedAt: now }
-      });
+      }));
       activeScheduledSession.scheduledAt = now;
 
-      await BookingRequestModel.updateMany(
+      writes.push(BookingRequestModel.updateMany(
         {
           $or: [
             { scheduledSessionId: activeScheduledSession.id },
@@ -431,12 +444,11 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
             shownAt: now.toISOString()
           }
         }
-      );
+      ));
     }
 
-    const firstActiveMembership = memberships.find((m: any) => m.status === "active") || memberships[0];
-
-    if (!isRefresh) await ScanLogModel.create({
+    // Session time, booking request and scan log are independent writes: send them together
+    if (!isRefresh) writes.push(ScanLogModel.create({
       userId: String(user._id),
       scannedByUserId: req.auth!.userId,
       clinicId: clinicId || "admin",
@@ -446,7 +458,8 @@ publicRouter.get("/clinic/scan/:token", authRequired, requireRole(["clinicStaff"
       status: hasScheduled ? "attended" : "no_scheduled_session",
       userOfferId: firstActiveMembership?.id || undefined,
       offerName: firstActiveMembership?.offerName || undefined,
-    });
+    }));
+    await Promise.all(writes);
 
     return res.json({
       card: {

@@ -7,6 +7,7 @@ import { kycStore } from "../kyc/kyc.store.js";
 import { notifyNewOfferAlert } from "../notifications/notifications.service.js";
 import { logAuditAction } from "../../services/audit.service.js";
 import { cloudinary } from "../../services/cloudinary.service.js";
+import { catalogCache } from "../../utils/caches.js";
 
 async function uploadToCloudinary(base64Image: string): Promise<string> {
   if (!base64Image || !base64Image.startsWith("data:image")) return base64Image;
@@ -163,10 +164,12 @@ offersRouter.get("/", async (req, res, next) => {
 
     const cashbackOnly = req.query.cashback === "1" || req.query.cashback === "true";
 
-    const out = await listOffersPublic({
+    const params: Parameters<typeof listOffersPublic>[0] = {
       clinicId, category, type, offerKind, featured, cashbackOnly, search,
       minPriceKwd, maxPriceKwd, minDurationDays, maxDurationDays, sort
-    });
+    };
+    // Same filters → same list; cached briefly and cleared on any offer/category/clinic write.
+    const out = await catalogCache.get(`offers:${JSON.stringify(params)}`, () => listOffersPublic(params));
     return res.json({ items: out.items, page: out.page, limit: out.limit });
   } catch (error) {
     return next(error);

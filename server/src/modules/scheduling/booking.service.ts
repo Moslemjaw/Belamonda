@@ -123,7 +123,12 @@ export async function confirmByClinic(
 ): Promise<{ breq: BookingRequestRecord; updated: BookingRequestRecord | null; session: SessionRecord | null; uo: SchedUO | null }> {
   const { scheduledAt } = input;
   const breq = await getRequestOr404(requestId);
-  if (!(await canActOnClinic(actor, breq.clinicId))) throw new ApiError(403, "FORBIDDEN_CLINIC");
+  // Permission check and membership load are independent: one round trip. Checks keep their order.
+  const [allowed, preUo] = await Promise.all([
+    canActOnClinic(actor, breq.clinicId),
+    breq.userOfferId ? loadUserOffer(breq.userOfferId) : Promise.resolve(null)
+  ]);
+  if (!allowed) throw new ApiError(403, "FORBIDDEN_CLINIC");
   if (["confirmed", "cancelled", "rejected"].includes(breq.status)) throw new ApiError(409, "INVALID_STATE");
 
   // Standalone CS booking requests are confirmed without creating UserOffer/session.
@@ -138,7 +143,7 @@ export async function confirmByClinic(
     return { breq, updated, session: null, uo: null };
   }
 
-  const uo = await loadUserOffer(breq.userOfferId);
+  const uo = preUo;
   if (!uo) throw new ApiError(404, "USER_OFFER_NOT_FOUND");
   const offer = await loadOffer(uo.offerId);
   if (!offer) throw new ApiError(400, "OFFER_NOT_FOUND");
@@ -152,7 +157,8 @@ export async function confirmByClinic(
     forceOverride: input.forceOverride,
     actorId: actor.userId,
     actorRole: actor.role,
-    actionContext: "clinic_requests_confirm"
+    actionContext: "clinic_requests_confirm",
+    preloadedUo: uo
   });
   // The route has always answered this refusal with the check object itself.
   if (!check.allowed) throw new ApiError(409, check.code ?? check.error ?? "INTERVAL_NOT_MET", check as Record<string, unknown>, true);

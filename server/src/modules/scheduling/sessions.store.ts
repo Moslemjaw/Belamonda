@@ -98,10 +98,11 @@ export const sessionsStore = {
     };
     if (userId) query.userId = userId;
 
-    const doc = await BookingSessionModel.findOne(query).sort({ completedAt: -1 });
-
     const { UserOfferModel } = await import("../../models/userOffer.model.js");
-    const uo = await UserOfferModel.findById(userOfferId).select("lastManualSessionAt").lean();
+    const [doc, uo] = await Promise.all([
+      BookingSessionModel.findOne(query).sort({ completedAt: -1 }),
+      UserOfferModel.findById(userOfferId).select("lastManualSessionAt").lean()
+    ]);
 
     const d1 = doc?.completedAt ? new Date(doc.completedAt).getTime() : 0;
     const d2 = uo && (uo as any).lastManualSessionAt ? new Date((uo as any).lastManualSessionAt).getTime() : 0;

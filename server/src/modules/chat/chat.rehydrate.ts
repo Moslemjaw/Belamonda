@@ -4,7 +4,7 @@
  */
 import { chatStore } from "./chat.store.js";
 import { bookingRequestsStore } from "../scheduling/bookingRequests.store.js";
-import { ensureConversationFor } from "../scheduling/scheduling.router.js";
+import { ensureConversationFor } from "../scheduling/scheduling.helpers.js";
 
 /**
  * Resolve a conversation by ID: first checks the in-memory chatStore,

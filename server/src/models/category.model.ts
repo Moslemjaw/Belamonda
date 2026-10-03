@@ -1,4 +1,6 @@
 import mongoose, { Schema } from "mongoose";
+import { watchModel } from "../utils/cache.js";
+import { categoryCache, catalogCache } from "../utils/caches.js";
 
 const CategorySchema = new Schema(
   {
@@ -12,5 +14,8 @@ const CategorySchema = new Schema(
 );
 
 CategorySchema.index({ isActive: 1, sortOrder: 1 });
+
+// Any write to this model clears its read cache (utils/caches.ts)
+watchModel(CategorySchema, categoryCache, catalogCache);
 
 export const CategoryModel = mongoose.models.Category ?? mongoose.model("Category", CategorySchema);

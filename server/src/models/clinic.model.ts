@@ -1,5 +1,7 @@
 import mongoose, { Schema } from "mongoose";
 import { CounterModel } from "./counter.model.js";
+import { watchModel } from "../utils/cache.js";
+import { clinicCache, catalogCache } from "../utils/caches.js";
 
 const ClinicSchema = new Schema(
   {
@@ -46,4 +48,7 @@ ClinicSchema.pre("save", async function (next) {
 });
 
 export type ClinicDoc = mongoose.InferSchemaType<typeof ClinicSchema> & { _id: mongoose.Types.ObjectId };
+// Any write to this model clears its read cache (utils/caches.ts)
+watchModel(ClinicSchema, clinicCache, catalogCache);
+
 export const ClinicModel = mongoose.models.Clinic ?? mongoose.model("Clinic", ClinicSchema);

@@ -164,7 +164,13 @@ const byRecent = (a: ConversationRecord, b: ConversationRecord) =>
 
 export const chatStore = {
   // ── Conversations ─────────────────────────────
+  /** Id for a conversation about to be created (lets callers link to it in parallel). */
+  newConversationId() {
+    return rid("conv");
+  },
+
   async createConversation(input: {
+    id?: string;
     kind: ConversationKind;
     title: string;
     participants: Participant[];
@@ -172,7 +178,7 @@ export const chatStore = {
   }): Promise<ConversationRecord> {
     const now = nowIso();
     const doc = await ConversationModel.create({
-      _id: rid("conv"),
+      _id: input.id ?? rid("conv"),
       kind: input.kind,
       bookingRequestId: input.bookingRequestId,
       participants: input.participants,
@@ -257,32 +263,41 @@ export const chatStore = {
     systemKind?: MessageRecord["systemKind"];
     systemPayload?: Record<string, unknown>;
   }): Promise<MessageRecord | null> {
-    if (!(await ConversationModel.exists({ _id: input.conversationId }))) return null;
     const createdAt = nowIso();
-    const doc = await MessageModel.create({
-      _id: rid("msg"),
-      conversationId: input.conversationId,
-      seq: nextSeq(),
-      senderId: input.senderId,
-      senderRole: input.senderRole,
-      body: input.body,
-      attachments: input.attachments ?? [],
-      systemKind: input.systemKind,
-      systemPayload: input.systemPayload,
-      createdAt
-    });
-    const rec = toMessage(doc.toObject());
-    await ConversationModel.updateOne(
-      { _id: input.conversationId },
-      {
-        $set: {
-          lastMessagePreview: rec.body.slice(0, 120) || (rec.attachments[0]?.filename ?? ""),
-          lastMessageAt: createdAt,
-          updatedAt: createdAt
+    const attachments = input.attachments ?? [];
+    const id = rid("msg");
+    // One round trip instead of three: insert the message and update the conversation together;
+    // the update's match count says whether the conversation exists.
+    const [conv, doc] = await Promise.all([
+      ConversationModel.updateOne(
+        { _id: input.conversationId },
+        {
+          $set: {
+            lastMessagePreview: input.body.slice(0, 120) || (attachments[0]?.filename ?? ""),
+            lastMessageAt: createdAt,
+            updatedAt: createdAt
+          }
         }
-      }
-    );
-    return rec;
+      ),
+      MessageModel.create({
+        _id: id,
+        conversationId: input.conversationId,
+        seq: nextSeq(),
+        senderId: input.senderId,
+        senderRole: input.senderRole,
+        body: input.body,
+        attachments,
+        systemKind: input.systemKind,
+        systemPayload: input.systemPayload,
+        createdAt
+      })
+    ]);
+    if (conv.matchedCount === 0) {
+      // No such conversation: undo the insert, as if it had never been accepted
+      await MessageModel.deleteOne({ _id: id });
+      return null;
+    }
+    return toMessage(doc.toObject());
   },
 
   async listMessages(convId: string, opts?: { before?: string; limit?: number }) {

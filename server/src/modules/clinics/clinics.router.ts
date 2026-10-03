@@ -5,6 +5,7 @@ import { requireRole } from "../../middlewares/requireRole.js";
 import * as clinicService from "../../services/clinic.service.js";
 import { UserModel } from "../../models/user.model.js";
 import bcrypt from "bcryptjs";
+import { catalogCache } from "../../utils/caches.js";
 
 const ClinicCreateSchema = z.object({
   nameEn: z.string().min(1),
@@ -33,7 +34,7 @@ export const clinicsRouter = Router();
 
 clinicsRouter.get("/", async (_req, res, next) => {
   try {
-    const items = await clinicService.listClinics({ activeOnly: true });
+    const items = await catalogCache.get("clinics", () => clinicService.listClinics({ activeOnly: true }));
     return res.json({ items, clinics: items });
   } catch (e) {
     next(e);
