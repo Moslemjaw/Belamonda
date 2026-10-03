@@ -14,6 +14,9 @@ const EnvSchema = z.object({
   // Background jobs (reminders, reconciliation) run in the web process unless set to "false"
   // — e.g. when they run in a separate `npm run start:worker` process instead.
   RUN_JOBS: z.enum(["true", "false"]).default("true").transform((v) => v === "true"),
+  // Set to "mongo" when running more than one server instance, so live chat events reach
+  // browsers connected to any instance (chat/chat.adapter.ts). Not needed for a single instance.
+  CHAT_SOCKET_ADAPTER: z.enum(["none", "mongo"]).default("none"),
   // Comma-separated list of allowed origins (recommended). If omitted, falls back to CLIENT_ORIGIN.
   CLIENT_ORIGINS: z.string().optional(),
   CLIENT_ORIGIN: z.string().url().optional(),

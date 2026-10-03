@@ -1,4 +1,5 @@
 import type { Role } from "@belamonda/shared";
+import mongoose, { Schema } from "mongoose";
 
 export type ConversationKind = "booking" | "direct";
 
@@ -54,120 +55,200 @@ export type ReadCursor = {
   lastReadAt: string;
 };
 
+// ── Storage ──────────────────────────────────────────────────────────────────
+// Chat used to live only in server memory, so every restart/deploy lost all messages
+// and direct conversations, and two server instances each saw a different chat.
+// Everything is now in MongoDB; records keep exactly the shapes above.
+
+const ConversationSchema = new Schema(
+  {
+    _id: { type: String },
+    kind: { type: String, required: true },
+    bookingRequestId: { type: String, index: true },
+    participants: { type: [{ _id: false, userId: String, role: String, joinedAt: String }], default: [] },
+    title: { type: String, default: "" },
+    createdAt: { type: String, required: true },
+    updatedAt: { type: String, required: true },
+    lastMessagePreview: { type: String },
+    lastMessageAt: { type: String }
+  },
+  { versionKey: false, timestamps: false }
+);
+ConversationSchema.index({ "participants.userId": 1 });
+
+const MessageSchema = new Schema(
+  {
+    _id: { type: String },
+    conversationId: { type: String, required: true },
+    seq: { type: Number, required: true }, // insertion order (createdAt can tie)
+    senderId: { type: String, required: true },
+    senderRole: { type: String, required: true },
+    body: { type: String, default: "" },
+    attachments: { type: [Schema.Types.Mixed], default: [] },
+    systemKind: { type: String },
+    systemPayload: { type: Schema.Types.Mixed },
+    createdAt: { type: String, required: true }
+  },
+  { versionKey: false, timestamps: false, minimize: false }
+);
+MessageSchema.index({ conversationId: 1, seq: 1 });
+
+const CursorSchema = new Schema(
+  {
+    _id: { type: String }, // convId|userId
+    conversationId: { type: String, required: true },
+    userId: { type: String, required: true },
+    lastReadMessageId: { type: String },
+    lastReadAt: { type: String, required: true }
+  },
+  { versionKey: false, timestamps: false }
+);
+
+const ConversationModel = mongoose.models.ChatConversation ?? mongoose.model("ChatConversation", ConversationSchema, "chat_conversations");
+const MessageModel = mongoose.models.ChatMessage ?? mongoose.model("ChatMessage", MessageSchema, "chat_messages");
+const CursorModel = mongoose.models.ChatCursor ?? mongoose.model("ChatCursor", CursorSchema, "chat_cursors");
+
 function nowIso() {
   return new Date().toISOString();
 }
 function rid(p: string) {
   return `${p}_${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
 }
-
-const conversations = new Map<string, ConversationRecord>();
-const messages = new Map<string, MessageRecord[]>(); // conversationId -> messages (oldest first)
-const cursors = new Map<string, ReadCursor>(); // key: convId|userId
-
+let lastSeq = 0;
+function nextSeq() {
+  lastSeq = Math.max(Date.now() * 1000, lastSeq + 1);
+  return lastSeq;
+}
 function cursorKey(convId: string, userId: string) {
   return `${convId}|${userId}`;
 }
 
+function toConversation(d: any): ConversationRecord {
+  const rec: ConversationRecord = {
+    id: d._id,
+    kind: d.kind,
+    participants: (d.participants ?? []).map((p: any) => ({ userId: p.userId, role: p.role, joinedAt: p.joinedAt })),
+    title: d.title,
+    createdAt: d.createdAt,
+    updatedAt: d.updatedAt
+  };
+  if (d.bookingRequestId !== undefined && d.bookingRequestId !== null) rec.bookingRequestId = d.bookingRequestId;
+  if (d.lastMessagePreview !== undefined && d.lastMessagePreview !== null) rec.lastMessagePreview = d.lastMessagePreview;
+  if (d.lastMessageAt !== undefined && d.lastMessageAt !== null) rec.lastMessageAt = d.lastMessageAt;
+  return rec;
+}
+
+function toMessage(d: any): MessageRecord {
+  const rec: MessageRecord = {
+    id: d._id,
+    conversationId: d.conversationId,
+    senderId: d.senderId,
+    senderRole: d.senderRole,
+    body: d.body ?? "",
+    attachments: d.attachments ?? [],
+    createdAt: d.createdAt
+  };
+  if (d.systemKind) rec.systemKind = d.systemKind;
+  if (d.systemPayload !== undefined && d.systemPayload !== null) rec.systemPayload = d.systemPayload;
+  return rec;
+}
+
+function toCursor(d: any): ReadCursor {
+  const rec: ReadCursor = { conversationId: d.conversationId, userId: d.userId, lastReadAt: d.lastReadAt };
+  if (d.lastReadMessageId) rec.lastReadMessageId = d.lastReadMessageId;
+  return rec;
+}
+
+const byRecent = (a: ConversationRecord, b: ConversationRecord) =>
+  (b.lastMessageAt ?? b.updatedAt).localeCompare(a.lastMessageAt ?? a.updatedAt);
+
 export const chatStore = {
   // ── Conversations ─────────────────────────────
-  createConversation(input: {
+  async createConversation(input: {
     kind: ConversationKind;
     title: string;
     participants: Participant[];
     bookingRequestId?: string;
-  }): ConversationRecord {
-    const id = rid("conv");
+  }): Promise<ConversationRecord> {
     const now = nowIso();
-    const rec: ConversationRecord = {
-      id,
+    const doc = await ConversationModel.create({
+      _id: rid("conv"),
       kind: input.kind,
       bookingRequestId: input.bookingRequestId,
       participants: input.participants,
       title: input.title,
       createdAt: now,
       updatedAt: now
-    };
-    conversations.set(id, rec);
-    messages.set(id, []);
-    return rec;
+    });
+    return toConversation(doc.toObject());
   },
 
   /**
-   * Re-register a conversation with a known ID (e.g. rehydrating from DB
-   * after a server restart wiped the in-memory store).  If the conversation
-   * already exists in memory this is a no-op and returns the existing record.
+   * Register a conversation with a known ID (a booking request already points at it).
+   * If it already exists this is a no-op and returns the existing record.
    */
-  restoreConversation(input: {
+  async restoreConversation(input: {
     id: string;
     kind: ConversationKind;
     title: string;
     participants: Participant[];
     bookingRequestId?: string;
-  }): ConversationRecord {
-    const existing = conversations.get(input.id);
-    if (existing) return existing;
+  }): Promise<ConversationRecord> {
     const now = nowIso();
-    const rec: ConversationRecord = {
-      id: input.id,
-      kind: input.kind,
-      bookingRequestId: input.bookingRequestId,
-      participants: input.participants,
-      title: input.title,
-      createdAt: now,
-      updatedAt: now,
-    };
-    conversations.set(input.id, rec);
-    messages.set(input.id, []);
-    return rec;
+    const doc = await ConversationModel.findOneAndUpdate(
+      { _id: input.id },
+      {
+        $setOnInsert: {
+          kind: input.kind,
+          bookingRequestId: input.bookingRequestId,
+          participants: input.participants,
+          title: input.title,
+          createdAt: now,
+          updatedAt: now
+        }
+      },
+      { upsert: true, new: true }
+    ).lean();
+    return toConversation(doc);
   },
 
-  getConversation(id: string) {
-    return conversations.get(id) ?? null;
+  async getConversation(id: string): Promise<ConversationRecord | null> {
+    const d = await ConversationModel.findById(id).lean();
+    return d ? toConversation(d) : null;
   },
 
-  findConversationByBookingRequest(bookingRequestId: string) {
-    for (const c of conversations.values()) {
-      if (c.bookingRequestId === bookingRequestId) return c;
-    }
-    return null;
+  async findConversationByBookingRequest(bookingRequestId: string): Promise<ConversationRecord | null> {
+    const d = await ConversationModel.findOne({ bookingRequestId }).lean();
+    return d ? toConversation(d) : null;
   },
 
-  listConversationsForUser(userId: string) {
-    const list = Array.from(conversations.values())
-      .filter((c) => c.participants.some((p) => p.userId === userId))
-      .sort((a, b) => (b.lastMessageAt ?? b.updatedAt).localeCompare(a.lastMessageAt ?? a.updatedAt));
-    return list.map((c) => ({
-      ...c,
-      unreadCount: chatStore.unreadCount(c.id, userId)
-    }));
+  async listConversationsForUser(userId: string) {
+    const docs = await ConversationModel.find({ "participants.userId": userId }).lean();
+    const list = docs.map(toConversation).sort(byRecent);
+    const out: Array<ConversationRecord & { unreadCount: number }> = [];
+    for (const c of list) out.push({ ...c, unreadCount: await chatStore.unreadCount(c.id, userId) });
+    return out;
   },
 
-  listAllConversations() {
-    return Array.from(conversations.values()).sort((a, b) =>
-      (b.lastMessageAt ?? b.updatedAt).localeCompare(a.lastMessageAt ?? a.updatedAt)
+  async listAllConversations(): Promise<ConversationRecord[]> {
+    const docs = await ConversationModel.find({}).lean();
+    return docs.map(toConversation).sort(byRecent);
+  },
+
+  async addParticipant(convId: string, p: Participant): Promise<ConversationRecord | null> {
+    await ConversationModel.updateOne(
+      { _id: convId, "participants.userId": { $ne: p.userId } },
+      { $push: { participants: p }, $set: { updatedAt: nowIso() } }
     );
+    return chatStore.getConversation(convId);
   },
 
-  addParticipant(convId: string, p: Participant) {
-    const c = conversations.get(convId);
-    if (!c) return null;
-    if (!c.participants.some((x) => x.userId === p.userId)) {
-      c.participants.push(p);
-      c.updatedAt = nowIso();
-      conversations.set(convId, c);
-    }
-    return c;
-  },
-
-  isParticipant(convId: string, userId: string) {
-    const c = conversations.get(convId);
-    if (!c) return false;
-    return c.participants.some((p) => p.userId === userId);
+  async isParticipant(convId: string, userId: string): Promise<boolean> {
+    return !!(await ConversationModel.exists({ _id: convId, "participants.userId": userId }));
   },
 
   // ── Messages ──────────────────────────────────
-  addMessage(input: {
+  async addMessage(input: {
     conversationId: string;
     senderId: string;
     senderRole: Role;
@@ -175,69 +256,68 @@ export const chatStore = {
     attachments?: AttachmentRef[];
     systemKind?: MessageRecord["systemKind"];
     systemPayload?: Record<string, unknown>;
-  }): MessageRecord | null {
-    const c = conversations.get(input.conversationId);
-    if (!c) return null;
-    const rec: MessageRecord = {
-      id: rid("msg"),
+  }): Promise<MessageRecord | null> {
+    if (!(await ConversationModel.exists({ _id: input.conversationId }))) return null;
+    const createdAt = nowIso();
+    const doc = await MessageModel.create({
+      _id: rid("msg"),
       conversationId: input.conversationId,
+      seq: nextSeq(),
       senderId: input.senderId,
       senderRole: input.senderRole,
       body: input.body,
       attachments: input.attachments ?? [],
       systemKind: input.systemKind,
       systemPayload: input.systemPayload,
-      createdAt: nowIso()
-    };
-    const list = messages.get(input.conversationId) ?? [];
-    list.push(rec);
-    messages.set(input.conversationId, list);
-    c.lastMessagePreview = rec.body.slice(0, 120) || (rec.attachments[0]?.filename ?? "");
-    c.lastMessageAt = rec.createdAt;
-    c.updatedAt = rec.createdAt;
-    conversations.set(c.id, c);
+      createdAt
+    });
+    const rec = toMessage(doc.toObject());
+    await ConversationModel.updateOne(
+      { _id: input.conversationId },
+      {
+        $set: {
+          lastMessagePreview: rec.body.slice(0, 120) || (rec.attachments[0]?.filename ?? ""),
+          lastMessageAt: createdAt,
+          updatedAt: createdAt
+        }
+      }
+    );
     return rec;
   },
 
-  listMessages(convId: string, opts?: { before?: string; limit?: number }) {
-    const list = messages.get(convId) ?? [];
+  async listMessages(convId: string, opts?: { before?: string; limit?: number }) {
     const limit = opts?.limit ?? 50;
-    let filtered = list;
+    const filter: Record<string, unknown> = { conversationId: convId };
     if (opts?.before) {
-      const idx = list.findIndex((m) => m.id === opts.before);
-      filtered = idx > 0 ? list.slice(0, idx) : [];
+      const pivot = await MessageModel.findOne({ _id: opts.before, conversationId: convId }).select("seq").lean<{ seq: number } | null>();
+      // Unknown "before" id, or the very first message: nothing older (as before)
+      if (!pivot) return { items: [], hasMore: false };
+      filter.seq = { $lt: pivot.seq };
     }
-    const slice = filtered.slice(Math.max(0, filtered.length - limit));
-    const hasMore = filtered.length > slice.length;
-    return { items: slice, hasMore };
+    const newestFirst = await MessageModel.find(filter).sort({ seq: -1 }).limit(limit + 1).lean();
+    const hasMore = newestFirst.length > limit;
+    const items = newestFirst.slice(0, limit).reverse().map(toMessage);
+    return { items, hasMore };
   },
 
   // ── Read receipts ─────────────────────────────
-  markRead(convId: string, userId: string, lastMessageId?: string) {
-    const cur: ReadCursor = {
-      conversationId: convId,
-      userId,
-      lastReadMessageId: lastMessageId,
-      lastReadAt: nowIso()
-    };
-    cursors.set(cursorKey(convId, userId), cur);
+  async markRead(convId: string, userId: string, lastMessageId?: string): Promise<ReadCursor> {
+    const cur: ReadCursor = { conversationId: convId, userId, lastReadMessageId: lastMessageId, lastReadAt: nowIso() };
+    await CursorModel.replaceOne({ _id: cursorKey(convId, userId) }, { _id: cursorKey(convId, userId), ...cur }, { upsert: true });
     return cur;
   },
 
-  getCursor(convId: string, userId: string) {
-    return cursors.get(cursorKey(convId, userId)) ?? null;
+  async getCursor(convId: string, userId: string): Promise<ReadCursor | null> {
+    const d = await CursorModel.findById(cursorKey(convId, userId)).lean();
+    return d ? toCursor(d) : null;
   },
 
-  unreadCount(convId: string, userId: string) {
-    const cur = cursors.get(cursorKey(convId, userId));
-    const list = messages.get(convId) ?? [];
-    if (!cur) return list.filter((m) => m.senderId !== userId).length;
-    let count = 0;
-    let passed = !cur.lastReadMessageId;
-    for (const m of list) {
-      if (passed && m.senderId !== userId) count++;
-      if (!passed && m.id === cur.lastReadMessageId) passed = true;
-    }
-    return count;
+  async unreadCount(convId: string, userId: string): Promise<number> {
+    const cur = await CursorModel.findById(cursorKey(convId, userId)).lean<{ lastReadMessageId?: string } | null>();
+    const others = { conversationId: convId, senderId: { $ne: userId } };
+    if (!cur || !cur.lastReadMessageId) return MessageModel.countDocuments(others);
+    const pivot = await MessageModel.findOne({ _id: cur.lastReadMessageId, conversationId: convId }).select("seq").lean<{ seq: number } | null>();
+    if (!pivot) return 0; // cursor points at a message we don't have: nothing counted (as before)
+    return MessageModel.countDocuments({ ...others, seq: { $gt: pivot.seq } });
   }
 };

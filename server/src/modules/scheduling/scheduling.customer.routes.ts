@@ -73,7 +73,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
        });
        const { conv } = await ensureConversationFor(breq.id);
        if (conv) {
-         postSystemMessage(
+         await postSystemMessage(
            conv.id,
            "booking_requested",
            `Customer requested a CS booking for ${parsed.data.standaloneName}${parsed.data.preferredAt ? ` (preferred ${kwDateTime(parsed.data.preferredAt)})` : ""}.${parsed.data.notes ? ` Note: ${parsed.data.notes}` : ""}`,
@@ -277,7 +277,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
         findFinanceUserIds()
       ]);
       if (payConv) {
-        postSystemMessage(
+        await postSystemMessage(
           payConv.id,
           "booking_requested",
           `Customer requested a booking (payment pending: ${amountToPay} KWD).${parsed.data.preferredAt ? ` Preferred: ${kwDateTime(parsed.data.preferredAt)}` : ""}`,
@@ -350,7 +350,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
       findFinanceUserIds()
     ]);
     if (conv) {
-      postSystemMessage(
+      await postSystemMessage(
         conv.id,
         "booking_requested",
         `Customer requested a booking${parsed.data.preferredAt ? ` (preferred ${kwDateTime(parsed.data.preferredAt)})` : ""}.${parsed.data.notes ? ` Note: ${parsed.data.notes}` : ""}`,
@@ -491,7 +491,7 @@ customerRoutes.post("/me/requests/:id/pay-session", authRequired, async (req, re
       findFinanceUserIds()
     ]);
     if (conv) {
-      postSystemMessage(
+      await postSystemMessage(
         conv.id,
         "booking_requested",
         `Customer paid session fee (${breq.sessionPriceKwd ?? ""} KWD) and submitted booking request${breq.preferredAt ? ` (preferred ${kwDateTime(breq.preferredAt)})` : ""}.${breq.notes ? ` Note: ${breq.notes}` : ""}`,
@@ -607,7 +607,7 @@ customerRoutes.post("/me/requests/:id/accept", authRequired, async (req, res, ne
     if (!session) return res.status(409).json({ error: "INVALID_STATE" });
 
     if (updated?.conversationId) {
-      postSystemMessage(
+      await postSystemMessage(
         updated.conversationId,
         "booking_confirmed",
         `Customer accepted the proposed time. Booking is confirmed for ${kwDateTime(scheduledAt)}.`,
@@ -655,7 +655,7 @@ customerRoutes.post("/me/requests/:id/cancel", authRequired, async (req, res) =>
   const { breq, updated } = await bookingService.cancelByCustomer({ userId: req.auth!.userId, role: req.auth!.role }, req.params.id);
   const reason = parsed.success ? parsed.data.reason : undefined;
   if (updated.conversationId) {
-    postSystemMessage(
+    await postSystemMessage(
       updated.conversationId,
       "booking_cancelled",
       `Customer cancelled the request${reason ? `: ${reason}` : ""}.`,

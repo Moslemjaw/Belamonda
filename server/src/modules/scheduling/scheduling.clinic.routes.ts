@@ -661,7 +661,7 @@ clinicRoutes.post("/clinic/sessions/:sessionId/reschedule", authRequired, requir
       metadata: { bookingRequestId: breq?.id, notes: parsed.data.notes }
     });
     if (breq?.conversationId) {
-      postSystemMessage(
+      await postSystemMessage(
         breq.conversationId,
         "slot_proposed",
         `Session rescheduled to ${kwDateTime(parsed.data.scheduledAt)}${parsed.data.notes ? ` — ${parsed.data.notes}` : ""}`,

@@ -12,7 +12,7 @@ import { ensureConversationFor } from "../scheduling/scheduling.router.js";
  * the conversation (rehydration after server restart).
  */
 export async function ensureConversationById(id: string) {
-  let conv = chatStore.getConversation(id);
+  let conv = await chatStore.getConversation(id);
   if (conv) return conv;
   const breq = await bookingRequestsStore.findByConversationId(id);
   if (breq) {

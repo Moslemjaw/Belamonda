@@ -2,6 +2,8 @@ import type { Server as HttpServer } from "http";
 import { Server as IOServer, type Socket } from "socket.io";
 import type { Role } from "@belamonda/shared";
 import { env } from "../../config/env.js";
+import { isAllowedOrigin } from "../../config/http.js";
+import { useMongoAdapter } from "./chat.adapter.js";
 import { verifyAccessToken } from "../auth/token.js";
 import { isTokenAccountValid } from "../../middlewares/authRequired.js";
 import { chatStore } from "./chat.store.js";
@@ -28,7 +30,7 @@ function rateLimitOk(s: AuthSocket) {
 
 async function checkSocketConvAccess(socket: AuthSocket, conv: any) {
   if (socket.data.role === "admin") return true;
-  if (chatStore.isParticipant(conv.id, socket.data.userId)) return true;
+  if (await chatStore.isParticipant(conv.id, socket.data.userId)) return true;
   if (socket.data.role === "clinicStaff" && conv.bookingRequestId) {
     const breq = await bookingRequestsStore.get(conv.bookingRequestId);
     if (breq && breq.clinicId === (socket.data.clinicId || socket.data.userId)) return true;
@@ -45,16 +47,17 @@ export function initChatSocket(httpServer: HttpServer) {
     cors: {
       origin(origin, cb) {
         if (!origin) return cb(null, true);
-        if (env.NODE_ENV !== "production") {
-          if (/^https?:\/\/localhost:\d+$/.test(origin)) return cb(null, true);
+        // Same allowed sites as the HTTP API (config/http.ts)
+        if (isAllowedOrigin(origin, { production: env.NODE_ENV === "production", extraOrigins: allowedOrigins })) {
+          return cb(null, true);
         }
-        if (allowedOrigins.includes(origin)) return cb(null, true);
         return cb(new Error("Not allowed by CORS"));
       },
       credentials: true
     },
     maxHttpBufferSize: 1024 * 64
   });
+  if (env.CHAT_SOCKET_ADAPTER === "mongo") useMongoAdapter(io);
 
   io.use(async (socket, next) => {
     try {
@@ -115,7 +118,7 @@ export function initChatSocket(httpServer: HttpServer) {
           const attachments = (payload.attachments ?? []).slice(0, 5);
           if (!body && attachments.length === 0) return ack?.({ ok: false, error: "EMPTY" });
 
-          const msg = chatStore.addMessage({
+          const msg = await chatStore.addMessage({
             conversationId: conv.id,
             senderId: socket.data.userId,
             senderRole: socket.data.role,
@@ -159,7 +162,7 @@ export function initChatSocket(httpServer: HttpServer) {
         const conv = await ensureConversationById(payload?.conversationId);
         if (!conv) return;
         if (!(await checkSocketConvAccess(socket, conv))) return;
-        const cur = chatStore.markRead(conv.id, socket.data.userId, payload.lastMessageId);
+        const cur = await chatStore.markRead(conv.id, socket.data.userId, payload.lastMessageId);
         emitToConversation(conv.id, "read:update", {
           conversationId: conv.id,
           userId: socket.data.userId,
@@ -177,12 +180,16 @@ export function emitToConversation(conversationId: string, event: string, payloa
   if (!io) return;
   io.to(convRoom(conversationId)).emit(event, payload);
   // Also emit to participants' user-rooms so unread badges update even without joining the conv room.
-  const conv = chatStore.getConversation(conversationId);
-  if (conv) {
-    for (const p of conv.participants) {
-      io.to(userRoom(p.userId)).emit("conversation:update", { conversationId });
-    }
-  }
+  // (Participants now come from the database; callers don't await this, so it runs in the background.)
+  const server = io;
+  void chatStore
+    .getConversation(conversationId)
+    .then((conv) => {
+      for (const p of conv?.participants ?? []) {
+        server.to(userRoom(p.userId)).emit("conversation:update", { conversationId });
+      }
+    })
+    .catch(() => {});
 }
 
 export function emitToUser(userId: string, event: string, payload: unknown) {

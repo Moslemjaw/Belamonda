@@ -253,7 +253,7 @@ requestsRoutes.post("/requests/:id/propose", authRequired, requireRole(["clinicS
   });
   const { conv } = await ensureConversationFor(breq.id);
   if (conv) {
-    postSystemMessage(
+    await postSystemMessage(
       conv.id,
       "slot_proposed",
       `Proposed time: ${kwDateTime(parsed.data.scheduledAt)}${parsed.data.notes ? ` — ${parsed.data.notes}` : ""}`,
@@ -372,7 +372,7 @@ requestsRoutes.post("/requests/:id/confirm", authRequired, requireRole(["clinicS
   if (!session) return res.status(409).json({ error: "INVALID_STATE" });
 
   if (updated?.conversationId) {
-    postSystemMessage(
+    await postSystemMessage(
       updated.conversationId,
       "booking_confirmed",
       `Booking confirmed for ${kwDateTime(scheduledAt)}.`,
@@ -408,7 +408,7 @@ requestsRoutes.post("/requests/:id/mark-paid", authRequired, requireRole(["clini
 
   const { breq, updated } = out;
   if (updated?.conversationId) {
-    postSystemMessage(
+    await postSystemMessage(
       updated.conversationId,
       "booking_confirmed",
       `Clinic marked payment as paid${updated.sessionPriceKwd ? ` (${updated.sessionPriceKwd} KWD)` : ""}.`,
@@ -503,7 +503,7 @@ requestsRoutes.post("/requests/:id/reject", authRequired, requireRole(["clinicSt
   if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
   const { breq, updated } = await bookingService.rejectByStaff({ userId: req.auth!.userId, role: req.auth!.role }, req.params.id, parsed.data.reason);
   if (updated.conversationId) {
-    postSystemMessage(
+    await postSystemMessage(
       updated.conversationId,
       "booking_rejected",
       `Booking rejected: ${parsed.data.reason}`,
@@ -540,7 +540,7 @@ requestsRoutes.post(
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
     const { updated } = await bookingService.forwardToClinic({ userId: req.auth!.userId, role: req.auth!.role }, req.params.id, parsed.data);
     if (updated?.conversationId) {
-      postSystemMessage(
+      await postSystemMessage(
         updated.conversationId,
         "slot_proposed",
         `Date suggested for clinic: ${parsed.data.scheduledAt ? kwDateTime(parsed.data.scheduledAt) : "Not specified"}. Notes: ${parsed.data.notes || "None"}`,
@@ -569,7 +569,7 @@ requestsRoutes.post(
     if (!session || !uo) {
       // Standalone CS booking request (no membership/session)
       if (updated?.conversationId) {
-        postSystemMessage(
+        await postSystemMessage(
           updated.conversationId,
           "booking_confirmed",
           `Booking confirmed by clinic for ${kwDateTime(scheduledAt)}.`,
@@ -587,7 +587,7 @@ requestsRoutes.post(
     }
 
     if (updated?.conversationId) {
-      postSystemMessage(
+      await postSystemMessage(
         updated.conversationId,
         "booking_confirmed",
         `Booking confirmed by clinic for ${kwDateTime(scheduledAt)}.`,

@@ -80,24 +80,24 @@ chatRouter.get("/conversations", authRequired, async (req, res, next) => {
     const isClinicContext = req.query.context === "clinic";
 
     if (role === "admin" || role === "cs" || role === "finance") {
-      items = chatStore.listAllConversations().map((c) => ({ ...c, unreadCount: 0 }));
+      items = (await chatStore.listAllConversations()).map((c) => ({ ...c, unreadCount: 0 }));
     } else {
-      const allPersonalConvs = chatStore.listConversationsForUser(req.auth!.userId);
+      const allPersonalConvs = await chatStore.listConversationsForUser(req.auth!.userId);
 
       if (role === "clinicStaff") {
         const activeClinicId = req.auth!.clinicId || req.auth!.userId;
         if (isClinicContext) {
-          const allConvs = chatStore.listAllConversations();
+          const allConvs = await chatStore.listAllConversations();
           for (const c of allConvs) {
             if (!c.bookingRequestId) {
               if (allPersonalConvs.some(p => p.id === c.id)) {
-                items.push({ ...c, unreadCount: chatStore.unreadCount(c.id, req.auth!.userId) });
+                items.push({ ...c, unreadCount: await chatStore.unreadCount(c.id, req.auth!.userId) });
               }
               continue;
             }
             const breq = await bookingRequestsStore.get(c.bookingRequestId);
             if (breq && breq.clinicId === activeClinicId) {
-              items.push({ ...c, unreadCount: chatStore.unreadCount(c.id, req.auth!.userId) });
+              items.push({ ...c, unreadCount: await chatStore.unreadCount(c.id, req.auth!.userId) });
             }
           }
         } else {
@@ -130,7 +130,7 @@ chatRouter.get("/conversations", authRequired, async (req, res, next) => {
 
 async function checkConvAccess(req: any, conv: any) {
   if (req.auth!.role === "admin") return true;
-  if (chatStore.isParticipant(conv.id, req.auth!.userId)) return true;
+  if (await chatStore.isParticipant(conv.id, req.auth!.userId)) return true;
   if (req.auth!.role === "clinicStaff" && conv.bookingRequestId) {
     const breq = await bookingRequestsStore.get(conv.bookingRequestId);
     if (breq && breq.clinicId === (req.auth!.clinicId || req.auth!.userId)) return true;
@@ -179,7 +179,7 @@ chatRouter.get("/conversations/:id/messages", authRequired, async (req, res, nex
     }
     const before = typeof req.query.before === "string" ? req.query.before : undefined;
     const limit = req.query.limit ? Math.min(100, Number(req.query.limit)) : 50;
-    const result = chatStore.listMessages(conv.id, { before, limit });
+    const result = await chatStore.listMessages(conv.id, { before, limit });
     return res.json(result);
   } catch (error) {
     next(error);
@@ -203,7 +203,7 @@ chatRouter.post("/conversations/:id/messages", authRequired, async (req, res, ne
     const attachments = parsed.data.attachments ?? [];
     if (!body && attachments.length === 0) return res.status(400).json({ error: "EMPTY_MESSAGE" });
 
-    const msg = chatStore.addMessage({
+    const msg = await chatStore.addMessage({
       conversationId: conv.id,
       senderId: req.auth!.userId,
       senderRole: req.auth!.role as Role,
@@ -239,7 +239,7 @@ chatRouter.post("/conversations/:id/read", authRequired, async (req, res, next) 
     }
     const parsed = MarkReadSchema.safeParse(req.body ?? {});
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
-    const cur = chatStore.markRead(conv.id, req.auth!.userId, parsed.data.lastMessageId);
+    const cur = await chatStore.markRead(conv.id, req.auth!.userId, parsed.data.lastMessageId);
     emitToConversation(conv.id, "read:update", {
       conversationId: conv.id,
       userId: req.auth!.userId,
@@ -286,10 +286,10 @@ const OpenDirectSchema = z.object({
   customerUserId: z.string().min(1),
   title: z.string().max(120).optional()
 });
-chatRouter.post("/conversations/direct", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), (req, res) => {
+chatRouter.post("/conversations/direct", authRequired, requireRole(["cs", "admin", "legal", "cs_director"]), async (req, res) => {
   const parsed = OpenDirectSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
-  const conv = chatStore.createConversation({
+  const conv = await chatStore.createConversation({
     kind: "direct",
     title: parsed.data.title || `Direct chat with ${parsed.data.customerUserId}`,
     participants: [
@@ -301,9 +301,9 @@ chatRouter.post("/conversations/direct", authRequired, requireRole(["cs", "admin
 });
 
 // Customer opens a direct conversation with CS
-chatRouter.post("/conversations/cs", authRequired, requireRole(["customer"]), (req, res) => {
+chatRouter.post("/conversations/cs", authRequired, requireRole(["customer"]), async (req, res) => {
   const userId = req.auth!.userId;
-  const existingConvs = chatStore.listConversationsForUser(userId).filter(c => c.kind === "direct");
+  const existingConvs = (await chatStore.listConversationsForUser(userId)).filter(c => c.kind === "direct");
   
   if (existingConvs.length > 0) {
     // Return the most recently updated direct conversation
@@ -312,7 +312,7 @@ chatRouter.post("/conversations/cs", authRequired, requireRole(["customer"]), (r
   }
 
   // Create a new one
-  const conv = chatStore.createConversation({
+  const conv = await chatStore.createConversation({
     kind: "direct",
     title: "Customer Support",
     participants: [
@@ -326,7 +326,7 @@ chatRouter.post("/conversations/cs", authRequired, requireRole(["customer"]), (r
 // Admin monitor: full conversation list with status info
 chatRouter.get("/admin/overview", authRequired, requireRole(["admin"]), async (_req, res, next) => {
   try {
-    const conversations = chatStore.listAllConversations();
+    const conversations = await chatStore.listAllConversations();
     const items = await Promise.all(
       conversations.map(async (c) => {
         const breq = c.bookingRequestId ? await bookingRequestsStore.get(c.bookingRequestId) : null;

@@ -1359,7 +1359,7 @@ adminRoutes.post("/admin/requests/:requestId/revert", authRequired, requireRole(
     });
 
     if (updated?.conversationId) {
-      postSystemMessage(
+      await postSystemMessage(
         updated.conversationId,
         "booking_reverted",
         `Booking reverted to pending by admin.`,

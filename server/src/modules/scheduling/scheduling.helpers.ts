@@ -7,7 +7,7 @@ import * as userOfferService from "../../services/userOffer.service.js";
 import { offersStore } from "../offers/offers.store.js";
 import { sessionsStore } from "./sessions.store.js";
 import { bookingRequestsStore } from "./bookingRequests.store.js";
-import { chatStore } from "../chat/chat.store.js";
+import { chatStore, type ConversationRecord } from "../chat/chat.store.js";
 import { emitToConversation } from "../chat/chat.socket.js";
 import { UserModel } from "../../models/user.model.js";
 import { ClinicModel } from "../../models/clinic.model.js";
@@ -571,16 +571,16 @@ export async function getClinicNames(clinicId: string): Promise<{ nameEn?: strin
   }
 }
 
-export async function ensureConversationFor(breqId: string): Promise<{ conv: ReturnType<typeof chatStore.getConversation> | ReturnType<typeof chatStore.createConversation> | null; csIds: string[] }> {
+export async function ensureConversationFor(breqId: string): Promise<{ conv: ConversationRecord | null; csIds: string[] }> {
   const breq = await bookingRequestsStore.get(breqId);
   if (!breq) return { conv: null, csIds: [] };
 
-  // If there's already a conversationId AND the in-memory store still has it, return it.
+  // If there's already a conversationId AND the conversation exists, return it.
   if (breq.conversationId) {
-    const existing = chatStore.getConversation(breq.conversationId);
+    const existing = await chatStore.getConversation(breq.conversationId);
     if (existing) return { conv: existing, csIds: [] };
 
-    // The conversation was lost (server restart wiped the in-memory store).
+    // The conversation record is missing (e.g. created before chat was stored in the database).
     // Restore it with the same ID so the booking request stays linked.
     const [staffIds, csIds, clinicNames] = await Promise.all([
       findClinicStaffUserIds(breq.clinicId),
@@ -596,7 +596,7 @@ export async function ensureConversationFor(breqId: string): Promise<{ conv: Ret
     const seen = new Set<string>();
     const uniqParticipants = participants.filter((p) => (seen.has(p.userId) ? false : (seen.add(p.userId), true)));
 
-    const restored = chatStore.restoreConversation({
+    const restored = await chatStore.restoreConversation({
       id: breq.conversationId,
       kind: "booking",
       title: `Booking @ ${clinicNames.nameEn ?? breq.clinicId}`,
@@ -622,7 +622,7 @@ export async function ensureConversationFor(breqId: string): Promise<{ conv: Ret
   const seen = new Set<string>();
   const uniqParticipants = participants.filter((p) => (seen.has(p.userId) ? false : (seen.add(p.userId), true)));
 
-  const conv = chatStore.createConversation({
+  const conv = await chatStore.createConversation({
     kind: "booking",
     title: `Booking @ ${clinicNames.nameEn ?? breq.clinicId}`,
     bookingRequestId: breq.id,
@@ -632,14 +632,14 @@ export async function ensureConversationFor(breqId: string): Promise<{ conv: Ret
   return { conv, csIds };
 }
 
-export function postSystemMessage(
+export async function postSystemMessage(
   conversationId: string,
   kind: NonNullable<Parameters<typeof chatStore.addMessage>[0]["systemKind"]>,
   body: string,
   payload?: Record<string, unknown>,
   senderId = "system"
 ) {
-  const msg = chatStore.addMessage({
+  const msg = await chatStore.addMessage({
     conversationId,
     senderId,
     senderRole: "admin",

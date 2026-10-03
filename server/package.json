@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@belamonda/shared": "file:../shared",
+    "@socket.io/mongo-adapter": "^0.3.2",
     "@types/compression": "^1.8.1",
     "@types/pdfkit": "^0.17.6",
     "@types/qrcode": "^1.5.6",
