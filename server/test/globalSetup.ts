@@ -1,4 +1,4 @@
-import { MongoMemoryReplSet } from "mongodb-memory-server";
+import { MongoMemoryReplSet } from "mongodb-memory-server-core";
 
 let replSet: MongoMemoryReplSet | undefined;
 

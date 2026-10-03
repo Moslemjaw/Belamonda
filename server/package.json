@@ -48,7 +48,7 @@
     "@types/supertest": "^7.2.1",
     "eslint": "^9.10.0",
     "globals": "^15.15.0",
-    "mongodb-memory-server": "^10.4.3",
+    "mongodb-memory-server-core": "^10.4.3",
     "supertest": "^7.3.1",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",
