@@ -129,6 +129,8 @@ export function ClinicScannerTab({ clinicId, onMarkSession }: { clinicId?: strin
           await handleMarkSession(currentSession.id, "completed");
         } else {
           setShowNoScheduledModal(true);
+          // The scan was still logged — refresh today's list (handleMarkSession does this otherwise)
+          fetchTodayExpected();
         }
       }
     } catch (e: any) {
@@ -163,6 +165,8 @@ export function ClinicScannerTab({ clinicId, onMarkSession }: { clinicId?: strin
       }
       // Silently sync latest background data
       await handleScan(undefined, false);
+      // Keep "Today's Expected Customers" in step with the scan/attendance just recorded
+      fetchTodayExpected();
     } catch (e: any) {
       alert(e.message);
     } finally {
