@@ -6,6 +6,16 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return res.status(err.status).json(err.rawBody && err.body ? err.body : { error: err.code, ...err.body });
   }
 
+  // JSON body over the size limit for this route (config/http.ts) — not logged, to avoid log flooding
+  if (
+    typeof err === "object" &&
+    err !== null &&
+    "type" in err &&
+    (err as { type?: unknown }).type === "entity.too.large"
+  ) {
+    return res.status(413).json({ error: "PAYLOAD_TOO_LARGE" });
+  }
+
   // eslint-disable-next-line no-console
   console.error(err);
 

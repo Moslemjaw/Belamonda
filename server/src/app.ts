@@ -8,6 +8,7 @@ import express from "express";
 import helmet from "helmet";
 import compression from "compression";
 import { env } from "./config/env.js";
+import { isAllowedOrigin, jsonBodyParser } from "./config/http.js";
 import { chatRouter, UPLOAD_DIR } from "./modules/chat/chat.router.js";
 import { errorHandler } from "./middlewares/errorHandler.js";
 import { authRouter } from "./modules/auth/auth.router.js";
@@ -96,29 +97,16 @@ export function createApp() {
       origin(origin, cb) {
         // Allow non-browser requests (curl, health checks)
         if (!origin) return cb(null, true);
-
-        if (env.NODE_ENV !== "production") {
-          // Allow any localhost port (Vite dev server)
-          if (/^https?:\/\/localhost(:\d+)?$/.test(origin)) return cb(null, true);
-          // Allow Replit dev proxy domains (with or without port)
-          if (/\.replit\.dev(:\d+)?$/.test(origin)) return cb(null, true);
-          if (/\.pike\.replit\.dev(:\d+)?$/.test(origin)) return cb(null, true);
+        if (isAllowedOrigin(origin, { production: env.NODE_ENV === "production", extraOrigins: allowedOrigins })) {
+          return cb(null, true);
         }
-
-        // Allow Vercel deployments natively
-        if (/\.vercel\.app$/.test(origin)) return cb(null, true);
-        if (/^https?:\/\/belamondokw\.com$/.test(origin)) return cb(null, true);
-        if (/^https?:\/\/www\.belamondokw\.com$/.test(origin)) return cb(null, true);
-        // Allow Render deployments (onrender.com)
-        if (/\.onrender\.com$/.test(origin)) return cb(null, true);
-
-        if (allowedOrigins.includes(origin)) return cb(null, true);
         return cb(new Error("Not allowed by CORS"));
       },
       credentials: true
     })
   );
-  app.use(express.json({ limit: "50mb" }));
+  // 50mb only on the routes that receive base64 images; 2mb everywhere else (config/http.ts)
+  app.use(jsonBodyParser());
 
   // Static-serve chat upload directory.
   app.use(
