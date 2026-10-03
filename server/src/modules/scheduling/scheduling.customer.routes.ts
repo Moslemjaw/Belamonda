@@ -18,27 +18,21 @@ import { createSessionPayment, confirmSessionPayment } from "../../services/paym
 import { kwdToMils } from "../../utils/money.js";
 import { withTransaction } from "../../db/transaction.js";
 import * as bookingService from "./booking.service.js";
+import { acquireLease } from "../../jobs/lease.js";
 import { CancelSchema, RequestSchema, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findClinicStaffUserIds, findCsUserIds, findFinanceUserIds, loadOffer, loadUserOffer, maxAccessibleSessions, postSystemMessage, resolveSessionPrice } from "./scheduling.helpers.js";
 
 export const customerRoutes = Router();
 
-const userBookingLocks = new Map<string, number>();
 
 // ── Customer requests a session — creates booking request + conversation ───
 customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
   try {
     const userId = req.auth!.userId;
-    const nowTs = Date.now();
-    const lastTime = userBookingLocks.get(userId) || 0;
-    if (nowTs - lastTime < 4000) {
+    // One booking attempt per customer every 4 seconds — kept in the database so it holds
+    // across every server instance (was an in-memory Map).
+    if (!(await acquireLease(`booking:${userId}`, 4000))) {
       return res.status(429).json({ error: "TOO_MANY_REQUESTS", message: "A booking request is already being processed. Please wait a moment." });
     }
-    userBookingLocks.set(userId, nowTs);
-    setTimeout(() => {
-      if (userBookingLocks.get(userId) === nowTs) {
-        userBookingLocks.delete(userId);
-      }
-    }, 5000);
 
     const parsed = RequestSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });

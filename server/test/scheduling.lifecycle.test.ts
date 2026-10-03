@@ -231,3 +231,21 @@ describe("CS schedules a session directly from a membership", () => {
     expect(await BookingSessionModel.countDocuments({ userOfferId: m.userOfferId })).toBe(1);
   });
 });
+
+describe("Book button throttle (4 seconds per customer)", () => {
+  it("two simultaneous bookings: one succeeds, the other gets 429", async () => {
+    const customer = await makeUser("customer");
+    const m = await makeMembership(customer.id);
+    const statuses = (await Promise.all([book(customer, m.userOfferId), book(customer, m.userOfferId)])).map((r) => r.status).sort();
+    expect(statuses).toEqual([201, 429]);
+    expect(await BookingRequestModel.countDocuments({ userOfferId: m.userOfferId })).toBe(1);
+  });
+
+  it("the throttle is stored in the database (shared by every server)", async () => {
+    const customer = await makeUser("customer");
+    const m = await makeMembership(customer.id);
+    await book(customer, m.userOfferId);
+    const lock = await mongoose.connection.collection("job_locks").findOne({ _id: `booking:${customer.id}` as any });
+    expect(lock).toBeTruthy();
+  });
+});
