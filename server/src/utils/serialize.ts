@@ -93,6 +93,8 @@ export function serializeOffer(doc: OfferDoc, categorySlug?: string | null) {
     offerExpirationDate: (doc as any).offerExpirationDate
       ? new Date((doc as any).offerExpirationDate).toISOString()
       : undefined,
+    // Set on a duplicate that was merged into another offer
+    mergedInto: (doc as any).mergedInto ? String((doc as any).mergedInto) : undefined,
     isGroupOffer: (doc as any).isGroupOffer ?? false,
     groupSizeRequired: (doc as any).groupSizeRequired,
     groupRewardType: (doc as any).groupRewardType,

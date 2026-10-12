@@ -6,6 +6,7 @@ import { getCategoryIcon } from "../../../components/CategoryIcons";
 import { getSubscriptions } from "../../../lib/offerSystem";
 import DatePicker from "../../../components/DatePicker";
 import { ar } from "./shared";
+import { MergeDuplicatesPanel } from "./MergeDuplicatesPanel";
 
 // ── Sub-pages ──
 export function OffersManager() {
@@ -23,6 +24,10 @@ export function OffersManager() {
   const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[], allowExtraPaidSessions: false, extraSessionPriceKwd: "", branchExtraSessionPrices: [] as { clinicId: string, priceKwd: string }[], allowAppointmentBooking: true, bookingFlow: "admin_forward" as "admin_forward" | "direct_clinic" };
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
+  // Guards Create/Save against repeat clicks while the request (and image upload) is running —
+  // each extra click used to create another copy of the membership.
+  const [saving, setSaving] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
 
   const offers = apiOffersData?.items || [];
   const [localOffers, setLocalOffers] = useState<any[]>([]);
@@ -34,6 +39,14 @@ export function OffersManager() {
   }, [apiOffersData?.items]);
 
   const refresh = () => refetchOffers();
+  const duplicateGroupCount = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const o of offers) {
+      const k = String(o.name || "").trim().toLowerCase();
+      if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+    }
+    return [...counts.values()].filter((n) => n > 1).length;
+  }, [offers]);
 
   const categoryIdToSlug = useMemo(() => {
     const m = new Map<string, string>();
@@ -125,9 +138,11 @@ export function OffersManager() {
   };
 
   const saveOffer = async () => {
+    if (saving) return;
     const problem = validateForm();
     setFormError(problem);
     if (problem) return;
+    setSaving(true);
     const clinicId = form.clinicId || "";
     try {
       const url = editingId ? `/offers/admin/${editingId}` : "/offers/admin";
@@ -215,6 +230,8 @@ export function OffersManager() {
       refresh();
     } catch (e: any) {
       setFormError(e.message || (ar() ? "تعذر حفظ العرض." : "Could not save the offer."));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -259,9 +276,16 @@ export function OffersManager() {
         <h3 className="text-base font-bold text-surface-900">{ar() ? "إدارة العضويات" : "Membership Management"}</h3>
         <div className="flex gap-2">
            <button className="btn-secondary btn-sm" onClick={refresh}>↻ {ar() ? "تحديث" : "Refresh"}</button>
+           {duplicateGroupCount > 0 && (
+             <button className="btn-secondary btn-sm text-brand-pink-700" onClick={() => setShowMerge((v) => !v)}>
+               ⧉ {ar() ? `دمج المكرر (${duplicateGroupCount})` : `Merge duplicates (${duplicateGroupCount})`}
+             </button>
+           )}
            <button className="btn-primary btn-sm" onClick={openCreate}>+ {ar() ? "إنشاء عضوية" : "Create Membership"}</button>
         </div>
       </div>
+
+      {showMerge && <MergeDuplicatesPanel offers={offers} onClose={() => setShowMerge(false)} onMerged={refresh} />}
 
       {loadingOffers && <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{[1,2,3].map(i => <div key={i} className="shimmer h-64 rounded-2xl" />)}</div>}
 
@@ -751,9 +775,9 @@ export function OffersManager() {
           <div className="px-6 py-4 bg-white/95 backdrop-blur-md border-t border-surface-200 flex items-center justify-end gap-2 shrink-0 shadow-[0_-4px_12px_rgba(0,0,0,0.04)]">
             {formError && <div role="alert" className="me-auto text-sm font-semibold text-red-600">{formError}</div>}
             <button className="btn-secondary" onClick={() => { setShowForm(false); setEditingId(null); setFormError(null); }}>{ar() ? "إلغاء" : "Cancel"}</button>
-            <button className="btn-primary" onClick={() => void saveOffer()}>
+            <button className="btn-primary disabled:opacity-60" disabled={saving} onClick={() => void saveOffer()}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-              {editingId ? (ar() ? "حفظ التغييرات" : "Save Changes") : (ar() ? "إنشاء العرض" : "Create Offer")}
+              {saving ? (ar() ? "جارٍ الحفظ…" : "Saving…") : editingId ? (ar() ? "حفظ التغييرات" : "Save Changes") : (ar() ? "إنشاء العرض" : "Create Offer")}
             </button>
           </div>
         </div>

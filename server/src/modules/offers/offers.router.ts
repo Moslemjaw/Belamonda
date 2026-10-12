@@ -8,6 +8,7 @@ import { notifyNewOfferAlert } from "../notifications/notifications.service.js";
 import { logAuditAction } from "../../services/audit.service.js";
 import { cloudinary } from "../../services/cloudinary.service.js";
 import { catalogCache } from "../../utils/caches.js";
+import { mergeOffers } from "../../services/offerMerge.service.js";
 
 async function uploadToCloudinary(base64Image: string): Promise<string> {
   if (!base64Image || !base64Image.startsWith("data:image")) return base64Image;
@@ -176,6 +177,20 @@ offersRouter.get("/", async (req, res, next) => {
   }
 });
 
+// Admin: merge duplicate offers into one (dryRun first; see services/offerMerge.service.ts)
+const MergeOffersSchema = z.object({
+  keepId: z.string().min(1),
+  mergeIds: z.array(z.string().min(1)).min(1).max(20),
+  dryRun: z.boolean().optional(),
+  acceptDifferences: z.boolean().optional()
+});
+offersRouter.post("/admin/merge", authRequired, requireRole(["admin"]), async (req, res) => {
+  const parsed = MergeOffersSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+  const result = await mergeOffers({ ...parsed.data, actor: { userId: req.auth!.userId, role: req.auth!.role } });
+  return res.json(result);
+});
+
 // Admin list
 offersRouter.get("/admin", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (_req, res, next) => {
   try {
@@ -308,7 +323,10 @@ offersRouter.post("/admin/reorder", authRequired, requireRole(["admin"]), async 
 // Public single offer detail
 offersRouter.get("/:offerId", async (req, res, next) => {
   try {
-    const offer = await getOffer(req.params.offerId);
+    let offer = await getOffer(req.params.offerId);
+    // A duplicate that was merged away: old links open the offer it was merged into
+    const mergedInto = (offer as any)?.mergedInto;
+    if (mergedInto) offer = await getOffer(String(mergedInto));
     if (!offer) return res.status(404).json({ error: "NOT_FOUND" });
 
     // Only active, expired, + public offers are accessible anonymously

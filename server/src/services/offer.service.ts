@@ -128,7 +128,8 @@ export async function listOffersAdmin() {
   if (_adminOffersPromise) return _adminOffersPromise;
 
   const promise = (async () => {
-    const rows = await OfferModel.find({}).sort({ sortOrder: 1, createdAt: -1 }).lean();
+    // Duplicates merged into another offer are retired: keep them out of the admin list
+    const rows = await OfferModel.find({ mergedInto: { $exists: false } }).sort({ sortOrder: 1, createdAt: -1 }).lean();
     const result = await attachSlugsToOffers(rows);
     _adminOffersCache = { data: result, ts: Date.now() };
     _adminOffersPromise = null;

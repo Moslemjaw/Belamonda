@@ -134,6 +134,9 @@ const OfferSchema = new Schema(
     startDate: { type: Date },
     endDate: { type: Date },
     offerExpirationDate: { type: Date },
+    // Set when this offer was merged into another (duplicate clean-up); it is then hidden
+    mergedInto: { type: Schema.Types.ObjectId, ref: "Offer" },
+    mergedAt: { type: Date },
 
     // ─── Content ─────────────────────────────────────────────────────────────
     // ─── Group Offer Mechanics ───────────────────────────────────────────────
