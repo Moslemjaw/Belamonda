@@ -102,6 +102,38 @@ describe("next session gap counts from the scan", () => {
     expect(new Date(again.body.nextEligibleAt).getTime()).toBe(scannedAt + 25 * DAY);
   }, 20_000);
 
+  it("an admin unlock lets the customer book once inside the gap, then switches itself off", async () => {
+    const s = await forwardedAndConfirmed(laterToday(), new Date().toISOString());
+    await api().get(`/public/clinic/scan/card${s.customer.id}`).set(auth(s.staff.token));
+    await api().post(`/scheduling/clinic/sessions/${s.sessionId}/mark`).set(auth(s.staff.token)).send({ status: "completed" });
+    const uoFilter = { _id: new mongoose.Types.ObjectId(s.m.userOfferId) };
+    await mongoose.connection.collection("useroffers").updateOne(uoFilter, { $set: { bookingOverrideUnlocked: true } });
+
+    await new Promise((r) => setTimeout(r, 4100)); // booking throttle
+    const first = await api().post("/scheduling/me/request").set(auth(s.customer.token)).send({ userOfferId: s.m.userOfferId });
+    expect(first.status).toBe(201);
+    expect((await mongoose.connection.collection("useroffers").findOne(uoFilter))?.bookingOverrideUnlocked).toBe(false);
+    const log = await mongoose.connection.collection("auditlogs").findOne({ actionType: "booking_unlock_used", "metadata.bookingRequestId": first.body.request.id });
+    expect(log).toBeTruthy();
+
+    // The admin cancels that request; the customer tries again and is held to the gap.
+    await BookingRequestModel.updateOne({ _id: first.body.request.id }, { $set: { status: "cancelled" } });
+    await new Promise((r) => setTimeout(r, 4100));
+    const again = await api().post("/scheduling/me/request").set(auth(s.customer.token)).send({ userOfferId: s.m.userOfferId });
+    expect(again.status).toBe(409);
+    expect(again.body.error).toBe("INTERVAL_NOT_MET");
+  }, 30_000);
+
+  it("without an unlock the customer cannot book inside the gap", async () => {
+    const s = await forwardedAndConfirmed(laterToday(), new Date().toISOString());
+    await api().get(`/public/clinic/scan/card${s.customer.id}`).set(auth(s.staff.token));
+    await api().post(`/scheduling/clinic/sessions/${s.sessionId}/mark`).set(auth(s.staff.token)).send({ status: "completed" });
+    await new Promise((r) => setTimeout(r, 4100));
+    const res = await api().post("/scheduling/me/request").set(auth(s.customer.token)).send({ userOfferId: s.m.userOfferId });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe("INTERVAL_NOT_MET");
+  }, 20_000);
+
   it("staff scheduling is checked against the scan date too", async () => {
     const s = await forwardedAndConfirmed(laterToday(), new Date().toISOString());
     await api().get(`/public/clinic/scan/card${s.customer.id}`).set(auth(s.staff.token));

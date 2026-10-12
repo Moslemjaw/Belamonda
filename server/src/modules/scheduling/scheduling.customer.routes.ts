@@ -19,9 +19,34 @@ import { kwdToMils } from "../../utils/money.js";
 import { withTransaction } from "../../db/transaction.js";
 import * as bookingService from "./booking.service.js";
 import { acquireLease } from "../../jobs/lease.js";
+import { logAuditAction } from "../../services/audit.service.js";
 import { CancelSchema, RequestSchema, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findClinicStaffUserIds, findCsUserIds, findFinanceUserIds, loadOffer, loadUserOffer, maxAccessibleSessions, postSystemMessage, resolveSessionPrice } from "./scheduling.helpers.js";
 
 export const customerRoutes = Router();
+
+/**
+ * An admin's "Unlocked Immediately" is good for one booking: once the customer books with it,
+ * it switches off so the next booking follows the minimum gap again (it used to stay on
+ * indefinitely, letting customers book again right after attending).
+ */
+async function consumeBookingUnlock(userOfferId: string, userId: string, bookingRequestId: string) {
+  const res = await UserOfferModel.updateOne(
+    { _id: userOfferId, bookingOverrideUnlocked: true },
+    { $set: { bookingOverrideUnlocked: false } }
+  );
+  if (res.modifiedCount) {
+    await logAuditAction({
+      actorId: userId,
+      actorRole: "customer",
+      actionType: "booking_unlock_used",
+      targetEntityType: "UserOffer",
+      targetEntityId: userOfferId,
+      beforeState: { bookingOverrideUnlocked: true },
+      afterState: { bookingOverrideUnlocked: false },
+      metadata: { bookingRequestId, reason: "Admin unlock used for one booking; minimum gap applies again" }
+    });
+  }
+}
 
 
 // ── Customer requests a session — creates booking request + conversation ───
@@ -270,6 +295,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
         const finalBreq = await bookingRequestsStore.update(breq.id, { sessionPaymentId: sessionPayment.id });
         return { breq, sessionPayment, finalBreq };
       });
+      if (isOverrideUnlocked) await consumeBookingUnlock(uo.id, req.auth!.userId, breq.id);
 
       // Create conversation and notify clinic/CS so the request is visible
       const [{ conv: payConv, csIds: payCsIds }, payFinanceIds] = await Promise.all([
@@ -344,6 +370,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
       preferredAt: parsed.data.preferredAt,
       notes: parsed.data.notes
     });
+    if (isOverrideUnlocked) await consumeBookingUnlock(uo.id, req.auth!.userId, breq.id);
 
     const [{ conv, csIds: convCsIds }, financeIds] = await Promise.all([
       ensureConversationFor(breq.id, breq),
