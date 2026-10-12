@@ -155,17 +155,15 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     const cooldownOverrideAt = (uoDocForOverride as any)?.bookingCooldownEndOverrideAt ? new Date((uoDocForOverride as any).bookingCooldownEndOverrideAt) : null;
 
     if (!isOverrideUnlocked) {
-      if (cooldownOverrideAt) {
-        if (new Date() < cooldownOverrideAt) {
-          return res.status(409).json({ error: "INTERVAL_NOT_MET", nextEligibleAt: cooldownOverrideAt.toISOString() });
-        }
-      } else if (offer.sessionIntervalDays > 0) {
-        const lastCompletedAt = lastCompletedAtPre;
-        if (lastCompletedAt) {
-          const nextEligible = new Date(new Date(lastCompletedAt).getTime() + offer.sessionIntervalDays * 24 * 60 * 60 * 1000);
-          if (new Date() < nextEligible) {
-            return res.status(409).json({ error: "INTERVAL_NOT_MET", nextEligibleAt: nextEligible.toISOString() });
-          }
+      // A cooldown end date adds to the interval rule, it never replaces it: a date set
+      // before a newer session must not let the customer book inside that session's gap.
+      if (cooldownOverrideAt && new Date() < cooldownOverrideAt) {
+        return res.status(409).json({ error: "INTERVAL_NOT_MET", nextEligibleAt: cooldownOverrideAt.toISOString() });
+      }
+      if (offer.sessionIntervalDays > 0 && lastCompletedAtPre) {
+        const nextEligible = new Date(new Date(lastCompletedAtPre).getTime() + offer.sessionIntervalDays * 24 * 60 * 60 * 1000);
+        if (new Date() < nextEligible) {
+          return res.status(409).json({ error: "INTERVAL_NOT_MET", nextEligibleAt: nextEligible.toISOString() });
         }
       }
     }

@@ -143,17 +143,12 @@ export function OverviewTab({ s }: { s: CustomerDashboardState }) {
                           bookingLocked = false;
                           coolingActive = false;
                           lockedReason = "";
-                        } else if (cooldownOverrideAt) {
-                          if (new Date() < cooldownOverrideAt) {
-                            coolingActive = true;
-                            bookingLocked = true;
-                            const formattedDate = fmtDate(cooldownOverrideAt);
-                            rebookDateStr = formattedDate;
-                            lockedReason = ar() ? `إعادة الحجز في ${formattedDate}` : `Rebook at ${formattedDate}`;
-                          } else {
-                            coolingActive = false;
-                            bookingLocked = false;
-                          }
+                        } else if (cooldownOverrideAt && new Date() < cooldownOverrideAt) {
+                          coolingActive = true;
+                          bookingLocked = true;
+                          const formattedDate = fmtDate(cooldownOverrideAt);
+                          rebookDateStr = formattedDate;
+                          lockedReason = ar() ? `إعادة الحجز في ${formattedDate}` : `Rebook at ${formattedDate}`;
                         } else if (sessionIntervalDays > 0 && lastCompleted) {
                           const nextEligible = new Date(lastCompleted.getTime() + sessionIntervalDays * 24 * 60 * 60 * 1000);
                           if (new Date() < nextEligible) {

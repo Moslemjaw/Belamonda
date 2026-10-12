@@ -85,6 +85,23 @@ describe("next session gap counts from the scan", () => {
     expect(new Date(again.body.nextEligibleAt).getTime()).toBe(scannedAt + 25 * DAY);
   }, 20_000);
 
+  it("an old, already-passed cooldown end date does not skip the gap after a newer session", async () => {
+    const s = await forwardedAndConfirmed(laterToday(), new Date().toISOString());
+    await api().get(`/public/clinic/scan/card${s.customer.id}`).set(auth(s.staff.token));
+    await api().post(`/scheduling/clinic/sessions/${s.sessionId}/mark`).set(auth(s.staff.token)).send({ status: "completed" });
+    const scannedAt = new Date((await BookingSessionModel.findById(s.sessionId).lean<{ scannedAt: Date }>())!.scannedAt).getTime();
+    await mongoose.connection.collection("useroffers").updateOne(
+      { _id: new mongoose.Types.ObjectId(s.m.userOfferId) },
+      { $set: { bookingCooldownEndOverrideAt: new Date(Date.now() - 3 * DAY) } }
+    );
+
+    await new Promise((r) => setTimeout(r, 4100)); // booking throttle
+    const again = await api().post("/scheduling/me/request").set(auth(s.customer.token)).send({ userOfferId: s.m.userOfferId });
+    expect(again.status).toBe(409);
+    expect(again.body.error).toBe("INTERVAL_NOT_MET");
+    expect(new Date(again.body.nextEligibleAt).getTime()).toBe(scannedAt + 25 * DAY);
+  }, 20_000);
+
   it("staff scheduling is checked against the scan date too", async () => {
     const s = await forwardedAndConfirmed(laterToday(), new Date().toISOString());
     await api().get(`/public/clinic/scan/card${s.customer.id}`).set(auth(s.staff.token));
