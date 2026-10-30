@@ -242,6 +242,14 @@
   html[dir="rtl"] .data-table thead th {
     @apply text-right;
   }
+  /* A header's own alignment wins, so it lines up with the values in its column. */
+  .data-table thead th[class~="text-right"] {
+    text-align: right;
+  }
+  .data-table thead th[class~="text-center"],
+  html[dir="rtl"] .data-table thead th[class~="text-center"] {
+    text-align: center;
+  }
   .data-table tbody td {
     @apply border-b border-surface-100/60 px-6 py-5 text-surface-700 font-medium;
   }
