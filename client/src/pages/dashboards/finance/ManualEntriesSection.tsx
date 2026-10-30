@@ -8,13 +8,15 @@ import DatePicker from "../../../components/DatePicker";
 import { ar, fmt, parseKwd, METHOD_LABELS, METHOD_COLORS, MANUAL_METHODS, MANUAL_PURPOSES, MANUAL_STATUSES } from "./shared";
 import type { ManualEntry } from "./shared";
 
-export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
+/** Manual entries list + add form, shown inside the Payments tab. */
+export function ManualEntriesSection({ from, to }: { from?: string; to?: string }) {
+  const [showForm, setShowForm] = useState(false);
   const { getAuthHeader } = useAuth();
 
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("cash");
   const [purpose, setPurpose] = useState("manual_entry");
-  const [status, setStatus] = useState("completed");
+  const [status, setStatus] = useState("paid");
   const [label, setLabel] = useState("");
   const [notes, setNotes] = useState("");
   const [clinicId, setClinicId] = useState("");
@@ -97,7 +99,7 @@ export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
 
   // KPI summary of entries
   const totalCompleted = entries
-    .filter(e => e.status === "completed")
+    .filter(e => e.status === "paid" || e.status === "completed")
     .reduce((s, e) => s + parseKwd(e.amountKwd), 0);
 
   const purposeLabel = (p: string) =>
@@ -105,7 +107,9 @@ export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
   const methodLabel = (m: string) =>
     MANUAL_METHODS.find(x => x.value === m)?.label ?? m;
   const statusBadge: Record<string, string> = {
+    paid: "bg-emerald-50 text-emerald-700",
     completed: "bg-emerald-50 text-emerald-700",
+    payment_pending: "bg-amber-50 text-amber-700",
     pending: "bg-amber-50 text-amber-700",
     refunded: "bg-surface-100 text-surface-500",
     failed: "bg-red-50 text-red-700",
@@ -120,13 +124,22 @@ export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
         <KpiCard label={ar() ? "إجمالي المبالغ المكتملة" : "Total Completed Amount"} value={`${fmt(totalCompleted / 1000)} KWD`} accent="emerald" icon="✅" />
         <KpiCard
           label={ar() ? "معلّقة" : "Pending Entries"}
-          value={String(entries.filter(e => e.status === "pending").length)}
+          value={String(entries.filter(e => e.status === "payment_pending" || e.status === "pending").length)}
           accent="amber"
           icon="⏳"
         />
       </div>
 
+      {!showForm && (
+        <div className="flex justify-end">
+          <button type="button" className="btn-primary text-sm px-5" onClick={() => setShowForm(true)}>
+            ＋ {ar() ? "إضافة قيد يدوي" : "Add manual entry"}
+          </button>
+        </div>
+      )}
+
       {/* Add Entry Form */}
+      {showForm && (
       <div className="card-elevated p-6">
         <h4 className="font-bold text-surface-900 mb-1 flex items-center gap-2 text-base">
           <span className="w-7 h-7 rounded-lg bg-brand-pink-100 text-brand-pink-600 flex items-center justify-center text-sm">＋</span>
@@ -205,13 +218,15 @@ export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
               onChange={e => setNotes(e.target.value)}
             />
           </div>
-          <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
+          <div className="sm:col-span-2 lg:col-span-3 flex justify-end gap-2">
+            <button type="button" className="btn-ghost border border-surface-200 px-5" onClick={() => setShowForm(false)}>{ar() ? "إغلاق" : "Close"}</button>
             <button type="submit" disabled={saving} className="btn-primary px-8">
               {saving ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "إضافة القيد" : "Add Entry")}
             </button>
           </div>
         </form>
       </div>
+      )}
 
       {/* Entries List */}
       <div className="card-elevated overflow-hidden">

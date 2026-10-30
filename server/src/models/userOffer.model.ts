@@ -45,6 +45,12 @@ const UserOfferSchema = new Schema(
     paymentId: { type: Schema.Types.ObjectId, ref: "Payment" },
     isStandalone: { type: Boolean, default: false },
 
+    // Cancellation (memberships are cancelled, never deleted, so finance history stays intact)
+    cancelledAt: { type: Date },
+    cancelledBy: { type: String },
+    cancelReason: { type: String },
+    refundedKwd: { type: String, match: /^\d+(\.\d{3})$/ },
+
     // === Membership type — drives booking behaviour ===
     // cashback: user has a cashback budget; per-session deduction from cashbackBalanceKwd
     // free_sessions: user has N free sessions; clinic charges a small fee per session

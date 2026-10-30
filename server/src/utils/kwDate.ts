@@ -30,3 +30,28 @@ export function kwDate(input?: string | Date | null): string {
   if (isNaN(d.getTime())) return String(input);
   return KW_DATE_FORMAT.format(d);
 }
+
+/**
+ * Mongo date range for whole Kuwait calendar days (UTC+3), inclusive.
+ * `from`/`to` are dates like "2026-10-01" (a time part is ignored).
+ */
+export function kwDateRange(from?: string, to?: string): { $gte?: Date; $lte?: Date } | undefined {
+  const f: { $gte?: Date; $lte?: Date } = {};
+  if (from) {
+    const d = new Date(from);
+    if (!isNaN(d.getTime())) {
+      d.setUTCHours(0, 0, 0, 0);
+      d.setUTCHours(d.getUTCHours() - 3);
+      f.$gte = d;
+    }
+  }
+  if (to) {
+    const d = new Date(to);
+    if (!isNaN(d.getTime())) {
+      d.setUTCHours(23, 59, 59, 999);
+      d.setUTCHours(d.getUTCHours() - 3);
+      f.$lte = d;
+    }
+  }
+  return Object.keys(f).length ? f : undefined;
+}

@@ -1,115 +1,147 @@
 import { useState } from "react";
-import { useClinicSummaries } from "../../../hooks/useApi";
+import { useAuth } from "../../../app/AuthContext";
+import { useClinicSessionsReport } from "../../../hooks/useApi";
+import { API_BASE_URL } from "../../../lib/api";
 import { KpiCard } from "../../../components/KpiCard";
-import { ar, fmt, parseKwd } from "./shared";
+import { ar } from "./shared";
 import { ClinicRowDetail } from "./ClinicRowDetail";
 
+const pad = (n: number) => String(n).padStart(2, "0");
+
+function currentMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+}
+
+function monthRange(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return { from: `${month}-01`, to: `${month}-${pad(last)}` };
+}
+
+/** Downloads the clinic sessions Excel report for a period (all clinics, or one). */
+export async function downloadClinicSessions(
+  authHeader: Record<string, string> | undefined,
+  range: { from: string; to: string },
+  clinicId?: string,
+) {
+  const params = new URLSearchParams({ from: range.from, to: range.to });
+  if (clinicId) params.set("clinicId", clinicId);
+  const res = await fetch(`${API_BASE_URL}/reporting/finance/clinic-sessions/export?${params.toString()}`, {
+    headers: { ...(authHeader ?? {}) },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `clinic-sessions-${range.from}_${range.to}.xlsx`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export function ClinicsTab({ from, to }: { from: string; to: string }) {
-  const { data, loading } = useClinicSummaries({ from, to });
+  const { getAuthHeader } = useAuth();
+  // "" = use the dashboard's date filter instead of a single month
+  const [month, setMonth] = useState(currentMonth());
+  const range = month ? monthRange(month) : { from, to };
+  const { data, loading } = useClinicSessionsReport(range);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [downloading, setDownloading] = useState(false);
 
-  const items = (data?.items ?? []).filter(c =>
+  const clinics = (data?.clinics ?? []).filter(c =>
     !search ||
     c.clinicNameEn.toLowerCase().includes(search.toLowerCase()) ||
     c.clinicNameAr.includes(search)
-  ).map(c => {
-    // Enhance data with calculated metrics
-    const utilization = c.totalSessions > 0 ? (c.completedSessions / c.totalSessions) * 100 : 0;
-    const remainingSessions = Math.max(0, c.totalSessions - c.completedSessions);
-    const avgSessionValue = c.totalSessions > 0 ? parseKwd(c.revenueKwd) / c.totalSessions : 0;
-    const deferredRevenue = remainingSessions * avgSessionValue;
-    return { ...c, utilization, deferredRevenue };
-  });
+  );
+  const t = data?.totals;
 
-  const totalSessions = items.reduce((s, c) => s + c.totalSessions, 0);
-  const totalCompleted = items.reduce((s, c) => s + c.completedSessions, 0);
-  const totalMemberships = items.reduce((s, c) => s + c.activeMemberships, 0);
-  const totalRevenue = items.reduce((s, c) => s + parseKwd(c.revenueKwd), 0);
-  const totalDeferred = items.reduce((s, c) => s + c.deferredRevenue, 0);
-  const avgUtilization = items.length > 0 ? items.reduce((s, c) => s + c.utilization, 0) / items.length : 0;
+  const download = async () => {
+    setDownloading(true);
+    try { await downloadClinicSessions(getAuthHeader() ?? undefined, range); }
+    catch (e: any) { alert(e.message); }
+    finally { setDownloading(false); }
+  };
 
   return (
     <div className="space-y-5">
+      <div className="card-elevated border border-surface-200 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h3 className="text-base font-bold text-surface-900">{ar() ? "جلسات المراكز" : "Clinic sessions"}</h3>
+          <p className="text-xs text-surface-500 mt-0.5">
+            {ar() ? "الجلسات التي تمت في كل مركز (حضر أو لم يحضر)" : "Sessions that happened at each clinic (completed or no-show)"}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input type="month" className="input-field text-sm py-1.5 h-auto" value={month} onChange={e => setMonth(e.target.value)} />
+          <button
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${month ? "bg-white text-surface-600 border-surface-200 hover:bg-surface-50" : "bg-brand-pink-50 text-brand-pink-700 border-brand-pink-200"}`}
+            onClick={() => setMonth(month ? "" : currentMonth())}
+          >
+            {month ? (ar() ? "استخدم تواريخ الفلتر" : "Use filter dates") : (ar() ? "تواريخ الفلتر مفعلة" : "Using filter dates")}
+          </button>
+          <button onClick={() => void download()} disabled={downloading}
+            className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold disabled:opacity-50">
+            {downloading ? "..." : (ar() ? "تحميل Excel" : "Download Excel")}
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <KpiCard label={ar() ? "إجمالي العيادات" : "Total Clinics"} value={String(data?.items.length ?? 0)} accent="indigo" icon="🏥" />
-        <KpiCard label={ar() ? "إجمالي الجلسات" : "Total Sessions"} value={String(totalSessions)} accent="blue" icon="📅" />
-        <KpiCard label={ar() ? "متوسط الاستخدام" : "Avg Utilization"} value={`${avgUtilization.toFixed(1)}%`} accent="emerald" icon="📈" />
-        <KpiCard label={ar() ? "إجمالي الإيرادات" : "Total Revenue"} value={`${fmt(totalRevenue)} KWD`} accent="pink" icon="💰" />
-        <KpiCard label={ar() ? "إيرادات مؤجلة (مقدرة)" : "Deferred (Est.)"} value={`${fmt(totalDeferred)} KWD`} accent="amber" icon="⏳" />
+        <KpiCard label={ar() ? "جلسات حضرت" : "Completed"} value={String(t?.completed ?? 0)} accent="emerald" icon="✅" />
+        <KpiCard label={ar() ? "لم يحضر" : "No-shows"} value={String(t?.noShow ?? 0)} accent="red" icon="🚫" />
+        <KpiCard label={ar() ? "قيمة الجلسات" : "Session value"} value={`${t?.sessionValueKwd ?? "0.000"} KWD`} accent="indigo" icon="🧾" />
+        <KpiCard label={ar() ? "كاش باك مستخدم" : "Cashback used"} value={`${t?.cashbackKwd ?? "0.000"} KWD`} accent="amber" icon="🎁" />
+        <KpiCard label={ar() ? "مدفوع في المركز" : "Paid at clinic"} value={`${t?.paidAtClinicKwd ?? "0.000"} KWD`} accent="pink" icon="💳" />
       </div>
 
       <div className="card-elevated border border-surface-200 shadow-sm overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-5 gap-3 border-b border-surface-100">
           <div>
-            <h3 className="text-base font-bold text-surface-900">{ar() ? "جميع العيادات" : "All Clinics"} <span className="text-xs text-surface-400 font-medium">({items.length})</span></h3>
-            <p className="text-xs text-surface-500 mt-0.5">{ar() ? "انقر على صف لعرض التفاصيل والفواتير والتقرير" : "Click a row to view details, invoices & report"}</p>
+            <h3 className="text-base font-bold text-surface-900">{ar() ? "المراكز" : "Clinics"} <span className="text-xs text-surface-400 font-medium">({clinics.length})</span></h3>
+            <p className="text-xs text-surface-500 mt-0.5">{ar() ? "انقر على مركز لعرض جلساته" : "Click a clinic to see its sessions"}</p>
           </div>
-          <div className="relative">
-            <input type="text" placeholder={ar() ? "ابحث عن عيادة..." : "Search clinic..."}
-              className="input-field pl-9 text-sm w-full sm:w-56"
-              value={search} onChange={e => setSearch(e.target.value)} />
-            <svg className="w-4 h-4 absolute left-3 top-2.5 text-surface-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
+          <input type="text" placeholder={ar() ? "ابحث عن مركز..." : "Search clinic..."}
+            className="input-field text-sm w-full sm:w-56"
+            value={search} onChange={e => setSearch(e.target.value)} />
         </div>
 
-        {loading && items.length === 0 ? (
+        {loading && !data ? (
           <div className="py-12 text-center text-sm text-surface-400">{ar() ? "جاري التحميل..." : "Loading..."}</div>
-        ) : items.length === 0 ? (
-          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "لا توجد عيادات" : "No clinics found"}</div>
+        ) : clinics.length === 0 ? (
+          <div className="py-12 text-center text-sm text-surface-400">{ar() ? "لا توجد جلسات في هذه الفترة" : "No sessions in this period"}</div>
         ) : (
           <div>
-            <div className="hidden sm:grid grid-cols-[2fr_1fr_1.5fr_1.2fr_1.2fr_1fr_28px] gap-4 px-6 py-3 bg-surface-50 border-b border-surface-100 text-[10px] uppercase tracking-wider font-bold text-surface-500">
-              <div>{ar() ? "العيادة" : "Clinic"}</div>
-              <div className="text-center">{ar() ? "عضويات" : "Memberships"}</div>
-              <div className="text-center">{ar() ? "الاستخدام" : "Utilization"}</div>
-              <div className="text-right">{ar() ? "الإيرادات" : "Revenue"}</div>
-              <div className="text-right">{ar() ? "المؤجل" : "Deferred"}</div>
-              <div className="text-center">{ar() ? "فواتير" : "Invoices"}</div>
+            <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_1.2fr_1.2fr_1.2fr_28px] gap-4 px-6 py-3 bg-surface-50 border-b border-surface-100 text-[10px] uppercase tracking-wider font-bold text-surface-500">
+              <div>{ar() ? "المركز" : "Clinic"}</div>
+              <div className="text-center">{ar() ? "حضر" : "Completed"}</div>
+              <div className="text-center">{ar() ? "لم يحضر" : "No-show"}</div>
+              <div className="text-right">{ar() ? "قيمة الجلسات" : "Session value"}</div>
+              <div className="text-right">{ar() ? "كاش باك" : "Cashback"}</div>
+              <div className="text-right">{ar() ? "مدفوع في المركز" : "Paid at clinic"}</div>
               <div />
             </div>
 
-            {items.map(c => (
+            {clinics.map(c => (
               <div key={c.clinicId}>
                 <div
-                  className={`grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_1.5fr_1.2fr_1.2fr_1fr_28px] gap-4 px-6 py-4 border-b border-surface-100 hover:bg-surface-50 transition-colors cursor-pointer items-center ${expandedId === c.clinicId ? "bg-brand-pink-50/20" : ""}`}
+                  className={`grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_1fr_1.2fr_1.2fr_1.2fr_28px] gap-4 px-6 py-4 border-b border-surface-100 hover:bg-surface-50 transition-colors cursor-pointer items-center ${expandedId === c.clinicId ? "bg-brand-pink-50/20" : ""}`}
                   onClick={() => setExpandedId(expandedId === c.clinicId ? null : c.clinicId)}
                 >
                   <div>
                     <div className="font-bold text-surface-900 text-sm">{ar() ? (c.clinicNameAr || c.clinicNameEn) : c.clinicNameEn}</div>
-                    {c.clinicNameAr && !ar() && <div className="text-xs text-surface-400 mt-0.5">{c.clinicNameAr}</div>}
                     <div className="sm:hidden text-xs text-surface-500 mt-1 flex gap-3 flex-wrap">
-                      <span>{c.utilization.toFixed(0)}% used</span>
-                      <span className="text-emerald-700 font-bold">{c.revenueKwd} KWD</span>
+                      <span>{c.completed} {ar() ? "حضر" : "completed"}</span>
+                      <span>{c.noShow} {ar() ? "لم يحضر" : "no-show"}</span>
+                      <span className="text-emerald-700 font-bold">{c.sessionValueKwd} KWD</span>
                     </div>
                   </div>
-                  <div className="hidden sm:block text-center">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-brand-pink-50 text-brand-pink-700 text-xs font-bold">{c.activeMemberships}</span>
-                  </div>
-                  <div className="hidden sm:flex flex-col justify-center gap-1">
-                    <div className="flex justify-between text-[10px] font-bold text-surface-500">
-                      <span>{c.completedSessions}/{c.totalSessions}</span>
-                      <span className={c.utilization > 80 ? "text-emerald-600" : c.utilization < 30 ? "text-amber-600" : ""}>{c.utilization.toFixed(0)}%</span>
-                    </div>
-                    <div className="w-full bg-surface-200 rounded-full h-1.5 overflow-hidden">
-                      <div className={`h-full rounded-full ${c.utilization > 80 ? "bg-emerald-500" : c.utilization < 30 ? "bg-amber-500" : "bg-indigo-500"}`} style={{ width: `${Math.min(100, c.utilization)}%` }} />
-                    </div>
-                  </div>
-                  <div className="hidden sm:block text-right">
-                    <span className="font-bold text-emerald-700">{c.revenueKwd}</span>
-                    <div className="text-[10px] text-surface-400">KWD</div>
-                  </div>
-                  <div className="hidden sm:block text-right">
-                    <span className="font-bold text-amber-600">{fmt(c.deferredRevenue)}</span>
-                    <div className="text-[10px] text-surface-400">KWD</div>
-                  </div>
-                  <div className="hidden sm:block text-center">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${c.paidInvoices === c.totalInvoices && c.totalInvoices > 0 ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                      {c.paidInvoices}/{c.totalInvoices}
-                    </span>
-                  </div>
+                  <div className="hidden sm:block text-center font-bold text-emerald-700">{c.completed}</div>
+                  <div className="hidden sm:block text-center font-bold text-red-600">{c.noShow}</div>
+                  <div className="hidden sm:block text-right font-bold text-surface-900">{c.sessionValueKwd}</div>
+                  <div className="hidden sm:block text-right text-amber-700">{c.cashbackKwd}</div>
+                  <div className="hidden sm:block text-right font-bold text-brand-pink-700">{c.paidAtClinicKwd}</div>
                   <div className="flex items-center">
                     <svg className={`w-4 h-4 text-surface-400 transition-transform duration-200 ${expandedId === c.clinicId ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -117,7 +149,11 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
                   </div>
                 </div>
                 {expandedId === c.clinicId && (
-                  <ClinicRowDetail clinicId={c.clinicId} from={from} to={to} />
+                  <ClinicRowDetail
+                    clinic={c}
+                    rows={(data?.rows ?? []).filter(r => r.clinicId === c.clinicId)}
+                    range={range}
+                  />
                 )}
               </div>
             ))}
@@ -127,7 +163,3 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
     </div>
   );
 }
-
-// ===========================================================================
-// RELIEF TAB — refund tracking
-// ===========================================================================

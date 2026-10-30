@@ -16,13 +16,13 @@ export function InstallmentsTab({ from, to }: { from: string; to: string }) {
         <KpiCard label={ar() ? "أقساط مدفوعة" : "Paid Installments"} value={`${summary?.paidKwd ?? "0.000"} KWD`} accent="emerald" icon="✅" />
         <KpiCard label={ar() ? "أقساط قادمة" : "Upcoming"} value={`${summary?.upcomingKwd ?? "0.000"} KWD`} sub={`${summary?.upcomingCount ?? 0} ${ar() ? "قسط" : "items"}`} accent="amber" icon="⏳" />
         <KpiCard label={ar() ? "أقساط متأخرة" : "Late"} value={`${summary?.lateKwd ?? "0.000"} KWD`} sub={`${summary?.lateCount ?? 0} ${ar() ? "قسط" : "items"}`} accent="red" icon="⚠️" />
-        <KpiCard label={ar() ? "الإيرادات المتوقعة" : "Forecast Revenue"} value={`${summary?.forecastKwd ?? "0.000"} KWD`} accent="pink" icon="📊" />
+        <KpiCard label={ar() ? "الإجمالي (مدفوع + مستحق)" : "Total (paid + due)"} value={`${summary?.forecastKwd ?? "0.000"} KWD`} accent="pink" icon="📊" />
       </div>
 
       <div className="card-elevated p-5 border border-surface-200 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
           <h3 className="text-base font-bold text-surface-900">{ar() ? "متتبع الأقساط" : "Installment Tracker"}</h3>
-          <select className="select-field text-xs py-1.5 h-auto w-40" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
+          <select className="select-field text-xs py-1.5 h-auto w-32 sm:w-40" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
             <option value="">{ar() ? "الكل" : "All"}</option>
             <option value="paid">{ar() ? "مدفوعة" : "Paid"}</option>
             <option value="late">{ar() ? "متأخرة" : "Late"}</option>
@@ -43,7 +43,8 @@ export function InstallmentsTab({ from, to }: { from: string; to: string }) {
                   <div className="flex items-start justify-between">
                     <div className="flex flex-col">
                       <div className="font-bold text-surface-900 line-clamp-1">{i.offerName}</div>
-                      <div className="text-[10px] text-surface-500 font-mono mt-0.5">{i.customerName || i.userId}</div>
+                      <div className="text-[11px] text-surface-600 mt-0.5">{i.customerName || i.userId}</div>
+                      {i.customerPhone && <a href={`tel:${i.customerPhone}`} className="text-[11px] text-brand-pink-600 font-medium">{i.customerPhone}</a>}
                     </div>
                     <div className="text-right shrink-0">
                       <div className="font-bold text-surface-900">{i.amountKwd} <span className="text-[10px] text-surface-500">KWD</span></div>
@@ -84,7 +85,10 @@ export function InstallmentsTab({ from, to }: { from: string; to: string }) {
                 <tbody>
                   {items.map((i, idx) => (
                     <tr key={`${i.userOfferId}-${i.installmentNumber}-${idx}`}>
-                      <td className="font-medium text-surface-900">{i.customerName || i.userId}</td>
+                      <td className="font-medium text-surface-900">
+                        <div>{i.customerName || i.userId}</div>
+                        {i.customerPhone && <a href={`tel:${i.customerPhone}`} className="text-[11px] text-brand-pink-600 font-normal">{i.customerPhone}</a>}
+                      </td>
                       <td className="font-medium">{i.offerName}</td>
                       <td className="text-center text-surface-500">{i.installmentNumber}</td>
                       <td className="text-right font-bold text-surface-900">{i.amountKwd} KWD</td>

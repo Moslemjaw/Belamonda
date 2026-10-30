@@ -5,6 +5,7 @@ import { OfferModel } from "../models/offer.model.js";
 import { serializeUserOffer } from "../utils/serialize.js";
 import { deriveMembershipType } from "./offer.service.js";
 import { kwdToMils, milsToKwd } from "../utils/money.js";
+import { PAID_STATUSES } from "./financeRevenue.js";
 
 const kwdMils = kwdToMils;
 
@@ -295,10 +296,41 @@ export async function listAllUserOffers() {
   return promise;
 }
 
-export async function deleteUserOffer(id: string): Promise<"ok" | "not_found" | "already_cancelled"> {
-  if (!mongoose.isValidObjectId(id)) return "not_found";
+export type CancelRefund = { type: "none" | "partial" | "full"; amountKwd?: string; method?: string };
+
+export type CancelResult =
+  | { ok: true; refundedKwd: string }
+  | { ok: false; error: "not_found" | "already_cancelled" | "invalid_refund" };
+
+/**
+ * Cancels a membership without deleting anything. Paid payments and completed
+ * sessions stay on record so finance totals for past periods don't change;
+ * a refund is recorded as its own payment with status "refunded".
+ */
+export async function cancelUserOffer(
+  id: string,
+  opts: { actorId: string; actorRole: string; reason?: string; refund?: CancelRefund }
+): Promise<CancelResult> {
+  if (!mongoose.isValidObjectId(id)) return { ok: false, error: "not_found" };
   const doc = await UserOfferModel.findById(id).lean<UserOfferDoc | null>();
-  if (!doc) return "not_found";
+  if (!doc) return { ok: false, error: "not_found" };
+  if (doc.status === "cancelled") return { ok: false, error: "already_cancelled" };
+
+  const { BookingRequestModel } = await import("../models/bookingRequest.model.js");
+  const { BookingSessionModel } = await import("../models/bookingSession.model.js");
+  const { PaymentModel } = await import("../models/payment.model.js");
+  const { ClinicChangeRequestModel } = await import("../models/clinicChangeRequest.model.js");
+
+  const paidRows = await PaymentModel.find({ userOfferId: id, status: { $in: PAID_STATUSES } }).select("amountKwd").lean();
+  const paidMils = (paidRows as any[]).reduce((sum, p) => sum + kwdMils(p.amountKwd), 0);
+
+  const refund = opts.refund ?? { type: "none" };
+  let refundMils = 0;
+  if (refund.type === "full") refundMils = paidMils;
+  if (refund.type === "partial") {
+    refundMils = kwdMils(refund.amountKwd);
+    if (refundMils <= 0 || refundMils > paidMils) return { ok: false, error: "invalid_refund" };
+  }
 
   // Check for cashback to reverse
   const { WalletModel, WalletTxnModel } = await import("../models/kyc.model.js");
@@ -345,18 +377,61 @@ export async function deleteUserOffer(id: string): Promise<"ok" | "not_found" | 
     }
   }
 
-  const { BookingRequestModel } = await import("../models/bookingRequest.model.js");
-  const { BookingSessionModel } = await import("../models/bookingSession.model.js");
-  const { PaymentModel } = await import("../models/payment.model.js");
-  const { ClinicChangeRequestModel } = await import("../models/clinicChangeRequest.model.js");
+  // Only open bookings are cancelled; completed sessions stay for clinic reports.
+  const OPEN = ["request_received", "slot_assigned", "scheduled", "confirmed", "rescheduled"];
+  await BookingRequestModel.updateMany({ userOfferId: id, status: { $in: OPEN } }, { $set: { status: "cancelled" } });
+  await BookingSessionModel.updateMany({ userOfferId: id, status: { $in: OPEN } }, { $set: { status: "cancelled" } });
+  await PaymentModel.updateMany(
+    { userOfferId: id, status: "payment_pending" },
+    { $set: { status: "failed", failureReason: "membership_cancelled" } }
+  );
+  await ClinicChangeRequestModel.deleteMany({ userOfferId: id, status: "pending" });
 
-  await BookingRequestModel.deleteMany({ userOfferId: id });
-  await BookingSessionModel.deleteMany({ userOfferId: id });
-  await PaymentModel.deleteMany({ userOfferId: id });
-  await ClinicChangeRequestModel.deleteMany({ userOfferId: id });
+  const now = new Date();
+  if (refundMils > 0) {
+    await PaymentModel.create({
+      userId: doc.userId,
+      offerId: doc.offerId,
+      userOfferId: doc._id,
+      amountKwd: milsToKwd(refundMils),
+      method: refund.method || "other",
+      purpose: "refund",
+      provider: "manual",
+      status: "refunded",
+      confirmedBy: opts.actorId,
+      confirmedAt: now,
+      createdByUserId: opts.actorId,
+      notes: opts.reason,
+    });
+  }
 
-  await UserOfferModel.findByIdAndDelete(id);
-  return "ok";
+  await UserOfferModel.updateOne(
+    { _id: id },
+    {
+      $set: {
+        status: "cancelled",
+        cancelledAt: now,
+        cancelledBy: opts.actorId,
+        cancelReason: opts.reason,
+        refundedKwd: milsToKwd(refundMils),
+        nextInstallmentDueAt: undefined,
+      },
+    }
+  );
+  _userOffersCache = null;
+
+  await logAuditAction({
+    actorId: opts.actorId,
+    actorRole: opts.actorRole as any,
+    actionType: "membership_cancelled",
+    targetEntityType: "UserOffer",
+    targetEntityId: id,
+    beforeState: { status: doc.status },
+    afterState: { status: "cancelled", refundedKwd: milsToKwd(refundMils) },
+    metadata: { reason: opts.reason, refundType: refund.type, paidKwd: milsToKwd(paidMils) },
+  });
+
+  return { ok: true, refundedKwd: milsToKwd(refundMils) };
 }
 
 export async function listDepositReservationsByUser(userId: string) {
