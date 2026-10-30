@@ -23,10 +23,38 @@ export function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, 
     .filter((o: any) => statusFilter === "all" || o.status === statusFilter)
     .filter((o: any) => !filterUser.trim() || o.userId?.toLowerCase().includes(filterUser.trim().toLowerCase()) || (o.offerName || "").toLowerCase().includes(filterUser.trim().toLowerCase()));
 
+  const [refundType, setRefundType] = useState<"none" | "full" | "partial">("none");
+  const [refundAmount, setRefundAmount] = useState("");
+  const [refundMethod, setRefundMethod] = useState("bank_transfer");
+  const [cancelReason, setCancelReason] = useState("");
+
+  const openCancel = (id: string) => {
+    setConfirmId(id);
+    setRefundType("none");
+    setRefundAmount("");
+    setRefundMethod("bank_transfer");
+    setCancelReason("");
+  };
+
   const handleCancel = async (id: string) => {
+    if (refundType !== "none" && !cancelReason.trim()) {
+      alert(ar() ? "اكتب سبب الاسترداد" : "Enter a reason for the refund");
+      return;
+    }
     setCancellingId(id);
     try {
-      await apiFetch(`/commerce/admin/user-offers/${id}`, { method: "DELETE", headers: getAuthHeader() });
+      await apiFetch(`/commerce/admin/user-offers/${id}/cancel`, {
+        method: "POST",
+        headers: getAuthHeader(),
+        body: JSON.stringify({
+          reason: cancelReason.trim() || undefined,
+          refund: {
+            type: refundType,
+            amountKwd: refundType === "partial" ? refundAmount : undefined,
+            method: refundType === "none" ? undefined : refundMethod,
+          },
+        }),
+      });
       setConfirmId(null);
       refetch();
     } catch (e: unknown) {
@@ -201,14 +229,34 @@ export function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, 
                           >
                             {ar() ? "تغيير العيادة" : "Change Clinic"}
                           </button>
-                          <button className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition-colors font-medium" onClick={() => setConfirmId(o.id)}>{ar() ? "إلغاء" : "Cancel"}</button>
+                          <button className="text-xs text-red-500 hover:text-red-700 border border-red-200 hover:border-red-400 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg transition-colors font-medium" onClick={() => openCancel(o.id)}>{ar() ? "إلغاء" : "Cancel"}</button>
                         </>
                       )}
                       {isConfirming && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[11px] text-surface-600 whitespace-nowrap">{ar() ? "تأكيد؟" : "Sure?"}</span>
-                          <button className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg disabled:opacity-50" disabled={isCancelling} onClick={() => void handleCancel(o.id)}>{isCancelling ? "…" : (ar() ? "نعم" : "Yes")}</button>
-                          <button className="text-xs text-surface-600 border border-surface-200 bg-white px-2.5 py-1 rounded-lg" onClick={() => setConfirmId(null)}>{ar() ? "لا" : "No"}</button>
+                        <div className="w-64 space-y-2 rounded-lg border border-red-200 bg-red-50 p-2.5 text-left">
+                          <div className="text-[11px] font-bold text-red-700">{ar() ? "إلغاء الاشتراك" : "Cancel membership"}</div>
+                          <select className="select-field text-xs py-1 h-auto w-full" value={refundType} onChange={e => setRefundType(e.target.value as "none" | "full" | "partial")}>
+                            <option value="none">{ar() ? "بدون استرداد" : "No refund"}</option>
+                            <option value="full">{ar() ? "استرداد كامل المبلغ المدفوع" : "Full refund of amount paid"}</option>
+                            <option value="partial">{ar() ? "استرداد جزئي" : "Partial refund"}</option>
+                          </select>
+                          {refundType === "partial" && (
+                            <input className="input-field text-xs py-1 h-auto w-full" inputMode="decimal" placeholder={ar() ? "المبلغ (د.ك)" : "Amount (KWD)"} value={refundAmount} onChange={e => setRefundAmount(e.target.value)} />
+                          )}
+                          {refundType !== "none" && (
+                            <select className="select-field text-xs py-1 h-auto w-full" value={refundMethod} onChange={e => setRefundMethod(e.target.value)}>
+                              <option value="bank_transfer">{ar() ? "تحويل بنكي" : "Bank transfer"}</option>
+                              <option value="cash">{ar() ? "نقدي" : "Cash"}</option>
+                              <option value="k-net">K-Net</option>
+                              <option value="link">{ar() ? "رابط دفع" : "Payment link"}</option>
+                              <option value="other">{ar() ? "أخرى" : "Other"}</option>
+                            </select>
+                          )}
+                          <input className="input-field text-xs py-1 h-auto w-full" placeholder={refundType === "none" ? (ar() ? "السبب (اختياري)" : "Reason (optional)") : (ar() ? "السبب (مطلوب)" : "Reason (required)")} value={cancelReason} onChange={e => setCancelReason(e.target.value)} />
+                          <div className="flex justify-end gap-1.5">
+                            <button className="text-xs text-surface-600 border border-surface-200 bg-white px-2.5 py-1 rounded-lg" onClick={() => setConfirmId(null)}>{ar() ? "رجوع" : "Back"}</button>
+                            <button className="text-xs font-bold text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg disabled:opacity-50" disabled={isCancelling || (refundType === "partial" && !refundAmount)} onClick={() => void handleCancel(o.id)}>{isCancelling ? "…" : (ar() ? "تأكيد الإلغاء" : "Confirm cancel")}</button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -217,6 +265,12 @@ export function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, 
                   {/* Quick Stats Row */}
                   <div className="flex flex-wrap gap-3 mt-3">
                     <div className="text-xs"><span className="text-surface-400">{ar() ? "الدفع:" : "Payment:"}</span> <span className="font-bold text-surface-700">{o.paymentAmountKwd || '0.000'} KWD</span></div>
+                    {isCancelled && o.refundedKwd && o.refundedKwd !== "0.000" && (
+                      <div className="text-xs"><span className="text-surface-400">{ar() ? "المسترد:" : "Refunded:"}</span> <span className="font-bold text-red-600">{o.refundedKwd} KWD</span></div>
+                    )}
+                    {isCancelled && o.cancelReason && (
+                      <div className="text-xs"><span className="text-surface-400">{ar() ? "سبب الإلغاء:" : "Cancel reason:"}</span> <span className="text-surface-700">{o.cancelReason}</span></div>
+                    )}
                     {o.installmentSchedule?.length > 0 && (
                       <div className="text-xs">
                         <span className="text-surface-400">{ar() ? "المتبقي:" : "Unpaid:"}</span>{' '}

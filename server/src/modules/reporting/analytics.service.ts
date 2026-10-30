@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { kwDate, kwDateTime } from "../../utils/kwDate.js";
+import { kwDate, kwDateTime, kwDateRange } from "../../utils/kwDate.js";
 import * as clinicService from "../../services/clinic.service.js";
 import * as offerService from "../../services/offer.service.js";
 import * as userOfferService from "../../services/userOffer.service.js";
@@ -16,6 +16,9 @@ import { kycStore } from "../kyc/kyc.store.js";
 import { WalletModel, WalletTxnModel } from "../../models/kyc.model.js";
 import ExcelJS from "exceljs";
 import { SystemMetricModel } from "../../models/metric.model.js";
+import { PAID_STATUSES, isPaidStatus } from "../../services/financeRevenue.js";
+import { computePackageRevenue } from "./revenue.service.js";
+import { computeClinicSessionsReport } from "./clinicSessions.service.js";
 
 function parseKwd(s: string) {
   if (!s) return 0;
@@ -34,26 +37,7 @@ function fmtKwd(mils: number) {
   return `${sign}${a}.${b}`;
 }
 
-function buildDateFilter(from?: string, to?: string) {
-  const f: any = {};
-  if (from) {
-    const d = new Date(from);
-    if (!isNaN(d.getTime())) {
-      d.setUTCHours(0, 0, 0, 0);
-      d.setUTCHours(d.getUTCHours() - 3);
-      f.$gte = d;
-    }
-  }
-  if (to) {
-    const d = new Date(to);
-    if (!isNaN(d.getTime())) {
-      d.setUTCHours(23, 59, 59, 999);
-      d.setUTCHours(d.getUTCHours() - 3);
-      f.$lte = d;
-    }
-  }
-  return Object.keys(f).length ? f : undefined;
-}
+const buildDateFilter = kwDateRange;
 
 // Returns the "bucket key" for a given date and period
 function bucketKey(d: Date, period: "daily" | "weekly" | "monthly" | "yearly"): string {
@@ -72,18 +56,34 @@ function bucketKey(d: Date, period: "daily" | "weekly" | "monthly" | "yearly"): 
   return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+export type PaymentsTypeFilter = "packages" | "sessions" | "refunds" | "manual";
+
 export async function computePaymentsBreakdown(filters: {
   status?: string;
   method?: string;
   purpose?: string;
+  /** Narrows to one kind of payment (see PaymentsTypeFilter). */
+  type?: string;
+  /** Customer name or phone (partial match). */
+  customer?: string;
   from?: string;
   to?: string;
   limit?: number;
 } = {}) {
   const q: Record<string, unknown> = {};
-  if (filters.status) q.status = filters.status;
+  if (filters.type === "packages") q.purpose = { $nin: ["session_payment", "refund"] };
+  if (filters.type === "sessions") q.purpose = "session_payment";
+  if (filters.type === "refunds") q.$or = [{ purpose: "refund" }, { status: "refunded" }];
+  if (filters.type === "manual") q.isManual = true;
+  const customer = filters.customer?.trim();
+  if (customer) {
+    const rx = new RegExp(customer.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const users = await UserModel.find({ $or: [{ fullName: rx }, { phone: rx }] }).select("_id").limit(50).lean();
+    q.userId = { $in: (users as any[]).map((u) => String(u._id)) };
+  }
+  if (filters.status) q.status = filters.status === "paid" ? { $in: [...PAID_STATUSES] } : filters.status;
   if (filters.method) q.method = filters.method;
-  if (filters.purpose) q.purpose = filters.purpose;
+  if (filters.purpose && !filters.type) q.purpose = filters.purpose;
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
   const limit = filters.limit ?? 50000;
@@ -157,6 +157,8 @@ export async function computePaymentsBreakdown(filters: {
       additionalTreatments: additionalTreatmentsArr.join(", "),
       _treatmentsArr: additionalTreatmentsArr,
       sessionStatus: breq?.sessionStatus,
+      // Finance-only: refund reason / manual entry note (kept out of the shared serializer).
+      notes: p.notes,
     };
   });
 
@@ -168,12 +170,16 @@ export async function computePaymentsBreakdown(filters: {
   let sessionMils = 0;
   let cashbackAppliedMils = 0;
   let pendingCount = 0;
+  let packageMils = 0;
+  let refundMils = 0;
+  let refundCount = 0;
 
   let grossRevenueMils = 0;
   for (const p of enriched) {
     const netMils = parseKwd(p.amountKwd);
     if (p.status === "payment_pending") { pendingCount++; continue; }
-    if (p.status !== "paid") continue;
+    if (p.purpose === "refund" || p.status === "refunded") { refundMils += netMils; refundCount++; continue; }
+    if (!isPaidStatus(p.status)) continue;
 
     if (p.purpose === "session_payment" && p.sessionStatus !== "completed") continue;
 
@@ -187,7 +193,7 @@ export async function computePaymentsBreakdown(filters: {
 
     const purpose = p.purpose || "enrollment_full";
     if (purpose === "session_payment") sessionMils += grossMils;
-    else membershipMils += grossMils;
+    else { membershipMils += grossMils; packageMils += netMils; }
 
     const m = p.method;
     if (!byMethod[m]) byMethod[m] = { count: 0, mils: 0 };
@@ -227,6 +233,10 @@ export async function computePaymentsBreakdown(filters: {
       cashbackAppliedKwd: fmtKwd(cashbackAppliedMils),
       profitKwd: fmtKwd(totalCompletedMils),
       pendingCount,
+      // Same rule as package revenue: net amount of paid package payments.
+      packagesCollectedKwd: fmtKwd(packageMils),
+      refundsKwd: fmtKwd(refundMils),
+      refundsCount: refundCount,
     },
     byMethod: Object.entries(byMethod).map(([method, v]) => ({ method, count: v.count, totalKwd: fmtKwd(v.mils) })),
     byPurpose: Object.entries(byPurpose).map(([purpose, v]) => ({ purpose, count: v.count, totalKwd: fmtKwd(v.mils) })),
@@ -239,7 +249,7 @@ export async function computePaymentsBreakdown(filters: {
 // Time-bucketed revenue/cashback/profit
 export async function computeFinanceTimeseries(filters: { period: "daily" | "weekly" | "monthly" | "yearly"; from?: string; to?: string }) {
   const period = filters.period;
-  const q: Record<string, unknown> = { status: "paid" };
+  const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
 
@@ -320,7 +330,7 @@ export async function computeFinanceTimeseries(filters: { period: "daily" | "wee
 
 // Revenue per offer
 export async function computeRevenueByOffer(filters: { from?: string; to?: string; limit?: number } = {}) {
-  const q: Record<string, unknown> = { status: "paid" };
+  const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
   const payments = await PaymentModel.find(q).select("offerId amountKwd grossAmountKwd cashbackAppliedKwd").lean();
@@ -392,7 +402,7 @@ export async function computeRevenueByOffer(filters: { from?: string; to?: strin
 
 // Top customers by revenue / LTV
 export async function computeRevenueByUser(filters: { from?: string; to?: string; limit?: number } = {}) {
-  const q: Record<string, unknown> = { status: "paid" };
+  const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
   const payments = await PaymentModel.find(q).select("userId amountKwd cashbackAppliedKwd").lean();
@@ -464,7 +474,7 @@ export async function computeDetailedCustomersReport(filters: { from?: string; t
 
   // Fetch all actual completed payments to calculate true Paid Amount
   const uoIds = userOffers.map((u: any) => u._id).filter(Boolean);
-  const uoPayments = await PaymentModel.find({ userOfferId: { $in: uoIds }, status: "paid" }).select("userOfferId amountKwd").lean().catch(() => []);
+  const uoPayments = await PaymentModel.find({ userOfferId: { $in: uoIds }, status: { $in: [...PAID_STATUSES] } }).select("userOfferId amountKwd").lean().catch(() => []);
   const uoPaidMap = new Map<string, number>();
   for (const p of uoPayments as any[]) {
     const id = p.userOfferId?.toString();
@@ -576,7 +586,7 @@ export async function computeDetailedCustomersReport(filters: { from?: string; t
 
 // Revenue grouped by referrer (the staff who referred the buyer) - ONLY first transaction counts
 export async function computeRevenueByReferral(filters: { from?: string; to?: string; limit?: number } = {}) {
-  const q: Record<string, unknown> = { status: "paid" };
+  const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
   
@@ -589,7 +599,7 @@ export async function computeRevenueByReferral(filters: { from?: string; to?: st
 
   // For these buyers, find their FIRST payment EVER
   const firstPaymentsEver = await PaymentModel.aggregate([
-    { $match: { status: "paid", userId: { $in: buyerIds } } },
+    { $match: { status: { $in: [...PAID_STATUSES] }, userId: { $in: buyerIds } } },
     { $sort: { createdAt: 1 } },
     { $group: {
         _id: "$userId",
@@ -727,9 +737,10 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
     }
   }
 
-  // Sort: late first (oldest due date first), then upcoming (soonest first)
+  // Sort: late first (oldest due date first), then upcoming (soonest first), then paid
+  const order: Record<string, number> = { late: 0, upcoming: 1, paid: 2 };
   tracker.sort((a, b) => {
-    if (a.status !== b.status) return a.status === "late" ? -1 : 1;
+    if (a.status !== b.status) return order[a.status] - order[b.status];
     return new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime();
   });
 
@@ -742,8 +753,8 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
       lateCount: tracker.filter((t) => t.status === "late").length,
       upcomingCount: tracker.filter((t) => t.status === "upcoming").length,
     },
-    items: tracker.slice(0, Math.min(500, filters.limit ?? 200)),
-    truncated: tracker.length > Math.min(500, filters.limit ?? 200),
+    items: tracker.slice(0, Math.min(1000, filters.limit ?? 1000)),
+    truncated: tracker.length > Math.min(1000, filters.limit ?? 1000),
     totalMatching: tracker.length,
   };
 }
@@ -778,7 +789,6 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
 async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string } = {}) {
   const dateFilter = buildDateFilter(filters.from, filters.to);
   let revenueKwd: string;
-  let revenueMils: number;
   let cashbackAppliedMils = 0;
   
   let globalMetric: any = null;
@@ -789,7 +799,7 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
   // Revenue = gross (sticker), profit = net (amountKwd — already excludes cashback)
   let netMils = 0;
   let grossMils = 0;
-  const rowsQ: Record<string, unknown> = { status: "paid" };
+  const rowsQ: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
   if (dateFilter) rowsQ.createdAt = dateFilter;
 
   if (!dateFilter) {
@@ -819,8 +829,8 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
     }
   }
 
-  revenueMils = grossMils;
-  revenueKwd = fmtKwd(grossMils);
+  const packageRevenue = await computePackageRevenue(filters);
+  revenueKwd = packageRevenue.revenueKwd;
 
   const pending = await userOfferService.listPendingPaymentsQueue();
   let pendingMils = 0;
@@ -841,8 +851,8 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
   let utilized = 0;
   let credited = 0;
   
-  if (!dateFilter) {
-    // ── Fast path: use MongoDB Aggregation for system-wide wallets ──────────────
+  // Wallet balances are a point-in-time total, so they ignore the date filter.
+  {
     const [walletAgg, txnAgg] = await Promise.all([
       WalletModel.aggregate([
         { $group: { _id: null, locked: { $sum: { $toDouble: "$lockedKwd" } }, unlocked: { $sum: { $toDouble: "$unlockedKwd" } } } }
@@ -851,7 +861,7 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
         { $group: { _id: "$type", total: { $sum: { $toDouble: "$amountKwd" } } } }
       ])
     ]);
-    
+
     if (walletAgg.length > 0) {
       locked = Math.round(walletAgg[0].locked * 1000);
       unlocked = Math.round(walletAgg[0].unlocked * 1000);
@@ -861,24 +871,10 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
       if (t._id === "deduction") utilized += mils;
       if (["signup_bonus", "unlock", "adjustment", "reversal"].includes(t._id)) credited += mils;
     }
-  } else {
-    // Date-filtered fallback (less common)
-    const paymentUserIds = await PaymentModel.distinct<string>("userId");
-    const walletUserIds = new Set<string>([...paymentUserIds, ...pending.map((p) => p.userId), "cust1"]);
-    const userIdsArr = Array.from(walletUserIds);
-    const wallets = await WalletModel.find({ userId: { $in: userIdsArr } }).lean();
-    for (const w of wallets as any[]) {
-      locked += parseKwd(w.lockedKwd || "0.000");
-      unlocked += parseKwd(w.unlockedKwd || "0.000");
-    }
-    const txns = await WalletTxnModel.find({ userId: { $in: userIdsArr } }).select("type amountKwd").lean();
-    for (const t of txns as any[]) {
-      if (t.type === "deduction") utilized += parseKwd(t.amountKwd || "0.000");
-      if (t.type === "signup_bonus" || t.type === "unlock" || t.type === "adjustment" || t.type === "reversal") credited += parseKwd(t.amountKwd || "0.000");
-    }
   }
 
-  const liability = locked + unlocked - utilized;
+  // unlockedKwd is already net of deductions, so used cashback is not subtracted again.
+  const liability = locked + unlocked;
 
   const clinics = await clinicService.listClinics({ activeOnly: true });
   const offersRes = await offerService.listOffersPublic({});
@@ -891,51 +887,8 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
     BookingSessionModel.countDocuments({ status: "completed", scheduledAt: { $gte: monthStart } }),
   ]);
 
-  let expectedTotalMils = 0;
-  let paidTowardMembershipsMils = 0;
-
-  // Always computed live: the stored metric is only refreshed by the 12-hourly
-  // reconciliation job, so it lagged behind confirmed payments on the dashboard.
-  {
-    const uoQ: any = { status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] } };
-    if (dateFilter) uoQ.createdAt = dateFilter;
-
-    // Fetch all user offers (excluding pending/rejected) to calculate Expected amounts exactly like the comprehensive report
-    const allUserOffers = await UserOfferModel.find(uoQ).select("offerId installmentSchedule purchaseMode paymentAmountKwd depositAmountKwd status").lean();
-
-    const allOfferIds = [...new Set(allUserOffers.map((uo: any) => uo.offerId?.toString()).filter(Boolean))];
-    const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
-    const offerPriceMap = new Map(allOfferDocs.map((o: any) => [o._id.toString(), o.subscriptionPriceKwd]));
-
-    for (const uo of allUserOffers as any[]) {
-      // Calculate total price expected (Report logic: offerPrice first, then paymentAmount)
-      const totalPriceKwd = offerPriceMap.get(uo.offerId?.toString()) || uo.paymentAmountKwd || "0.000";
-      const uoTotal = parseKwd(totalPriceKwd);
-      
-      // Calculate paid amount exactly like the report
-      let paidMils = 0;
-      if (uo.purchaseMode === "installments") {
-        const sched = uo.installmentSchedule || [];
-        paidMils += parseKwd(uo.depositAmountKwd || "0");
-        sched.forEach((s: any) => {
-          if (s.paid) paidMils += parseKwd(s.amountKwd || "0");
-        });
-      } else if (uo.purchaseMode === "deposit") {
-        paidMils = parseKwd(uo.paymentAmountKwd || uo.depositAmountKwd || "0");
-      } else {
-        if (uo.status === "active" || uo.status === "expired" || uo.status === "reserved" || uo.status === "cancelled") {
-           paidMils = uoTotal;
-        }
-      }
-      
-      expectedTotalMils += uoTotal;
-      paidTowardMembershipsMils += paidMils;
-    }
-  }
-
-  // Unpaid = Expected - Paid
-  const unpaidInstallmentsMils = Math.max(0, expectedTotalMils - paidTowardMembershipsMils);
-
+  const collectedMils = parseKwd(packageRevenue.collectedKwd);
+  const outstandingMils = parseKwd(packageRevenue.outstandingKwd);
 
   return {
     revenueKwd,
@@ -963,9 +916,10 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
     pendingPaymentsKwd: fmtKwd(pendingMils),
     sessionsToday,
     sessionsThisMonth,
-    expectedTotalRevenueKwd: fmtKwd(expectedTotalMils),
-    unpaidInstallmentsKwd: fmtKwd(unpaidInstallmentsMils),
-    paidTowardMembershipsKwd: fmtKwd(paidTowardMembershipsMils),
+    expectedTotalRevenueKwd: fmtKwd(collectedMils + outstandingMils),
+    unpaidInstallmentsKwd: packageRevenue.outstandingKwd,
+    paidTowardMembershipsKwd: packageRevenue.collectedKwd,
+    packageRevenue,
   };
 }
 
@@ -978,7 +932,7 @@ export async function computeDormantCustomersReport(filters: { from?: string; to
   if (dateFilter) activeQ.createdAt = dateFilter;
 
   const [recentPayments, recentSessions] = await Promise.all([
-    PaymentModel.distinct("userId", { ...activeQ, status: "paid" }),
+    PaymentModel.distinct("userId", { ...activeQ, status: { $in: [...PAID_STATUSES] } }),
     BookingSessionModel.distinct("userId", { ...activeQ, status: "completed" }),
   ]);
   const activeUserIds = new Set([...recentPayments, ...recentSessions].map(id => id.toString()));
@@ -1023,7 +977,7 @@ export async function computeSystemHealthReport(filters: { from?: string; to?: s
 
 
 
-export type FinanceExportKind = "payments" | "offers" | "subscriptions" | "referrals" | "installments" | "clinics" | "comprehensive";
+export type FinanceExportKind = "payments" | "offers" | "subscriptions" | "referrals" | "installments" | "comprehensive";
 
 function clampColWidth(n: number) {
   return Math.max(10, Math.min(44, n));
@@ -1151,7 +1105,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
   };
 
   if (kind === "payments") {
-    const data = await computePaymentsBreakdown({ from: filters.from, to: filters.to, limit: 500 });
+    const data = await computePaymentsBreakdown({ from: filters.from, to: filters.to });
     addTable(
       [
         { key: "date", header: "Date", alignment: { vertical: "middle", horizontal: "left" } },
@@ -1232,7 +1186,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     );
   } else if (kind === "referrals") {
     // 1. Get payments in period
-    const q: Record<string, unknown> = { status: "paid" };
+    const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
     const dateFilter = buildDateFilter(filters.from, filters.to);
     if (dateFilter) q.createdAt = dateFilter;
     
@@ -1245,7 +1199,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     if (buyerIdsStr.length > 0) {
       // 2. Find their FIRST payment EVER
       const firstPaymentsEver = await PaymentModel.aggregate([
-        { $match: { status: "paid", userId: { $in: buyerIdsStr } } },
+        { $match: { status: { $in: [...PAID_STATUSES] }, userId: { $in: buyerIdsStr } } },
         { $sort: { createdAt: 1 } },
         { $group: {
             _id: "$userId",
@@ -1388,111 +1342,6 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         status: i.status,
       })),
     );
-  } else if (kind === "clinics") {
-    const data = await computeClinicSummaries({ from: filters.from, to: filters.to });
-    addTable(
-      [
-        { key: "clinicName", header: "Clinic Name" },
-        { key: "totalSessions", header: "Total Sessions" },
-        { key: "completed", header: "Completed" },
-        { key: "scheduled", header: "Scheduled" },
-        { key: "noShow", header: "No-Show" },
-        { key: "totalInvoices", header: "Total Invoices" },
-        { key: "paidInvoices", header: "Paid Invoices" },
-        { key: "status", header: "Status" },
-      ],
-      data.items.map((c: any) => ({
-        clinicName: c.clinicNameEn,
-        totalSessions: c.totalSessions,
-        completed: c.completedSessions,
-        scheduled: c.scheduledSessions,
-        noShow: c.noShowSessions,
-        totalInvoices: c.totalInvoices,
-        paidInvoices: c.paidInvoices,
-        status: c.isActive ? "Active" : "Inactive",
-      })),
-    );
-
-    const wsS = wb.addWorksheet("All Sessions");
-    
-    // Add subtotal row at the top
-    wsS.getCell("A1").value = "Total Sessions:";
-    wsS.getCell("A1").font = { bold: true };
-    wsS.getCell("B1").value = { formula: "SUBTOTAL(3, B4:B100000)" };
-    wsS.getCell("B1").font = { bold: true };
-    
-    wsS.getCell("G1").value = "Total Bill (KWD):";
-    wsS.getCell("G1").font = { bold: true };
-    wsS.getCell("H1").value = { formula: "SUBTOTAL(9, H4:H100000)" };
-    wsS.getCell("H1").font = { bold: true };
-
-    const sHeaders = ["Date", "Customer", "Phone", "Clinic", "Membership", "Session Type", "Status", "Bill (KWD)", "Notes"];
-    const sHeaderRow = wsS.getRow(3);
-    sHeaderRow.values = sHeaders;
-    sHeaderRow.eachCell((c) => {
-      c.font = { bold: true };
-      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
-    });
-    wsS.getColumn(1).width = 20;
-    wsS.getColumn(2).width = 25;
-    wsS.getColumn(3).width = 18;
-    wsS.getColumn(4).width = 25;
-    wsS.getColumn(5).width = 25; // Membership
-    wsS.getColumn(6).width = 20; // Session Type
-    wsS.getColumn(7).width = 15; // Status
-    wsS.getColumn(8).width = 15; // Bill
-    wsS.getColumn(9).width = 30; // Notes
-
-    const sessionQ: any = {};
-    const sessionDateFilter = buildDateFilter(filters.from, filters.to);
-    if (sessionDateFilter) sessionQ.scheduledAt = sessionDateFilter;
-    const allSessions = await BookingSessionModel.find(sessionQ).sort({ scheduledAt: -1 }).lean();
-
-    const uIds = [...new Set(allSessions.map((s: any) => s.userId).filter(Boolean))];
-    const isOid = (s: string) => /^[a-f0-9]{24}$/i.test(s);
-    const users = await UserModel.find({ 
-      $or: [
-        { _id: { $in: uIds.filter(isOid) } },
-        { username: { $in: uIds } },
-      ],
-    }).select("username fullName phone").lean();
-    const uMap = new Map(users.map((u: any) => [u._id.toString(), u]));
-    users.forEach((u: any) => { if (u.username) uMap.set(u.username, u); });
-
-    const clinicDocs = await ClinicModel.find().lean();
-    const cMap = new Map(clinicDocs.map((c: any) => [c._id.toString(), c.nameEn || c.nameAr]));
-    
-    // Fetch offers to get membership and session type
-    const oIds = [...new Set(allSessions.map((s: any) => s.offerId?.toString()).filter(Boolean))];
-    const offers = await OfferModel.find({ _id: { $in: oIds } }).select("name nameAr category offerKind").lean();
-    const oMap = new Map(offers.map((o: any) => [o._id.toString(), o]));
-
-    allSessions.forEach((s: any, idx) => {
-      const u = uMap.get(s.userId) || {};
-      const c = cMap.get(s.clinicId?.toString()) || s.clinicId;
-      const o = s.offerId ? (oMap.get(s.offerId.toString()) || {}) : {};
-      
-      const membership = o.nameAr || o.name || "—";
-      const sessionType = o.offerKind || o.category || "—";
-
-      const row = wsS.getRow(idx + 4);
-      row.values = [
-        s.scheduledAt ? kwDateTime(s.scheduledAt) : "",
-        u.fullName || u.username || s.userId,
-        u.phone || "",
-        c,
-        membership,
-        sessionType,
-        s.status,
-        Number.parseFloat(s.finalPaidKwd || s.totalBillKwd || "0"),
-        s.notes || "",
-      ];
-    });
-
-    wsS.autoFilter = {
-      from: { row: 3, column: 1 },
-      to: { row: 3, column: sHeaders.length },
-    };
   }
 
   const buf = await wb.xlsx.writeBuffer();
@@ -1500,115 +1349,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
 }
 
 // ===========================================================================
-// CLINIC SUMMARIES — all clinics with session + revenue stats (Finance view)
-// ===========================================================================
-
-export async function computeClinicSummaries(filters: { from?: string; to?: string } = {}) {
-  const dateFilter = buildDateFilter(filters.from, filters.to);
-
-  const clinics = await ClinicModel.find({}).select("nameEn nameAr isActive").lean();
-
-  // Sessions per clinic (BookingSessionModel, clinicId is ObjectId → convert to string)
-  const sessionMatchStage: Record<string, unknown> = {};
-  if (dateFilter) sessionMatchStage.scheduledAt = dateFilter;
-  const sessionAgg = await BookingSessionModel.aggregate([
-    ...(Object.keys(sessionMatchStage).length ? [{ $match: sessionMatchStage }] : []),
-    {
-      $group: {
-        _id: { $toString: "$clinicId" },
-        total: { $sum: 1 },
-        completed: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } },
-        noShow: { $sum: { $cond: [{ $eq: ["$status", "no_show"] }, 1, 0] } },
-        scheduled: { $sum: { $cond: [{ $eq: ["$status", "scheduled"] }, 1, 0] } },
-      },
-    },
-  ]);
-  const sessionMap = new Map<string, { total: number; completed: number; noShow: number; scheduled: number }>();
-  for (const s of sessionAgg) sessionMap.set(s._id, { total: s.total, completed: s.completed, noShow: s.noShow, scheduled: s.scheduled });
-
-  // Revenue per clinic from payments breakdown
-  const breakdown = await computePaymentsBreakdown({ from: filters.from, to: filters.to, limit: 100000 });
-  const revenueMap = new Map<string, { count: number; mils: number }>();
-  for (const c of breakdown.byClinics) revenueMap.set(c.clinicId, { count: c.count, mils: parseKwd(c.totalKwd) });
-
-  // Active memberships per clinic (clinicId may be ObjectId or String)
-  const membershipAgg = await UserOfferModel.aggregate([
-    { $match: { status: "active" } },
-    { $group: { _id: { $toString: "$clinicId" }, count: { $sum: 1 } } },
-  ]).catch(() => []);
-  const membershipMap = new Map<string, number>();
-  for (const m of membershipAgg) membershipMap.set(m._id, m.count);
-
-  // Invoices (booking requests) per clinic
-  const brMatchStage: Record<string, unknown> = {};
-  if (dateFilter) brMatchStage.createdAt = dateFilter;
-  const invoiceAgg = await BookingRequestModel.aggregate([
-    ...(Object.keys(brMatchStage).length ? [{ $match: brMatchStage }] : []),
-    { $sort: { createdAt: -1 } },
-    {
-      $group: {
-        _id: { clinicId: "$clinicId", sessionId: { $ifNull: ["$scheduledSessionId", "$_id"] } },
-        doc: { $first: "$$ROOT" }
-      }
-    },
-    { $replaceRoot: { newRoot: "$doc" } },
-    {
-      $lookup: {
-        from: "bookingsessions",
-        localField: "scheduledSessionId",
-        foreignField: "_id",
-        as: "session"
-      }
-    },
-    { $unwind: { path: "$session", preserveNullAndEmptyArrays: true } },
-    {
-      $group: {
-        _id: "$clinicId",
-        totalInvoices: { $sum: 1 },
-        paidInvoices: { 
-          $sum: { 
-            $cond: [
-              { $and: [
-                { $eq: ["$clinicPaymentStatus", "paid"] },
-                { $eq: ["$session.status", "completed"] }
-              ]}, 
-              1, 0
-            ] 
-          } 
-        },
-      },
-    },
-  ]);
-  const invoiceMap = new Map<string, { total: number; paid: number }>();
-  for (const i of invoiceAgg) invoiceMap.set(i._id, { total: i.totalInvoices, paid: i.paidInvoices });
-
-  const items = (clinics as any[]).map((c) => {
-    const cid = c._id.toString();
-    const sess = sessionMap.get(cid) ?? { total: 0, completed: 0, noShow: 0, scheduled: 0 };
-    const rev = revenueMap.get(cid) ?? { count: 0, mils: 0 };
-    const inv = invoiceMap.get(cid) ?? { total: 0, paid: 0 };
-    return {
-      clinicId: cid,
-      clinicNameEn: c.nameEn ?? "",
-      clinicNameAr: c.nameAr ?? "",
-      isActive: c.isActive ?? true,
-      totalSessions: sess.total,
-      completedSessions: sess.completed,
-      noShowSessions: sess.noShow,
-      scheduledSessions: sess.scheduled,
-      revenueKwd: fmtKwd(rev.mils),
-      paymentsCount: rev.count,
-      activeMemberships: membershipMap.get(cid) ?? 0,
-      totalInvoices: inv.total,
-      paidInvoices: inv.paid,
-    };
-  }).sort((a, b) => parseKwd(b.revenueKwd) - parseKwd(a.revenueKwd));
-
-  return { items };
-}
-
-// ===========================================================================
-// CLINIC DETAIL — sessions + invoices for a single clinic
+// CLINIC DETAIL — sessions and invoices for one clinic (used by the clinic dashboard)
 // ===========================================================================
 
 export async function computeClinicDetail(clinicId: string, filters: { from?: string; to?: string } = {}) {
@@ -2005,7 +1746,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   const dateFilter = buildDateFilter(filters.from, filters.to);
 
   const usersQ: any = {};
-  const paymentsQ: any = { status: "paid" };
+  const paymentsQ: any = { status: { $in: [...PAID_STATUSES] } };
   const membershipsQ: any = { status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] } };
   const sessionsQ: any = {};
 
@@ -2279,6 +2020,117 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   );
 
 
+
+  const buf = await wb.xlsx.writeBuffer();
+  return Buffer.isBuffer(buf) ? buf : Buffer.from(buf as ArrayBuffer);
+}
+
+// ===========================================================================
+// CLINIC SESSIONS REPORT — summary sheet + one detail sheet per clinic
+// ===========================================================================
+
+const SESSION_STATUS_AR: Record<string, string> = { completed: "حضر", no_show: "لم يحضر" };
+
+export async function exportClinicSessionsXlsx(filters: { from?: string; to?: string; clinicId?: string }) {
+  const report = await computeClinicSessionsReport(filters);
+  const period = [filters.from ? kwDate(filters.from) : "", filters.to ? kwDate(filters.to) : ""].filter(Boolean).join(" – ");
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Belamonda";
+  wb.created = new Date();
+
+  const addTitle = (ws: ExcelJS.Worksheet, title: string, cols: number) => {
+    ws.mergeCells(1, 1, 1, cols);
+    const cell = ws.getCell(1, 1);
+    cell.value = period ? `${title} — ${period}` : title;
+    cell.font = { bold: true, size: 14, color: { argb: "FFCC0000" } };
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(1).height = 30;
+  };
+  const totalRowStyle = (row: ExcelJS.Row) => {
+    row.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFCE7F3" } };
+    });
+  };
+
+  // ── Summary ──
+  const summary = wb.addWorksheet("الملخص / Summary", { views: [{ rightToLeft: true }] });
+  const sHeaders = [
+    "المركز / Clinic",
+    "حضر / Completed",
+    "لم يحضر / No-show",
+    "قيمة الجلسات / Session value (KWD)",
+    "كاش باك / Cashback used (KWD)",
+    "مدفوع في المركز / Paid at clinic (KWD)",
+  ];
+  addTitle(summary, "تقرير جلسات المراكز / Clinic sessions report", sHeaders.length);
+  summary.getRow(2).values = sHeaders;
+  styleHeaderRow(summary.getRow(2));
+  report.clinics.forEach((c, i) => {
+    const row = summary.getRow(i + 3);
+    row.values = [c.clinicNameAr || c.clinicNameEn, c.completed, c.noShow, parseKwd(c.sessionValueKwd) / 1000, parseKwd(c.cashbackKwd) / 1000, parseKwd(c.paidAtClinicKwd) / 1000];
+    styleDataRow(row, i % 2 === 1);
+  });
+  const t = report.totals;
+  const sTotal = summary.getRow(report.clinics.length + 3);
+  sTotal.values = ["الإجمالي / Total", t.completed, t.noShow, parseKwd(t.sessionValueKwd) / 1000, parseKwd(t.cashbackKwd) / 1000, parseKwd(t.paidAtClinicKwd) / 1000];
+  totalRowStyle(sTotal);
+  [4, 5, 6].forEach((c) => (summary.getColumn(c).numFmt = "0.000"));
+  setAutoWidths(summary, 2, 3);
+
+  // ── One sheet per clinic ──
+  const dHeaders = [
+    "#",
+    "التاريخ / Date",
+    "العميل / Customer",
+    "الهاتف / Phone",
+    "الباقة أو الخدمة / Package or service",
+    "منتج إضافي / Extras",
+    "حالة الجلسة / Status",
+    "قيمة الجلسة / Value (KWD)",
+    "كاش باك / Cashback (KWD)",
+    "مدفوع في المركز / Paid at clinic (KWD)",
+    "تم تسجيل الدفع / POS marked",
+    "ملاحظة / Note",
+  ];
+  const usedNames = new Set<string>();
+  for (const c of report.clinics) {
+    let name = (c.clinicNameAr || c.clinicNameEn || "Clinic").replace(/[\\/*?:[\]]/g, " ").slice(0, 28).trim() || "Clinic";
+    for (let n = 2; usedNames.has(name); n++) name = `${name.slice(0, 25)} ${n}`;
+    usedNames.add(name);
+
+    const ws = wb.addWorksheet(name, { views: [{ rightToLeft: true }] });
+    addTitle(ws, c.clinicNameAr || c.clinicNameEn, dHeaders.length);
+    ws.getRow(2).values = dHeaders;
+    styleHeaderRow(ws.getRow(2));
+    const rows = report.rows.filter((r) => r.clinicId === c.clinicId);
+    rows.forEach((r, i) => {
+      const row = ws.getRow(i + 3);
+      row.values = [
+        i + 1,
+        r.date ? kwDateTime(r.date) : "",
+        r.customerName,
+        r.customerPhone,
+        r.packageName || "—",
+        r.extras || "—",
+        SESSION_STATUS_AR[r.status] ? `${SESSION_STATUS_AR[r.status]} / ${r.status === "no_show" ? "No-show" : "Completed"}` : r.status,
+        parseKwd(r.sessionValueKwd) / 1000,
+        parseKwd(r.cashbackKwd) / 1000,
+        parseKwd(r.paidAtClinicKwd) / 1000,
+        r.clinicMarkedPaid ? "نعم / Yes" : "لا / No",
+        r.membershipCancelled ? "اشتراك ملغي / Membership cancelled" : "",
+      ];
+      styleDataRow(row, i % 2 === 1);
+      row.getCell(7).font = { bold: true, color: { argb: r.status === "completed" ? "FF008000" : "FFCC0000" } };
+    });
+    const total = ws.getRow(rows.length + 3);
+    total.values = ["", "الإجمالي / Total", `${c.completed} حضر / completed, ${c.noShow} لم يحضر / no-show`, "", "", "", "", parseKwd(c.sessionValueKwd) / 1000, parseKwd(c.cashbackKwd) / 1000, parseKwd(c.paidAtClinicKwd) / 1000, "", ""];
+    totalRowStyle(total);
+    [8, 9, 10].forEach((col) => (ws.getColumn(col).numFmt = "0.000"));
+    ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: dHeaders.length } };
+    setAutoWidths(ws, 2, 3);
+  }
 
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.isBuffer(buf) ? buf : Buffer.from(buf as ArrayBuffer);

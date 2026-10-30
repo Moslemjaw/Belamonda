@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { PaymentModel } from "../models/payment.model.js";
+import { PAID_STATUSES } from "./financeRevenue.js";
 import { serializePayment } from "../utils/serialize.js";
 import { incrementMetric } from "./metric.service.js";
 import { kwdToMils } from "../utils/money.js";
@@ -156,7 +157,7 @@ export async function sumCompletedPaymentsKwd() {
   if (_sumCompletedPromise) return _sumCompletedPromise;
 
   const promise = (async () => {
-    const all = await PaymentModel.find({ status: "paid" }).select("amountKwd cashbackAppliedKwd grossAmountKwd").lean();
+    const all = await PaymentModel.find({ status: { $in: [...PAID_STATUSES] } }).select("amountKwd cashbackAppliedKwd grossAmountKwd").lean();
     let totalMils = 0;
     for (const p of all) {
       const net = parseKwdMils(p.amountKwd);

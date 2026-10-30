@@ -5,6 +5,7 @@ import { SystemMetricModel } from "../models/metric.model.js";
 import { UserOfferModel } from "../models/userOffer.model.js";
 import { OfferModel } from "../models/offer.model.js";
 import { runExclusive } from "../jobs/lease.js";
+import { PAID_STATUSES } from "./financeRevenue.js";
 
 function parseKwd(k: string | undefined | null) {
   if (!k) return 0;
@@ -23,7 +24,7 @@ export async function reconcileMetrics() {
   const totalSessionsCompleted = await BookingSessionModel.countDocuments({ status: "completed" });
   
   // 3. Reconcile Payments (Global)
-  const payments = await PaymentModel.find({ status: "paid" })
+  const payments = await PaymentModel.find({ status: { $in: [...PAID_STATUSES] } })
     .select("amountKwd grossAmountKwd cashbackAppliedKwd purpose createdAt")
     .lean();
     

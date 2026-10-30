@@ -189,6 +189,9 @@ export function serializeUserOffer(doc: UserOfferDoc) {
     enetStatus: doc.enetStatus,
     enetTxnRef: doc.enetTxnRef,
     isStandalone: !!doc.isStandalone,
+    cancelledAt: doc.cancelledAt ? new Date(doc.cancelledAt).toISOString() : undefined,
+    cancelReason: doc.cancelReason,
+    refundedKwd: doc.refundedKwd,
     // Membership type & group fields
     membershipType: (doc as any).membershipType ?? undefined,
     cashbackBalanceKwd: (doc as any).cashbackBalanceKwd ?? undefined,

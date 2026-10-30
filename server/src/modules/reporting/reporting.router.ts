@@ -14,12 +14,14 @@ import {
   computeRevenueByReferral,
   computeInstallmentsAnalytics,
   exportFinanceXlsx,
-  computeClinicSummaries,
   computeClinicDetail,
   exportClinicReportXlsx,
   exportComprehensiveReportXlsx,
+  exportClinicSessionsXlsx,
 } from "./analytics.service.js";
 import { reconcileMetrics } from "../../services/reconciliation.service.js";
+import { computePackageRevenue } from "./revenue.service.js";
+import { computeClinicSessionsReport } from "./clinicSessions.service.js";
 
 const CreateReportSchema = z.object({
   type: z.enum(["daily_summary", "weekly_pl", "monthly_cashback_liability", "yearly_revenue", "custom"]),
@@ -39,10 +41,24 @@ reportingRouter.get("/finance/payments-breakdown", authRequired, requireRole(FIN
       status: str(req.query.status),
       method: str(req.query.method),
       purpose: str(req.query.purpose),
+      type: str(req.query.type),
+      customer: str(req.query.customer),
       from: str(req.query.from),
       to: str(req.query.to),
     });
     return res.json(data);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Package revenue: money received for packages in the period, minus refunds,
+// plus what is still unpaid on packages sold in the period and granted packages.
+reportingRouter.get("/finance/revenue", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const g = str(req.query.granularity);
+    const granularity = g === "weekly" || g === "monthly" ? g : "daily";
+    return res.json(await computePackageRevenue({ from: str(req.query.from), to: str(req.query.to), granularity }));
   } catch (e) {
     next(e);
   }
@@ -111,7 +127,7 @@ reportingRouter.get("/finance/export", authRequired, requireRole([...FINANCE_ROL
     if (req.auth!.role === "cs_director" && kind !== "referrals") {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
-    const allowed = ["payments", "offers", "subscriptions", "referrals", "installments", "clinics", "comprehensive"];
+    const allowed = ["payments", "offers", "subscriptions", "referrals", "installments", "comprehensive"];
     if (!allowed.includes(kind)) return res.status(400).json({ error: "INVALID_KIND" });
     if (kind === "comprehensive") {
       const xlsx = await exportComprehensiveReportXlsx({ from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
@@ -175,35 +191,28 @@ reportingRouter.get("/finance/reports/:id", authRequired, requireRole(FINANCE_RO
 // CLINIC SUMMARIES — all clinics (Finance view)
 // ===========================================================================
 
-reportingRouter.get("/finance/by-clinic", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+// Monthly clinic sessions report: sessions that happened (completed / no-show) per clinic.
+reportingRouter.get("/finance/clinic-sessions", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {
-    const data = await computeClinicSummaries({ from: str(req.query.from), to: str(req.query.to) });
+    const data = await computeClinicSessionsReport({ from: str(req.query.from), to: str(req.query.to), clinicId: str(req.query.clinicId) });
     return res.json(data);
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
-reportingRouter.get("/finance/clinic-detail", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+reportingRouter.get("/finance/clinic-sessions/export", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {
-    const clinicId = str(req.query.clinicId);
-    if (!clinicId) return res.status(400).json({ error: "clinicId required" });
-    const data = await computeClinicDetail(clinicId, { from: str(req.query.from), to: str(req.query.to) });
-    return res.json(data);
-  } catch (e) { next(e); }
-});
-
-reportingRouter.get("/finance/clinic-export", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
-  try {
-    const clinicId = str(req.query.clinicId);
-    if (!clinicId) return res.status(400).json({ error: "clinicId required" });
-    const filters = { from: str(req.query.from), to: str(req.query.to) };
-    const clinicDetail = await computeClinicDetail(clinicId, filters);
-    const clinicSlug = (clinicDetail.clinic?.nameEn ?? clinicId).replace(/\s+/g, "-").toLowerCase();
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const xlsx = await exportClinicReportXlsx(clinicId, filters);
+    const from = str(req.query.from);
+    const to = str(req.query.to);
+    const xlsx = await exportClinicSessionsXlsx({ from, to, clinicId: str(req.query.clinicId) });
+    const stamp = [from?.slice(0, 10), to?.slice(0, 10)].filter(Boolean).join("_") || new Date().toISOString().slice(0, 10);
     res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.xlsx"`);
+    res.setHeader("Content-Disposition", `attachment; filename="clinic-sessions-${stamp}.xlsx"`);
     return res.send(xlsx);
-  } catch (e) { next(e); }
+  } catch (e) {
+    next(e);
+  }
 });
 
 // ===========================================================================
@@ -214,7 +223,11 @@ const ManualPaymentSchema = z.object({
   amountKwd: z.string().regex(/^\d+(\.\d{1,3})?$/, "Invalid amount"),
   method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]),
   purpose: z.enum(["enrollment_full", "installment", "deposit", "deposit_balance", "enrollment_enet", "session_payment", "manual_entry"]).default("manual_entry"),
-  status: z.enum(["completed", "pending", "failed", "refunded"]).default("completed"),
+  // "completed"/"pending" are older labels from the form; the payment record only accepts paid/payment_pending.
+  status: z
+    .enum(["paid", "payment_pending", "failed", "refunded", "completed", "pending"])
+    .default("paid")
+    .transform((v) => (v === "completed" ? "paid" : v === "pending" ? "payment_pending" : v)),
   manualLabel: z.string().max(200).optional(),
   notes: z.string().max(1000).optional(),
   providerRef: z.string().max(200).optional(),

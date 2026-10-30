@@ -27,7 +27,8 @@ const PaymentSchema = new Schema(
         "deposit_balance",
         "enrollment_enet",
         "session_payment",
-        "manual_entry"
+        "manual_entry",
+        "refund"
       ],
       default: "enrollment_full",
       index: true
