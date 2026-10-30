@@ -5,7 +5,8 @@ import { OfferModel } from "../models/offer.model.js";
 import { serializeUserOffer } from "../utils/serialize.js";
 import { deriveMembershipType } from "./offer.service.js";
 import { kwdToMils, milsToKwd } from "../utils/money.js";
-import { PAID_STATUSES } from "./financeRevenue.js";
+import { PAID_STATUSES, isSessionPayment } from "./financeRevenue.js";
+import { withTransaction } from "../db/transaction.js";
 
 const kwdMils = kwdToMils;
 
@@ -321,8 +322,9 @@ export async function cancelUserOffer(
   const { PaymentModel } = await import("../models/payment.model.js");
   const { ClinicChangeRequestModel } = await import("../models/clinicChangeRequest.model.js");
 
-  const paidRows = await PaymentModel.find({ userOfferId: id, status: { $in: PAID_STATUSES } }).select("amountKwd").lean();
-  const paidMils = (paidRows as any[]).reduce((sum, p) => sum + kwdMils(p.amountKwd), 0);
+  // Only money paid for the package can be refunded here; session payments belong to the clinic visit.
+  const paidRows = await PaymentModel.find({ userOfferId: id, status: { $in: PAID_STATUSES } }).select("amountKwd purpose").lean();
+  const paidMils = (paidRows as any[]).filter((p) => !isSessionPayment(p)).reduce((sum, p) => sum + kwdMils(p.amountKwd), 0);
 
   const refund = opts.refund ?? { type: "none" };
   let refundMils = 0;
@@ -332,92 +334,101 @@ export async function cancelUserOffer(
     if (refundMils <= 0 || refundMils > paidMils) return { ok: false, error: "invalid_refund" };
   }
 
-  // Check for cashback to reverse
-  const { WalletModel, WalletTxnModel } = await import("../models/kyc.model.js");
-  
-  const walletTxns = await WalletTxnModel.find({
-    userId: doc.userId,
-    $or: [
-      { "reference.id": id },
-      { "reference.id": new RegExp(`^${id}_inst_`) }
-    ]
-  }).lean();
-
-  if (walletTxns.length > 0) {
-    const idsToDelete = walletTxns.map(t => t._id);
-    await WalletTxnModel.deleteMany({ _id: { $in: idsToDelete } });
-    
-    // Recalculate wallet for the user
-    const wallet = await WalletModel.findOne({ userId: doc.userId });
-    if (wallet) {
-      const allTxns = await WalletTxnModel.find({ userId: doc.userId }).sort({ createdAt: 1 }).lean();
-      let ceiling = 0, locked = 0, unlocked = 0;
-      for (const txn of allTxns as any[]) {
-        const amt = typeof txn.amountKwd === "string" ? kwdMils(txn.amountKwd) : 0;
-        switch (txn.type) {
-          case "offer_cashback_credit":
-            locked += amt; ceiling += amt; break;
-          case "installment_unlock":
-          case "signup_bonus":
-          case "unlock":
-            locked -= amt; unlocked += amt; break;
-          case "deduction":
-            unlocked -= amt; break;
-          case "adjustment":
-            unlocked += amt; break;
-          case "session_reward":
-          case "invoice_reward":
-            unlocked += amt; ceiling += amt; break;
-        }
-      }
-      wallet.lockedKwd = (Math.max(0, locked) / 1000).toFixed(3);
-      wallet.unlockedKwd = (Math.max(0, unlocked) / 1000).toFixed(3);
-      wallet.ceilingKwd = (Math.max(0, ceiling) / 1000).toFixed(3);
-      await wallet.save();
-    }
-  }
-
-  // Only open bookings are cancelled; completed sessions stay for clinic reports.
-  const OPEN = ["request_received", "slot_assigned", "scheduled", "confirmed", "rescheduled"];
-  await BookingRequestModel.updateMany({ userOfferId: id, status: { $in: OPEN } }, { $set: { status: "cancelled" } });
-  await BookingSessionModel.updateMany({ userOfferId: id, status: { $in: OPEN } }, { $set: { status: "cancelled" } });
-  await PaymentModel.updateMany(
-    { userOfferId: id, status: "payment_pending" },
-    { $set: { status: "failed", failureReason: "membership_cancelled" } }
-  );
-  await ClinicChangeRequestModel.deleteMany({ userOfferId: id, status: "pending" });
-
   const now = new Date();
-  if (refundMils > 0) {
-    await PaymentModel.create({
-      userId: doc.userId,
-      offerId: doc.offerId,
-      userOfferId: doc._id,
-      amountKwd: milsToKwd(refundMils),
-      method: refund.method || "other",
-      purpose: "refund",
-      provider: "manual",
-      status: "refunded",
-      confirmedBy: opts.actorId,
-      confirmedAt: now,
-      createdByUserId: opts.actorId,
-      notes: opts.reason,
-    });
-  }
+  // Everything commits together. Marking the membership cancelled comes first and only
+  // succeeds once, so a double click can't record the refund or reverse cashback twice.
+  const cancelled = await withTransaction(async () => {
+    const claimed = await UserOfferModel.findOneAndUpdate(
+      { _id: id, status: { $ne: "cancelled" } },
+      {
+        $set: {
+          status: "cancelled",
+          cancelledAt: now,
+          cancelledBy: opts.actorId,
+          cancelReason: opts.reason,
+          refundedKwd: milsToKwd(refundMils),
+        },
+        $unset: { nextInstallmentDueAt: 1 },
+      }
+    )
+      .select("_id")
+      .lean();
+    if (!claimed) return false;
 
-  await UserOfferModel.updateOne(
-    { _id: id },
-    {
-      $set: {
-        status: "cancelled",
-        cancelledAt: now,
-        cancelledBy: opts.actorId,
-        cancelReason: opts.reason,
-        refundedKwd: milsToKwd(refundMils),
-        nextInstallmentDueAt: undefined,
-      },
+    // Check for cashback to reverse
+    const { WalletModel, WalletTxnModel } = await import("../models/kyc.model.js");
+    
+    const walletTxns = await WalletTxnModel.find({
+      userId: doc.userId,
+      $or: [
+        { "reference.id": id },
+        { "reference.id": new RegExp(`^${id}_inst_`) }
+      ]
+    }).lean();
+
+    if (walletTxns.length > 0) {
+      const idsToDelete = walletTxns.map(t => t._id);
+      await WalletTxnModel.deleteMany({ _id: { $in: idsToDelete } });
+      
+      // Recalculate wallet for the user
+      const wallet = await WalletModel.findOne({ userId: doc.userId });
+      if (wallet) {
+        const allTxns = await WalletTxnModel.find({ userId: doc.userId }).sort({ createdAt: 1 }).lean();
+        let ceiling = 0, locked = 0, unlocked = 0;
+        for (const txn of allTxns as any[]) {
+          const amt = typeof txn.amountKwd === "string" ? kwdMils(txn.amountKwd) : 0;
+          switch (txn.type) {
+            case "offer_cashback_credit":
+              locked += amt; ceiling += amt; break;
+            case "installment_unlock":
+            case "signup_bonus":
+            case "unlock":
+              locked -= amt; unlocked += amt; break;
+            case "deduction":
+              unlocked -= amt; break;
+            case "adjustment":
+              unlocked += amt; break;
+            case "session_reward":
+            case "invoice_reward":
+              unlocked += amt; ceiling += amt; break;
+          }
+        }
+        wallet.lockedKwd = (Math.max(0, locked) / 1000).toFixed(3);
+        wallet.unlockedKwd = (Math.max(0, unlocked) / 1000).toFixed(3);
+        wallet.ceilingKwd = (Math.max(0, ceiling) / 1000).toFixed(3);
+        await wallet.save();
+      }
     }
-  );
+
+    // Only open bookings are cancelled; completed sessions stay for clinic reports.
+    const OPEN = ["request_received", "slot_assigned", "scheduled", "confirmed", "rescheduled"];
+    await BookingRequestModel.updateMany({ userOfferId: id, status: { $in: OPEN } }, { $set: { status: "cancelled" } });
+    await BookingSessionModel.updateMany({ userOfferId: id, status: { $in: OPEN } }, { $set: { status: "cancelled" } });
+    await PaymentModel.updateMany(
+      { userOfferId: id, status: "payment_pending" },
+      { $set: { status: "failed", failureReason: "membership_cancelled" } }
+    );
+    await ClinicChangeRequestModel.deleteMany({ userOfferId: id, status: "pending" });
+
+    if (refundMils > 0) {
+      await PaymentModel.create({
+        userId: doc.userId,
+        offerId: doc.offerId,
+        userOfferId: doc._id,
+        amountKwd: milsToKwd(refundMils),
+        method: refund.method || "other",
+        purpose: "refund",
+        provider: "manual",
+        status: "refunded",
+        confirmedBy: opts.actorId,
+        confirmedAt: now,
+        createdByUserId: opts.actorId,
+        notes: opts.reason,
+      });
+    }
+    return true;
+  });
+  if (!cancelled) return { ok: false, error: "already_cancelled" };
   _userOffersCache = null;
 
   await logAuditAction({

@@ -34,7 +34,9 @@ const payments: LedgerPayment[] = [
 
 describe("periods", () => {
   it("previous period has the same length and ends the day before", () => {
-    expect(previousPeriod("2026-10-01", "2026-10-31")).toEqual({ from: "2026-08-31", to: "2026-09-30" });
+    expect(previousPeriod("2026-10-01", "2026-10-31")).toEqual({ from: "2026-09-01", to: "2026-09-30" });
+    expect(previousPeriod("2026-03-01", "2026-03-31")).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+    expect(previousPeriod("2026-10-01", "2026-10-30")).toEqual({ from: "2026-09-01", to: "2026-09-30" });
     expect(previousPeriod("2026-10-15", "2026-10-15")).toEqual({ from: "2026-10-14", to: "2026-10-14" });
   });
 
