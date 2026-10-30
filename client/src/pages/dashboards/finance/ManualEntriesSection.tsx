@@ -5,7 +5,7 @@ import { apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/KpiCard";
 import { fmtDate } from "../../../lib/dateFormat";
 import DatePicker from "../../../components/DatePicker";
-import { ar, fmt, parseKwd, METHOD_LABELS, METHOD_COLORS, MANUAL_METHODS, MANUAL_PURPOSES, MANUAL_STATUSES } from "./shared";
+import { ar, fmt, parseKwd, paidVia, MANUAL_PURPOSES, MANUAL_STATUSES } from "./shared";
 import type { ManualEntry } from "./shared";
 
 /** Manual entries list + add form, shown inside the Payments tab. */
@@ -14,7 +14,6 @@ export function ManualEntriesSection({ from, to }: { from?: string; to?: string 
   const { getAuthHeader } = useAuth();
 
   const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState("cash");
   const [purpose, setPurpose] = useState("manual_entry");
   const [status, setStatus] = useState("paid");
   const [label, setLabel] = useState("");
@@ -57,7 +56,7 @@ export function ManualEntriesSection({ from, to }: { from?: string; to?: string 
     try {
       const body: Record<string, string> = {
         amountKwd: parseFloat(amount).toFixed(3),
-        method, purpose, status,
+        method: "link", purpose, status,
         paymentDate: new Date(paymentDate).toISOString(),
       };
       if (clinicId) body.clinicId = clinicId;
@@ -104,8 +103,6 @@ export function ManualEntriesSection({ from, to }: { from?: string; to?: string 
 
   const purposeLabel = (p: string) =>
     MANUAL_PURPOSES.find(x => x.value === p)?.label ?? p;
-  const methodLabel = (m: string) =>
-    MANUAL_METHODS.find(x => x.value === m)?.label ?? m;
   const statusBadge: Record<string, string> = {
     paid: "bg-emerald-50 text-emerald-700",
     completed: "bg-emerald-50 text-emerald-700",
@@ -166,12 +163,6 @@ export function ManualEntriesSection({ from, to }: { from?: string; to?: string 
               onChange={e => setAmount(e.target.value)}
               required
             />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"} <span className="text-red-500">*</span></label>
-            <select className="select-field" value={method} onChange={e => setMethod(e.target.value)}>
-              {MANUAL_METHODS.map(m => <option key={m.value} value={m.value}>{ar() ? METHOD_LABELS[m.value] ?? m.label : m.label}</option>)}
-            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-surface-500 mb-1.5">{ar() ? "نوع الدفعة" : "Purpose"}</label>
@@ -264,7 +255,7 @@ export function ManualEntriesSection({ from, to }: { from?: string; to?: string 
                 </div>
                 {(e as any).clinicNameEn && <div className="text-xs text-surface-700 font-medium">🏥 {(e as any).clinicNameEn}</div>}
                 <div className="flex flex-wrap gap-1.5">
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${METHOD_COLORS[e.method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>{methodLabel(e.method)}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${paidVia(e).badge}`}>{paidVia(e).label}</span>
                   <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-surface-100 text-surface-600">{purposeLabel(e.purpose)}</span>
                 </div>
                 {e.manualLabel && <div className="text-xs text-surface-600"><span className="text-surface-400 font-medium">{ar() ? "الوصف:" : "Label:"}</span> {e.manualLabel}</div>}
@@ -315,8 +306,8 @@ export function ManualEntriesSection({ from, to }: { from?: string; to?: string 
                     </td>
                     <td className="font-black text-emerald-700 whitespace-nowrap">{e.amountKwd} KWD</td>
                     <td>
-                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${METHOD_COLORS[e.method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>
-                        {methodLabel(e.method)}
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${paidVia(e).badge}`}>
+                        {paidVia(e).label}
                       </span>
                     </td>
                     <td className="text-xs text-surface-600">{purposeLabel(e.purpose)}</td>

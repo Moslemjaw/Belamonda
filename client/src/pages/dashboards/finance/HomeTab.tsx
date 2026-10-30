@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 import { useFinanceInstallments, useFinanceSnapshot, usePackageRevenue, type RevenueGranularity } from "../../../hooks/useApi";
 import { KpiCard } from "../../../components/KpiCard";
-import { ar, parseKwd, COLORS, METHOD_LABELS } from "./shared";
+import { ar, parseKwd, COLORS } from "./shared";
 
 export function HomeTab({
   from, to, granularity, onOpenInstallments, onOpenPendingPayments,
@@ -117,7 +117,7 @@ export function HomeTab({
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4">
         <div className="card-elevated p-5">
           <h3 className="text-sm font-bold text-surface-900 mb-3">{ar() ? "أعلى 5 باقات" : "Top 5 packages"}</h3>
           {(rev?.topPackages ?? []).length === 0 ? (
@@ -135,27 +135,6 @@ export function HomeTab({
               ))}
             </ul>
           )}
-        </div>
-        <div className="card-elevated p-5">
-          <h3 className="text-sm font-bold text-surface-900 mb-3">{ar() ? "حسب طريقة الدفع" : "By payment method"}</h3>
-          {(rev?.byMethod ?? []).length === 0 ? (
-            <div className="text-sm text-surface-400 py-4 text-center">—</div>
-          ) : (
-            <ul className="divide-y divide-surface-100 text-sm">
-              {rev!.byMethod.map(m => (
-                <li key={m.method} className="flex items-center justify-between gap-3 py-2">
-                  <div className="min-w-0">
-                    <div className="font-medium text-surface-800 truncate">{METHOD_LABELS[m.method] ?? m.method}</div>
-                    <div className="text-[11px] text-surface-400">{m.count} {ar() ? "دفعة" : m.count === 1 ? "payment" : "payments"}</div>
-                  </div>
-                  <div className="font-bold text-surface-900 whitespace-nowrap">{m.totalKwd} KWD</div>
-                </li>
-              ))}
-            </ul>
-          )}
-          <p className="text-[11px] text-surface-400 mt-3">
-            {ar() ? "قبل خصم الاستردادات" : "Before refunds"}
-          </p>
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { usePaymentsBreakdown, type EnrichedPaymentItem, type PaymentsType } from "../../../hooks/useApi";
 import { KpiCard } from "../../../components/KpiCard";
 import { fmtDate } from "../../../lib/dateFormat";
-import { ar, METHOD_LABELS, PURPOSE_LABELS, METHOD_COLORS, STATUS_BADGE } from "./shared";
+import { ar, paidVia, PURPOSE_LABELS, STATUS_BADGE } from "./shared";
 import { ManualEntriesSection } from "./ManualEntriesSection";
 
 const TYPES: { key: PaymentsType; en: string; ar: string }[] = [
@@ -27,7 +27,6 @@ const purposeLabel = (p?: string) => (p === "refund" ? (ar() ? "استرداد" 
 export function PaymentsTab({ from, to, initialStatus = "" }: { from: string; to: string; initialStatus?: string }) {
   const [type, setType] = useState<PaymentsType>("");
   const [filterStatus, setFilterStatus] = useState(initialStatus);
-  const [filterMethod, setFilterMethod] = useState("");
   const [search, setSearch] = useState("");
   const [customer, setCustomer] = useState("");
 
@@ -41,7 +40,6 @@ export function PaymentsTab({ from, to, initialStatus = "" }: { from: string; to
   const { data, loading } = usePaymentsBreakdown({
     type: type === "manual" ? undefined : type || undefined,
     status: filterStatus || undefined,
-    method: filterMethod || undefined,
     customer: customer || undefined,
     from, to,
   });
@@ -92,10 +90,6 @@ export function PaymentsTab({ from, to, initialStatus = "" }: { from: string; to
                   <option value="failed">{ar() ? "فشل" : "Failed"}</option>
                   <option value="refunded">{ar() ? "مسترد" : "Refunded"}</option>
                 </select>
-                <select className="select-field text-xs py-1.5 h-auto" value={filterMethod} onChange={e => setFilterMethod(e.target.value)}>
-                  <option value="">{ar() ? "كل الطرق" : "All methods"}</option>
-                  {Object.entries(METHOD_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
               </div>
             </div>
 
@@ -123,7 +117,7 @@ export function PaymentsTab({ from, to, initialStatus = "" }: { from: string; to
                           </div>
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${METHOD_COLORS[p.method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>{METHOD_LABELS[p.method] ?? p.method}</span>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${paidVia(p).badge}`}>{paidVia(p).label}</span>
                           <span className="text-[10px] text-surface-600 bg-surface-50 px-2 py-0.5 rounded-md border border-surface-200">{purposeLabel(p.purpose)}</span>
                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${STATUS_BADGE[p.status] ?? "bg-surface-100 text-surface-500"}`}>{statusLabel(p.status)}</span>
                         </div>
@@ -163,8 +157,8 @@ export function PaymentsTab({ from, to, initialStatus = "" }: { from: string; to
                             </td>
                             <td className="text-surface-600">{p.clinicNameEn || "—"}</td>
                             <td>
-                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${METHOD_COLORS[p.method] ?? "bg-surface-100 text-surface-600 border-surface-200"}`}>
-                                {METHOD_LABELS[p.method] ?? p.method}
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${paidVia(p).badge}`}>
+                                {paidVia(p).label}
                               </span>
                             </td>
                             <td className="text-surface-600">{purposeLabel(p.purpose)}</td>

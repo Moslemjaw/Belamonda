@@ -30,7 +30,7 @@ export function CustomersManager() {
     customInstallments?: CustomInstallment[];
   };
   
-  const emptyRow: EnrollmentRow = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "cash", isVerified: true, installmentCount: 2 };
+  const emptyRow: EnrollmentRow = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "link", isVerified: true, installmentCount: 2 };
   
   const [addForm, setAddForm] = useState({
     phone: "", fullName: "", email: "", password: "",
@@ -59,7 +59,7 @@ export function CustomersManager() {
         dueDate: d.toISOString().split("T")[0],
         amountKwd: amt.toFixed(3),
         isPaid: i === 0,
-        method: "cash"
+        method: "link"
       });
     }
     return arr;
@@ -111,7 +111,7 @@ export function CustomersManager() {
   };
 
   // Grant modal states
-  const defaultGrantEnrollment = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "bank_transfer", isVerified: true, installmentCount: 2, customInstallments: [] };
+  const defaultGrantEnrollment = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "link", isVerified: true, installmentCount: 2, customInstallments: [] };
   const [grantEnrollments, setGrantEnrollments] = useState<any[]>([{ ...defaultGrantEnrollment }]);
   const [grantSaving, setGrantSaving] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
@@ -128,7 +128,7 @@ export function CustomersManager() {
       const now = new Date();
       for (let j = 0; j < count; j++) {
         const d = new Date(now.getTime() + j * 30 * 24 * 60 * 60 * 1000);
-        arr.push({ dueDate: d.toISOString().split("T")[0], amountKwd: "", isPaid: false, method: "cash" });
+        arr.push({ dueDate: d.toISOString().split("T")[0], amountKwd: "", isPaid: false, method: "link" });
       }
       next.customInstallments = arr;
     }
@@ -215,7 +215,7 @@ export function CustomersManager() {
 
   const [belmondoSaving, setBelmondoSaving] = useState(false);
   const [belmondoPlanId, setBelmondoPlanId] = useState<string>("");
-  const [belmondoPaymentMethod, setBelmondoPaymentMethod] = useState<string>("pos");
+  const [belmondoPaymentMethod, setBelmondoPaymentMethod] = useState<string>("link");
 
   const handleUpdateSubscription = async (downgrade = false) => {
     if (!selectedUser) return;
@@ -605,9 +605,7 @@ export function CustomersManager() {
                                   <div>
                                     <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
                                     <select className="select-field w-full" value={en.method} onChange={e => updateEnrollment(idx, { method: e.target.value })}>
-                                      <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
-                                      <option value="pos">POS</option>
-                                      <option value="bank_transfer">{ar() ? "رابط دفع خارجي" : "External Payment Link"}</option>
+                                      <option value="link">{ar() ? "رابط دفع (فريق بيلاموندو)" : "Payment link (Belamonda team)"}</option>
                                       <option value="free_package">{ar() ? "باقة مجانية" : "Free Package"}</option>
                                       <option value="enet">ENET</option>
                                       <option value="wallet">{ar() ? "محفظة كاش باك" : "Cashback Wallet"}</option>
@@ -660,9 +658,7 @@ export function CustomersManager() {
                                                 newInsts[iIdx].method = e.target.value;
                                                 updateEnrollment(idx, { customInstallments: newInsts });
                                               }}>
-                                                <option value="cash">{ar() ? "في العيادة" : "In Clinic"}</option>
-                                                <option value="pos">POS</option>
-                                                <option value="bank_transfer">{ar() ? "رابط دفع" : "Pay Link"}</option>
+                                                <option value="link">{ar() ? "رابط دفع" : "Payment link"}</option>
                                                 <option value="enet">ENET</option>
                                                 <option value="other">{ar() ? "أخرى" : "Other"}</option>
                                               </select>
