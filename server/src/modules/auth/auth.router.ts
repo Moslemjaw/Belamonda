@@ -128,8 +128,23 @@ authRouter.post("/admin/impersonate-user", authRequired, requireRole(["admin", "
     if (!user) return res.status(404).json({ error: "USER_NOT_FOUND" });
 
     const role = (user.role ?? "customer") as string;
+    // Only admin may log in as staff; other roles may only log in as customers,
+    // otherwise a CS account could become an admin.
+    if (req.auth!.role !== "admin" && role !== "customer") {
+      return res.status(403).json({ error: "You can only log in as a customer" });
+    }
     const clinicId: string | undefined = user.clinicId;
     const token = signAccessToken({ sub: parsed.data.userId, role: role as any, clinicId });
+
+    const { logAuditAction } = await import("../../services/audit.service.js");
+    await logAuditAction({
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role as any,
+      actionType: "impersonate_user",
+      targetEntityType: "User",
+      targetEntityId: parsed.data.userId,
+      metadata: { targetRole: role },
+    });
 
     return res.json({ accessToken: token, role, userId: parsed.data.userId, clinicId });
   } catch (e) {
