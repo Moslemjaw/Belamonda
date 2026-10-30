@@ -33,7 +33,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
     historicalSessions?: { date: string }[];
   };
   
-  const emptyRow: EnrollmentRow = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "cash", isVerified: true, installmentCount: 2, historicalSessions: [] };
+  const emptyRow: EnrollmentRow = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "link", isVerified: true, installmentCount: 2, historicalSessions: [] };
   
   const [addForm, setAddForm] = useState({
     phone: "", fullName: "", email: "", password: "",
@@ -62,7 +62,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
         dueDate: d.toISOString().split("T")[0],
         amountKwd: amt.toFixed(3),
         isPaid: i === 0,
-        method: "cash"
+        method: "link"
       });
     }
     return arr;
@@ -554,9 +554,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                                   <div>
                                     <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
                                     <select className="select-field w-full" value={en.method} onChange={e => updateEnrollment(idx, { method: e.target.value })}>
-                                      <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
-                                      <option value="pos">POS</option>
-                                      <option value="bank_transfer">{ar() ? "رابط دفع خارجي" : "External Payment Link"}</option>
+                                      <option value="link">{ar() ? "رابط دفع (فريق بيلاموندو)" : "Payment link (Belamonda team)"}</option>
                                       <option value="enet">ENET</option>
                                       <option value="wallet">{ar() ? "محفظة كاش باك" : "Cashback Wallet"}</option>
                                       <option value="other">{ar() ? "أخرى" : "Other"}</option>
@@ -608,9 +606,7 @@ export function UsersManager({ from, to }: { from?: string; to?: string }) {
                                                 newInsts[iIdx].method = e.target.value;
                                                 updateEnrollment(idx, { customInstallments: newInsts });
                                               }}>
-                                                <option value="cash">{ar() ? "في العيادة" : "In Clinic"}</option>
-                                                <option value="pos">POS</option>
-                                                <option value="bank_transfer">{ar() ? "رابط دفع" : "Pay Link"}</option>
+                                                <option value="link">{ar() ? "رابط دفع" : "Payment link"}</option>
                                                 <option value="enet">ENET</option>
                                                 <option value="other">{ar() ? "أخرى" : "Other"}</option>
                                               </select>

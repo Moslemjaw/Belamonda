@@ -139,7 +139,7 @@ describe("paid via label", () => {
     for (const method of ["bank_transfer", "link", "k-net", "cash", "pos", "enet", "other"]) {
       expect(paidViaLabel({ status: "paid", purpose: "enrollment_full", method })).toBe("Payment link (Belamonda team)");
     }
-    expect(paidViaLabel({ status: "paid", purpose: "session_payment", method: "pos" })).toBe("At clinic");
+    expect(paidViaLabel({ status: "paid", purpose: "session_payment", method: "pos" })).toBe("Paid in clinic (POS)");
     expect(paidViaLabel({ status: "refunded", purpose: "refund", method: "link" })).toBe("Refund");
     expect(paidViaLabel({ status: "paid", purpose: "enrollment_full", method: "free_package" })).toBe("Granted");
     expect(paidViaLabel({ status: "paid", purpose: "installment", method: "wallet" })).toBe("Cashback");

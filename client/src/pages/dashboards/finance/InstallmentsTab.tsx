@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useFinanceInstallments } from "../../../hooks/useApi";
 import { KpiCard } from "../../../components/KpiCard";
 import { fmtDate } from "../../../lib/dateFormat";
-import { ar } from "./shared";
+import { ar, paidVia } from "./shared";
 
 export function InstallmentsTab({ from, to }: { from: string; to: string }) {
   const [statusFilter, setStatusFilter] = useState<"" | "paid" | "late" | "upcoming">("");
@@ -60,7 +60,7 @@ export function InstallmentsTab({ from, to }: { from: string; to: string }) {
                     </span>
                     {i.method && (
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700">
-                        {i.method === "cash" ? (ar() ? "نقد" : "Cash") : i.method === "knet" ? "KNET" : i.method === "bank_transfer" ? (ar() ? "تحويل بنكي" : "Bank Transfer") : i.method === "card" ? (ar() ? "بطاقة" : "Card") : i.method === "link" ? (ar() ? "رابط" : "Link") : i.method}
+                        {paidVia({ method: i.method, purpose: "installment" }).label}
                       </span>
                     )}
                   </div>
@@ -96,7 +96,7 @@ export function InstallmentsTab({ from, to }: { from: string; to: string }) {
                       <td>
                         {i.method ? (
                           <span className="px-2 py-1 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700">
-                            {i.method === "cash" ? (ar() ? "نقد" : "Cash") : i.method === "knet" ? "KNET" : i.method === "bank_transfer" ? (ar() ? "تحويل بنكي" : "Bank Transfer") : i.method === "card" ? (ar() ? "بطاقة" : "Card") : i.method === "link" ? (ar() ? "رابط" : "Link") : i.method}
+                            {paidVia({ method: i.method, purpose: "installment" }).label}
                           </span>
                         ) : (
                           <span className="text-surface-300">—</span>

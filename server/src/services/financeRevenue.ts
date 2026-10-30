@@ -47,7 +47,7 @@ export const packageRevenueQuery = {
  */
 export function paidViaLabel(p: PaymentLike): string {
   if (isRefund(p)) return "Refund";
-  if (isSessionPayment(p)) return "At clinic";
+  if (isSessionPayment(p)) return "Paid in clinic (POS)";
   if (p.method === "free_package") return "Granted";
   if (p.method === "wallet") return "Cashback";
   return "Payment link (Belamonda team)";

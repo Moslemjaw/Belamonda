@@ -55,7 +55,7 @@ export const PIE_COLORS = [COLORS.pink, COLORS.emerald, COLORS.indigo, COLORS.am
  */
 export function paidVia(p: { method?: string; purpose?: string; status?: string }): { label: string; badge: string } {
   if (p.purpose === "refund" || p.status === "refunded") return { label: ar() ? "استرداد" : "Refund", badge: "bg-rose-50 text-rose-700 border-rose-200" };
-  if (p.purpose === "session_payment") return { label: ar() ? "في العيادة" : "At clinic", badge: "bg-purple-50 text-purple-700 border-purple-200" };
+  if (p.purpose === "session_payment") return { label: ar() ? "مدفوع في العيادة (POS)" : "Paid in clinic (POS)", badge: "bg-purple-50 text-purple-700 border-purple-200" };
   if (p.method === "free_package") return { label: ar() ? "ممنوحة" : "Granted", badge: "bg-surface-100 text-surface-600 border-surface-200" };
   if (p.method === "wallet") return { label: ar() ? "كاش باك" : "Cashback", badge: "bg-amber-50 text-amber-700 border-amber-200" };
   return { label: ar() ? "رابط دفع (فريق بيلاموندو)" : "Payment link (Belamonda team)", badge: "bg-blue-50 text-blue-700 border-blue-200" };

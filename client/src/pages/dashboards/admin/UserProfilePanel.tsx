@@ -82,7 +82,7 @@ export function UserProfilePanel({
     }
   };
 
-  const defaultGrantEnrollment = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "bank_transfer", isVerified: true, installmentCount: 2, customInstallments: [], historicalSessions: [] };
+  const defaultGrantEnrollment = { offerId: "", clinicId: "", purchaseMode: "full", amountPaidKwd: "", method: "link", isVerified: true, installmentCount: 2, customInstallments: [], historicalSessions: [] };
   const [grantEnrollments, setGrantEnrollments] = useState<any[]>([{ ...defaultGrantEnrollment }]);
   const [grantSaving, setGrantSaving] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
@@ -102,7 +102,7 @@ export function UserProfilePanel({
       const now = new Date();
       for (let j = 0; j < count; j++) {
         const d = new Date(now.getTime() + j * 30 * 24 * 60 * 60 * 1000);
-        arr.push({ dueDate: d.toISOString().split("T")[0], amountKwd: "", isPaid: false, method: "cash" });
+        arr.push({ dueDate: d.toISOString().split("T")[0], amountKwd: "", isPaid: false, method: "link" });
       }
       next.customInstallments = arr;
     }
@@ -349,13 +349,13 @@ export function UserProfilePanel({
   };
 
   const [installMethodModal, setInstallMethodModal] = useState<{ membershipId: string } | null>(null);
-  const [installMethodValue, setInstallMethodValue] = useState("cash");
+  const [installMethodValue, setInstallMethodValue] = useState("link");
 
   const handleAdjustInstallments = async (membershipId: string, delta: number, method?: string) => {
     if (delta > 0 && !method) {
       // Open the method picker modal
       setInstallMethodModal({ membershipId });
-      setInstallMethodValue("cash");
+      setInstallMethodValue("link");
       return;
     }
     setInstallmentAdjustingId(membershipId + (delta > 0 ? "_inc" : "_dec"));
@@ -889,9 +889,7 @@ export function UserProfilePanel({
                                   <div>
                                     <label className="block text-xs font-bold text-surface-700 mb-1.5">{ar() ? "طريقة الدفع" : "Payment Method"}</label>
                                     <select className="select-field w-full" value={en.method} onChange={e => updateGrantEnrollment(idx, { method: e.target.value })}>
-                                      <option value="cash">{ar() ? "الدفع في العيادة" : "Paid in Clinic"}</option>
-                                      <option value="pos">POS</option>
-                                      <option value="bank_transfer">{ar() ? "رابط دفع خارجي" : "External Payment Link"}</option>
+                                      <option value="link">{ar() ? "رابط دفع (فريق بيلاموندو)" : "Payment link (Belamonda team)"}</option>
                                       <option value="free_package">{ar() ? "باقة مجانية" : "Free Package"}</option>
                                       <option value="enet">ENET</option>
                                       <option value="wallet">{ar() ? "محفظة كاش باك" : "Cashback Wallet"}</option>
@@ -944,9 +942,7 @@ export function UserProfilePanel({
                                                 newInsts[iIdx].method = e.target.value;
                                                 updateGrantEnrollment(idx, { customInstallments: newInsts });
                                               }}>
-                                                <option value="cash">{ar() ? "في العيادة" : "In Clinic"}</option>
-                                                <option value="pos">POS</option>
-                                                <option value="bank_transfer">{ar() ? "رابط دفع" : "Pay Link"}</option>
+                                                <option value="link">{ar() ? "رابط دفع" : "Payment link"}</option>
                                                 <option value="free_package">{ar() ? "باقة مجانية" : "Free Package"}</option>
                                               </select>
                                             </td>
@@ -1618,13 +1614,8 @@ export function UserProfilePanel({
               value={installMethodValue}
               onChange={e => setInstallMethodValue(e.target.value)}
             >
-              <option value="cash">{ar() ? "نقد" : "Cash"}</option>
-              <option value="knet">{ar() ? "كي نت" : "KNET"}</option>
-              <option value="bank_transfer">{ar() ? "تحويل بنكي" : "Bank Transfer"}</option>
+              <option value="link">{ar() ? "رابط دفع (فريق بيلاموندو)" : "Payment link (Belamonda team)"}</option>
               <option value="free_package">{ar() ? "باقة مجانية" : "Free Package"}</option>
-              <option value="card">{ar() ? "بطاقة ائتمان" : "Credit Card"}</option>
-              <option value="link">{ar() ? "رابط دفع" : "Payment Link"}</option>
-              <option value="other">{ar() ? "أخرى" : "Other"}</option>
             </select>
             <div className="flex gap-3 justify-end">
               <button
