@@ -23,7 +23,7 @@ export function PaymentQueue() {
         body: JSON.stringify({
           userOfferId: uo.id,
           proofRef: "verified_by_cs",
-          method: "bank_transfer",
+          method: "link",
           amountKwd: uo.amount || uo.paymentAmountKwd || "99.000"
         })
       });

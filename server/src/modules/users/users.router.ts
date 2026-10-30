@@ -786,7 +786,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       clinicId: z.string().optional(),
       purchaseMode: z.enum(["full", "installments", "deposit", "free", "discount"]).optional(),
       amountPaidKwd: z.string().optional(),
-      method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]).optional(),
+      method: z.enum(["link", "bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]).optional(),
       isVerified: z.boolean().optional(),
       installmentCount: z.number().optional(),
       customInstallments: z.array(z.object({
@@ -811,7 +811,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
       clinicId: z.string().optional(),
       purchaseMode: z.enum(["full", "installments", "deposit", "free", "discount"]).optional(),
       amountPaidKwd: z.string().optional(),
-      method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]).optional(),
+      method: z.enum(["link", "bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]).optional(),
       isVerified: z.boolean().optional(),
       installmentCount: z.number().optional(),
       historicalSessions: z.array(z.object({ date: z.string() })).optional(),
@@ -868,7 +868,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
 
       const now = new Date();
       const purchaseMode = en.purchaseMode || "full";
-      const method = en.method || "cash";
+      const method = en.method || "link";
       const isVerified = en.isVerified ?? true;
       const amountKwd = parseFloat(en.amountPaidKwd || "0").toFixed(3);
 
@@ -945,7 +945,7 @@ usersRouter.post("/admin/manual-enroll", authRequired, requireRole(["admin", "cs
           if (inst.paid) {
             const payment = await PaymentModel.create({
               userId: String(user._id), offerId: offer._id, userOfferId: uo._id,
-              amountKwd: inst.amountKwd, grossAmountKwd: inst.amountKwd, cashbackAppliedKwd: "0.000", method: inst.method || "other",
+              amountKwd: inst.amountKwd, grossAmountKwd: inst.amountKwd, cashbackAppliedKwd: "0.000", method: inst.method || "link",
               purpose: "installment",
               status: "paid", provider: "manual", isManual: true, manualLabel: "Admin Manual Enroll - Installment",
               confirmedBy: req.auth!.userId, confirmedAt: now,
@@ -1100,7 +1100,7 @@ usersRouter.patch("/admin/:id/subscription", authRequired, requireRole(["admin",
     const parsed = z.object({
       plan: z.enum(["basic", "pro"]),
       planId: z.string().optional(),
-      method: z.enum(["bank_transfer", "cash", "pos", "enet", "wallet", "free_package", "other"]).optional()
+      method: z.enum(["link", "bank_transfer", "cash", "pos", "enet", "wallet", "free_package", "other"]).optional()
     }).safeParse(req.body);
 
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });

@@ -39,3 +39,16 @@ export const packageRevenueQuery = {
   status: { $in: [...PAID_STATUSES] },
   purpose: { $nin: ["session_payment", "refund"] },
 };
+
+/**
+ * How a payment was made, as finance should read it. Customers pay for packages only
+ * through a payment link sent by the Belamonda team; older records store that as
+ * bank_transfer / link / k-net etc., so the stored method is not shown for packages.
+ */
+export function paidViaLabel(p: PaymentLike): string {
+  if (isRefund(p)) return "Refund";
+  if (isSessionPayment(p)) return "Paid in clinic (POS)";
+  if (p.method === "free_package") return "Granted";
+  if (p.method === "wallet") return "Cashback";
+  return "Payment link (Belamonda team)";
+}
