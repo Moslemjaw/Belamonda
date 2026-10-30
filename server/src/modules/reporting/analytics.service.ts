@@ -16,7 +16,7 @@ import { kycStore } from "../kyc/kyc.store.js";
 import { WalletModel, WalletTxnModel } from "../../models/kyc.model.js";
 import ExcelJS from "exceljs";
 import { SystemMetricModel } from "../../models/metric.model.js";
-import { PAID_STATUSES, isPaidStatus } from "../../services/financeRevenue.js";
+import { PAID_STATUSES, isPaidStatus, manualEntryQuery } from "../../services/financeRevenue.js";
 import { computePackageRevenue } from "./revenue.service.js";
 import { computeClinicSessionsReport } from "./clinicSessions.service.js";
 
@@ -74,7 +74,7 @@ export async function computePaymentsBreakdown(filters: {
   if (filters.type === "packages") q.purpose = { $nin: ["session_payment", "refund"] };
   if (filters.type === "sessions") q.purpose = "session_payment";
   if (filters.type === "refunds") q.$or = [{ purpose: "refund" }, { status: "refunded" }];
-  if (filters.type === "manual") q.isManual = true;
+  if (filters.type === "manual") Object.assign(q, manualEntryQuery);
   const customer = filters.customer?.trim();
   if (customer) {
     const rx = new RegExp(customer.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");

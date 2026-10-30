@@ -175,6 +175,9 @@ function arabicFontPaths() {
 type Pdf = InstanceType<typeof PDFDocument>;
 const M = 30;
 const ROW_H = 15;
+// This font has no mark anchors for some letters (e.g. آ in "آيه"), which crashes the layout.
+// Arabic names rarely carry diacritics, so mark positioning is turned off for Arabic text.
+const ARABIC_FEATURES = { features: { mark: false } } as any;
 
 /** Draws one line of text in a box, switching to the Arabic font word by word. Truncates with "…". */
 function drawLine(pdf: Pdf, text: string, x: number, y: number, width: number, opts: { bold?: boolean; size: number; align?: "left" | "right" }) {
@@ -186,7 +189,7 @@ function drawLine(pdf: Pdf, text: string, x: number, y: number, width: number, o
   const fontFor = (w: string) => (hasArabic(w) ? arabic : latin);
   pdf.fontSize(opts.size);
   const space = pdf.font(latin).widthOfString(" ");
-  const widthOf = (w: string) => pdf.font(fontFor(w)).widthOfString(w);
+  const widthOf = (w: string) => (hasArabic(w) ? pdf.font(arabic).widthOfString(w, ARABIC_FEATURES) : pdf.font(latin).widthOfString(w));
 
   let parts = words.map((w) => ({ w, width: widthOf(w) }));
   let total = parts.reduce((n, p) => n + p.width, 0) + space * (parts.length - 1);
@@ -209,7 +212,7 @@ function drawLine(pdf: Pdf, text: string, x: number, y: number, width: number, o
   // Draw on a shared baseline: the Arabic font's taller ascent would otherwise push its words down.
   const baseline = y + opts.size * 0.82;
   for (const p of parts) {
-    pdf.font(fontFor(p.w)).text(p.w, cx, baseline, { lineBreak: false, baseline: "alphabetic" });
+    pdf.font(fontFor(p.w)).text(p.w, cx, baseline, { lineBreak: false, baseline: "alphabetic", ...(hasArabic(p.w) ? ARABIC_FEATURES : {}) });
     cx += p.width + space;
   }
 }

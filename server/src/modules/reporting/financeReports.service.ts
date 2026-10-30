@@ -7,7 +7,7 @@ import { BookingRequestModel } from "../../models/bookingRequest.model.js";
 import { WalletModel, WalletTxnModel } from "../../models/kyc.model.js";
 import { kwdToMils, milsToKwd } from "../../utils/money.js";
 import { kwDateRange, kwDateTime, kwDate } from "../../utils/kwDate.js";
-import { isPackageRevenue, isPaidStatus, isRefund, isSessionPayment, paidViaLabel } from "../../services/financeRevenue.js";
+import { isManualEntry, isPackageRevenue, isPaidStatus, isRefund, isSessionPayment, paidViaLabel } from "../../services/financeRevenue.js";
 import {
   loadPackageRevenueInput,
   summarizePackageRevenue,
@@ -181,6 +181,7 @@ export type LedgerPayment = {
   confirmedBy?: string;
   createdByUserId?: string;
   isManual?: boolean;
+  userOfferId?: unknown;
   manualLabel?: string;
   notes?: string;
 };
@@ -205,7 +206,7 @@ export type LedgerRow = {
 export function ledgerType(p: LedgerPayment): LedgerType {
   if (isRefund(p)) return "refund";
   if (isSessionPayment(p)) return "session";
-  if (p.isManual) return "manual";
+  if (isManualEntry(p)) return "manual";
   return "package";
 }
 
@@ -267,7 +268,7 @@ async function loadLedger(from: string, to: string) {
   const range = kwDateRange(from, to);
   const payments = (await PaymentModel.find(range ? { createdAt: range } : {})
     .sort({ createdAt: 1 })
-    .select("createdAt userId offerId clinicId bookingRequestId method purpose status amountKwd cashbackAppliedKwd confirmedBy createdByUserId isManual manualLabel notes")
+    .select("createdAt userId offerId clinicId bookingRequestId method purpose status amountKwd cashbackAppliedKwd confirmedBy createdByUserId isManual userOfferId manualLabel notes")
     .lean()) as any[];
 
   const brIds = [...new Set(payments.map((p) => p.bookingRequestId).filter(isOid))];

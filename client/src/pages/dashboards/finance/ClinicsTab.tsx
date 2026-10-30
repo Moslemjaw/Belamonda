@@ -3,21 +3,8 @@ import { useAuth } from "../../../app/AuthContext";
 import { useClinicSessionsReport } from "../../../hooks/useApi";
 import { API_BASE_URL } from "../../../lib/api";
 import { KpiCard } from "../../../components/KpiCard";
-import { ar } from "./shared";
+import { ar, parseKwd } from "./shared";
 import { ClinicRowDetail } from "./ClinicRowDetail";
-
-const pad = (n: number) => String(n).padStart(2, "0");
-
-function currentMonth() {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
-}
-
-function monthRange(month: string) {
-  const [y, m] = month.split("-").map(Number);
-  const last = new Date(y, m, 0).getDate();
-  return { from: `${month}-01`, to: `${month}-${pad(last)}` };
-}
 
 /** Downloads the clinic sessions Excel report for a period (all clinics, or one). */
 export async function downloadClinicSessions(
@@ -42,19 +29,24 @@ export async function downloadClinicSessions(
 
 export function ClinicsTab({ from, to }: { from: string; to: string }) {
   const { getAuthHeader } = useAuth();
-  // "" = use the dashboard's date filter instead of a single month
-  const [month, setMonth] = useState(currentMonth());
-  const range = month ? monthRange(month) : { from, to };
+  const range = { from: from.slice(0, 10), to: to.slice(0, 10) };
   const { data, loading } = useClinicSessionsReport(range);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"value" | "completed" | "noShow" | "name">("value");
   const [downloading, setDownloading] = useState(false);
 
+  const name = (c: { clinicNameEn: string; clinicNameAr: string }) => (ar() ? c.clinicNameAr || c.clinicNameEn : c.clinicNameEn);
   const clinics = (data?.clinics ?? []).filter(c =>
     !search ||
     c.clinicNameEn.toLowerCase().includes(search.toLowerCase()) ||
     c.clinicNameAr.includes(search)
-  );
+  ).sort((a, b) => {
+    if (sort === "name") return name(a).localeCompare(name(b));
+    if (sort === "completed") return b.completed - a.completed;
+    if (sort === "noShow") return b.noShow - a.noShow;
+    return parseKwd(b.sessionValueKwd) - parseKwd(a.sessionValueKwd);
+  });
   const t = data?.totals;
 
   const download = async () => {
@@ -74,13 +66,6 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <input type="month" className="input-field text-sm py-1.5 h-auto" value={month} onChange={e => setMonth(e.target.value)} />
-          <button
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${month ? "bg-white text-surface-600 border-surface-200 hover:bg-surface-50" : "bg-brand-pink-50 text-brand-pink-700 border-brand-pink-200"}`}
-            onClick={() => setMonth(month ? "" : currentMonth())}
-          >
-            {month ? (ar() ? "استخدم تواريخ الفلتر" : "Use filter dates") : (ar() ? "تواريخ الفلتر مفعلة" : "Using filter dates")}
-          </button>
           <button onClick={() => void download()} disabled={downloading}
             className="px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 text-xs font-bold disabled:opacity-50">
             {downloading ? "..." : (ar() ? "تحميل Excel" : "Download Excel")}
@@ -88,7 +73,7 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 xl:grid-cols-5">
+      <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3">
         <KpiCard label={ar() ? "جلسات حضرت" : "Completed"} value={String(t?.completed ?? 0)} accent="emerald" icon="✅" />
         <KpiCard label={ar() ? "لم يحضر" : "No-shows"} value={String(t?.noShow ?? 0)} accent="red" icon="🚫" />
         <KpiCard label={ar() ? "قيمة الجلسات" : "Session value"} value={`${t?.sessionValueKwd ?? "0.000"} KWD`} accent="indigo" icon="🧾" />
@@ -102,9 +87,17 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
             <h3 className="text-base font-bold text-surface-900">{ar() ? "المراكز" : "Clinics"} <span className="text-xs text-surface-400 font-medium">({clinics.length})</span></h3>
             <p className="text-xs text-surface-500 mt-0.5">{ar() ? "انقر على مركز لعرض جلساته" : "Click a clinic to see its sessions"}</p>
           </div>
-          <input type="text" placeholder={ar() ? "ابحث عن مركز..." : "Search clinic..."}
-            className="input-field text-sm w-full sm:w-56"
-            value={search} onChange={e => setSearch(e.target.value)} />
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <input type="text" placeholder={ar() ? "ابحث عن مركز..." : "Search clinic..."}
+              className="input-field text-xs py-1.5 h-auto w-full sm:w-52"
+              value={search} onChange={e => setSearch(e.target.value)} />
+            <select className="select-field text-xs py-1.5 h-auto sm:w-44" value={sort} onChange={e => setSort(e.target.value as typeof sort)} aria-label={ar() ? "ترتيب" : "Sort"}>
+              <option value="value">{ar() ? "الأعلى قيمة" : "Highest value"}</option>
+              <option value="completed">{ar() ? "الأكثر جلسات" : "Most sessions"}</option>
+              <option value="noShow">{ar() ? "الأكثر عدم حضور" : "Most no-shows"}</option>
+              <option value="name">{ar() ? "الاسم" : "Name"}</option>
+            </select>
+          </div>
         </div>
 
         {loading && !data ? (

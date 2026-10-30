@@ -1,19 +1,23 @@
 import { useMemo } from "react";
 import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts";
-import { useFinanceInstallments, useFinanceSnapshot, usePackageRevenue, type RevenueGranularity } from "../../../hooks/useApi";
+import { useFinanceInstallments, useFinanceSnapshot, usePackageRevenue, type PaymentsType, type RevenueGranularity } from "../../../hooks/useApi";
 import { KpiCard } from "../../../components/KpiCard";
-import { ar, parseKwd, COLORS } from "./shared";
+import { ar, changeLabel, parseKwd, previousRange, COLORS } from "./shared";
 
 export function HomeTab({
-  from, to, granularity, onOpenInstallments, onOpenPendingPayments,
+  from, to, granularity, onOpenInstallments, onOpenPayments,
 }: {
   from: string;
   to: string;
   granularity: RevenueGranularity;
   onOpenInstallments: () => void;
-  onOpenPendingPayments: () => void;
+  onOpenPayments: (type: PaymentsType, status?: string) => void;
 }) {
   const { data: rev, loading } = usePackageRevenue({ from, to, granularity });
+  const { data: prev } = usePackageRevenue({ ...previousRange(from, to), granularity });
+  const vsPrev = (label: string | null) => (label ? (ar() ? ` · ${label} عن الفترة السابقة` : ` · ${label} vs previous period`) : "");
+  const revenueChange = changeLabel(parseKwd(rev?.revenueKwd), parseKwd(prev?.revenueKwd));
+  const soldChange = changeLabel(rev?.packagesSold ?? 0, prev?.packagesSold ?? 0);
   // Not date-filtered: the cashback balance and the review queue are "right now" numbers.
   const { data: snapshotData } = useFinanceSnapshot();
   const { data: installments } = useFinanceInstallments();
@@ -32,14 +36,19 @@ export function HomeTab({
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <KpiCard
           label={ar() ? "الإيرادات (الباقات)" : "Revenue (packages)"}
           value={kwd(rev?.revenueKwd)}
-          sub={ar()
-            ? `${rev?.paymentsCount ?? 0} دفعة · بعد خصم الاستردادات`
-            : `${rev?.paymentsCount ?? 0} payments · after refunds`}
+          sub={(ar() ? `${rev?.paymentsCount ?? 0} دفعة · بعد الاستردادات` : `${rev?.paymentsCount ?? 0} payments · after refunds`) + vsPrev(revenueChange)}
           accent="emerald" icon="💰" isHighlighted
+          onClick={() => onOpenPayments("packages")}
+        />
+        <KpiCard
+          label={ar() ? "الباقات المباعة" : "Packages sold"}
+          value={`${rev?.packagesSold ?? 0}`}
+          sub={(ar() ? "في هذه الفترة" : "in this period") + vsPrev(soldChange)}
+          accent="pink" icon="📦"
         />
         <KpiCard
           label={ar() ? "المتبقي للتحصيل" : "Still to collect"}
@@ -48,6 +57,7 @@ export function HomeTab({
             ? `من باقات هذه الفترة (${rev?.outstandingCount ?? 0}) · متأخر ${rev?.lateKwd ?? "0.000"}`
             : `from ${rev?.outstandingCount ?? 0} packages sold in this period · ${rev?.lateKwd ?? "0.000"} late`}
           accent="amber" icon="⏳"
+          onClick={onOpenInstallments}
         />
         <KpiCard
           label={ar() ? "الاستردادات والإلغاءات" : "Refunds & cancellations"}
@@ -56,18 +66,13 @@ export function HomeTab({
             ? `${rev?.refundsCount ?? 0} استرداد · ${rev?.cancelled.count ?? 0} اشتراك ملغي`
             : `${rev?.refundsCount ?? 0} refunds · ${rev?.cancelled.count ?? 0} cancelled`}
           accent="rose" icon="↩️"
+          onClick={() => onOpenPayments("refunds")}
         />
         <KpiCard
           label={ar() ? "باقات ممنوحة (ليست إيراد)" : "Granted (not revenue)"}
           value={`${rev?.granted.count ?? 0}`}
           sub={ar() ? `قيمتها ${rev?.granted.listValueKwd ?? "0.000"} د.ك بسعر القائمة` : `${rev?.granted.listValueKwd ?? "0.000"} KWD at list price`}
           accent="violet" icon="🎁"
-        />
-        <KpiCard
-          label={ar() ? "الباقات المباعة" : "Packages sold"}
-          value={`${rev?.packagesSold ?? 0}`}
-          sub={ar() ? "في هذه الفترة" : "in this period"}
-          accent="pink" icon="📦"
         />
         <KpiCard
           label={ar() ? "رصيد الكاش باك المستحق" : "Cashback owed"}
@@ -88,7 +93,7 @@ export function HomeTab({
           <ActionRow
             text={ar() ? `${pendingCount} دفعة بانتظار المراجعة` : `${pendingCount} payments awaiting review`}
             tone={pendingCount > 0 ? "amber" : "ok"}
-            onClick={onOpenPendingPayments}
+            onClick={() => onOpenPayments("", "payment_pending")}
           />
         </div>
       </div>

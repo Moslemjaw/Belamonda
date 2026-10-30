@@ -9,6 +9,7 @@ export function KpiCard({
   trend, 
   accent = "pink",
   onClick,
+  active,
   className = ""
 }: { 
   label: string; 
@@ -19,6 +20,8 @@ export function KpiCard({
   trend?: string; 
   accent?: "pink" | "teal" | "amber" | "blue" | "violet" | "emerald" | "rose" | "red" | "indigo";
   onClick?: () => void;
+  /** Shows the card as selected (it is filtering the list below). */
+  active?: boolean;
   className?: string;
 }) {
   const accentMap: Record<string, { iconBg: string; iconText: string; border: string }> = {
@@ -36,7 +39,13 @@ export function KpiCard({
   const a = accentMap[accent] || accentMap.pink;
 
   return (
-    <div onClick={onClick} className={`relative p-4 rounded-2xl border-b-[3px] border border-surface-200 ${isHighlighted ? 'bg-gradient-to-br from-brand-pink-500 to-brand-pink-600 border-brand-pink-500 border-b-brand-pink-300 text-white shadow-xl shadow-brand-pink-500/20' : `bg-white ${a.border}`} group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5 ${onClick ? 'cursor-pointer' : ''} ${className}`}>
+    <div
+      onClick={onClick}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-pressed={onClick ? !!active : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); } } : undefined}
+      className={`relative ${active ? "ring-2 ring-brand-pink-400 ring-offset-1" : ""} p-4 rounded-2xl border-b-[3px] border border-surface-200 ${isHighlighted ? 'bg-gradient-to-br from-brand-pink-500 to-brand-pink-600 border-brand-pink-500 border-b-brand-pink-300 text-white shadow-xl shadow-brand-pink-500/20' : `bg-white ${a.border}`} group overflow-hidden transition-all hover:shadow-lg hover:-translate-y-0.5 ${onClick ? 'cursor-pointer' : ''} ${className}`}>
       <div className="flex items-center gap-3.5">
         <div className={`flex h-11 w-11 items-center justify-center rounded-xl shrink-0 ${isHighlighted ? 'bg-white/20 text-white backdrop-blur-md' : `${a.iconBg} ${a.iconText}`}`}>
           {icon}

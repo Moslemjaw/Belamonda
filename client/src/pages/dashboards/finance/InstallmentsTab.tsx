@@ -2,32 +2,61 @@ import { useState } from "react";
 import { useFinanceInstallments } from "../../../hooks/useApi";
 import { KpiCard } from "../../../components/KpiCard";
 import { fmtDate } from "../../../lib/dateFormat";
-import { ar, paidVia } from "./shared";
+import { ar, fmt, paidVia, parseKwd } from "./shared";
 
 export function InstallmentsTab({ from, to }: { from: string; to: string }) {
   const [statusFilter, setStatusFilter] = useState<"" | "paid" | "late" | "upcoming">("");
+  const [search, setSearch] = useState("");
+  const [pkg, setPkg] = useState("");
   const { data, loading } = useFinanceInstallments({ from, to });
   const summary = data?.summary;
-  const items = (data?.items ?? []).filter(i => !statusFilter || i.status === statusFilter);
+  const all = data?.items ?? [];
+  const packages = [...new Set(all.map(i => i.offerName).filter(Boolean))].sort();
+  const q = search.trim().toLowerCase();
+  const items = all.filter(i =>
+    (!statusFilter || i.status === statusFilter) &&
+    (!pkg || i.offerName === pkg) &&
+    (!q || (i.customerName ?? "").toLowerCase().includes(q) || (i.customerPhone ?? "").includes(q))
+  );
+  const shownTotal = items.reduce((sum, i) => sum + parseKwd(i.amountKwd), 0);
+  const paidCount = all.filter(i => i.status === "paid").length;
+  const filtered = !!(statusFilter || pkg || search);
+  const clearFilters = () => { setStatusFilter(""); setPkg(""); setSearch(""); };
+  const pick = (next: "paid" | "late" | "upcoming") => setStatusFilter(statusFilter === next ? "" : next);
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label={ar() ? "أقساط مدفوعة" : "Paid Installments"} value={`${summary?.paidKwd ?? "0.000"} KWD`} accent="emerald" icon="✅" />
-        <KpiCard label={ar() ? "أقساط قادمة" : "Upcoming"} value={`${summary?.upcomingKwd ?? "0.000"} KWD`} sub={`${summary?.upcomingCount ?? 0} ${ar() ? "قسط" : "items"}`} accent="amber" icon="⏳" />
-        <KpiCard label={ar() ? "أقساط متأخرة" : "Late"} value={`${summary?.lateKwd ?? "0.000"} KWD`} sub={`${summary?.lateCount ?? 0} ${ar() ? "قسط · كل المتأخر" : "items · all overdue"}`} accent="red" icon="⚠️" />
-        <KpiCard label={ar() ? "الإجمالي (مدفوع + مستحق)" : "Total (paid + due)"} value={`${summary?.forecastKwd ?? "0.000"} KWD`} accent="pink" icon="📊" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 xl:grid-cols-4">
+        <KpiCard label={ar() ? "أقساط متأخرة" : "Late"} value={`${summary?.lateKwd ?? "0.000"} KWD`} sub={`${summary?.lateCount ?? 0} ${ar() ? "قسط · كل المتأخر" : "items · all overdue"}`} accent="red" icon="⚠️" active={statusFilter === "late"} onClick={() => pick("late")} />
+        <KpiCard label={ar() ? "أقساط قادمة" : "Upcoming"} value={`${summary?.upcomingKwd ?? "0.000"} KWD`} sub={`${summary?.upcomingCount ?? 0} ${ar() ? "قسط في هذه الفترة" : "items in this period"}`} accent="amber" icon="⏳" active={statusFilter === "upcoming"} onClick={() => pick("upcoming")} />
+        <KpiCard label={ar() ? "أقساط مدفوعة" : "Paid"} value={`${summary?.paidKwd ?? "0.000"} KWD`} sub={`${paidCount} ${ar() ? "قسط في هذه الفترة" : "items in this period"}`} accent="emerald" icon="✅" active={statusFilter === "paid"} onClick={() => pick("paid")} />
+        <KpiCard label={ar() ? "الإجمالي (مدفوع + مستحق)" : "Total (paid + due)"} value={`${summary?.forecastKwd ?? "0.000"} KWD`} sub={`${all.length} ${ar() ? "قسط" : "items"}`} accent="pink" icon="📊" active={!statusFilter} onClick={() => setStatusFilter("")} />
       </div>
 
       <div className="card-elevated p-5 border border-surface-200 shadow-sm">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <h3 className="text-base font-bold text-surface-900">{ar() ? "متتبع الأقساط" : "Installment Tracker"}</h3>
-          <select className="select-field text-xs py-1.5 h-auto w-32 sm:w-40" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
-            <option value="">{ar() ? "الكل" : "All"}</option>
-            <option value="paid">{ar() ? "مدفوعة" : "Paid"}</option>
-            <option value="late">{ar() ? "متأخرة" : "Late"}</option>
-            <option value="upcoming">{ar() ? "قادمة" : "Upcoming"}</option>
-          </select>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
+          <div>
+            <h3 className="text-base font-bold text-surface-900">{ar() ? "متتبع الأقساط" : "Installment Tracker"} <span className="text-xs text-surface-400 font-medium">({items.length})</span></h3>
+            {filtered && items.length > 0 && <p className="text-[11px] text-surface-500 mt-0.5">{ar() ? "إجمالي النتائج:" : "Total shown:"} <span className="font-bold text-surface-700">{fmt(shownTotal)} KWD</span></p>}
+          </div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
+            <input className="input-field text-xs py-1.5 h-auto sm:w-56" placeholder={ar() ? "بحث باسم العميل أو الهاتف" : "Search customer name or phone"} value={search} onChange={e => setSearch(e.target.value)} />
+            <select className="select-field text-xs py-1.5 h-auto sm:w-44" value={pkg} onChange={e => setPkg(e.target.value)}>
+              <option value="">{ar() ? "كل الباقات" : "All packages"}</option>
+              {packages.map(p => <option key={p} value={p}>{p}</option>)}
+            </select>
+            <select className="select-field text-xs py-1.5 h-auto sm:w-32" value={statusFilter} onChange={e => setStatusFilter(e.target.value as any)}>
+              <option value="">{ar() ? "كل الحالات" : "All statuses"}</option>
+              <option value="paid">{ar() ? "مدفوعة" : "Paid"}</option>
+              <option value="late">{ar() ? "متأخرة" : "Late"}</option>
+              <option value="upcoming">{ar() ? "قادمة" : "Upcoming"}</option>
+            </select>
+            {filtered && (
+              <button type="button" onClick={clearFilters} className="text-xs font-bold text-brand-pink-600 hover:text-brand-pink-800 whitespace-nowrap px-1">
+                {ar() ? "مسح الفلاتر" : "Clear filters"}
+              </button>
+            )}
+          </div>
         </div>
 
         {loading && items.length === 0 ? (

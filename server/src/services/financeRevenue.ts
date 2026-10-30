@@ -34,6 +34,16 @@ export function isGrant(p: PaymentLike, amountMils: number) {
   return isPaidStatus(p.status) && !isSessionPayment(p) && (p.method === "free_package" || amountMils === 0);
 }
 
+/**
+ * A finance manual entry: money recorded by hand, not tied to any membership. Staff enrolling
+ * or confirming a package also sets isManual, but that payment is a real package sale.
+ */
+export const manualEntryQuery = { isManual: true, userOfferId: null };
+
+export function isManualEntry(p: { isManual?: unknown; userOfferId?: unknown }) {
+  return !!p.isManual && !p.userOfferId;
+}
+
 /** Mongo filter for package payments that can count as revenue (amount checked in code). */
 export const packageRevenueQuery = {
   status: { $in: [...PAID_STATUSES] },
