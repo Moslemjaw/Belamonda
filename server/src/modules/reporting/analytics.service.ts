@@ -18,6 +18,7 @@ import ExcelJS from "exceljs";
 import { SystemMetricModel } from "../../models/metric.model.js";
 import { PAID_STATUSES, isPaidStatus } from "../../services/financeRevenue.js";
 import { computePackageRevenue } from "./revenue.service.js";
+import { computeClinicSessionsReport } from "./clinicSessions.service.js";
 
 function parseKwd(s: string) {
   if (!s) return 0;
@@ -2205,6 +2206,117 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   );
 
 
+
+  const buf = await wb.xlsx.writeBuffer();
+  return Buffer.isBuffer(buf) ? buf : Buffer.from(buf as ArrayBuffer);
+}
+
+// ===========================================================================
+// CLINIC SESSIONS REPORT — summary sheet + one detail sheet per clinic
+// ===========================================================================
+
+const SESSION_STATUS_AR: Record<string, string> = { completed: "حضر", no_show: "لم يحضر" };
+
+export async function exportClinicSessionsXlsx(filters: { from?: string; to?: string; clinicId?: string }) {
+  const report = await computeClinicSessionsReport(filters);
+  const period = [filters.from ? kwDate(filters.from) : "", filters.to ? kwDate(filters.to) : ""].filter(Boolean).join(" – ");
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Belamonda";
+  wb.created = new Date();
+
+  const addTitle = (ws: ExcelJS.Worksheet, title: string, cols: number) => {
+    ws.mergeCells(1, 1, 1, cols);
+    const cell = ws.getCell(1, 1);
+    cell.value = period ? `${title} — ${period}` : title;
+    cell.font = { bold: true, size: 14, color: { argb: "FFCC0000" } };
+    cell.alignment = { horizontal: "center", vertical: "middle" };
+    ws.getRow(1).height = 30;
+  };
+  const totalRowStyle = (row: ExcelJS.Row) => {
+    row.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFCE7F3" } };
+    });
+  };
+
+  // ── Summary ──
+  const summary = wb.addWorksheet("الملخص / Summary", { views: [{ rightToLeft: true }] });
+  const sHeaders = [
+    "المركز / Clinic",
+    "حضر / Completed",
+    "لم يحضر / No-show",
+    "قيمة الجلسات / Session value (KWD)",
+    "كاش باك / Cashback used (KWD)",
+    "مدفوع في المركز / Paid at clinic (KWD)",
+  ];
+  addTitle(summary, "تقرير جلسات المراكز / Clinic sessions report", sHeaders.length);
+  summary.getRow(2).values = sHeaders;
+  styleHeaderRow(summary.getRow(2));
+  report.clinics.forEach((c, i) => {
+    const row = summary.getRow(i + 3);
+    row.values = [c.clinicNameAr || c.clinicNameEn, c.completed, c.noShow, parseKwd(c.sessionValueKwd) / 1000, parseKwd(c.cashbackKwd) / 1000, parseKwd(c.paidAtClinicKwd) / 1000];
+    styleDataRow(row, i % 2 === 1);
+  });
+  const t = report.totals;
+  const sTotal = summary.getRow(report.clinics.length + 3);
+  sTotal.values = ["الإجمالي / Total", t.completed, t.noShow, parseKwd(t.sessionValueKwd) / 1000, parseKwd(t.cashbackKwd) / 1000, parseKwd(t.paidAtClinicKwd) / 1000];
+  totalRowStyle(sTotal);
+  [4, 5, 6].forEach((c) => (summary.getColumn(c).numFmt = "0.000"));
+  setAutoWidths(summary, 2, 3);
+
+  // ── One sheet per clinic ──
+  const dHeaders = [
+    "#",
+    "التاريخ / Date",
+    "العميل / Customer",
+    "الهاتف / Phone",
+    "الباقة أو الخدمة / Package or service",
+    "منتج إضافي / Extras",
+    "حالة الجلسة / Status",
+    "قيمة الجلسة / Value (KWD)",
+    "كاش باك / Cashback (KWD)",
+    "مدفوع في المركز / Paid at clinic (KWD)",
+    "تم تسجيل الدفع / POS marked",
+    "ملاحظة / Note",
+  ];
+  const usedNames = new Set<string>();
+  for (const c of report.clinics) {
+    let name = (c.clinicNameAr || c.clinicNameEn || "Clinic").replace(/[\\/*?:[\]]/g, " ").slice(0, 28).trim() || "Clinic";
+    for (let n = 2; usedNames.has(name); n++) name = `${name.slice(0, 25)} ${n}`;
+    usedNames.add(name);
+
+    const ws = wb.addWorksheet(name, { views: [{ rightToLeft: true }] });
+    addTitle(ws, c.clinicNameAr || c.clinicNameEn, dHeaders.length);
+    ws.getRow(2).values = dHeaders;
+    styleHeaderRow(ws.getRow(2));
+    const rows = report.rows.filter((r) => r.clinicId === c.clinicId);
+    rows.forEach((r, i) => {
+      const row = ws.getRow(i + 3);
+      row.values = [
+        i + 1,
+        r.date ? kwDateTime(r.date) : "",
+        r.customerName,
+        r.customerPhone,
+        r.packageName || "—",
+        r.extras || "—",
+        SESSION_STATUS_AR[r.status] ? `${SESSION_STATUS_AR[r.status]} / ${r.status === "no_show" ? "No-show" : "Completed"}` : r.status,
+        parseKwd(r.sessionValueKwd) / 1000,
+        parseKwd(r.cashbackKwd) / 1000,
+        parseKwd(r.paidAtClinicKwd) / 1000,
+        r.clinicMarkedPaid ? "نعم / Yes" : "لا / No",
+        r.membershipCancelled ? "اشتراك ملغي / Membership cancelled" : "",
+      ];
+      styleDataRow(row, i % 2 === 1);
+      row.getCell(7).font = { bold: true, color: { argb: r.status === "completed" ? "FF008000" : "FFCC0000" } };
+    });
+    const total = ws.getRow(rows.length + 3);
+    total.values = ["", "الإجمالي / Total", `${c.completed} حضر / completed, ${c.noShow} لم يحضر / no-show`, "", "", "", "", parseKwd(c.sessionValueKwd) / 1000, parseKwd(c.cashbackKwd) / 1000, parseKwd(c.paidAtClinicKwd) / 1000, "", ""];
+    totalRowStyle(total);
+    [8, 9, 10].forEach((col) => (ws.getColumn(col).numFmt = "0.000"));
+    ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: dHeaders.length } };
+    setAutoWidths(ws, 2, 3);
+  }
 
   const buf = await wb.xlsx.writeBuffer();
   return Buffer.isBuffer(buf) ? buf : Buffer.from(buf as ArrayBuffer);

@@ -18,9 +18,11 @@ import {
   computeClinicDetail,
   exportClinicReportXlsx,
   exportComprehensiveReportXlsx,
+  exportClinicSessionsXlsx,
 } from "./analytics.service.js";
 import { reconcileMetrics } from "../../services/reconciliation.service.js";
 import { computePackageRevenue } from "./revenue.service.js";
+import { computeClinicSessionsReport } from "./clinicSessions.service.js";
 
 const CreateReportSchema = z.object({
   type: z.enum(["daily_summary", "weekly_pl", "monthly_cashback_liability", "yearly_revenue", "custom"]),
@@ -185,6 +187,30 @@ reportingRouter.get("/finance/reports/:id", authRequired, requireRole(FINANCE_RO
 // ===========================================================================
 // CLINIC SUMMARIES — all clinics (Finance view)
 // ===========================================================================
+
+// Monthly clinic sessions report: sessions that happened (completed / no-show) per clinic.
+reportingRouter.get("/finance/clinic-sessions", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const data = await computeClinicSessionsReport({ from: str(req.query.from), to: str(req.query.to), clinicId: str(req.query.clinicId) });
+    return res.json(data);
+  } catch (e) {
+    next(e);
+  }
+});
+
+reportingRouter.get("/finance/clinic-sessions/export", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const from = str(req.query.from);
+    const to = str(req.query.to);
+    const xlsx = await exportClinicSessionsXlsx({ from, to, clinicId: str(req.query.clinicId) });
+    const stamp = [from?.slice(0, 10), to?.slice(0, 10)].filter(Boolean).join("_") || new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="clinic-sessions-${stamp}.xlsx"`);
+    return res.send(xlsx);
+  } catch (e) {
+    next(e);
+  }
+});
 
 reportingRouter.get("/finance/by-clinic", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {

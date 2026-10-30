@@ -636,3 +636,30 @@ export function useMyClinicReport(filters: { from?: string; to?: string } = {}) 
     deps: [filters.from, filters.to],
   });
 }
+
+export type ClinicSessionRow = {
+  sessionId: string; clinicId: string; clinicNameEn: string; clinicNameAr: string; date: string;
+  customerName: string; customerPhone: string; packageName: string; isStandalone: boolean;
+  membershipCancelled: boolean; extras: string; status: string;
+  sessionValueKwd: string; cashbackKwd: string; paidAtClinicKwd: string; clinicMarkedPaid: boolean;
+};
+export type ClinicSessionsSummary = {
+  clinicId: string; clinicNameEn: string; clinicNameAr: string; completed: number; noShow: number;
+  sessionValueKwd: string; cashbackKwd: string; paidAtClinicKwd: string;
+};
+export type ClinicSessionsReport = {
+  clinics: ClinicSessionsSummary[];
+  totals: { completed: number; noShow: number; sessionValueKwd: string; cashbackKwd: string; paidAtClinicKwd: string };
+  rows: ClinicSessionRow[];
+};
+
+/** Sessions that happened (completed / no-show) per clinic in a period. */
+export function useClinicSessionsReport(filters: { from?: string; to?: string } = {}) {
+  const p = new URLSearchParams();
+  if (filters.from) p.set("from", filters.from);
+  if (filters.to) p.set("to", filters.to);
+  const q = p.toString() ? `?${p.toString()}` : "";
+  return useApi<ClinicSessionsReport>(`/reporting/finance/clinic-sessions${q}`, {
+    deps: [filters.from, filters.to],
+  });
+}
