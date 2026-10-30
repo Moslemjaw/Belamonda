@@ -34,8 +34,8 @@ export function PaymentsTab({ from, to }: { from: string; to: string }) {
           <div className="flex flex-wrap gap-2">
             <select className="select-field text-xs py-1.5 h-auto" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
               <option value="">{ar() ? "كل الحالات" : "All Statuses"}</option>
-              <option value="completed">{ar() ? "مكتمل" : "Completed"}</option>
-              <option value="pending">{ar() ? "معلق" : "Pending"}</option>
+              <option value="paid">{ar() ? "مدفوع" : "Paid"}</option>
+              <option value="payment_pending">{ar() ? "بانتظار الدفع" : "Awaiting payment"}</option>
               <option value="failed">{ar() ? "فشل" : "Failed"}</option>
               <option value="refunded">{ar() ? "مسترد" : "Refunded"}</option>
             </select>

@@ -20,6 +20,7 @@ import {
   exportComprehensiveReportXlsx,
 } from "./analytics.service.js";
 import { reconcileMetrics } from "../../services/reconciliation.service.js";
+import { computePackageRevenue } from "./revenue.service.js";
 
 const CreateReportSchema = z.object({
   type: z.enum(["daily_summary", "weekly_pl", "monthly_cashback_liability", "yearly_revenue", "custom"]),
@@ -43,6 +44,16 @@ reportingRouter.get("/finance/payments-breakdown", authRequired, requireRole(FIN
       to: str(req.query.to),
     });
     return res.json(data);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Package revenue: money received for packages in the period, minus refunds,
+// plus what is still unpaid on packages sold in the period and granted packages.
+reportingRouter.get("/finance/revenue", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    return res.json(await computePackageRevenue({ from: str(req.query.from), to: str(req.query.to) }));
   } catch (e) {
     next(e);
   }
@@ -214,7 +225,11 @@ const ManualPaymentSchema = z.object({
   amountKwd: z.string().regex(/^\d+(\.\d{1,3})?$/, "Invalid amount"),
   method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]),
   purpose: z.enum(["enrollment_full", "installment", "deposit", "deposit_balance", "enrollment_enet", "session_payment", "manual_entry"]).default("manual_entry"),
-  status: z.enum(["completed", "pending", "failed", "refunded"]).default("completed"),
+  // "completed"/"pending" are older labels from the form; the payment record only accepts paid/payment_pending.
+  status: z
+    .enum(["paid", "payment_pending", "failed", "refunded", "completed", "pending"])
+    .default("paid")
+    .transform((v) => (v === "completed" ? "paid" : v === "pending" ? "payment_pending" : v)),
   manualLabel: z.string().max(200).optional(),
   notes: z.string().max(1000).optional(),
   providerRef: z.string().max(200).optional(),

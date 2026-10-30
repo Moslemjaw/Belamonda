@@ -428,9 +428,13 @@ commerceRouter.delete("/me/user-offers/:id", authRequired, async (req, res, next
   try {
     const uo = await UserOfferModel.findOne({ _id: req.params.id, userId: req.auth!.userId }).lean();
     if (!uo) return res.status(404).json({ error: "Not found" });
-    const result = await userOfferService.deleteUserOffer(req.params.id);
-    if (result === "not_found") return res.status(404).json({ error: "Not found" });
-    if (result === "already_cancelled") return res.status(409).json({ error: "Already cancelled" });
+    const result = await userOfferService.cancelUserOffer(req.params.id, {
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      reason: "Cancelled by customer",
+    });
+    if (!result.ok && result.error === "already_cancelled") return res.status(409).json({ error: "Already cancelled" });
+    if (!result.ok) return res.status(404).json({ error: "Not found" });
     return res.json({ ok: true });
   } catch (e) {
     next(e);
@@ -1028,13 +1032,39 @@ commerceRouter.patch("/admin/user-offers/:id", authRequired, requireRole(["admin
   }
 });
 
-commerceRouter.delete("/admin/user-offers/:id", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
+const CancelMembershipSchema = z.object({
+  reason: z.string().trim().max(500).optional(),
+  refund: z
+    .object({
+      type: z.enum(["none", "partial", "full"]),
+      amountKwd: z.string().regex(/^\d+(\.\d{1,3})?$/).optional(),
+      method: z.enum(["bank_transfer", "cash", "pos", "k-net", "link", "wallet", "other"]).optional(),
+    })
+    .optional(),
+});
+
+async function cancelMembershipHandler(req: any, res: any, next: any) {
   try {
-    const result = await userOfferService.deleteUserOffer(req.params.id);
-    if (result === "not_found") return res.status(404).json({ error: "Membership not found" });
-    if (result === "already_cancelled") return res.status(409).json({ error: "Already cancelled" });
-    return res.json({ ok: true });
+    const parsed = CancelMembershipSchema.safeParse(req.body ?? {});
+    if (!parsed.success) return res.status(400).json({ error: "INVALID_BODY", details: parsed.error.flatten() });
+    const { reason, refund } = parsed.data;
+    if (refund && refund.type !== "none" && !reason) return res.status(400).json({ error: "Reason is required for a refund" });
+    const result = await userOfferService.cancelUserOffer(req.params.id, {
+      actorId: req.auth!.userId,
+      actorRole: req.auth!.role,
+      reason,
+      refund: refund && { ...refund, amountKwd: refund.amountKwd ? Number(refund.amountKwd).toFixed(3) : undefined },
+    });
+    if (!result.ok && result.error === "not_found") return res.status(404).json({ error: "Membership not found" });
+    if (!result.ok && result.error === "already_cancelled") return res.status(409).json({ error: "Already cancelled" });
+    if (!result.ok) return res.status(400).json({ error: "Refund must be more than 0 and not more than the amount paid" });
+    return res.json({ ok: true, refundedKwd: result.refundedKwd });
   } catch (e) {
     next(e);
   }
-});
+}
+
+const CANCEL_ROLES = requireRole(["admin", "cs", "legal", "cs_director"]);
+commerceRouter.post("/admin/user-offers/:id/cancel", authRequired, CANCEL_ROLES, cancelMembershipHandler);
+// Kept for older clients: cancels without a refund (no longer deletes anything).
+commerceRouter.delete("/admin/user-offers/:id", authRequired, CANCEL_ROLES, cancelMembershipHandler);

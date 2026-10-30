@@ -84,7 +84,9 @@ export const METHOD_COLORS: Record<string, string> = {
 };
 
 export const STATUS_BADGE: Record<string, string> = {
+  paid: "bg-emerald-50 text-emerald-700",
   completed: "bg-emerald-50 text-emerald-700",
+  payment_pending: "bg-amber-50 text-amber-700",
   pending: "bg-amber-50 text-amber-700",
   failed: "bg-red-50 text-red-700",
   refunded: "bg-surface-100 text-surface-500",
@@ -126,8 +128,8 @@ export const MANUAL_PURPOSES = [
 ];
 
 export const MANUAL_STATUSES = [
-  { value: "completed", label: "Completed" },
-  { value: "pending", label: "Pending" },
+  { value: "paid", label: "Paid" },
+  { value: "payment_pending", label: "Pending" },
   { value: "refunded", label: "Refunded" },
   { value: "failed", label: "Failed" },
 ];

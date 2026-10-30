@@ -14,7 +14,7 @@ export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState("cash");
   const [purpose, setPurpose] = useState("manual_entry");
-  const [status, setStatus] = useState("completed");
+  const [status, setStatus] = useState("paid");
   const [label, setLabel] = useState("");
   const [notes, setNotes] = useState("");
   const [clinicId, setClinicId] = useState("");
@@ -97,7 +97,7 @@ export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
 
   // KPI summary of entries
   const totalCompleted = entries
-    .filter(e => e.status === "completed")
+    .filter(e => e.status === "paid" || e.status === "completed")
     .reduce((s, e) => s + parseKwd(e.amountKwd), 0);
 
   const purposeLabel = (p: string) =>
@@ -105,7 +105,9 @@ export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
   const methodLabel = (m: string) =>
     MANUAL_METHODS.find(x => x.value === m)?.label ?? m;
   const statusBadge: Record<string, string> = {
+    paid: "bg-emerald-50 text-emerald-700",
     completed: "bg-emerald-50 text-emerald-700",
+    payment_pending: "bg-amber-50 text-amber-700",
     pending: "bg-amber-50 text-amber-700",
     refunded: "bg-surface-100 text-surface-500",
     failed: "bg-red-50 text-red-700",
@@ -120,7 +122,7 @@ export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
         <KpiCard label={ar() ? "إجمالي المبالغ المكتملة" : "Total Completed Amount"} value={`${fmt(totalCompleted / 1000)} KWD`} accent="emerald" icon="✅" />
         <KpiCard
           label={ar() ? "معلّقة" : "Pending Entries"}
-          value={String(entries.filter(e => e.status === "pending").length)}
+          value={String(entries.filter(e => e.status === "payment_pending" || e.status === "pending").length)}
           accent="amber"
           icon="⏳"
         />

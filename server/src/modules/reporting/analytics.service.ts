@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { kwDate, kwDateTime } from "../../utils/kwDate.js";
+import { kwDate, kwDateTime, kwDateRange } from "../../utils/kwDate.js";
 import * as clinicService from "../../services/clinic.service.js";
 import * as offerService from "../../services/offer.service.js";
 import * as userOfferService from "../../services/userOffer.service.js";
@@ -16,6 +16,8 @@ import { kycStore } from "../kyc/kyc.store.js";
 import { WalletModel, WalletTxnModel } from "../../models/kyc.model.js";
 import ExcelJS from "exceljs";
 import { SystemMetricModel } from "../../models/metric.model.js";
+import { PAID_STATUSES, isPaidStatus } from "../../services/financeRevenue.js";
+import { computePackageRevenue } from "./revenue.service.js";
 
 function parseKwd(s: string) {
   if (!s) return 0;
@@ -34,26 +36,7 @@ function fmtKwd(mils: number) {
   return `${sign}${a}.${b}`;
 }
 
-function buildDateFilter(from?: string, to?: string) {
-  const f: any = {};
-  if (from) {
-    const d = new Date(from);
-    if (!isNaN(d.getTime())) {
-      d.setUTCHours(0, 0, 0, 0);
-      d.setUTCHours(d.getUTCHours() - 3);
-      f.$gte = d;
-    }
-  }
-  if (to) {
-    const d = new Date(to);
-    if (!isNaN(d.getTime())) {
-      d.setUTCHours(23, 59, 59, 999);
-      d.setUTCHours(d.getUTCHours() - 3);
-      f.$lte = d;
-    }
-  }
-  return Object.keys(f).length ? f : undefined;
-}
+const buildDateFilter = kwDateRange;
 
 // Returns the "bucket key" for a given date and period
 function bucketKey(d: Date, period: "daily" | "weekly" | "monthly" | "yearly"): string {
@@ -81,7 +64,7 @@ export async function computePaymentsBreakdown(filters: {
   limit?: number;
 } = {}) {
   const q: Record<string, unknown> = {};
-  if (filters.status) q.status = filters.status;
+  if (filters.status) q.status = filters.status === "paid" ? { $in: [...PAID_STATUSES] } : filters.status;
   if (filters.method) q.method = filters.method;
   if (filters.purpose) q.purpose = filters.purpose;
   const dateFilter = buildDateFilter(filters.from, filters.to);
@@ -173,7 +156,7 @@ export async function computePaymentsBreakdown(filters: {
   for (const p of enriched) {
     const netMils = parseKwd(p.amountKwd);
     if (p.status === "payment_pending") { pendingCount++; continue; }
-    if (p.status !== "paid") continue;
+    if (!isPaidStatus(p.status)) continue;
 
     if (p.purpose === "session_payment" && p.sessionStatus !== "completed") continue;
 
@@ -239,7 +222,7 @@ export async function computePaymentsBreakdown(filters: {
 // Time-bucketed revenue/cashback/profit
 export async function computeFinanceTimeseries(filters: { period: "daily" | "weekly" | "monthly" | "yearly"; from?: string; to?: string }) {
   const period = filters.period;
-  const q: Record<string, unknown> = { status: "paid" };
+  const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
 
@@ -320,7 +303,7 @@ export async function computeFinanceTimeseries(filters: { period: "daily" | "wee
 
 // Revenue per offer
 export async function computeRevenueByOffer(filters: { from?: string; to?: string; limit?: number } = {}) {
-  const q: Record<string, unknown> = { status: "paid" };
+  const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
   const payments = await PaymentModel.find(q).select("offerId amountKwd grossAmountKwd cashbackAppliedKwd").lean();
@@ -392,7 +375,7 @@ export async function computeRevenueByOffer(filters: { from?: string; to?: strin
 
 // Top customers by revenue / LTV
 export async function computeRevenueByUser(filters: { from?: string; to?: string; limit?: number } = {}) {
-  const q: Record<string, unknown> = { status: "paid" };
+  const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
   const payments = await PaymentModel.find(q).select("userId amountKwd cashbackAppliedKwd").lean();
@@ -464,7 +447,7 @@ export async function computeDetailedCustomersReport(filters: { from?: string; t
 
   // Fetch all actual completed payments to calculate true Paid Amount
   const uoIds = userOffers.map((u: any) => u._id).filter(Boolean);
-  const uoPayments = await PaymentModel.find({ userOfferId: { $in: uoIds }, status: "paid" }).select("userOfferId amountKwd").lean().catch(() => []);
+  const uoPayments = await PaymentModel.find({ userOfferId: { $in: uoIds }, status: { $in: [...PAID_STATUSES] } }).select("userOfferId amountKwd").lean().catch(() => []);
   const uoPaidMap = new Map<string, number>();
   for (const p of uoPayments as any[]) {
     const id = p.userOfferId?.toString();
@@ -576,7 +559,7 @@ export async function computeDetailedCustomersReport(filters: { from?: string; t
 
 // Revenue grouped by referrer (the staff who referred the buyer) - ONLY first transaction counts
 export async function computeRevenueByReferral(filters: { from?: string; to?: string; limit?: number } = {}) {
-  const q: Record<string, unknown> = { status: "paid" };
+  const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
   
@@ -589,7 +572,7 @@ export async function computeRevenueByReferral(filters: { from?: string; to?: st
 
   // For these buyers, find their FIRST payment EVER
   const firstPaymentsEver = await PaymentModel.aggregate([
-    { $match: { status: "paid", userId: { $in: buyerIds } } },
+    { $match: { status: { $in: [...PAID_STATUSES] }, userId: { $in: buyerIds } } },
     { $sort: { createdAt: 1 } },
     { $group: {
         _id: "$userId",
@@ -778,7 +761,6 @@ export async function computeFinanceSnapshot(filters: { from?: string; to?: stri
 async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string } = {}) {
   const dateFilter = buildDateFilter(filters.from, filters.to);
   let revenueKwd: string;
-  let revenueMils: number;
   let cashbackAppliedMils = 0;
   
   let globalMetric: any = null;
@@ -789,7 +771,7 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
   // Revenue = gross (sticker), profit = net (amountKwd — already excludes cashback)
   let netMils = 0;
   let grossMils = 0;
-  const rowsQ: Record<string, unknown> = { status: "paid" };
+  const rowsQ: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
   if (dateFilter) rowsQ.createdAt = dateFilter;
 
   if (!dateFilter) {
@@ -819,8 +801,8 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
     }
   }
 
-  revenueMils = grossMils;
-  revenueKwd = fmtKwd(grossMils);
+  const packageRevenue = await computePackageRevenue(filters);
+  revenueKwd = packageRevenue.revenueKwd;
 
   const pending = await userOfferService.listPendingPaymentsQueue();
   let pendingMils = 0;
@@ -841,8 +823,8 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
   let utilized = 0;
   let credited = 0;
   
-  if (!dateFilter) {
-    // ── Fast path: use MongoDB Aggregation for system-wide wallets ──────────────
+  // Wallet balances are a point-in-time total, so they ignore the date filter.
+  {
     const [walletAgg, txnAgg] = await Promise.all([
       WalletModel.aggregate([
         { $group: { _id: null, locked: { $sum: { $toDouble: "$lockedKwd" } }, unlocked: { $sum: { $toDouble: "$unlockedKwd" } } } }
@@ -851,7 +833,7 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
         { $group: { _id: "$type", total: { $sum: { $toDouble: "$amountKwd" } } } }
       ])
     ]);
-    
+
     if (walletAgg.length > 0) {
       locked = Math.round(walletAgg[0].locked * 1000);
       unlocked = Math.round(walletAgg[0].unlocked * 1000);
@@ -861,24 +843,10 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
       if (t._id === "deduction") utilized += mils;
       if (["signup_bonus", "unlock", "adjustment", "reversal"].includes(t._id)) credited += mils;
     }
-  } else {
-    // Date-filtered fallback (less common)
-    const paymentUserIds = await PaymentModel.distinct<string>("userId");
-    const walletUserIds = new Set<string>([...paymentUserIds, ...pending.map((p) => p.userId), "cust1"]);
-    const userIdsArr = Array.from(walletUserIds);
-    const wallets = await WalletModel.find({ userId: { $in: userIdsArr } }).lean();
-    for (const w of wallets as any[]) {
-      locked += parseKwd(w.lockedKwd || "0.000");
-      unlocked += parseKwd(w.unlockedKwd || "0.000");
-    }
-    const txns = await WalletTxnModel.find({ userId: { $in: userIdsArr } }).select("type amountKwd").lean();
-    for (const t of txns as any[]) {
-      if (t.type === "deduction") utilized += parseKwd(t.amountKwd || "0.000");
-      if (t.type === "signup_bonus" || t.type === "unlock" || t.type === "adjustment" || t.type === "reversal") credited += parseKwd(t.amountKwd || "0.000");
-    }
   }
 
-  const liability = locked + unlocked - utilized;
+  // unlockedKwd is already net of deductions, so used cashback is not subtracted again.
+  const liability = locked + unlocked;
 
   const clinics = await clinicService.listClinics({ activeOnly: true });
   const offersRes = await offerService.listOffersPublic({});
@@ -891,51 +859,8 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
     BookingSessionModel.countDocuments({ status: "completed", scheduledAt: { $gte: monthStart } }),
   ]);
 
-  let expectedTotalMils = 0;
-  let paidTowardMembershipsMils = 0;
-
-  // Always computed live: the stored metric is only refreshed by the 12-hourly
-  // reconciliation job, so it lagged behind confirmed payments on the dashboard.
-  {
-    const uoQ: any = { status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] } };
-    if (dateFilter) uoQ.createdAt = dateFilter;
-
-    // Fetch all user offers (excluding pending/rejected) to calculate Expected amounts exactly like the comprehensive report
-    const allUserOffers = await UserOfferModel.find(uoQ).select("offerId installmentSchedule purchaseMode paymentAmountKwd depositAmountKwd status").lean();
-
-    const allOfferIds = [...new Set(allUserOffers.map((uo: any) => uo.offerId?.toString()).filter(Boolean))];
-    const allOfferDocs = await OfferModel.find({ _id: { $in: allOfferIds } }).select("subscriptionPriceKwd").lean();
-    const offerPriceMap = new Map(allOfferDocs.map((o: any) => [o._id.toString(), o.subscriptionPriceKwd]));
-
-    for (const uo of allUserOffers as any[]) {
-      // Calculate total price expected (Report logic: offerPrice first, then paymentAmount)
-      const totalPriceKwd = offerPriceMap.get(uo.offerId?.toString()) || uo.paymentAmountKwd || "0.000";
-      const uoTotal = parseKwd(totalPriceKwd);
-      
-      // Calculate paid amount exactly like the report
-      let paidMils = 0;
-      if (uo.purchaseMode === "installments") {
-        const sched = uo.installmentSchedule || [];
-        paidMils += parseKwd(uo.depositAmountKwd || "0");
-        sched.forEach((s: any) => {
-          if (s.paid) paidMils += parseKwd(s.amountKwd || "0");
-        });
-      } else if (uo.purchaseMode === "deposit") {
-        paidMils = parseKwd(uo.paymentAmountKwd || uo.depositAmountKwd || "0");
-      } else {
-        if (uo.status === "active" || uo.status === "expired" || uo.status === "reserved" || uo.status === "cancelled") {
-           paidMils = uoTotal;
-        }
-      }
-      
-      expectedTotalMils += uoTotal;
-      paidTowardMembershipsMils += paidMils;
-    }
-  }
-
-  // Unpaid = Expected - Paid
-  const unpaidInstallmentsMils = Math.max(0, expectedTotalMils - paidTowardMembershipsMils);
-
+  const collectedMils = parseKwd(packageRevenue.collectedKwd);
+  const outstandingMils = parseKwd(packageRevenue.outstandingKwd);
 
   return {
     revenueKwd,
@@ -963,9 +888,10 @@ async function _computeFinanceSnapshotImpl(filters: { from?: string; to?: string
     pendingPaymentsKwd: fmtKwd(pendingMils),
     sessionsToday,
     sessionsThisMonth,
-    expectedTotalRevenueKwd: fmtKwd(expectedTotalMils),
-    unpaidInstallmentsKwd: fmtKwd(unpaidInstallmentsMils),
-    paidTowardMembershipsKwd: fmtKwd(paidTowardMembershipsMils),
+    expectedTotalRevenueKwd: fmtKwd(collectedMils + outstandingMils),
+    unpaidInstallmentsKwd: packageRevenue.outstandingKwd,
+    paidTowardMembershipsKwd: packageRevenue.collectedKwd,
+    packageRevenue,
   };
 }
 
@@ -978,7 +904,7 @@ export async function computeDormantCustomersReport(filters: { from?: string; to
   if (dateFilter) activeQ.createdAt = dateFilter;
 
   const [recentPayments, recentSessions] = await Promise.all([
-    PaymentModel.distinct("userId", { ...activeQ, status: "paid" }),
+    PaymentModel.distinct("userId", { ...activeQ, status: { $in: [...PAID_STATUSES] } }),
     BookingSessionModel.distinct("userId", { ...activeQ, status: "completed" }),
   ]);
   const activeUserIds = new Set([...recentPayments, ...recentSessions].map(id => id.toString()));
@@ -1151,7 +1077,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
   };
 
   if (kind === "payments") {
-    const data = await computePaymentsBreakdown({ from: filters.from, to: filters.to, limit: 500 });
+    const data = await computePaymentsBreakdown({ from: filters.from, to: filters.to });
     addTable(
       [
         { key: "date", header: "Date", alignment: { vertical: "middle", horizontal: "left" } },
@@ -1232,7 +1158,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     );
   } else if (kind === "referrals") {
     // 1. Get payments in period
-    const q: Record<string, unknown> = { status: "paid" };
+    const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
     const dateFilter = buildDateFilter(filters.from, filters.to);
     if (dateFilter) q.createdAt = dateFilter;
     
@@ -1245,7 +1171,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     if (buyerIdsStr.length > 0) {
       // 2. Find their FIRST payment EVER
       const firstPaymentsEver = await PaymentModel.aggregate([
-        { $match: { status: "paid", userId: { $in: buyerIdsStr } } },
+        { $match: { status: { $in: [...PAID_STATUSES] }, userId: { $in: buyerIdsStr } } },
         { $sort: { createdAt: 1 } },
         { $group: {
             _id: "$userId",
@@ -2005,7 +1931,7 @@ export async function exportComprehensiveReportXlsx(filters: { from?: string; to
   const dateFilter = buildDateFilter(filters.from, filters.to);
 
   const usersQ: any = {};
-  const paymentsQ: any = { status: "paid" };
+  const paymentsQ: any = { status: { $in: [...PAID_STATUSES] } };
   const membershipsQ: any = { status: { $nin: ["pending_payment", "enet_pending", "enet_rejected", "rejected"] } };
   const sessionsQ: any = {};
 
