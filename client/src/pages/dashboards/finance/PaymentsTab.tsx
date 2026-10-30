@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { usePaymentsBreakdown, type EnrichedPaymentItem, type PaymentsType } from "../../../hooks/useApi";
 import { KpiCard } from "../../../components/KpiCard";
 import { fmtDate } from "../../../lib/dateFormat";
-import { ar, paidVia, PURPOSE_LABELS, STATUS_BADGE } from "./shared";
+import { ar, fmt, paidVia, parseKwd, PURPOSE_LABELS, STATUS_BADGE } from "./shared";
 import { ManualEntriesSection } from "./ManualEntriesSection";
 
 const TYPES: { key: PaymentsType; en: string; ar: string }[] = [
@@ -24,13 +24,14 @@ const STATUS_LABELS: Record<string, { en: string; ar: string }> = {
 const statusLabel = (s: string) => (ar() ? STATUS_LABELS[s]?.ar : STATUS_LABELS[s]?.en) ?? s;
 const purposeLabel = (p?: string) => (p === "refund" ? (ar() ? "استرداد" : "Refund") : PURPOSE_LABELS[p ?? ""] ?? (p || "—"));
 
-export function PaymentsTab({ from, to, initialStatus = "" }: { from: string; to: string; initialStatus?: string }) {
-  const [type, setType] = useState<PaymentsType>("");
+export function PaymentsTab({ from, to, initialType = "", initialStatus = "" }: { from: string; to: string; initialType?: PaymentsType; initialStatus?: string }) {
+  const [type, setType] = useState<PaymentsType>(initialType);
   const [filterStatus, setFilterStatus] = useState(initialStatus);
   const [search, setSearch] = useState("");
   const [customer, setCustomer] = useState("");
 
   useEffect(() => setFilterStatus(initialStatus), [initialStatus]);
+  useEffect(() => setType(initialType), [initialType]);
   // Search after the user stops typing for a moment.
   useEffect(() => {
     const t = setTimeout(() => setCustomer(search.trim()), 400);
@@ -44,8 +45,23 @@ export function PaymentsTab({ from, to, initialStatus = "" }: { from: string; to
     from, to,
   });
 
-  const summary = data?.summary;
+  // The cards always show the whole period, so picking one doesn't change the others.
+  const { data: totals } = usePaymentsBreakdown({ customer: customer || undefined, from, to });
+  const summary = totals?.summary;
   const items = data?.items ?? [];
+
+  // A payment with several extras is listed once per extra; count and add it once.
+  const unique = (list: EnrichedPaymentItem[]) => [...new Map(list.map(p => [p.id, p])).values()];
+  const rows = unique(items);
+  const shownTotal = rows.reduce((sum, p) => sum + (isRefund(p) ? -1 : 1) * parseKwd(p.amountKwd), 0);
+  const pendingKwd = unique(totals?.items ?? []).filter(p => p.status === "payment_pending").reduce((sum, p) => sum + parseKwd(p.amountKwd), 0);
+  const filtered = !!(type || filterStatus || search);
+  const clearFilters = () => { setType(""); setFilterStatus(""); setSearch(""); };
+  const pick = (next: PaymentsType, status = "") => {
+    const same = type === next && filterStatus === status;
+    setType(same ? "" : next);
+    setFilterStatus(same ? "" : status);
+  };
 
   return (
     <div className="space-y-5">
@@ -66,30 +82,38 @@ export function PaymentsTab({ from, to, initialStatus = "" }: { from: string; to
         <ManualEntriesSection from={from} to={to} />
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <KpiCard label={ar() ? "الباقات (المحصّل)" : "Packages collected"} value={`${summary?.packagesCollectedKwd ?? "0.000"} KWD`} accent="emerald" icon="💳" />
-            <KpiCard label={ar() ? "الجلسات (ليست إيراد)" : "Sessions (not revenue)"} value={`${summary?.sessionRevenueKwd ?? "0.000"} KWD`} accent="indigo" icon="💆‍♀️" />
-            <KpiCard label={ar() ? "الاستردادات" : "Refunds"} value={`${summary?.refundsKwd ?? "0.000"} KWD`} sub={`${summary?.refundsCount ?? 0} ${ar() ? "عملية" : "refunds"}`} accent="rose" icon="↩️" />
-            <KpiCard label={ar() ? "بانتظار الدفع" : "Awaiting payment"} value={`${summary?.pendingCount ?? 0}`} accent="amber" icon="⏳" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 xl:grid-cols-4">
+            <KpiCard label={ar() ? "الباقات (المحصّل)" : "Packages collected"} value={`${summary?.packagesCollectedKwd ?? "0.000"} KWD`} accent="emerald" icon="💳" active={type === "packages" && !filterStatus} onClick={() => pick("packages")} />
+            <KpiCard label={ar() ? "الجلسات (ليست إيراد)" : "Sessions (not revenue)"} value={`${summary?.sessionRevenueKwd ?? "0.000"} KWD`} accent="indigo" icon="💆‍♀️" active={type === "sessions" && !filterStatus} onClick={() => pick("sessions")} />
+            <KpiCard label={ar() ? "الاستردادات" : "Refunds"} value={`${summary?.refundsKwd ?? "0.000"} KWD`} sub={`${summary?.refundsCount ?? 0} ${ar() ? "عملية" : "refunds"}`} accent="rose" icon="↩️" active={type === "refunds" && !filterStatus} onClick={() => pick("refunds")} />
+            <KpiCard label={ar() ? "بانتظار الدفع" : "Awaiting payment"} value={`${fmt(pendingKwd)} KWD`} sub={`${summary?.pendingCount ?? 0} ${ar() ? "دفعة" : "payments"}`} accent="amber" icon="⏳" active={!type && filterStatus === "payment_pending"} onClick={() => pick("", "payment_pending")} />
           </div>
 
           <div className="card-elevated p-5 border border-surface-200 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-4 gap-3">
-              <h3 className="text-sm font-bold text-surface-900">{ar() ? "سجل المدفوعات" : "Payments"} <span className="text-xs text-surface-400 font-medium">({items.length})</span></h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full lg:w-auto">
+              <div>
+                <h3 className="text-sm font-bold text-surface-900">{ar() ? "سجل المدفوعات" : "Payments"} <span className="text-xs text-surface-400 font-medium">({rows.length})</span></h3>
+                {filtered && rows.length > 0 && <p className="text-[11px] text-surface-500 mt-0.5">{ar() ? "إجمالي النتائج:" : "Total shown:"} <span className="font-bold text-surface-700">{fmt(shownTotal)} KWD</span></p>}
+              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full lg:w-auto">
                 <input
-                  className="input-field text-xs py-1.5 h-auto"
+                  className="input-field text-xs py-1.5 h-auto sm:w-56"
                   placeholder={ar() ? "بحث باسم العميل أو الهاتف" : "Search customer name or phone"}
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
-                <select className="select-field text-xs py-1.5 h-auto" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                <select className="select-field text-xs py-1.5 h-auto sm:w-40" value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
                   <option value="">{ar() ? "كل الحالات" : "All statuses"}</option>
                   <option value="paid">{ar() ? "مدفوع" : "Paid"}</option>
                   <option value="payment_pending">{ar() ? "بانتظار الدفع" : "Awaiting payment"}</option>
                   <option value="failed">{ar() ? "فشل" : "Failed"}</option>
                   <option value="refunded">{ar() ? "مسترد" : "Refunded"}</option>
                 </select>
+                {filtered && (
+                  <button type="button" onClick={clearFilters} className="text-xs font-bold text-brand-pink-600 hover:text-brand-pink-800 whitespace-nowrap px-1">
+                    {ar() ? "مسح الفلاتر" : "Clear filters"}
+                  </button>
+                )}
               </div>
             </div>
 

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
-import type { RevenueGranularity } from "../../hooks/useApi";
+import type { PaymentsType, RevenueGranularity } from "../../hooks/useApi";
 import { ar, rangeForPeriod } from "./finance/shared";
 import type { Period } from "./finance/shared";
 import { FilterBar } from "./finance/FilterBar";
@@ -14,14 +14,16 @@ import { ProfileTab } from "./finance/ProfileTab";
 
 const PERIODS: { key: Exclude<Period, "custom">; en: string; ar: string }[] = [
   { key: "today", en: "Today", ar: "اليوم" },
-  { key: "week", en: "This week", ar: "هذا الأسبوع" },
+  { key: "week", en: "Last 7 days", ar: "آخر 7 أيام" },
   { key: "month", en: "This month", ar: "هذا الشهر" },
+  { key: "lastMonth", en: "Last month", ar: "الشهر الماضي" },
+  { key: "year", en: "This year", ar: "هذه السنة" },
 ];
 
 export default function FinanceDashboard() {
   const { t } = useTranslation();
   const [activeNav, setActiveNav] = useState("home");
-  const [paymentsStatus, setPaymentsStatus] = useState("");
+  const [paymentsPreset, setPaymentsPreset] = useState<{ type: PaymentsType; status: string }>({ type: "", status: "" });
   const [showProfile, setShowProfile] = useState(false);
   const [period, setPeriod] = useState<Period>("month");
   const initialRange = useMemo(() => rangeForPeriod("month"), []);
@@ -51,7 +53,7 @@ export default function FinanceDashboard() {
   }, [from, to]);
 
   const navigate = (key: string) => {
-    if (key !== "payments") setPaymentsStatus("");
+    if (key !== "payments") setPaymentsPreset({ type: "", status: "" });
     setActiveNav(key);
   };
 
@@ -83,35 +85,36 @@ export default function FinanceDashboard() {
       }
     >
       <div className="space-y-5 animate-fade-in">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-          <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 lg:pb-0">
+        <div className="rounded-2xl border border-surface-200 bg-white p-3 shadow-sm flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
+          <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 xl:pb-0">
             {PERIODS.map(p => (
               <button
                 key={p.key}
                 type="button"
                 onClick={() => handlePeriodChange(p.key)}
+                aria-pressed={period === p.key}
                 className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors ${period === p.key ? "bg-surface-900 text-white border-surface-900" : "bg-white text-surface-600 border-surface-200 hover:border-surface-400"}`}
               >
                 {ar() ? p.ar : p.en}
               </button>
             ))}
-            <span className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold border ${period === "custom" ? "bg-surface-900 text-white border-surface-900" : "bg-white text-surface-400 border-surface-200"}`}>
-              {ar() ? "مخصص" : "Custom"}
-            </span>
+            {period === "custom" && (
+              <span className="shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold border bg-surface-900 text-white border-surface-900">
+                {ar() ? "فترة مخصصة" : "Custom dates"}
+              </span>
+            )}
           </div>
-          <div className="lg:ml-auto rtl:lg:ml-0 rtl:lg:mr-auto">
-            <FilterBar from={from} to={to} onCustomDateChange={handleCustomDateChange} />
-          </div>
+          <FilterBar from={from} to={to} onCustomDateChange={handleCustomDateChange} />
         </div>
 
         {activeNav === "home" && (
           <HomeTab
             from={from} to={to} granularity={granularity}
             onOpenInstallments={() => navigate("installments")}
-            onOpenPendingPayments={() => { setPaymentsStatus("payment_pending"); setActiveNav("payments"); }}
+            onOpenPayments={(type, status = "") => { setPaymentsPreset({ type, status }); setActiveNav("payments"); }}
           />
         )}
-        {activeNav === "payments" && <PaymentsTab from={from} to={to} initialStatus={paymentsStatus} />}
+        {activeNav === "payments" && <PaymentsTab from={from} to={to} initialType={paymentsPreset.type} initialStatus={paymentsPreset.status} />}
         {activeNav === "installments" && <InstallmentsTab from={from} to={to} />}
         {activeNav === "clinics" && <ClinicsTab from={from} to={to} />}
         {activeNav === "reports" && <ReportsTab from={from} to={to} />}

@@ -19,6 +19,8 @@ import {
   exportClinicSessionsXlsx,
 } from "./analytics.service.js";
 import { reconcileMetrics } from "../../services/reconciliation.service.js";
+import { manualEntryQuery } from "../../services/financeRevenue.js";
+import { kwDateRange } from "../../utils/kwDate.js";
 import { computePackageRevenue } from "./revenue.service.js";
 import { buildFinanceReport, isFinanceReportType } from "./financeReports.service.js";
 import { renderReportPdf, renderReportXlsx } from "./reportRender.js";
@@ -309,14 +311,9 @@ reportingRouter.post("/finance/manual-payment", authRequired, requireRole(FINANC
 reportingRouter.get("/finance/manual-payments", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {
     const limit = Math.min(500, Number(str(req.query.limit)) || 200);
-    const q: any = { isManual: true };
-    const fromStr = str(req.query.from);
-    const toStr = str(req.query.to);
-    if (fromStr || toStr) {
-      q.createdAt = {};
-      if (fromStr) q.createdAt.$gte = new Date(fromStr);
-      if (toStr) q.createdAt.$lte = new Date(new Date(toStr).setUTCHours(23, 59, 59, 999));
-    }
+    const q: any = { ...manualEntryQuery };
+    const range = kwDateRange(str(req.query.from), str(req.query.to));
+    if (range) q.createdAt = range;
     const docs = await PaymentModel.find(q).populate("clinicId", "nameEn").sort({ createdAt: -1 }).limit(limit).lean();
     const items = docs.map((d: any) => ({
       id: d._id.toString(),
@@ -341,7 +338,7 @@ reportingRouter.get("/finance/manual-payments", authRequired, requireRole(FINANC
 reportingRouter.delete("/finance/manual-payment/:id", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).json({ error: "INVALID_ID" });
-    const doc = await PaymentModel.findOneAndDelete({ _id: req.params.id, isManual: true });
+    const doc = await PaymentModel.findOneAndDelete({ _id: req.params.id, ...manualEntryQuery });
     if (!doc) return res.status(404).json({ error: "NOT_FOUND" });
     return res.json({ ok: true });
   } catch (e) {

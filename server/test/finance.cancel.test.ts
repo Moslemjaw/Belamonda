@@ -126,9 +126,49 @@ describe("finance reports over the API", () => {
     expect((await api().get("/reporting/finance/report/export?type=cashback&format=doc").set(auth(fin.token))).status).toBe(400);
   });
 
+  it("the PDF copes with Arabic letters the font can't position", async () => {
+    const { renderReportPdf } = await import("../src/modules/reporting/reportRender.js");
+    const names = ["آيه كمال حمود", "مرآة قرآن", "ۀ ۂ ۖ", "مُحَمَّد"];
+    const pdf = await renderReportPdf({
+      type: "payments_ledger",
+      title: { en: "Test", ar: "آيه" },
+      from: today,
+      to: today,
+      generatedAt: new Date().toISOString(),
+      cards: [],
+      notes: [],
+      tables: [{ id: "t", title: { en: "T", ar: "T" }, columns: [{ key: "name", label: { en: "Name", ar: "الاسم" } }], rows: names.map((name) => ({ name })) }],
+    });
+    expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
+  });
+
   it("the Arabic PDF font is installed (without it Arabic names print as garbage)", () => {
     const require = createRequire(import.meta.url);
     expect(require.resolve("@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-arabic-400-normal.woff")).toBeTruthy();
     expect(require.resolve("@fontsource/noto-naskh-arabic/files/noto-naskh-arabic-arabic-700-normal.woff")).toBeTruthy();
+  });
+});
+
+describe("manual entries", () => {
+  it("package payments staff recorded are not manual entries and can't be deleted from there", async () => {
+    const s = await paidMembership();
+    const fin = await makeUser("finance");
+    const pkg = await s.pay({ isManual: true, provider: "manual" });
+    const entry = await api().post("/reporting/finance/manual-payment").set(auth(fin.token)).send({ amountKwd: "50", method: "cash" });
+    expect(entry.status).toBe(201);
+
+    const list = await api().get(`/reporting/finance/manual-payments?from=${today}&to=${today}`).set(auth(fin.token));
+    expect(list.body.items.map((i: { id: string }) => i.id)).toEqual([entry.body.payment.id]);
+    const tab = await api().get(`/reporting/finance/payments-breakdown?type=manual&from=${today}&to=${today}`).set(auth(fin.token));
+    expect(tab.body.items).toHaveLength(1);
+
+    const ledger = await api().get(`/reporting/finance/report?type=payments_ledger&from=${today}&to=${today}`).set(auth(fin.token));
+    const types = Object.fromEntries(ledger.body.tables[0].rows.map((r: { id: string; type: string }) => [r.id, r.type]));
+    expect(types[String(pkg._id)]).toBe("Package");
+    expect(types[entry.body.payment.id]).toBe("Manual entry");
+
+    expect((await api().delete(`/reporting/finance/manual-payment/${pkg._id}`).set(auth(fin.token))).status).toBe(404);
+    expect(await PaymentModel.countDocuments({ _id: pkg._id })).toBe(1);
+    expect((await api().delete(`/reporting/finance/manual-payment/${entry.body.payment.id}`).set(auth(fin.token))).status).toBe(200);
   });
 });

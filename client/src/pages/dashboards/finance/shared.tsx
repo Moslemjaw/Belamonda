@@ -7,21 +7,39 @@ export const ar = () => i18n.language === "ar";
 // Helpers
 // ===========================================================================
 
-export type Period = "today" | "week" | "month" | "custom";
+export type Period = "today" | "week" | "month" | "lastMonth" | "year" | "custom";
 
-export function isoDate(d: Date) {
-  return d.toISOString();
-}
+const dayStr = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const asRange = (from: string, to: string) => ({ from: `${from}T00:00:00.000Z`, to: `${to}T23:59:59.999Z` });
 
 /** Calendar dates on the user's device (Kuwait for finance staff), sent as whole days. */
 export function rangeForPeriod(period: Exclude<Period, "custom">): { from: string; to: string } {
   const today = new Date();
-  const start = new Date(today);
-  if (period === "week") start.setDate(start.getDate() - 6);
-  if (period === "month") start.setDate(1);
-  const day = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  return { from: `${day(start)}T00:00:00.000Z`, to: `${day(today)}T23:59:59.999Z` };
+  const y = today.getFullYear();
+  const m = today.getMonth();
+  if (period === "lastMonth") return asRange(dayStr(new Date(y, m - 1, 1)), dayStr(new Date(y, m, 0)));
+  if (period === "year") return asRange(dayStr(new Date(y, 0, 1)), dayStr(today));
+  if (period === "month") return asRange(dayStr(new Date(y, m, 1)), dayStr(today));
+  if (period === "week") return asRange(dayStr(new Date(y, m, today.getDate() - 6)), dayStr(today));
+  return asRange(dayStr(today), dayStr(today));
+}
+
+/** The period to compare with: the month before when it starts on the 1st, else the same number of days before. */
+export function previousRange(from: string, to: string): { from: string; to: string } {
+  const [fy, fm, fd] = from.slice(0, 10).split("-").map(Number);
+  const [ty, tm, td] = to.slice(0, 10).split("-").map(Number);
+  const utc = (y: number, mo: number, d: number) => new Date(Date.UTC(y, mo, d)).toISOString().slice(0, 10);
+  if (fd === 1 && fy === ty && fm === tm) return asRange(utc(fy, fm - 2, 1), utc(fy, fm - 1, 0));
+  const days = Math.round((Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000) + 1;
+  return asRange(utc(fy, fm - 1, fd - days), utc(fy, fm - 1, fd - 1));
+}
+
+/** "+12%" / "-5%" against the previous period, or null when there is nothing to compare with. */
+export function changeLabel(current: number, previous: number): string | null {
+  if (!previous) return null;
+  const pct = Math.round(((current - previous) / previous) * 100);
+  return `${pct > 0 ? "+" : ""}${pct}%`;
 }
 
 export function fmt(n: number) {
