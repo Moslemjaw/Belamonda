@@ -48,27 +48,24 @@ export const COLORS = {
 
 export const PIE_COLORS = [COLORS.pink, COLORS.emerald, COLORS.indigo, COLORS.amber, COLORS.purple, COLORS.cyan, COLORS.blue, COLORS.surface];
 
-export const METHOD_LABELS: Record<string, string> = {
-  bank_transfer: "Paid by Customer Service", cash: "Paid in Clinic", pos: "POS",
-  card_mock: "Card (Online)", enet: "ENET", wallet: "Wallet", free_package: "Free Package", other: "Other",
-};
+/**
+ * How a payment was made, as finance reads it. Customers pay for packages only through a
+ * payment link sent by the Belamonda team (older records store it as bank_transfer, link, k-net…).
+ * Mirrors paidViaLabel() on the server.
+ */
+export function paidVia(p: { method?: string; purpose?: string; status?: string }): { label: string; badge: string } {
+  if (p.purpose === "refund" || p.status === "refunded") return { label: ar() ? "استرداد" : "Refund", badge: "bg-rose-50 text-rose-700 border-rose-200" };
+  if (p.purpose === "session_payment") return { label: ar() ? "في العيادة" : "At clinic", badge: "bg-purple-50 text-purple-700 border-purple-200" };
+  if (p.method === "free_package") return { label: ar() ? "ممنوحة" : "Granted", badge: "bg-surface-100 text-surface-600 border-surface-200" };
+  if (p.method === "wallet") return { label: ar() ? "كاش باك" : "Cashback", badge: "bg-amber-50 text-amber-700 border-amber-200" };
+  return { label: ar() ? "رابط دفع (فريق بيلاموندو)" : "Payment link (Belamonda team)", badge: "bg-blue-50 text-blue-700 border-blue-200" };
+}
 
 export const PURPOSE_LABELS: Record<string, string> = {
   enrollment_full: "Membership", installment: "Installment",
   deposit: "Deposit", deposit_balance: "Deposit Balance",
   enrollment_enet: "ENET Enrollment", session_payment: "Session",
   manual_entry: "Manual Entry", refund: "Refund",
-};
-
-export const METHOD_COLORS: Record<string, string> = {
-  bank_transfer: "bg-blue-50 text-blue-700 border-blue-200",
-  cash: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  pos: "bg-purple-50 text-purple-700 border-purple-200",
-  card_mock: "bg-indigo-50 text-indigo-700 border-indigo-200",
-  enet: "bg-brand-pink-50 text-brand-pink-700 border-brand-pink-200",
-  wallet: "bg-amber-50 text-amber-700 border-amber-200",
-  free_package: "bg-surface-100 text-surface-600 border-surface-200",
-  other: "bg-surface-100 text-surface-600 border-surface-200",
 };
 
 export const STATUS_BADGE: Record<string, string> = {
@@ -79,16 +76,6 @@ export const STATUS_BADGE: Record<string, string> = {
   failed: "bg-red-50 text-red-700",
   refunded: "bg-surface-100 text-surface-500",
 };
-
-export const MANUAL_METHODS = [
-  { value: "cash", label: "Paid in Clinic" },
-  { value: "bank_transfer", label: "Paid by Customer Service" },
-  { value: "pos", label: "POS" },
-  { value: "card_mock", label: "Card (Online)" },
-  { value: "enet", label: "ENET" },
-  { value: "wallet", label: "Wallet" },
-  { value: "other", label: "Other" },
-];
 
 export const MANUAL_PURPOSES = [
   { value: "manual_entry", label: "Manual Entry (General)" },

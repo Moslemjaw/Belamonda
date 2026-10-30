@@ -7,7 +7,7 @@ import { BookingRequestModel } from "../../models/bookingRequest.model.js";
 import { WalletModel, WalletTxnModel } from "../../models/kyc.model.js";
 import { kwdToMils, milsToKwd } from "../../utils/money.js";
 import { kwDateRange, kwDateTime, kwDate } from "../../utils/kwDate.js";
-import { isPackageRevenue, isPaidStatus, isRefund, isSessionPayment } from "../../services/financeRevenue.js";
+import { isPackageRevenue, isPaidStatus, isRefund, isSessionPayment, paidViaLabel } from "../../services/financeRevenue.js";
 import {
   loadPackageRevenueInput,
   summarizePackageRevenue,
@@ -218,7 +218,7 @@ export function buildLedgerRow(
     phone: customer?.phone ?? "",
     item,
     clinic: (p.clinicId ? ctx.clinicNames.get(String(p.clinicId)) : undefined) || "",
-    method: p.method ?? "",
+    method: paidViaLabel(p),
     type,
     status: isPaidStatus(p.status) ? "paid" : p.status ?? "",
     amountKwd: milsToKwd(type === "refund" ? -mils : mils),
@@ -311,7 +311,7 @@ function ledgerDoc(from: string, to: string, ledger: Awaited<ReturnType<typeof l
           { key: "phone", label: L("Phone", "الهاتف") },
           { key: "item", label: L("Package / service", "الباقة / الخدمة") },
           { key: "clinic", label: L("Clinic", "العيادة") },
-          { key: "method", label: L("Method", "طريقة الدفع") },
+          { key: "method", label: L("Paid via", "طريقة الدفع") },
           { key: "type", label: L("Type", "النوع") },
           { key: "status", label: L("Status", "الحالة") },
           { key: "amountKwd", label: L("Amount (KWD)", "المبلغ (د.ك)"), kind: "kwd" },
@@ -509,24 +509,6 @@ export function summarizeCashbackTxns(txns: CashbackTxn[]) {
 
 // ── Builders ────────────────────────────────────────────────────────────────
 
-function methodTable(byMethod: PackageRevenueSummary["byMethod"]): ReportTable {
-  return {
-    id: "by_method",
-    title: L("Collected by payment method", "المحصّل حسب طريقة الدفع"),
-    columns: [
-      { key: "method", label: L("Method", "الطريقة") },
-      { key: "count", label: L("Payments", "العمليات"), kind: "int" },
-      { key: "totalKwd", label: L("Amount (KWD)", "المبلغ (د.ك)"), kind: "kwd" },
-    ],
-    rows: byMethod.map((m) => ({ ...m })),
-    totals: {
-      method: "Total",
-      count: byMethod.reduce((n, m) => n + m.count, 0),
-      totalKwd: milsToKwd(byMethod.reduce((n, m) => n + kwdToMils(m.totalKwd), 0)),
-    },
-  };
-}
-
 async function monthlySummary(from: string, to: string): Promise<ReportDoc> {
   const prev = previousPeriod(from, to);
   const [cur, before, ledger, sessions, wallets] = await Promise.all([
@@ -581,7 +563,6 @@ async function monthlySummary(from: string, to: string): Promise<ReportDoc> {
           compare(L("Cancellations", "الإلغاءات"), cur.cancelled.count, before.cancelled.count),
         ],
       },
-      methodTable(cur.byMethod),
       {
         id: "top_packages",
         title: L("Top packages", "أعلى الباقات"),

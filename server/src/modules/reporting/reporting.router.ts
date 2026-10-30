@@ -251,7 +251,8 @@ reportingRouter.get("/finance/clinic-sessions/export", authRequired, requireRole
 
 const ManualPaymentSchema = z.object({
   amountKwd: z.string().regex(/^\d+(\.\d{1,3})?$/, "Invalid amount"),
-  method: z.enum(["bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]),
+  // Customers pay only through a payment link sent by the Belamonda team.
+  method: z.enum(["link", "bank_transfer", "cash", "pos", "card_mock", "enet", "wallet", "free_package", "other"]).default("link"),
   purpose: z.enum(["enrollment_full", "installment", "deposit", "deposit_balance", "enrollment_enet", "session_payment", "manual_entry"]).default("manual_entry"),
   // "completed"/"pending" are older labels from the form; the payment record only accepts paid/payment_pending.
   status: z

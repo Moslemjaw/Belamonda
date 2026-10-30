@@ -25,14 +25,12 @@ export function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, 
 
   const [refundType, setRefundType] = useState<"none" | "full" | "partial">("none");
   const [refundAmount, setRefundAmount] = useState("");
-  const [refundMethod, setRefundMethod] = useState("bank_transfer");
   const [cancelReason, setCancelReason] = useState("");
 
   const openCancel = (id: string) => {
     setConfirmId(id);
     setRefundType("none");
     setRefundAmount("");
-    setRefundMethod("bank_transfer");
     setCancelReason("");
   };
 
@@ -51,7 +49,7 @@ export function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, 
           refund: {
             type: refundType,
             amountKwd: refundType === "partial" ? refundAmount : undefined,
-            method: refundType === "none" ? undefined : refundMethod,
+            method: refundType === "none" ? undefined : "link",
           },
         }),
       });
@@ -242,15 +240,6 @@ export function CustomerMemberships({ onTransfer }: { onTransfer?: (id: string, 
                           </select>
                           {refundType === "partial" && (
                             <input className="input-field text-xs py-1 h-auto w-full" inputMode="decimal" placeholder={ar() ? "المبلغ (د.ك)" : "Amount (KWD)"} value={refundAmount} onChange={e => setRefundAmount(e.target.value)} />
-                          )}
-                          {refundType !== "none" && (
-                            <select className="select-field text-xs py-1 h-auto w-full" value={refundMethod} onChange={e => setRefundMethod(e.target.value)}>
-                              <option value="bank_transfer">{ar() ? "تحويل بنكي" : "Bank transfer"}</option>
-                              <option value="cash">{ar() ? "نقدي" : "Cash"}</option>
-                              <option value="k-net">K-Net</option>
-                              <option value="link">{ar() ? "رابط دفع" : "Payment link"}</option>
-                              <option value="other">{ar() ? "أخرى" : "Other"}</option>
-                            </select>
                           )}
                           <input className="input-field text-xs py-1 h-auto w-full" placeholder={refundType === "none" ? (ar() ? "السبب (اختياري)" : "Reason (optional)") : (ar() ? "السبب (مطلوب)" : "Reason (required)")} value={cancelReason} onChange={e => setCancelReason(e.target.value)} />
                           <div className="flex justify-end gap-1.5">
