@@ -118,7 +118,7 @@ const ImpersonateUserSchema = z.object({
   userId: z.string().min(1)
 });
 
-authRouter.post("/admin/impersonate-user", authRequired, requireRole(["admin", "finance", "cs", "legal", "cs_director"]), async (req, res, next) => {
+authRouter.post("/admin/impersonate-user", authRequired, requireRole(["admin", "cs", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const parsed = ImpersonateUserSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
