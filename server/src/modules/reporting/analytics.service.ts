@@ -977,7 +977,8 @@ export async function computeSystemHealthReport(filters: { from?: string; to?: s
 
 
 
-export type FinanceExportKind = "payments" | "offers" | "subscriptions" | "referrals" | "installments" | "comprehensive";
+/** Only the referrals sheet remains here (CS director widget); finance reports live in financeReports.service.ts. */
+export type FinanceExportKind = "referrals";
 
 function clampColWidth(n: number) {
   return Math.max(10, Math.min(44, n));
@@ -1104,87 +1105,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     setAutoWidths(ws, headerRowNumber, dataStartRow);
   };
 
-  if (kind === "payments") {
-    const data = await computePaymentsBreakdown({ from: filters.from, to: filters.to });
-    addTable(
-      [
-        { key: "date", header: "Date", alignment: { vertical: "middle", horizontal: "left" } },
-        { key: "customerName", header: "Customer Name" },
-        { key: "customerPhone", header: "Phone" },
-        { key: "offerName", header: "Offer" },
-        { key: "clinic", header: "Clinic" },
-        { key: "method", header: "Method" },
-        { key: "purpose", header: "Purpose" },
-        { key: "sessionType", header: "Session Type" },
-        { key: "amountKwd", header: "Amount (KWD)", numFmt: "0.000" },
-        { key: "cashbackAppliedKwd", header: "Cashback (KWD)", numFmt: "0.000" },
-        { key: "status", header: "Status" },
-        { key: "additionalTreatments", header: "Additional Treatments" },
-      ],
-      data.items.map((p: any) => ({
-        date: new Date(p.createdAt).toISOString(),
-        customerName: p.customerName || p.userId,
-        customerPhone: p.customerPhone || "",
-        offerName: p.offerName ?? "",
-        clinic: p.clinicNameEn ?? "",
-        method: p.method,
-        purpose: p.purpose ?? "",
-        sessionType: p.sessionType ?? "—",
-        amountKwd: Number.parseFloat(p.amountKwd ?? "0"),
-        cashbackAppliedKwd: Number.parseFloat(p.cashbackAppliedKwd ?? "0"),
-        status: p.status,
-        additionalTreatments: p.additionalTreatments ?? "",
-      })),
-    );
-  } else if (kind === "offers") {
-    const data = await computeRevenueByOffer({ from: filters.from, to: filters.to, limit: 200 });
-    addTable(
-      [
-        { key: "offerName", header: "Offer" },
-        { key: "membershipType", header: "Membership Type" },
-        { key: "salesCount", header: "Sales" },
-        { key: "revenueKwd", header: "Revenue (KWD)", numFmt: "0.000" },
-        { key: "expectedKwd", header: "Expected Revenue (KWD)", numFmt: "0.000" },
-        { key: "cashbackKwd", header: "Cashback (KWD)", numFmt: "0.000" },
-        { key: "profitKwd", header: "Profit (KWD)", numFmt: "0.000" },
-      ],
-      data.items.map((o) => ({
-        offerName: o.offerName,
-        membershipType: o.membershipType,
-        salesCount: o.salesCount,
-        revenueKwd: Number.parseFloat(o.revenueKwd),
-        expectedKwd: Number.parseFloat(o.expectedKwd || "0"),
-        cashbackKwd: Number.parseFloat(o.cashbackKwd),
-        profitKwd: Number.parseFloat(o.profitKwd),
-      })),
-    );
-  } else if (kind === "subscriptions") {
-    const data = await computeDetailedCustomersReport({ from: filters.from, to: filters.to });
-    addTable(
-      [
-        { key: "customerId", header: "Customer ID" },
-        { key: "customerName", header: "Customer Name" },
-        { key: "customerPhone", header: "Phone" },
-        { key: "service", header: "Service" },
-        { key: "clinicName", header: "Clinic Name" },
-        { key: "expiryDate", header: "Expiry Date" },
-        { key: "reference", header: "Reference" },
-        { key: "totalPaymentKwd", header: "Total Payment", numFmt: "0.000" },
-        { key: "paidAmountKwd", header: "Paid Amount", numFmt: "0.000" },
-        { key: "balanceKwd", header: "Balance", numFmt: "0.000" },
-        { key: "paymentType", header: "Payment Type" },
-        { key: "depositAmount", header: "Deposit", numFmt: "0.000" },
-        { key: "installment2Amount", header: "Installment 2", numFmt: "0.000" },
-        { key: "installment3Amount", header: "Installment 3", numFmt: "0.000" },
-        { key: "firstPaymentDate", header: "First Payment Date" },
-        { key: "secondPaymentDate", header: "Second Payment Date" },
-        { key: "thirdPaymentDate", header: "Third Payment Date" },
-        { key: "notes", header: "Notes" },
-        { key: "packageDate", header: "Package Date" },
-      ],
-      data.items,
-    );
-  } else if (kind === "referrals") {
+  if (kind === "referrals") {
     // 1. Get payments in period
     const q: Record<string, unknown> = { status: { $in: [...PAID_STATUSES] } };
     const dateFilter = buildDateFilter(filters.from, filters.to);
@@ -1318,30 +1239,6 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
     rows.push(totalRow);
     
     addTable(headers, rows);
-  } else if (kind === "installments") {
-    const data = await computeInstallmentsAnalytics({ from: filters.from, to: filters.to });
-    addTable(
-      [
-        { key: "customerName", header: "Customer Name" },
-        { key: "customerPhone", header: "Phone" },
-        { key: "offerName", header: "Offer" },
-        { key: "installmentNumber", header: "Installment #" },
-        { key: "amountKwd", header: "Amount (KWD)", numFmt: "0.000" },
-        { key: "amountLeftKwd", header: "Amount Left (KWD)", numFmt: "0.000" },
-        { key: "dueDate", header: "Due Date" },
-        { key: "status", header: "Status" },
-      ],
-      data.items.map((i: any) => ({
-        customerName: i.customerName || i.userId,
-        customerPhone: i.customerPhone || "",
-        offerName: i.offerName,
-        installmentNumber: i.installmentNumber,
-        amountKwd: Number.parseFloat(i.amountKwd ?? "0"),
-        amountLeftKwd: Number.parseFloat(i.amountLeftKwd ?? "0"),
-        dueDate: i.dueDate ? kwDate(i.dueDate) : "",
-        status: i.status,
-      })),
-    );
   }
 
   const buf = await wb.xlsx.writeBuffer();

@@ -16,11 +16,12 @@ import {
   exportFinanceXlsx,
   computeClinicDetail,
   exportClinicReportXlsx,
-  exportComprehensiveReportXlsx,
   exportClinicSessionsXlsx,
 } from "./analytics.service.js";
 import { reconcileMetrics } from "../../services/reconciliation.service.js";
 import { computePackageRevenue } from "./revenue.service.js";
+import { buildFinanceReport, isFinanceReportType } from "./financeReports.service.js";
+import { renderReportPdf, renderReportXlsx } from "./reportRender.js";
 import { computeClinicSessionsReport } from "./clinicSessions.service.js";
 
 const CreateReportSchema = z.object({
@@ -127,19 +128,48 @@ reportingRouter.get("/finance/export", authRequired, requireRole([...FINANCE_ROL
     if (req.auth!.role === "cs_director" && kind !== "referrals") {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
-    const allowed = ["payments", "offers", "subscriptions", "referrals", "installments", "comprehensive"];
-    if (!allowed.includes(kind)) return res.status(400).json({ error: "INVALID_KIND" });
-    if (kind === "comprehensive") {
-      const xlsx = await exportComprehensiveReportXlsx({ from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename="finance-${kind}-${new Date().toISOString().slice(0,10)}.xlsx"`);
-      return res.send(xlsx);
-    } else {
-      const xlsx = await exportFinanceXlsx(kind, { from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename="finance-${kind}-${new Date().toISOString().slice(0,10)}.xlsx"`);
-      return res.send(xlsx);
-    }
+    // Only the referrals sheet is left here (CS director widget); finance reports use /finance/report.
+    if (kind !== "referrals") return res.status(400).json({ error: "INVALID_KIND" });
+    const xlsx = await exportFinanceXlsx(kind, { from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="finance-${kind}-${new Date().toISOString().slice(0,10)}.xlsx"`);
+    return res.send(xlsx);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Finance reports: the same document is the on-screen preview and the Excel/PDF download.
+reportingRouter.get("/finance/report", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const type = str(req.query.type);
+    if (!isFinanceReportType(type)) return res.status(400).json({ error: "INVALID_TYPE" });
+    return res.json(await buildFinanceReport(type, { from: str(req.query.from), to: str(req.query.to) }));
+  } catch (e) {
+    next(e);
+  }
+});
+
+reportingRouter.get("/finance/report/export", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const type = str(req.query.type);
+    const format = str(req.query.format) ?? "xlsx";
+    if (!isFinanceReportType(type)) return res.status(400).json({ error: "INVALID_TYPE" });
+    if (format !== "xlsx" && format !== "pdf") return res.status(400).json({ error: "INVALID_FORMAT" });
+    const period = { from: str(req.query.from), to: str(req.query.to) };
+    const doc = await buildFinanceReport(type, period);
+    const name = `belamonda-${type.replace(/_/g, "-")}-${doc.from}_${doc.to}.${format}`;
+    let body: Buffer;
+    if (format === "pdf") body = await renderReportPdf(doc);
+    // The clinic sessions workbook has one sheet per clinic, built in Phase 2.
+    else if (type === "clinic_sessions") body = await exportClinicSessionsXlsx({ from: doc.from, to: doc.to });
+    else body = await renderReportXlsx(doc);
+    res.setHeader(
+      "Content-Type",
+      format === "pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Disposition", `attachment; filename="${name}"`);
+    return res.send(body);
   } catch (e) {
     next(e);
   }

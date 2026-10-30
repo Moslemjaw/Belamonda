@@ -8,7 +8,8 @@ import { PAID_STATUSES, isGrant, isPackageRevenue, isRefund } from "../../servic
 /** Memberships in these states count as sold. Pending/rejected were never sold; cancelled are reported separately. */
 const SOLD_STATUSES = ["active", "expired", "reserved"];
 
-type RevenuePayment = {
+export type RevenuePayment = {
+  userId?: unknown;
   userOfferId?: unknown;
   offerId?: unknown;
   status?: unknown;
@@ -27,7 +28,7 @@ export function revenueBucket(date: Date | string, granularity: RevenueGranulari
   if (granularity === "weekly") d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
   return d.toISOString().slice(0, 10);
 }
-type RevenueMembership = {
+export type RevenueMembership = {
   _id: unknown;
   offerId?: unknown;
   status: string;
@@ -202,8 +203,10 @@ export function summarizePackageRevenue(input: {
   };
 }
 
-/** Package revenue for a period (Kuwait dates, inclusive). No dates = all time. */
-export async function computePackageRevenue(filters: { from?: string; to?: string; granularity?: RevenueGranularity } = {}) {
+export type PackageRevenueInput = Omit<Parameters<typeof summarizePackageRevenue>[0], "granularity" | "now">;
+
+/** Loads everything summarizePackageRevenue needs for a period (Kuwait dates, inclusive). No dates = all time. */
+export async function loadPackageRevenueInput(filters: { from?: string; to?: string } = {}): Promise<PackageRevenueInput> {
   const range = kwDateRange(filters.from, filters.to);
 
   const paymentQ: Record<string, unknown> = {
@@ -219,7 +222,7 @@ export async function computePackageRevenue(filters: { from?: string; to?: strin
   }
 
   const [payments, memberships] = await Promise.all([
-    PaymentModel.find(paymentQ).select("userOfferId offerId status purpose method amountKwd createdAt").lean(),
+    PaymentModel.find(paymentQ).select("userId userOfferId offerId status purpose method amountKwd createdAt").lean(),
     UserOfferModel.find(membershipQ)
       .select("offerId status purchaseMode installmentSchedule depositAmountKwd refundedKwd")
       .lean(),
@@ -238,12 +241,17 @@ export async function computePackageRevenue(filters: { from?: string; to?: strin
     offerIds.length ? OfferModel.find({ _id: { $in: offerIds } }).select("name subscriptionPriceKwd").lean() : Promise.resolve([]),
   ]);
 
-  return summarizePackageRevenue({
+  return {
     payments: payments as any[],
     memberships: memberships as any[],
     membershipPayments: membershipPayments as any[],
     offerPrices: new Map((offers as any[]).map((o) => [String(o._id), o.subscriptionPriceKwd || "0.000"])),
     offerNames: new Map((offers as any[]).map((o) => [String(o._id), String(o.name ?? "")])),
-    granularity: filters.granularity,
-  });
+  };
+}
+
+/** Package revenue for a period (Kuwait dates, inclusive). No dates = all time. */
+export async function computePackageRevenue(filters: { from?: string; to?: string; granularity?: RevenueGranularity } = {}) {
+  const input = await loadPackageRevenueInput(filters);
+  return summarizePackageRevenue({ ...input, granularity: filters.granularity });
 }
