@@ -45,8 +45,8 @@ export function HomeTab({
           label={ar() ? "المتبقي للتحصيل" : "Still to collect"}
           value={kwd(rev?.outstandingKwd)}
           sub={ar()
-            ? `${rev?.outstandingCount ?? 0} باقة · متأخر ${rev?.lateKwd ?? "0.000"}`
-            : `${rev?.outstandingCount ?? 0} packages · ${rev?.lateKwd ?? "0.000"} late`}
+            ? `من باقات هذه الفترة (${rev?.outstandingCount ?? 0}) · متأخر ${rev?.lateKwd ?? "0.000"}`
+            : `from ${rev?.outstandingCount ?? 0} packages sold in this period · ${rev?.lateKwd ?? "0.000"} late`}
           accent="amber" icon="⏳"
         />
         <KpiCard
@@ -81,7 +81,7 @@ export function HomeTab({
         <h3 className="text-sm font-bold text-surface-900 mb-3">{ar() ? "يحتاج إجراء" : "Needs action"}</h3>
         <div className="divide-y divide-surface-100">
           <ActionRow
-            text={ar() ? `${lateCount} قسط متأخر (${lateKwd} د.ك)` : `${lateCount} late installments (${lateKwd} KWD)`}
+            text={ar() ? `${lateCount} قسط متأخر بالإجمالي (${lateKwd} د.ك)` : `${lateCount} late installments in total (${lateKwd} KWD)`}
             tone={lateCount > 0 ? "red" : "ok"}
             onClick={onOpenInstallments}
           />

@@ -51,6 +51,40 @@ describe("clinic sessions report rows", () => {
   });
 });
 
+describe("clinic session value from real records", () => {
+  it("a stored 0.000 bill doesn't hide the session price", () => {
+    const row = buildSessionRow({
+      session: { _id: "s4", clinicId: "A", status: "completed", totalBillKwd: "0.000", finalPaidKwd: "0.000" },
+      request: { sessionPriceKwd: "25.000" },
+      clinic: clinicA,
+    });
+    expect(row.sessionValueKwd).toBe("25.000");
+    expect(row.paidAtClinicKwd).toBe("25.000");
+  });
+
+  it("an extras-only bill on the session adds to the price; its cashback is kept", () => {
+    const row = buildSessionRow({
+      session: { _id: "s5", clinicId: "A", status: "completed", totalBillKwd: "10.000", finalPaidKwd: "4.000", extraItems: [{ name: "Mask", priceKwd: "10.000", qty: 1 }] },
+      request: { sessionPriceKwd: "25.000" },
+      clinic: clinicA,
+    });
+    expect(row.sessionValueKwd).toBe("35.000");
+    expect(row.cashbackKwd).toBe("6.000");
+    expect(row.paidAtClinicKwd).toBe("29.000");
+  });
+
+  it("the full bill from the clinic POS is used", () => {
+    const row = buildSessionRow({
+      session: { _id: "s6", clinicId: "A", status: "completed", totalBillKwd: "0.000", finalPaidKwd: "0.000" },
+      request: { sessionPriceKwd: "25.000", totalBillKwd: "40.000", finalPaidKwd: "30.000", cashbackDeductedKwd: "10.000" },
+      clinic: clinicA,
+    });
+    expect(row.sessionValueKwd).toBe("40.000");
+    expect(row.cashbackKwd).toBe("10.000");
+    expect(row.paidAtClinicKwd).toBe("30.000");
+  });
+});
+
 describe("clinic sessions summary", () => {
   it("totals per clinic and overall", () => {
     const rows = [

@@ -15,7 +15,7 @@ export function InstallmentsTab({ from, to }: { from: string; to: string }) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label={ar() ? "أقساط مدفوعة" : "Paid Installments"} value={`${summary?.paidKwd ?? "0.000"} KWD`} accent="emerald" icon="✅" />
         <KpiCard label={ar() ? "أقساط قادمة" : "Upcoming"} value={`${summary?.upcomingKwd ?? "0.000"} KWD`} sub={`${summary?.upcomingCount ?? 0} ${ar() ? "قسط" : "items"}`} accent="amber" icon="⏳" />
-        <KpiCard label={ar() ? "أقساط متأخرة" : "Late"} value={`${summary?.lateKwd ?? "0.000"} KWD`} sub={`${summary?.lateCount ?? 0} ${ar() ? "قسط" : "items"}`} accent="red" icon="⚠️" />
+        <KpiCard label={ar() ? "أقساط متأخرة" : "Late"} value={`${summary?.lateKwd ?? "0.000"} KWD`} sub={`${summary?.lateCount ?? 0} ${ar() ? "قسط · كل المتأخر" : "items · all overdue"}`} accent="red" icon="⚠️" />
         <KpiCard label={ar() ? "الإجمالي (مدفوع + مستحق)" : "Total (paid + due)"} value={`${summary?.forecastKwd ?? "0.000"} KWD`} accent="pink" icon="📊" />
       </div>
 

@@ -88,17 +88,20 @@ export function buildSessionRow(src: SessionSource): ClinicSessionRow {
   const extras = (s.extraItems?.length ? s.extraItems : r.extraItems) ?? [];
   const extrasMils = extras.reduce((sum, e) => sum + kwdToMils(e.priceKwd) * (e.qty || 1), 0);
 
-  // Session value = full bill (price + extras); fall back to price + extras.
-  const bill = s.totalBillKwd ?? r.totalBillKwd;
+  // Session value = the session price plus extras. Marking a session completed stores a bill of
+  // the extras only ("0.000" when there are none), so a stored bill can't replace the price;
+  // the clinic POS stores the full bill on the request.
   const price = s.sessionPriceKwd ?? r.sessionPriceKwd ?? src.payment?.grossAmountKwd;
-  const valueMils = bill ? kwdToMils(bill) : kwdToMils(price) + extrasMils;
+  const valueMils = Math.max(kwdToMils(price) + extrasMils, kwdToMils(s.totalBillKwd), kwdToMils(r.totalBillKwd));
 
+  // Cashback used at the visit: recorded on the request or payment, else the gap between the
+  // session's stored bill and what it says was paid.
+  const sessionCashbackMils = Math.max(0, kwdToMils(s.totalBillKwd) - kwdToMils(s.finalPaidKwd));
   const cashbackMils = Math.min(
     valueMils,
-    kwdToMils(r.cashbackDeductedKwd ?? src.payment?.cashbackAppliedKwd)
+    kwdToMils(r.cashbackDeductedKwd ?? src.payment?.cashbackAppliedKwd) || sessionCashbackMils
   );
-  const finalPaid = s.finalPaidKwd ?? r.finalPaidKwd;
-  const paidMils = finalPaid ? kwdToMils(finalPaid) : Math.max(0, valueMils - cashbackMils);
+  const paidMils = Math.max(0, valueMils - cashbackMils);
 
   const isStandalone = !!(r.isStandalone || src.membership?.isStandalone);
   // Money only changes hands for sessions that actually took place.

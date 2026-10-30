@@ -36,6 +36,8 @@ const REPORTS: { type: string; icon: string; name: Label; desc: Label }[] = [
 ];
 
 const PAGE = 50;
+// The period is whole calendar days; read the date part so the time can't shift it by a day.
+const fmtDay = (d: string) => fmtDate(`${d.slice(0, 10)}T12:00:00`);
 const t = (l?: Label) => (l ? (ar() ? l.ar || l.en : l.en) : "");
 
 function fmtCell(col: Column, v: string | number | null | undefined) {
@@ -139,7 +141,7 @@ export function ReportsTab({ from, to }: { from: string; to: string }) {
               {ar() ? "اختر تقريراً لمعاينته للفترة المحددة أعلاه، ثم حمّله Excel أو PDF" : "Pick a report to preview it for the period above, then download it as Excel or PDF"}
             </p>
           </div>
-          <div className="text-[11px] text-surface-500 bg-surface-50 px-2 py-1 rounded-md whitespace-nowrap self-start">{fmtDate(from)} → {fmtDate(to)}</div>
+          <div className="text-[11px] text-surface-500 bg-surface-50 px-2 py-1 rounded-md whitespace-nowrap self-start">{fmtDay(from)} → {fmtDay(to)}</div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {REPORTS.map(r => (
@@ -166,7 +168,7 @@ export function ReportsTab({ from, to }: { from: string; to: string }) {
             </button>
             <h3 className="text-base font-bold text-surface-900 mt-1">{meta?.icon} {t(meta?.name)}</h3>
             <p className="text-[11px] text-surface-500">
-              {fmtDate(from)} → {fmtDate(to)}
+              {fmtDay(from)} → {fmtDay(to)}
               {doc && <> · {ar() ? "أُنشئ" : "Generated"} {new Date(doc.generatedAt).toLocaleString("en-GB", { timeZone: "Asia/Kuwait", dateStyle: "short", timeStyle: "short" })}</>}
             </p>
           </div>

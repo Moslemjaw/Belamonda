@@ -671,8 +671,8 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
     return true;
   };
   const offers = await UserOfferModel.find({
-    purchaseMode: "installments",
-    status: { $in: ["active", "pending_payment", "reserved"] },
+    "installmentSchedule.0": { $exists: true },
+    status: { $in: ["active", "expired", "reserved"] }, // sold memberships, same as package revenue and the Installments Due report
   })
     .select("userId offerId installmentSchedule installmentCount installmentsPaid status")
     .lean();
@@ -709,9 +709,11 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
     for (const inst of uo.installmentSchedule ?? []) {
       const due = inst.dueDate ? new Date(inst.dueDate) : null;
       const paidAt = inst.paidAt ? new Date(inst.paidAt) : null;
-      // Filter by date range — paid entries by paidAt, unpaid by dueDate
+      // Filter by date range — paid entries by paidAt, unpaid by dueDate. Late ones always show:
+      // they still need chasing, whenever they fell due.
       const filterDate = inst.paid ? paidAt : due;
-      if ((fromDate || toDate) && !inRange(filterDate)) continue;
+      const overdue = !inst.paid && !!due && due.getTime() < now.getTime();
+      if ((fromDate || toDate) && !overdue && !inRange(filterDate)) continue;
       const amt = parseKwd(inst.amountKwd);
       if (inst.paid) {
         paidMils += amt;
@@ -1952,7 +1954,7 @@ export async function exportClinicSessionsXlsx(filters: { from?: string; to?: st
   };
 
   // ── Summary ──
-  const summary = wb.addWorksheet("الملخص / Summary", { views: [{ rightToLeft: true }] });
+  const summary = wb.addWorksheet("الملخص - Summary", { views: [{ rightToLeft: true }] });
   const sHeaders = [
     "المركز / Clinic",
     "حضر / Completed",

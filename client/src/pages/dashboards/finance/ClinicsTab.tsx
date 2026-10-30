@@ -88,7 +88,7 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 xl:grid-cols-5">
         <KpiCard label={ar() ? "جلسات حضرت" : "Completed"} value={String(t?.completed ?? 0)} accent="emerald" icon="✅" />
         <KpiCard label={ar() ? "لم يحضر" : "No-shows"} value={String(t?.noShow ?? 0)} accent="red" icon="🚫" />
         <KpiCard label={ar() ? "قيمة الجلسات" : "Session value"} value={`${t?.sessionValueKwd ?? "0.000"} KWD`} accent="indigo" icon="🧾" />

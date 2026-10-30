@@ -139,11 +139,14 @@ reportingRouter.get("/finance/export", authRequired, requireRole([...FINANCE_ROL
   }
 });
 
+const isDateOrEmpty = (v?: string) => !v || !Number.isNaN(Date.parse(v));
+
 // Finance reports: the same document is the on-screen preview and the Excel/PDF download.
 reportingRouter.get("/finance/report", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {
     const type = str(req.query.type);
     if (!isFinanceReportType(type)) return res.status(400).json({ error: "INVALID_TYPE" });
+    if (!isDateOrEmpty(str(req.query.from)) || !isDateOrEmpty(str(req.query.to))) return res.status(400).json({ error: "INVALID_DATE" });
     return res.json(await buildFinanceReport(type, { from: str(req.query.from), to: str(req.query.to) }));
   } catch (e) {
     next(e);
@@ -156,6 +159,7 @@ reportingRouter.get("/finance/report/export", authRequired, requireRole(FINANCE_
     const format = str(req.query.format) ?? "xlsx";
     if (!isFinanceReportType(type)) return res.status(400).json({ error: "INVALID_TYPE" });
     if (format !== "xlsx" && format !== "pdf") return res.status(400).json({ error: "INVALID_FORMAT" });
+    if (!isDateOrEmpty(str(req.query.from)) || !isDateOrEmpty(str(req.query.to))) return res.status(400).json({ error: "INVALID_DATE" });
     const period = { from: str(req.query.from), to: str(req.query.to) };
     const doc = await buildFinanceReport(type, period);
     const name = `belamonda-${type.replace(/_/g, "-")}-${doc.from}_${doc.to}.${format}`;

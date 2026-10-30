@@ -74,10 +74,21 @@ export function currentKwMonth(now = new Date()) {
   return { from: `${kw.toISOString().slice(0, 7)}-01`, to: isoDay(kw) };
 }
 
-/** The period of the same length immediately before [from, to] (inclusive days). */
+/**
+ * The period to compare with: the previous calendar month for a whole month,
+ * otherwise the same number of days immediately before [from, to] (inclusive).
+ */
 export function previousPeriod(from: string, to: string) {
   const f = Date.parse(`${from.slice(0, 10)}T00:00:00Z`);
   const t = Date.parse(`${to.slice(0, 10)}T00:00:00Z`);
+  const start = new Date(f);
+  const wholeMonth = start.getUTCDate() === 1 && t === Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0);
+  if (wholeMonth) {
+    return {
+      from: isoDay(new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() - 1, 1))),
+      to: isoDay(new Date(f - DAY)),
+    };
+  }
   const days = Math.round((t - f) / DAY) + 1;
   const prevTo = new Date(f - DAY);
   const prevFrom = new Date(f - days * DAY);
