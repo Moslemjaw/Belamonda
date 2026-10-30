@@ -95,3 +95,40 @@ describe("package revenue", () => {
     expect(r.packagesSold).toBe(0);
   });
 });
+
+describe("revenue chart and top packages", () => {
+  const payments = [
+    { offerId: "offerA", status: "paid", purpose: "enrollment_full", method: "cash", amountKwd: "300.000", createdAt: "2026-10-01T10:00:00Z" },
+    { offerId: "offerA", status: "completed", purpose: "installment", method: "cash", amountKwd: "100.000", createdAt: "2026-10-01T22:30:00Z" },
+    { offerId: "offerB", status: "paid", purpose: "enrollment_full", method: "k-net", amountKwd: "150.000", createdAt: "2026-10-09T09:00:00Z" },
+    { offerId: "offerB", status: "paid", purpose: "session_payment", method: "pos", amountKwd: "20.000", createdAt: "2026-10-09T09:00:00Z" },
+    { offerId: "offerA", status: "refunded", purpose: "refund", method: "cash", amountKwd: "50.000", createdAt: "2026-10-20T09:00:00Z" },
+    { offerId: "offerB", status: "paid", purpose: "enrollment_full", method: "cash", amountKwd: "0.000", createdAt: "2026-10-21T09:00:00Z" },
+  ];
+  const names = new Map([["offerA", "Gold"], ["offerB", "Silver"]]);
+  const sum = (pts: { revenueKwd: string }[]) => pts.reduce((s, p) => s + Math.round(parseFloat(p.revenueKwd) * 1000), 0);
+
+  for (const granularity of ["daily", "weekly", "monthly"] as const) {
+    it(`${granularity} chart total equals the revenue card`, () => {
+      const r = summarize({ payments, granularity, offerNames: names });
+      expect(r.revenueKwd).toBe("500.000");
+      expect(sum(r.points)).toBe(500_000);
+    });
+  }
+
+  it("buckets by Kuwait date, not UTC", () => {
+    const r = summarize({ payments, granularity: "daily" });
+    // 22:30 UTC on 1 Oct is 01:30 on 2 Oct in Kuwait
+    expect(r.points.map((p) => p.bucket)).toEqual(["2026-10-01", "2026-10-02", "2026-10-09", "2026-10-20"]);
+    expect(summarize({ payments, granularity: "weekly" }).points[0].bucket).toBe("2026-09-28");
+    expect(summarize({ payments, granularity: "monthly" }).points).toEqual([{ bucket: "2026-10", revenueKwd: "500.000" }]);
+  });
+
+  it("ranks packages by revenue net of refunds, excluding sessions", () => {
+    const r = summarize({ payments, offerNames: names });
+    expect(r.topPackages).toEqual([
+      { offerId: "offerA", offerName: "Gold", count: 2, revenueKwd: "350.000" },
+      { offerId: "offerB", offerName: "Silver", count: 1, revenueKwd: "150.000" },
+    ]);
+  });
+});

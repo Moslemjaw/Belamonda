@@ -1,36 +1,38 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import DashboardShell, { Icons } from "../../components/DashboardShell";
-import { ar, rangeForPeriod, CustomersTab } from "./finance/shared";
+import type { RevenueGranularity } from "../../hooks/useApi";
+import { ar, rangeForPeriod } from "./finance/shared";
 import type { Period } from "./finance/shared";
 import { FilterBar } from "./finance/FilterBar";
-import { OverviewTab } from "./finance/OverviewTab";
+import { HomeTab } from "./finance/HomeTab";
 import { PaymentsTab } from "./finance/PaymentsTab";
 import { InstallmentsTab } from "./finance/InstallmentsTab";
-import { AnalyticsTab } from "./finance/AnalyticsTab";
 import { ReportsTab } from "./finance/ReportsTab";
 import { ClinicsTab } from "./finance/ClinicsTab";
-import { ReliefTab } from "./finance/ReliefTab";
 import { ProfileTab } from "./finance/ProfileTab";
-import { ManualEntriesTab } from "./finance/ManualEntriesTab";
-import { EFormsViewer } from "./finance/EFormsViewer";
+
+const PERIODS: { key: Exclude<Period, "custom">; en: string; ar: string }[] = [
+  { key: "today", en: "Today", ar: "اليوم" },
+  { key: "week", en: "This week", ar: "هذا الأسبوع" },
+  { key: "month", en: "This month", ar: "هذا الشهر" },
+];
 
 export default function FinanceDashboard() {
   const { t } = useTranslation();
   const [activeNav, setActiveNav] = useState("home");
-  const [period, setPeriod] = useState<Period>("monthly");
-  const initialRange = useMemo(() => rangeForPeriod("monthly"), []);
+  const [paymentsStatus, setPaymentsStatus] = useState("");
+  const [showProfile, setShowProfile] = useState(false);
+  const [period, setPeriod] = useState<Period>("month");
+  const initialRange = useMemo(() => rangeForPeriod("month"), []);
   const [from, setFrom] = useState(initialRange.from);
   const [to, setTo] = useState(initialRange.to);
 
-  // Clicking a period button → recalculate the dates from today
-  const handlePeriodChange = (p: Period) => {
+  const handlePeriodChange = (p: Exclude<Period, "custom">) => {
     setPeriod(p);
-    if (p !== "custom") {
-      const r = rangeForPeriod(p);
-      setFrom(r.from);
-      setTo(r.to);
-    }
+    const r = rangeForPeriod(p);
+    setFrom(r.from);
+    setTo(r.to);
   };
 
   // Manually changing the date pickers → switch to "custom" mode
@@ -40,65 +42,93 @@ export default function FinanceDashboard() {
     setTo(newTo);
   };
 
-  // Determine the timeseries granularity based on the active period
-  const chartPeriod: "daily" | "weekly" | "monthly" | "yearly" = useMemo(() => {
-    if (period === "daily") return "daily";
-    if (period === "weekly") return "weekly";
-    if (period === "yearly") return "yearly";
-    if (period === "all" || period === "custom") {
-      // Auto-detect best granularity based on date range span
-      const diffMs = new Date(to).getTime() - new Date(from).getTime();
-      const diffDays = diffMs / (1000 * 60 * 60 * 24);
-      if (diffDays <= 31) return "daily";
-      if (diffDays <= 120) return "weekly";
-      if (diffDays <= 730) return "monthly";
-      return "yearly";
-    }
+  // Chart buckets: days for up to a month, weeks up to ~4 months, then months.
+  const granularity: RevenueGranularity = useMemo(() => {
+    const days = (new Date(to).getTime() - new Date(from).getTime()) / 86_400_000;
+    if (days <= 31) return "daily";
+    if (days <= 120) return "weekly";
     return "monthly";
-  }, [period, from, to]);
+  }, [from, to]);
+
+  const navigate = (key: string) => {
+    if (key !== "payments") setPaymentsStatus("");
+    setActiveNav(key);
+  };
 
   const navItems = [
-    { key: "home", icon: Icons.dashboard, label: ar() ? "نظرة عامة" : "Overview" },
+    { key: "home", icon: Icons.dashboard, label: ar() ? "الرئيسية" : "Home" },
     { key: "payments", icon: Icons.wallet, label: ar() ? "المدفوعات" : "Payments" },
     { key: "installments", icon: Icons.calendar, label: ar() ? "الأقساط" : "Installments" },
-    { key: "customers", icon: Icons.profile, label: ar() ? "العملاء" : "Customers" },
-    { key: "eforms", icon: <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>, label: ar() ? "النماذج (EForms)" : "EForms" },
-    { key: "analytics", icon: Icons.chart, label: ar() ? "تحليلات" : "Analytics" },
-    { key: "clinics", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>, label: ar() ? "العيادات" : "Clinics" },
+    { key: "clinics", icon: Icons.clinic, label: ar() ? "العيادات" : "Clinics" },
     { key: "reports", icon: Icons.report, label: t("reports") },
-    { key: "manual", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>, label: ar() ? "قيود يدوية" : "Manual Entries" },
-    { key: "relief", icon: <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>, label: ar() ? "الاستردادات" : "Relief" },
-    { key: "profile", icon: Icons.profile, label: ar() ? "ملفي" : "Profile" },
   ];
 
   return (
     <DashboardShell
       navItems={navItems}
       activeKey={activeNav}
-      onNavigate={setActiveNav}
+      onNavigate={navigate}
       title={ar() ? "لوحة المالية" : "Finance Dashboard"}
-      subtitle={ar() ? "الإيرادات، الأرباح، والتحليلات" : "Revenue, Profit & Analytics"}
+      subtitle={ar() ? "مبيعات الباقات والتحصيل" : "Package sales & collections"}
+      headerActions={
+        <button
+          type="button"
+          onClick={() => setShowProfile(true)}
+          className="rounded-xl bg-white/70 backdrop-blur-sm border border-white p-1.5 text-surface-700 hover:bg-white hover:text-brand-pink-600 hover:shadow-sm transition-all"
+          aria-label={ar() ? "ملفي" : "My profile"}
+          title={ar() ? "ملفي" : "My profile"}
+        >
+          {Icons.profile}
+        </button>
+      }
     >
       <div className="space-y-5 animate-fade-in">
-        {activeNav !== "profile" && (
-          <FilterBar
-            from={from} to={to}
-            onCustomDateChange={handleCustomDateChange}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+          <div className="flex gap-2 overflow-x-auto -mx-1 px-1 pb-1 lg:pb-0">
+            {PERIODS.map(p => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => handlePeriodChange(p.key)}
+                className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold border transition-colors ${period === p.key ? "bg-surface-900 text-white border-surface-900" : "bg-white text-surface-600 border-surface-200 hover:border-surface-400"}`}
+              >
+                {ar() ? p.ar : p.en}
+              </button>
+            ))}
+            <span className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-bold border ${period === "custom" ? "bg-surface-900 text-white border-surface-900" : "bg-white text-surface-400 border-surface-200"}`}>
+              {ar() ? "مخصص" : "Custom"}
+            </span>
+          </div>
+          <div className="lg:ml-auto rtl:lg:ml-0 rtl:lg:mr-auto">
+            <FilterBar from={from} to={to} onCustomDateChange={handleCustomDateChange} />
+          </div>
+        </div>
+
+        {activeNav === "home" && (
+          <HomeTab
+            from={from} to={to} granularity={granularity}
+            onOpenInstallments={() => navigate("installments")}
+            onOpenPendingPayments={() => { setPaymentsStatus("payment_pending"); setActiveNav("payments"); }}
           />
         )}
-
-        {activeNav === "home" && <OverviewTab period={chartPeriod} from={from} to={to} />}
-        {activeNav === "payments" && <PaymentsTab from={from} to={to} />}
+        {activeNav === "payments" && <PaymentsTab from={from} to={to} initialStatus={paymentsStatus} />}
         {activeNav === "installments" && <InstallmentsTab from={from} to={to} />}
-        {activeNav === "customers" && <CustomersTab from={from} to={to} />}
-        {activeNav === "analytics" && <AnalyticsTab from={from} to={to} />}
         {activeNav === "clinics" && <ClinicsTab from={from} to={to} />}
         {activeNav === "reports" && <ReportsTab from={from} to={to} />}
-        {activeNav === "manual" && <ManualEntriesTab from={from} to={to} />}
-        {activeNav === "eforms" && <EFormsViewer from={from} to={to} />}
-        {activeNav === "relief" && <ReliefTab from={from} to={to} />}
-        {activeNav === "profile" && <ProfileTab />}
       </div>
+
+      {showProfile && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4" onClick={() => setShowProfile(false)}>
+          <div className="w-full max-w-2xl my-8 rounded-2xl bg-surface-50 p-4 shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-end mb-2">
+              <button type="button" className="btn-ghost text-xs border border-surface-200 px-3 py-1" onClick={() => setShowProfile(false)}>
+                {ar() ? "إغلاق" : "Close"}
+              </button>
+            </div>
+            <ProfileTab />
+          </div>
+        </div>
+      )}
     </DashboardShell>
   );
 }

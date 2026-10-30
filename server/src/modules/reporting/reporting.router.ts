@@ -14,7 +14,6 @@ import {
   computeRevenueByReferral,
   computeInstallmentsAnalytics,
   exportFinanceXlsx,
-  computeClinicSummaries,
   computeClinicDetail,
   exportClinicReportXlsx,
   exportComprehensiveReportXlsx,
@@ -42,6 +41,8 @@ reportingRouter.get("/finance/payments-breakdown", authRequired, requireRole(FIN
       status: str(req.query.status),
       method: str(req.query.method),
       purpose: str(req.query.purpose),
+      type: str(req.query.type),
+      customer: str(req.query.customer),
       from: str(req.query.from),
       to: str(req.query.to),
     });
@@ -55,7 +56,9 @@ reportingRouter.get("/finance/payments-breakdown", authRequired, requireRole(FIN
 // plus what is still unpaid on packages sold in the period and granted packages.
 reportingRouter.get("/finance/revenue", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
   try {
-    return res.json(await computePackageRevenue({ from: str(req.query.from), to: str(req.query.to) }));
+    const g = str(req.query.granularity);
+    const granularity = g === "weekly" || g === "monthly" ? g : "daily";
+    return res.json(await computePackageRevenue({ from: str(req.query.from), to: str(req.query.to), granularity }));
   } catch (e) {
     next(e);
   }
@@ -124,7 +127,7 @@ reportingRouter.get("/finance/export", authRequired, requireRole([...FINANCE_ROL
     if (req.auth!.role === "cs_director" && kind !== "referrals") {
       return res.status(403).json({ error: "FORBIDDEN" });
     }
-    const allowed = ["payments", "offers", "subscriptions", "referrals", "installments", "clinics", "comprehensive"];
+    const allowed = ["payments", "offers", "subscriptions", "referrals", "installments", "comprehensive"];
     if (!allowed.includes(kind)) return res.status(400).json({ error: "INVALID_KIND" });
     if (kind === "comprehensive") {
       const xlsx = await exportComprehensiveReportXlsx({ from: str(req.query.from), to: str(req.query.to) }, { rtl: true });
@@ -210,37 +213,6 @@ reportingRouter.get("/finance/clinic-sessions/export", authRequired, requireRole
   } catch (e) {
     next(e);
   }
-});
-
-reportingRouter.get("/finance/by-clinic", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
-  try {
-    const data = await computeClinicSummaries({ from: str(req.query.from), to: str(req.query.to) });
-    return res.json(data);
-  } catch (e) { next(e); }
-});
-
-reportingRouter.get("/finance/clinic-detail", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
-  try {
-    const clinicId = str(req.query.clinicId);
-    if (!clinicId) return res.status(400).json({ error: "clinicId required" });
-    const data = await computeClinicDetail(clinicId, { from: str(req.query.from), to: str(req.query.to) });
-    return res.json(data);
-  } catch (e) { next(e); }
-});
-
-reportingRouter.get("/finance/clinic-export", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
-  try {
-    const clinicId = str(req.query.clinicId);
-    if (!clinicId) return res.status(400).json({ error: "clinicId required" });
-    const filters = { from: str(req.query.from), to: str(req.query.to) };
-    const clinicDetail = await computeClinicDetail(clinicId, filters);
-    const clinicSlug = (clinicDetail.clinic?.nameEn ?? clinicId).replace(/\s+/g, "-").toLowerCase();
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const xlsx = await exportClinicReportXlsx(clinicId, filters);
-    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    res.setHeader("Content-Disposition", `attachment; filename="clinic-${clinicSlug}-${dateStr}.xlsx"`);
-    return res.send(xlsx);
-  } catch (e) { next(e); }
 });
 
 // ===========================================================================

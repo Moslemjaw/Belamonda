@@ -339,7 +339,7 @@ export function useFinanceInstallments(filters: { from?: string; to?: string } =
   const q = p.toString() ? `?${p.toString()}` : "";
   return useApi<{
     summary: { paidKwd: string; upcomingKwd: string; lateKwd: string; forecastKwd: string; lateCount: number; upcomingCount: number };
-    items: Array<{ userOfferId: string; userId: string; offerName: string; installmentNumber: number; amountKwd: string; dueDate?: string; status: "paid" | "late" | "upcoming"; customerName?: string; method?: string }>;
+    items: Array<{ userOfferId: string; userId: string; offerName: string; installmentNumber: number; amountKwd: string; dueDate?: string; status: "paid" | "late" | "upcoming"; customerName?: string; customerPhone?: string; method?: string }>;
   }>(`/reporting/finance/installments${q}`, { deps: [filters.from, filters.to] });
 }
 
@@ -506,14 +506,21 @@ export type PaymentsBreakdown = {
     cashbackAppliedKwd: string;
     profitKwd: string;
     pendingCount: number;
+    packagesCollectedKwd?: string;
+    refundsKwd?: string;
+    refundsCount?: number;
   };
   byMethod: Array<{ method: string; count: number; totalKwd: string }>;
   byPurpose: Array<{ purpose: string; count: number; totalKwd: string }>;
   byClinics: Array<{ clinicId: string; clinicNameEn: string; clinicNameAr: string; count: number; totalKwd: string }>;
 };
 
-export function usePaymentsBreakdown(filters: { status?: string; method?: string; purpose?: string; from?: string; to?: string } = {}) {
+export type PaymentsType = "" | "packages" | "sessions" | "refunds" | "manual";
+
+export function usePaymentsBreakdown(filters: { status?: string; method?: string; purpose?: string; type?: PaymentsType; customer?: string; from?: string; to?: string } = {}) {
   const params = new URLSearchParams();
+  if (filters.type) params.set("type", filters.type);
+  if (filters.customer) params.set("customer", filters.customer);
   if (filters.status) params.set("status", filters.status);
   if (filters.method) params.set("method", filters.method);
   if (filters.purpose) params.set("purpose", filters.purpose);
@@ -521,7 +528,38 @@ export function usePaymentsBreakdown(filters: { status?: string; method?: string
   if (filters.to) params.set("to", filters.to);
   const q = params.toString() ? `?${params.toString()}` : "";
   return useApi<PaymentsBreakdown>(`/reporting/finance/payments-breakdown${q}`, {
-    deps: [filters.status, filters.method, filters.purpose, filters.from, filters.to],
+    deps: [filters.status, filters.method, filters.purpose, filters.type, filters.customer, filters.from, filters.to],
+  });
+}
+
+export type RevenueGranularity = "daily" | "weekly" | "monthly";
+
+export type PackageRevenue = {
+  revenueKwd: string;
+  collectedKwd: string;
+  refundsKwd: string;
+  paymentsCount: number;
+  refundsCount: number;
+  byMethod: { method: string; count: number; totalKwd: string }[];
+  packagesSold: number;
+  outstandingKwd: string;
+  outstandingCount: number;
+  lateKwd: string;
+  lateCount: number;
+  granted: { count: number; listValueKwd: string };
+  cancelled: { count: number; refundedKwd: string };
+  points: { bucket: string; revenueKwd: string }[];
+  topPackages: { offerId: string; offerName: string; count: number; revenueKwd: string }[];
+};
+
+/** Package revenue for a period — the single revenue number used across the finance dashboard. */
+export function usePackageRevenue(filters: { from?: string; to?: string; granularity?: RevenueGranularity } = {}) {
+  const p = new URLSearchParams();
+  if (filters.from) p.set("from", filters.from);
+  if (filters.to) p.set("to", filters.to);
+  if (filters.granularity) p.set("granularity", filters.granularity);
+  return useApi<PackageRevenue>(`/reporting/finance/revenue?${p.toString()}`, {
+    deps: [filters.from, filters.to, filters.granularity],
   });
 }
 
@@ -572,32 +610,6 @@ export function useClinicChangeRequestsCs() {
 
 // ── Clinic summaries (Finance view — all clinics) ───────────────────────────
 
-export type ClinicSummaryItem = {
-  clinicId: string;
-  clinicNameEn: string;
-  clinicNameAr: string;
-  isActive: boolean;
-  totalSessions: number;
-  completedSessions: number;
-  noShowSessions: number;
-  scheduledSessions: number;
-  revenueKwd: string;
-  paymentsCount: number;
-  activeMemberships: number;
-  totalInvoices: number;
-  paidInvoices: number;
-};
-
-export function useClinicSummaries(filters: { from?: string; to?: string } = {}) {
-  const p = new URLSearchParams();
-  if (filters.from) p.set("from", filters.from);
-  if (filters.to) p.set("to", filters.to);
-  const q = p.toString() ? `?${p.toString()}` : "";
-  return useApi<{ items: ClinicSummaryItem[] }>(`/reporting/finance/by-clinic${q}`, {
-    deps: [filters.from, filters.to],
-  });
-}
-
 export type ClinicDetailSession = {
   id: string; userId: string; customerName: string; customerPhone?: string | null;
   scheduledAt: string; status: string; notes?: string | null; cashbackUnlockedKwd?: string | null;
@@ -615,17 +627,6 @@ export type ClinicDetailSummary = {
   sessionRevenueKwd: string; paidRevenueKwd: string; pendingRevenueKwd: string;
   cashbackTotalKwd?: string; netRevenueKwd?: string;
 };
-
-export function useClinicDetail(clinicId: string | null, filters: { from?: string; to?: string } = {}) {
-  const p = new URLSearchParams();
-  if (clinicId) p.set("clinicId", clinicId);
-  if (filters.from) p.set("from", filters.from);
-  if (filters.to) p.set("to", filters.to);
-  const path = clinicId ? `/reporting/finance/clinic-detail?${p.toString()}` : null;
-  return useApi<{ clinic: { nameEn: string; nameAr: string } | null; summary: ClinicDetailSummary; sessions: ClinicDetailSession[]; invoices: ClinicDetailInvoice[] }>(path, {
-    deps: [clinicId, filters.from, filters.to],
-  });
-}
 
 export function useMyClinicReport(filters: { from?: string; to?: string } = {}) {
   const p = new URLSearchParams();

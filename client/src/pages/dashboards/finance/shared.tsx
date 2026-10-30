@@ -1,7 +1,5 @@
 // Helpers, constants and small components shared by the FinanceDashboard tabs.
-import { Bar } from "recharts";
 import i18n from "../../../app/i18n";
-import { UsersManager } from "../admin/UsersManager";
 
 export const ar = () => i18n.language === "ar";
 
@@ -9,31 +7,21 @@ export const ar = () => i18n.language === "ar";
 // Helpers
 // ===========================================================================
 
-export type Period = "daily" | "weekly" | "monthly" | "yearly" | "all" | "custom";
+export type Period = "today" | "week" | "month" | "custom";
 
 export function isoDate(d: Date) {
   return d.toISOString();
 }
 
-export function rangeForPeriod(period: Period): { from: string; to: string } {
-  const now = new Date();
-  const to = new Date(now);
-  to.setUTCHours(23, 59, 59, 999);
-  const from = new Date(now);
-  from.setUTCHours(0, 0, 0, 0);
-  if (period === "daily") {
-    from.setUTCDate(from.getUTCDate() - 1); // today only
-  } else if (period === "weekly") {
-    from.setUTCDate(from.getUTCDate() - 7); // last 7 days
-  } else if (period === "monthly") {
-    from.setUTCMonth(from.getUTCMonth() - 1); // last 30 days
-  } else if (period === "yearly") {
-    from.setUTCFullYear(from.getUTCFullYear() - 1); // last year
-  } else if (period === "all") {
-    from.setUTCFullYear(2020, 0, 1); // far back enough to cover all data
-  }
-  // "custom" → don't compute, caller keeps existing from/to
-  return { from: isoDate(from), to: isoDate(to) };
+/** Calendar dates on the user's device (Kuwait for finance staff), sent as whole days. */
+export function rangeForPeriod(period: Exclude<Period, "custom">): { from: string; to: string } {
+  const today = new Date();
+  const start = new Date(today);
+  if (period === "week") start.setDate(start.getDate() - 6);
+  if (period === "month") start.setDate(1);
+  const day = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return { from: `${day(start)}T00:00:00.000Z`, to: `${day(today)}T23:59:59.999Z` };
 }
 
 export function fmt(n: number) {
@@ -69,7 +57,7 @@ export const PURPOSE_LABELS: Record<string, string> = {
   enrollment_full: "Membership", installment: "Installment",
   deposit: "Deposit", deposit_balance: "Deposit Balance",
   enrollment_enet: "ENET Enrollment", session_payment: "Session",
-  manual_entry: "Manual Entry",
+  manual_entry: "Manual Entry", refund: "Refund",
 };
 
 export const METHOD_COLORS: Record<string, string> = {
@@ -91,22 +79,6 @@ export const STATUS_BADGE: Record<string, string> = {
   failed: "bg-red-50 text-red-700",
   refunded: "bg-surface-100 text-surface-500",
 };
-
-// ===========================================================================
-// Filter Bar (Period + custom date range, used at top of dashboard)
-// ===========================================================================
-
-export function CustomersTab({ from, to }: { from: string; to: string }) {
-  return (
-    <div className="space-y-5 animate-fade-in">
-      <UsersManager />
-    </div>
-  );
-}
-
-// ===========================================================================
-// ANALYTICS TAB — by-offer + by-referral
-// ===========================================================================
 
 export const MANUAL_METHODS = [
   { value: "cash", label: "Paid in Clinic" },

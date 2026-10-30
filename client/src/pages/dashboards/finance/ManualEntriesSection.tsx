@@ -8,7 +8,9 @@ import DatePicker from "../../../components/DatePicker";
 import { ar, fmt, parseKwd, METHOD_LABELS, METHOD_COLORS, MANUAL_METHODS, MANUAL_PURPOSES, MANUAL_STATUSES } from "./shared";
 import type { ManualEntry } from "./shared";
 
-export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
+/** Manual entries list + add form, shown inside the Payments tab. */
+export function ManualEntriesSection({ from, to }: { from?: string; to?: string }) {
+  const [showForm, setShowForm] = useState(false);
   const { getAuthHeader } = useAuth();
 
   const [amount, setAmount] = useState("");
@@ -128,7 +130,16 @@ export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
         />
       </div>
 
+      {!showForm && (
+        <div className="flex justify-end">
+          <button type="button" className="btn-primary text-sm px-5" onClick={() => setShowForm(true)}>
+            ＋ {ar() ? "إضافة قيد يدوي" : "Add manual entry"}
+          </button>
+        </div>
+      )}
+
       {/* Add Entry Form */}
+      {showForm && (
       <div className="card-elevated p-6">
         <h4 className="font-bold text-surface-900 mb-1 flex items-center gap-2 text-base">
           <span className="w-7 h-7 rounded-lg bg-brand-pink-100 text-brand-pink-600 flex items-center justify-center text-sm">＋</span>
@@ -207,13 +218,15 @@ export function ManualEntriesTab({ from, to }: { from?: string; to?: string }) {
               onChange={e => setNotes(e.target.value)}
             />
           </div>
-          <div className="sm:col-span-2 lg:col-span-3 flex justify-end">
+          <div className="sm:col-span-2 lg:col-span-3 flex justify-end gap-2">
+            <button type="button" className="btn-ghost border border-surface-200 px-5" onClick={() => setShowForm(false)}>{ar() ? "إغلاق" : "Close"}</button>
             <button type="submit" disabled={saving} className="btn-primary px-8">
               {saving ? (ar() ? "جاري الحفظ..." : "Saving...") : (ar() ? "إضافة القيد" : "Add Entry")}
             </button>
           </div>
         </form>
       </div>
+      )}
 
       {/* Entries List */}
       <div className="card-elevated overflow-hidden">

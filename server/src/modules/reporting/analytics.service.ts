@@ -56,18 +56,34 @@ function bucketKey(d: Date, period: "daily" | "weekly" | "monthly" | "yearly"): 
   return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
+export type PaymentsTypeFilter = "packages" | "sessions" | "refunds" | "manual";
+
 export async function computePaymentsBreakdown(filters: {
   status?: string;
   method?: string;
   purpose?: string;
+  /** Narrows to one kind of payment (see PaymentsTypeFilter). */
+  type?: string;
+  /** Customer name or phone (partial match). */
+  customer?: string;
   from?: string;
   to?: string;
   limit?: number;
 } = {}) {
   const q: Record<string, unknown> = {};
+  if (filters.type === "packages") q.purpose = { $nin: ["session_payment", "refund"] };
+  if (filters.type === "sessions") q.purpose = "session_payment";
+  if (filters.type === "refunds") q.$or = [{ purpose: "refund" }, { status: "refunded" }];
+  if (filters.type === "manual") q.isManual = true;
+  const customer = filters.customer?.trim();
+  if (customer) {
+    const rx = new RegExp(customer.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+    const users = await UserModel.find({ $or: [{ fullName: rx }, { phone: rx }] }).select("_id").limit(50).lean();
+    q.userId = { $in: (users as any[]).map((u) => String(u._id)) };
+  }
   if (filters.status) q.status = filters.status === "paid" ? { $in: [...PAID_STATUSES] } : filters.status;
   if (filters.method) q.method = filters.method;
-  if (filters.purpose) q.purpose = filters.purpose;
+  if (filters.purpose && !filters.type) q.purpose = filters.purpose;
   const dateFilter = buildDateFilter(filters.from, filters.to);
   if (dateFilter) q.createdAt = dateFilter;
   const limit = filters.limit ?? 50000;
@@ -141,6 +157,8 @@ export async function computePaymentsBreakdown(filters: {
       additionalTreatments: additionalTreatmentsArr.join(", "),
       _treatmentsArr: additionalTreatmentsArr,
       sessionStatus: breq?.sessionStatus,
+      // Finance-only: refund reason / manual entry note (kept out of the shared serializer).
+      notes: p.notes,
     };
   });
 
@@ -152,11 +170,15 @@ export async function computePaymentsBreakdown(filters: {
   let sessionMils = 0;
   let cashbackAppliedMils = 0;
   let pendingCount = 0;
+  let packageMils = 0;
+  let refundMils = 0;
+  let refundCount = 0;
 
   let grossRevenueMils = 0;
   for (const p of enriched) {
     const netMils = parseKwd(p.amountKwd);
     if (p.status === "payment_pending") { pendingCount++; continue; }
+    if (p.purpose === "refund" || p.status === "refunded") { refundMils += netMils; refundCount++; continue; }
     if (!isPaidStatus(p.status)) continue;
 
     if (p.purpose === "session_payment" && p.sessionStatus !== "completed") continue;
@@ -171,7 +193,7 @@ export async function computePaymentsBreakdown(filters: {
 
     const purpose = p.purpose || "enrollment_full";
     if (purpose === "session_payment") sessionMils += grossMils;
-    else membershipMils += grossMils;
+    else { membershipMils += grossMils; packageMils += netMils; }
 
     const m = p.method;
     if (!byMethod[m]) byMethod[m] = { count: 0, mils: 0 };
@@ -211,6 +233,10 @@ export async function computePaymentsBreakdown(filters: {
       cashbackAppliedKwd: fmtKwd(cashbackAppliedMils),
       profitKwd: fmtKwd(totalCompletedMils),
       pendingCount,
+      // Same rule as package revenue: net amount of paid package payments.
+      packagesCollectedKwd: fmtKwd(packageMils),
+      refundsKwd: fmtKwd(refundMils),
+      refundsCount: refundCount,
     },
     byMethod: Object.entries(byMethod).map(([method, v]) => ({ method, count: v.count, totalKwd: fmtKwd(v.mils) })),
     byPurpose: Object.entries(byPurpose).map(([purpose, v]) => ({ purpose, count: v.count, totalKwd: fmtKwd(v.mils) })),
@@ -711,9 +737,10 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
     }
   }
 
-  // Sort: late first (oldest due date first), then upcoming (soonest first)
+  // Sort: late first (oldest due date first), then upcoming (soonest first), then paid
+  const order: Record<string, number> = { late: 0, upcoming: 1, paid: 2 };
   tracker.sort((a, b) => {
-    if (a.status !== b.status) return a.status === "late" ? -1 : 1;
+    if (a.status !== b.status) return order[a.status] - order[b.status];
     return new Date(a.dueDate || 0).getTime() - new Date(b.dueDate || 0).getTime();
   });
 
@@ -726,8 +753,8 @@ export async function computeInstallmentsAnalytics(filters: { from?: string; to?
       lateCount: tracker.filter((t) => t.status === "late").length,
       upcomingCount: tracker.filter((t) => t.status === "upcoming").length,
     },
-    items: tracker.slice(0, Math.min(500, filters.limit ?? 200)),
-    truncated: tracker.length > Math.min(500, filters.limit ?? 200),
+    items: tracker.slice(0, Math.min(1000, filters.limit ?? 1000)),
+    truncated: tracker.length > Math.min(1000, filters.limit ?? 1000),
     totalMatching: tracker.length,
   };
 }
@@ -950,7 +977,7 @@ export async function computeSystemHealthReport(filters: { from?: string; to?: s
 
 
 
-export type FinanceExportKind = "payments" | "offers" | "subscriptions" | "referrals" | "installments" | "clinics" | "comprehensive";
+export type FinanceExportKind = "payments" | "offers" | "subscriptions" | "referrals" | "installments" | "comprehensive";
 
 function clampColWidth(n: number) {
   return Math.max(10, Math.min(44, n));
@@ -1315,111 +1342,6 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
         status: i.status,
       })),
     );
-  } else if (kind === "clinics") {
-    const data = await computeClinicSummaries({ from: filters.from, to: filters.to });
-    addTable(
-      [
-        { key: "clinicName", header: "Clinic Name" },
-        { key: "totalSessions", header: "Total Sessions" },
-        { key: "completed", header: "Completed" },
-        { key: "scheduled", header: "Scheduled" },
-        { key: "noShow", header: "No-Show" },
-        { key: "totalInvoices", header: "Total Invoices" },
-        { key: "paidInvoices", header: "Paid Invoices" },
-        { key: "status", header: "Status" },
-      ],
-      data.items.map((c: any) => ({
-        clinicName: c.clinicNameEn,
-        totalSessions: c.totalSessions,
-        completed: c.completedSessions,
-        scheduled: c.scheduledSessions,
-        noShow: c.noShowSessions,
-        totalInvoices: c.totalInvoices,
-        paidInvoices: c.paidInvoices,
-        status: c.isActive ? "Active" : "Inactive",
-      })),
-    );
-
-    const wsS = wb.addWorksheet("All Sessions");
-    
-    // Add subtotal row at the top
-    wsS.getCell("A1").value = "Total Sessions:";
-    wsS.getCell("A1").font = { bold: true };
-    wsS.getCell("B1").value = { formula: "SUBTOTAL(3, B4:B100000)" };
-    wsS.getCell("B1").font = { bold: true };
-    
-    wsS.getCell("G1").value = "Total Bill (KWD):";
-    wsS.getCell("G1").font = { bold: true };
-    wsS.getCell("H1").value = { formula: "SUBTOTAL(9, H4:H100000)" };
-    wsS.getCell("H1").font = { bold: true };
-
-    const sHeaders = ["Date", "Customer", "Phone", "Clinic", "Membership", "Session Type", "Status", "Bill (KWD)", "Notes"];
-    const sHeaderRow = wsS.getRow(3);
-    sHeaderRow.values = sHeaders;
-    sHeaderRow.eachCell((c) => {
-      c.font = { bold: true };
-      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE2E8F0" } };
-    });
-    wsS.getColumn(1).width = 20;
-    wsS.getColumn(2).width = 25;
-    wsS.getColumn(3).width = 18;
-    wsS.getColumn(4).width = 25;
-    wsS.getColumn(5).width = 25; // Membership
-    wsS.getColumn(6).width = 20; // Session Type
-    wsS.getColumn(7).width = 15; // Status
-    wsS.getColumn(8).width = 15; // Bill
-    wsS.getColumn(9).width = 30; // Notes
-
-    const sessionQ: any = {};
-    const sessionDateFilter = buildDateFilter(filters.from, filters.to);
-    if (sessionDateFilter) sessionQ.scheduledAt = sessionDateFilter;
-    const allSessions = await BookingSessionModel.find(sessionQ).sort({ scheduledAt: -1 }).lean();
-
-    const uIds = [...new Set(allSessions.map((s: any) => s.userId).filter(Boolean))];
-    const isOid = (s: string) => /^[a-f0-9]{24}$/i.test(s);
-    const users = await UserModel.find({ 
-      $or: [
-        { _id: { $in: uIds.filter(isOid) } },
-        { username: { $in: uIds } },
-      ],
-    }).select("username fullName phone").lean();
-    const uMap = new Map(users.map((u: any) => [u._id.toString(), u]));
-    users.forEach((u: any) => { if (u.username) uMap.set(u.username, u); });
-
-    const clinicDocs = await ClinicModel.find().lean();
-    const cMap = new Map(clinicDocs.map((c: any) => [c._id.toString(), c.nameEn || c.nameAr]));
-    
-    // Fetch offers to get membership and session type
-    const oIds = [...new Set(allSessions.map((s: any) => s.offerId?.toString()).filter(Boolean))];
-    const offers = await OfferModel.find({ _id: { $in: oIds } }).select("name nameAr category offerKind").lean();
-    const oMap = new Map(offers.map((o: any) => [o._id.toString(), o]));
-
-    allSessions.forEach((s: any, idx) => {
-      const u = uMap.get(s.userId) || {};
-      const c = cMap.get(s.clinicId?.toString()) || s.clinicId;
-      const o = s.offerId ? (oMap.get(s.offerId.toString()) || {}) : {};
-      
-      const membership = o.nameAr || o.name || "—";
-      const sessionType = o.offerKind || o.category || "—";
-
-      const row = wsS.getRow(idx + 4);
-      row.values = [
-        s.scheduledAt ? kwDateTime(s.scheduledAt) : "",
-        u.fullName || u.username || s.userId,
-        u.phone || "",
-        c,
-        membership,
-        sessionType,
-        s.status,
-        Number.parseFloat(s.finalPaidKwd || s.totalBillKwd || "0"),
-        s.notes || "",
-      ];
-    });
-
-    wsS.autoFilter = {
-      from: { row: 3, column: 1 },
-      to: { row: 3, column: sHeaders.length },
-    };
   }
 
   const buf = await wb.xlsx.writeBuffer();
@@ -1427,115 +1349,7 @@ export async function exportFinanceXlsx(kind: FinanceExportKind, filters: { from
 }
 
 // ===========================================================================
-// CLINIC SUMMARIES — all clinics with session + revenue stats (Finance view)
-// ===========================================================================
-
-export async function computeClinicSummaries(filters: { from?: string; to?: string } = {}) {
-  const dateFilter = buildDateFilter(filters.from, filters.to);
-
-  const clinics = await ClinicModel.find({}).select("nameEn nameAr isActive").lean();
-
-  // Sessions per clinic (BookingSessionModel, clinicId is ObjectId → convert to string)
-  const sessionMatchStage: Record<string, unknown> = {};
-  if (dateFilter) sessionMatchStage.scheduledAt = dateFilter;
-  const sessionAgg = await BookingSessionModel.aggregate([
-    ...(Object.keys(sessionMatchStage).length ? [{ $match: sessionMatchStage }] : []),
-    {
-      $group: {
-        _id: { $toString: "$clinicId" },
-        total: { $sum: 1 },
-        completed: { $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] } },
-        noShow: { $sum: { $cond: [{ $eq: ["$status", "no_show"] }, 1, 0] } },
-        scheduled: { $sum: { $cond: [{ $eq: ["$status", "scheduled"] }, 1, 0] } },
-      },
-    },
-  ]);
-  const sessionMap = new Map<string, { total: number; completed: number; noShow: number; scheduled: number }>();
-  for (const s of sessionAgg) sessionMap.set(s._id, { total: s.total, completed: s.completed, noShow: s.noShow, scheduled: s.scheduled });
-
-  // Revenue per clinic from payments breakdown
-  const breakdown = await computePaymentsBreakdown({ from: filters.from, to: filters.to, limit: 100000 });
-  const revenueMap = new Map<string, { count: number; mils: number }>();
-  for (const c of breakdown.byClinics) revenueMap.set(c.clinicId, { count: c.count, mils: parseKwd(c.totalKwd) });
-
-  // Active memberships per clinic (clinicId may be ObjectId or String)
-  const membershipAgg = await UserOfferModel.aggregate([
-    { $match: { status: "active" } },
-    { $group: { _id: { $toString: "$clinicId" }, count: { $sum: 1 } } },
-  ]).catch(() => []);
-  const membershipMap = new Map<string, number>();
-  for (const m of membershipAgg) membershipMap.set(m._id, m.count);
-
-  // Invoices (booking requests) per clinic
-  const brMatchStage: Record<string, unknown> = {};
-  if (dateFilter) brMatchStage.createdAt = dateFilter;
-  const invoiceAgg = await BookingRequestModel.aggregate([
-    ...(Object.keys(brMatchStage).length ? [{ $match: brMatchStage }] : []),
-    { $sort: { createdAt: -1 } },
-    {
-      $group: {
-        _id: { clinicId: "$clinicId", sessionId: { $ifNull: ["$scheduledSessionId", "$_id"] } },
-        doc: { $first: "$$ROOT" }
-      }
-    },
-    { $replaceRoot: { newRoot: "$doc" } },
-    {
-      $lookup: {
-        from: "bookingsessions",
-        localField: "scheduledSessionId",
-        foreignField: "_id",
-        as: "session"
-      }
-    },
-    { $unwind: { path: "$session", preserveNullAndEmptyArrays: true } },
-    {
-      $group: {
-        _id: "$clinicId",
-        totalInvoices: { $sum: 1 },
-        paidInvoices: { 
-          $sum: { 
-            $cond: [
-              { $and: [
-                { $eq: ["$clinicPaymentStatus", "paid"] },
-                { $eq: ["$session.status", "completed"] }
-              ]}, 
-              1, 0
-            ] 
-          } 
-        },
-      },
-    },
-  ]);
-  const invoiceMap = new Map<string, { total: number; paid: number }>();
-  for (const i of invoiceAgg) invoiceMap.set(i._id, { total: i.totalInvoices, paid: i.paidInvoices });
-
-  const items = (clinics as any[]).map((c) => {
-    const cid = c._id.toString();
-    const sess = sessionMap.get(cid) ?? { total: 0, completed: 0, noShow: 0, scheduled: 0 };
-    const rev = revenueMap.get(cid) ?? { count: 0, mils: 0 };
-    const inv = invoiceMap.get(cid) ?? { total: 0, paid: 0 };
-    return {
-      clinicId: cid,
-      clinicNameEn: c.nameEn ?? "",
-      clinicNameAr: c.nameAr ?? "",
-      isActive: c.isActive ?? true,
-      totalSessions: sess.total,
-      completedSessions: sess.completed,
-      noShowSessions: sess.noShow,
-      scheduledSessions: sess.scheduled,
-      revenueKwd: fmtKwd(rev.mils),
-      paymentsCount: rev.count,
-      activeMemberships: membershipMap.get(cid) ?? 0,
-      totalInvoices: inv.total,
-      paidInvoices: inv.paid,
-    };
-  }).sort((a, b) => parseKwd(b.revenueKwd) - parseKwd(a.revenueKwd));
-
-  return { items };
-}
-
-// ===========================================================================
-// CLINIC DETAIL — sessions + invoices for a single clinic
+// CLINIC DETAIL — sessions and invoices for one clinic (used by the clinic dashboard)
 // ===========================================================================
 
 export async function computeClinicDetail(clinicId: string, filters: { from?: string; to?: string } = {}) {

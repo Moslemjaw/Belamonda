@@ -411,7 +411,7 @@ eformsRouter.post("/admin/assignments", authRequired, requireRole(["admin", "leg
 });
 
 // ── Admin: list submissions ──
-eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "legal", "cs_director", "finance"]), async (req, res, next) => {
+eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     const filter: Record<string, unknown> = {};
     const { formId, userId, from, to, q } = req.query;
@@ -501,7 +501,7 @@ eformsRouter.get("/admin/submissions", authRequired, requireRole(["admin", "lega
 });
 
 // ── Admin: get single submission details ──
-eformsRouter.get("/admin/submissions/:id", authRequired, requireRole(["admin", "legal", "cs_director", "finance"]), async (req, res, next) => {
+eformsRouter.get("/admin/submissions/:id", authRequired, requireRole(["admin", "legal", "cs_director"]), async (req, res, next) => {
   try {
     if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: "NOT_FOUND" });
     const sub = await EFormSubmissionModel.findById(req.params.id).lean<EFormSubmissionDoc | null>();
@@ -762,7 +762,7 @@ eformsRouter.get("/submissions/:id/pdf", authRequired, async (req, res, next) =>
     if (!sub) return res.status(404).json({ error: "NOT_FOUND" });
 
     const isOwner = sub.userId === req.auth!.userId;
-    const isStaff = req.auth!.role === "admin" || req.auth!.role === "legal" || req.auth!.role === "cs_director" || req.auth!.role === "finance";
+    const isStaff = req.auth!.role === "admin" || req.auth!.role === "legal" || req.auth!.role === "cs_director";
     if (!isOwner && !isStaff) return res.status(403).json({ error: "FORBIDDEN" });
 
     const lang = req.query.lang === "en" ? "en" : req.query.lang === "ar" ? "ar" : "both";

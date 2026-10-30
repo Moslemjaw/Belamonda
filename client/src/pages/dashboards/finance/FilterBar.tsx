@@ -35,17 +35,21 @@ export function FilterBar({
   };
 
   return (
-    <div className="flex items-center justify-center sm:justify-end gap-2 text-xs rounded-2xl border border-surface-200 bg-white p-4 shadow-sm">
+    <div className="flex items-center sm:justify-end gap-2 text-xs rounded-2xl border border-surface-200 bg-white p-3 sm:p-4 shadow-sm">
       <label className="text-surface-500 font-medium">{ar() ? "من" : "From"}</label>
-      <DatePicker className="input-field text-xs py-1.5 h-auto max-w-[130px]"
-        value={localFrom.slice(0, 10)}
-        onChange={e => setLocalFrom(e.target.value)} />
+      <div className="flex-1 min-w-0 sm:flex-none sm:w-[130px]">
+        <DatePicker className="input-field text-xs py-1.5 px-2 h-auto w-full"
+          value={localFrom.slice(0, 10)}
+          onChange={e => setLocalFrom(e.target.value)} />
+      </div>
       <label className="text-surface-500 font-medium">{ar() ? "إلى" : "To"}</label>
-      <DatePicker className="input-field text-xs py-1.5 h-auto max-w-[130px]"
-        value={localTo.slice(0, 10)}
-        onChange={e => setLocalTo(e.target.value)} />
+      <div className="flex-1 min-w-0 sm:flex-none sm:w-[130px]">
+        <DatePicker className="input-field text-xs py-1.5 px-2 h-auto w-full"
+          value={localTo.slice(0, 10)}
+          onChange={e => setLocalTo(e.target.value)} />
+      </div>
       <button 
-        className="btn-primary text-xs py-1.5 px-4 rounded-xl ml-2 rtl:ml-0 rtl:mr-2"
+        className="btn-primary text-xs py-1.5 px-3 sm:px-4 rounded-xl shrink-0"
         onClick={handleApply}
       >
         {ar() ? "بحث" : "Search"}
