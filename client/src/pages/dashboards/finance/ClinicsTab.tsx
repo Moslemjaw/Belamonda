@@ -1,10 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "../../../app/AuthContext";
 import { useClinicSessionsReport, type ClinicSessionsReport } from "../../../hooks/useApi";
 import { API_BASE_URL, apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/KpiCard";
 import { ar, parseKwd } from "./shared";
-import { ClinicRowDetail } from "./ClinicRowDetail";
+import { ClinicRowDetail, PaidProgress } from "./ClinicRowDetail";
+
+// Header and rows share one template so the columns always line up.
+const GRID = "sm:grid-cols-[2fr_0.8fr_0.8fr_1.1fr_0.9fr_1.1fr_1.3fr_28px]";
 
 /** Downloads the clinic sessions Excel report for a period (all clinics, or one). */
 export async function downloadClinicSessions(
@@ -25,20 +28,6 @@ export async function downloadClinicSessions(
   a.download = `clinic-sessions-${range.from}_${range.to}.xlsx`;
   document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
-}
-
-/** The report after one session's "paid to clinic" tick, so the counts update without reloading. */
-function withPaidToClinic(report: ClinicSessionsReport, sessionId: string, paid: boolean): ClinicSessionsReport {
-  const row = report.rows.find(r => r.sessionId === sessionId);
-  if (!row || row.paidToClinic === paid) return report;
-  const sign = paid ? 1 : -1;
-  const bump = <T extends { paidToClinicCount: number }>(x: T): T => ({ ...x, paidToClinicCount: x.paidToClinicCount + sign });
-  return {
-    ...report,
-    totals: bump(report.totals),
-    clinics: report.clinics.map(c => (c.clinicId === row.clinicId ? bump(c) : c)),
-    rows: report.rows.map(r => (r.sessionId === sessionId ? { ...r, paidToClinic: paid } : r)),
-  };
 }
 
 export function ClinicsTab({ from, to }: { from: string; to: string }) {
@@ -62,6 +51,14 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
     return parseKwd(b.sessionValueKwd) - parseKwd(a.sessionValueKwd);
   });
   const t = data?.totals;
+  // Counted from the sessions on screen, so the numbers always match the checkboxes.
+  const paidByClinic = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of data?.rows ?? []) if (r.paidToClinic) counts.set(r.clinicId, (counts.get(r.clinicId) ?? 0) + 1);
+    return counts;
+  }, [data?.rows]);
+  const totalPaid = [...paidByClinic.values()].reduce((sum, n) => sum + n, 0);
+  const totalLeft = (t?.completed ?? 0) - totalPaid;
 
   const [saving, setSaving] = useState<string | null>(null);
   const togglePaid = async (sessionId: string, paid: boolean) => {
@@ -72,7 +69,7 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
         headers: getAuthHeader(),
         body: JSON.stringify({ paid }),
       });
-      setData(prev => (prev ? withPaidToClinic(prev, sessionId, paid) : prev));
+      setData(prev => prev && { ...prev, rows: prev.rows.map(r => (r.sessionId === sessionId ? { ...r, paidToClinic: paid } : r)) });
     } catch (e: any) {
       alert(e?.message || (ar() ? "تعذر الحفظ" : "Could not save"));
     } finally {
@@ -112,8 +109,8 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
         <KpiCard label={ar() ? "مدفوع في المركز" : "Paid at clinic"} value={`${t?.paidAtClinicKwd ?? "0.000"} KWD`} accent="pink" icon="💳" />
         <KpiCard
           label={ar() ? "مدفوع للمراكز" : "Paid to clinics"}
-          value={`${t?.paidToClinicCount ?? 0} / ${t?.completed ?? 0}`}
-          sub={ar() ? "جلسات" : "sessions"}
+          value={`${totalPaid} / ${t?.completed ?? 0}`}
+          sub={ar() ? `متبقي ${totalLeft} جلسة` : `${totalLeft} ${totalLeft === 1 ? "session" : "sessions"} left to pay`}
           accent="teal" icon="🏦"
         />
       </div>
@@ -143,21 +140,21 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
           <div className="py-12 text-center text-sm text-surface-400">{ar() ? "لا توجد جلسات في هذه الفترة" : "No sessions in this period"}</div>
         ) : (
           <div>
-            <div className="hidden sm:grid grid-cols-[2fr_1fr_1fr_1.2fr_1.2fr_1.2fr_28px] gap-4 px-6 py-3 bg-surface-50 border-b border-surface-100 text-[10px] uppercase tracking-wider font-bold text-surface-500">
+            <div className={`hidden sm:grid ${GRID} gap-4 px-6 py-3 bg-surface-50 border-b border-surface-100 text-[10px] uppercase tracking-wider font-bold text-surface-500 whitespace-nowrap`}>
               <div>{ar() ? "المركز" : "Clinic"}</div>
               <div className="text-center">{ar() ? "حضر" : "Completed"}</div>
               <div className="text-center">{ar() ? "لم يحضر" : "No-show"}</div>
               <div className="text-right">{ar() ? "قيمة الجلسات" : "Session value"}</div>
               <div className="text-right">{ar() ? "كاش باك" : "Cashback"}</div>
               <div className="text-right">{ar() ? "مدفوع في المركز" : "Paid at clinic"}</div>
-              <div className="text-right">{ar() ? "مدفوع للمركز" : "Paid to clinic"}</div>
+              <div>{ar() ? "مدفوع للمركز" : "Paid to clinic"}</div>
               <div />
             </div>
 
             {clinics.map(c => (
               <div key={c.clinicId}>
                 <div
-                  className={`grid grid-cols-[1fr_auto] sm:grid-cols-[2fr_1fr_1fr_1.2fr_1fr_1.2fr_1.2fr_28px] gap-4 px-6 py-4 border-b border-surface-100 hover:bg-surface-50 transition-colors cursor-pointer items-center ${expandedId === c.clinicId ? "bg-brand-pink-50/20" : ""}`}
+                  className={`grid grid-cols-[1fr_auto] ${GRID} gap-4 px-6 py-4 border-b border-surface-100 hover:bg-surface-50 transition-colors cursor-pointer items-center ${expandedId === c.clinicId ? "bg-brand-pink-50/20" : ""}`}
                   onClick={() => setExpandedId(expandedId === c.clinicId ? null : c.clinicId)}
                 >
                   <div>
@@ -166,7 +163,7 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
                       <span>{c.completed} {ar() ? "حضر" : "completed"}</span>
                       <span>{c.noShow} {ar() ? "لم يحضر" : "no-show"}</span>
                       <span className="text-emerald-700 font-bold">{c.sessionValueKwd} KWD</span>
-                    <span>{ar() ? "مدفوع للمركز" : "Paid to clinic"} {c.paidToClinicCount} / {c.completed}</span>
+                    <span>{ar() ? "مدفوع للمركز" : "Paid to clinic"} {paidByClinic.get(c.clinicId) ?? 0} / {c.completed}</span>
                     </div>
                   </div>
                   <div className="hidden sm:block text-center font-bold text-emerald-700">{c.completed}</div>
@@ -174,9 +171,7 @@ export function ClinicsTab({ from, to }: { from: string; to: string }) {
                   <div className="hidden sm:block text-right font-bold text-surface-900">{c.sessionValueKwd}</div>
                   <div className="hidden sm:block text-right text-amber-700">{c.cashbackKwd}</div>
                   <div className="hidden sm:block text-right font-bold text-brand-pink-700">{c.paidAtClinicKwd}</div>
-                  <div className="hidden sm:block text-right">
-                    <span className={`font-bold ${c.completed > 0 && c.paidToClinicCount === c.completed ? "text-emerald-700" : "text-surface-900"}`}>{c.paidToClinicCount} / {c.completed}</span>
-                  </div>
+                  <PaidProgress paid={paidByClinic.get(c.clinicId) ?? 0} total={c.completed} className="hidden sm:block" />
                   <div className="flex items-center">
                     <svg className={`w-4 h-4 text-surface-400 transition-transform duration-200 ${expandedId === c.clinicId ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

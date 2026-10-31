@@ -7,6 +7,31 @@ import { downloadClinicSessions } from "./ClinicsTab";
 
 const PAGE = 50;
 
+/** "12 / 95" with a progress bar: grey when nothing is paid, amber part way, green when all are paid. */
+export function PaidProgress({ paid, total, className = "" }: { paid: number; total: number; className?: string }) {
+  const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
+  const done = total > 0 && paid === total;
+  const tone = done ? "text-emerald-700" : paid > 0 ? "text-amber-700" : "text-surface-500";
+  const bar = done ? "bg-emerald-500" : "bg-amber-400";
+  return (
+    <div className={className}>
+      <div className={`text-sm font-bold tabular-nums ${tone}`}>
+        {paid} <span className="font-medium text-surface-400">/ {total}</span>
+      </div>
+      <div
+        className="mt-1 h-1.5 w-full rounded-full bg-surface-200 overflow-hidden"
+        role="progressbar"
+        aria-valuenow={paid}
+        aria-valuemin={0}
+        aria-valuemax={total}
+        aria-label={ar() ? "الجلسات المدفوعة للمركز" : "Sessions paid to clinic"}
+      >
+        <div className={`h-full rounded-full transition-all duration-300 ${bar}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export function ClinicRowDetail({ clinic, rows, range, saving, onTogglePaid }: {
   clinic: ClinicSessionsSummary;
   rows: ClinicSessionRow[];
@@ -18,6 +43,14 @@ export function ClinicRowDetail({ clinic, rows, range, saving, onTogglePaid }: {
   const [downloading, setDownloading] = useState(false);
   const [shown, setShown] = useState(PAGE);
   const [paidFilter, setPaidFilter] = useState<"" | "paid" | "unpaid">("");
+  const completed = rows.filter(r => r.status === "completed");
+  const paidCount = completed.filter(r => r.paidToClinic).length;
+  const left = completed.length - paidCount;
+  const filters: { key: "" | "paid" | "unpaid"; label: string; count: number }[] = [
+    { key: "", label: ar() ? "الكل" : "All", count: rows.length },
+    { key: "unpaid", label: ar() ? "غير مدفوعة" : "Not paid", count: left },
+    { key: "paid", label: ar() ? "مدفوعة" : "Paid", count: paidCount },
+  ];
   const list = rows.filter(r =>
     !paidFilter || (r.status === "completed" && r.paidToClinic === (paidFilter === "paid"))
   );
@@ -31,20 +64,32 @@ export function ClinicRowDetail({ clinic, rows, range, saving, onTogglePaid }: {
 
   return (
     <div className="px-6 py-5 bg-surface-50 border-t border-surface-200 space-y-4 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <p className="text-sm text-surface-700">
-          {ar() ? "مدفوع لهذا المركز:" : "Paid to this clinic:"}{" "}
-          <span className="font-bold text-surface-900">{clinic.paidToClinicCount} / {clinic.completed}</span>{" "}
-          {ar() ? "جلسة" : "sessions"}
-        </p>
-        <select className="select-field text-xs py-1.5 h-auto sm:w-40" value={paidFilter} onChange={e => setPaidFilter(e.target.value as typeof paidFilter)} aria-label={ar() ? "فلتر الدفع للمركز" : "Paid to clinic filter"}>
-          <option value="">{ar() ? "كل الجلسات" : "All sessions"}</option>
-          <option value="unpaid">{ar() ? "غير مدفوعة للمركز" : "Not paid to clinic"}</option>
-          <option value="paid">{ar() ? "مدفوعة للمركز" : "Paid to clinic"}</option>
-        </select>
+      <div className="rounded-xl border border-surface-200 bg-white p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex-1 max-w-md">
+          <div className="text-xs font-bold text-surface-700 mb-1.5">{ar() ? "مدفوع لهذا المركز" : "Paid to this clinic"}</div>
+          <PaidProgress paid={paidCount} total={completed.length} />
+          <div className="mt-1.5 text-[11px] text-surface-500">
+            {left === 0 && completed.length > 0
+              ? (ar() ? "تم دفع كل الجلسات" : "All sessions paid")
+              : (ar() ? `متبقي ${left} جلسة` : `${left} ${left === 1 ? "session" : "sessions"} left to pay`)}
+          </div>
+        </div>
+        <div className="inline-flex self-start md:self-auto rounded-lg border border-surface-200 bg-surface-50 p-0.5" role="group" aria-label={ar() ? "فلتر الدفع للمركز" : "Paid to clinic filter"}>
+          {filters.map(f => (
+            <button
+              key={f.key || "all"}
+              type="button"
+              aria-pressed={paidFilter === f.key}
+              onClick={() => { setPaidFilter(f.key); setShown(PAGE); }}
+              className={`px-3 py-1.5 rounded-md text-xs font-bold whitespace-nowrap transition-colors ${paidFilter === f.key ? "bg-white text-surface-900 shadow-sm" : "text-surface-500 hover:text-surface-800"}`}
+            >
+              {f.label} <span className="font-medium text-surface-400">{f.count}</span>
+            </button>
+          ))}
+        </div>
       </div>
       <div className="overflow-x-auto rounded-xl border border-surface-200 bg-white shadow-sm">
-        <table className="data-table text-xs">
+        <table className="data-table text-xs [&_td]:!px-3 [&_th]:!px-3">
           <thead>
             <tr className="bg-surface-50">
               <th>{ar() ? "التاريخ" : "Date"}</th>
@@ -60,7 +105,7 @@ export function ClinicRowDetail({ clinic, rows, range, saving, onTogglePaid }: {
           </thead>
           <tbody>
             {list.slice(0, shown).map(r => (
-              <tr key={r.sessionId}>
+              <tr key={r.sessionId} className={r.paidToClinic ? "!bg-emerald-50/50" : ""}>
                 <td className="text-surface-500 whitespace-nowrap">{fmtDateTime(r.date)}</td>
                 <td>
                   <div className="font-medium">{r.customerName}</div>
@@ -83,14 +128,17 @@ export function ClinicRowDetail({ clinic, rows, range, saving, onTogglePaid }: {
                 <td className="text-right font-bold text-brand-pink-700">{r.paidAtClinicKwd}</td>
                 <td className="text-center">
                   {r.status === "completed" ? (
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 accent-brand-pink-600 cursor-pointer disabled:cursor-wait"
-                      checked={r.paidToClinic}
-                      disabled={saving === r.sessionId}
-                      onChange={e => onTogglePaid(r.sessionId, e.target.checked)}
-                      aria-label={`${ar() ? "مدفوع للمركز" : "Paid to clinic"}: ${r.customerName}`}
-                    />
+                    <label className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 font-bold transition-colors ${saving === r.sessionId ? "opacity-60 cursor-wait" : "cursor-pointer"} ${r.paidToClinic ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-surface-200 bg-white text-surface-500 hover:border-surface-400"}`}>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4 accent-emerald-600 cursor-[inherit]"
+                        checked={r.paidToClinic}
+                        disabled={saving === r.sessionId}
+                        onChange={e => onTogglePaid(r.sessionId, e.target.checked)}
+                        aria-label={`${ar() ? "مدفوع للمركز" : "Paid to clinic"}: ${r.customerName}`}
+                      />
+                      <span className="whitespace-nowrap">{r.paidToClinic ? (ar() ? "مدفوع" : "Paid") : (ar() ? "غير مدفوع" : "Not paid")}</span>
+                    </label>
                   ) : <span className="text-surface-300">—</span>}
                 </td>
               </tr>
@@ -101,7 +149,7 @@ export function ClinicRowDetail({ clinic, rows, range, saving, onTogglePaid }: {
               <td className="text-right">{clinic.sessionValueKwd}</td>
               <td className="text-right">{clinic.cashbackKwd}</td>
               <td className="text-right">{clinic.paidAtClinicKwd}</td>
-              <td className="text-center">{clinic.paidToClinicCount} / {clinic.completed}</td>
+              <td className="text-center tabular-nums">{paidCount} / {completed.length}</td>
             </tr>
           </tbody>
         </table>
