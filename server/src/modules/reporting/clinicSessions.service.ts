@@ -33,6 +33,7 @@ export type SessionSource = {
     finalPaidKwd?: string;
     extraItems?: Extra[];
     clinicPaymentStatus?: string;
+    paidToClinicAt?: Date | string;
   };
   request?: {
     sessionPriceKwd?: string;
@@ -68,6 +69,8 @@ export type ClinicSessionRow = {
   cashbackKwd: string;
   paidAtClinicKwd: string;
   clinicMarkedPaid: boolean;
+  /** Belamonda has paid the clinic for this session. */
+  paidToClinic: boolean;
 };
 
 export type ClinicSessionsSummary = {
@@ -79,6 +82,7 @@ export type ClinicSessionsSummary = {
   sessionValueKwd: string;
   cashbackKwd: string;
   paidAtClinicKwd: string;
+  paidToClinicCount: number;
 };
 
 /** Turn one session (plus its linked request/payment) into a report row. */
@@ -124,6 +128,7 @@ export function buildSessionRow(src: SessionSource): ClinicSessionRow {
     cashbackKwd: milsToKwd(happened ? cashbackMils : 0),
     paidAtClinicKwd: milsToKwd(happened ? paidMils : 0),
     clinicMarkedPaid: s.clinicPaymentStatus === "paid" || r.clinicPaymentStatus === "paid",
+    paidToClinic: happened && !!s.paidToClinicAt,
   };
 }
 
@@ -142,6 +147,7 @@ export function summarizeClinicSessions(rows: ClinicSessionRow[]) {
         sessionValueKwd: "0.000",
         cashbackKwd: "0.000",
         paidAtClinicKwd: "0.000",
+        paidToClinicCount: 0,
         _v: 0,
         _c: 0,
         _p: 0,
@@ -151,6 +157,7 @@ export function summarizeClinicSessions(rows: ClinicSessionRow[]) {
     cur._v += kwdToMils(row.sessionValueKwd);
     cur._c += kwdToMils(row.cashbackKwd);
     cur._p += kwdToMils(row.paidAtClinicKwd);
+    if (row.paidToClinic) cur.paidToClinicCount++;
     map.set(row.clinicId, cur);
   }
 
@@ -174,6 +181,7 @@ export function summarizeClinicSessions(rows: ClinicSessionRow[]) {
       sessionValueKwd: totalMils("sessionValueKwd"),
       cashbackKwd: totalMils("cashbackKwd"),
       paidAtClinicKwd: totalMils("paidAtClinicKwd"),
+      paidToClinicCount: clinics.reduce((n, c) => n + c.paidToClinicCount, 0),
     },
   };
 }

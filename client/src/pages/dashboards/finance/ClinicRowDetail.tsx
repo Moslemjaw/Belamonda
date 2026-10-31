@@ -7,14 +7,20 @@ import { downloadClinicSessions } from "./ClinicsTab";
 
 const PAGE = 50;
 
-export function ClinicRowDetail({ clinic, rows, range }: {
+export function ClinicRowDetail({ clinic, rows, range, saving, onTogglePaid }: {
   clinic: ClinicSessionsSummary;
   rows: ClinicSessionRow[];
   range: { from: string; to: string };
+  saving: string | null;
+  onTogglePaid: (sessionId: string, paid: boolean) => void;
 }) {
   const { getAuthHeader } = useAuth();
   const [downloading, setDownloading] = useState(false);
   const [shown, setShown] = useState(PAGE);
+  const [paidFilter, setPaidFilter] = useState<"" | "paid" | "unpaid">("");
+  const list = rows.filter(r =>
+    !paidFilter || (r.status === "completed" && r.paidToClinic === (paidFilter === "paid"))
+  );
 
   const download = async () => {
     setDownloading(true);
@@ -25,6 +31,18 @@ export function ClinicRowDetail({ clinic, rows, range }: {
 
   return (
     <div className="px-6 py-5 bg-surface-50 border-t border-surface-200 space-y-4 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <p className="text-sm text-surface-700">
+          {ar() ? "مدفوع لهذا المركز:" : "Paid to this clinic:"}{" "}
+          <span className="font-bold text-surface-900">{clinic.paidToClinicCount} / {clinic.completed}</span>{" "}
+          {ar() ? "جلسة" : "sessions"}
+        </p>
+        <select className="select-field text-xs py-1.5 h-auto sm:w-40" value={paidFilter} onChange={e => setPaidFilter(e.target.value as typeof paidFilter)} aria-label={ar() ? "فلتر الدفع للمركز" : "Paid to clinic filter"}>
+          <option value="">{ar() ? "كل الجلسات" : "All sessions"}</option>
+          <option value="unpaid">{ar() ? "غير مدفوعة للمركز" : "Not paid to clinic"}</option>
+          <option value="paid">{ar() ? "مدفوعة للمركز" : "Paid to clinic"}</option>
+        </select>
+      </div>
       <div className="overflow-x-auto rounded-xl border border-surface-200 bg-white shadow-sm">
         <table className="data-table text-xs">
           <thead>
@@ -37,10 +55,11 @@ export function ClinicRowDetail({ clinic, rows, range }: {
               <th className="text-right">{ar() ? "القيمة" : "Value"}</th>
               <th className="text-right">{ar() ? "كاش باك" : "Cashback"}</th>
               <th className="text-right">{ar() ? "مدفوع في المركز" : "Paid at clinic"}</th>
+              <th className="text-center">{ar() ? "مدفوع للمركز" : "Paid to clinic"}</th>
             </tr>
           </thead>
           <tbody>
-            {rows.slice(0, shown).map(r => (
+            {list.slice(0, shown).map(r => (
               <tr key={r.sessionId}>
                 <td className="text-surface-500 whitespace-nowrap">{fmtDateTime(r.date)}</td>
                 <td>
@@ -62,6 +81,18 @@ export function ClinicRowDetail({ clinic, rows, range }: {
                 <td className="text-right font-bold text-surface-900">{r.sessionValueKwd}</td>
                 <td className="text-right text-amber-700">{r.cashbackKwd}</td>
                 <td className="text-right font-bold text-brand-pink-700">{r.paidAtClinicKwd}</td>
+                <td className="text-center">
+                  {r.status === "completed" ? (
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 accent-brand-pink-600 cursor-pointer disabled:cursor-wait"
+                      checked={r.paidToClinic}
+                      disabled={saving === r.sessionId}
+                      onChange={e => onTogglePaid(r.sessionId, e.target.checked)}
+                      aria-label={`${ar() ? "مدفوع للمركز" : "Paid to clinic"}: ${r.customerName}`}
+                    />
+                  ) : <span className="text-surface-300">—</span>}
+                </td>
               </tr>
             ))}
             <tr className="bg-surface-50 font-bold">
@@ -70,12 +101,13 @@ export function ClinicRowDetail({ clinic, rows, range }: {
               <td className="text-right">{clinic.sessionValueKwd}</td>
               <td className="text-right">{clinic.cashbackKwd}</td>
               <td className="text-right">{clinic.paidAtClinicKwd}</td>
+              <td className="text-center">{clinic.paidToClinicCount} / {clinic.completed}</td>
             </tr>
           </tbody>
         </table>
-        {rows.length > shown && (
+        {list.length > shown && (
           <button className="w-full text-center py-2 text-xs text-brand-pink-700 font-bold border-t border-surface-100 hover:bg-surface-50" onClick={() => setShown(shown + PAGE)}>
-            {ar() ? `عرض المزيد (${rows.length - shown})` : `Show more (${rows.length - shown})`}
+            {ar() ? `عرض المزيد (${list.length - shown})` : `Show more (${list.length - shown})`}
           </button>
         )}
       </div>
