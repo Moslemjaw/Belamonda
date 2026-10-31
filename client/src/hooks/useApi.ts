@@ -642,15 +642,16 @@ export type ClinicSessionRow = {
   sessionId: string; clinicId: string; clinicNameEn: string; clinicNameAr: string; date: string;
   customerName: string; customerPhone: string; packageName: string; isStandalone: boolean;
   membershipCancelled: boolean; extras: string; status: string;
-  sessionValueKwd: string; cashbackKwd: string; paidAtClinicKwd: string; clinicMarkedPaid: boolean;
+  sessionValueKwd: string; cashbackKwd: string; paidAtClinicKwd: string; clinicMarkedPaid: boolean; paidToClinic: boolean;
 };
 export type ClinicSessionsSummary = {
   clinicId: string; clinicNameEn: string; clinicNameAr: string; completed: number; noShow: number;
   sessionValueKwd: string; cashbackKwd: string; paidAtClinicKwd: string;
+  paidToClinicCount: number;
 };
 export type ClinicSessionsReport = {
   clinics: ClinicSessionsSummary[];
-  totals: { completed: number; noShow: number; sessionValueKwd: string; cashbackKwd: string; paidAtClinicKwd: string };
+  totals: { completed: number; noShow: number; sessionValueKwd: string; cashbackKwd: string; paidAtClinicKwd: string; paidToClinicCount: number };
   rows: ClinicSessionRow[];
 };
 

@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import mongoose from "mongoose";
 import { api, makeMembership, makeUser } from "./helpers.js";
 import { PaymentModel } from "../src/models/payment.model.js";
+import { BookingSessionModel } from "../src/models/bookingSession.model.js";
 import { UserOfferModel } from "../src/models/userOffer.model.js";
 
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
@@ -170,5 +171,70 @@ describe("manual entries", () => {
     expect((await api().delete(`/reporting/finance/manual-payment/${pkg._id}`).set(auth(fin.token))).status).toBe(404);
     expect(await PaymentModel.countDocuments({ _id: pkg._id })).toBe(1);
     expect((await api().delete(`/reporting/finance/manual-payment/${entry.body.payment.id}`).set(auth(fin.token))).status).toBe(200);
+  });
+});
+
+describe("paying clinics per session", () => {
+  async function setup() {
+    const s = await paidMembership();
+    const fin = await makeUser("finance");
+    const when = new Date();
+    const add = (status: string) =>
+      BookingSessionModel.create({ userOfferId: s.m.userOfferId, userId: s.customer.id, offerId: new mongoose.Types.ObjectId(), clinicId: s.m.clinicId, status, scheduledBy: "x", scheduledAt: when, sessionPriceKwd: "10.000" });
+    const toggle = (id: unknown, paid: boolean, token = fin.token) =>
+      api().put(`/reporting/finance/clinic-sessions/${id}/paid-to-clinic`).set(auth(token)).send({ paid });
+    const report = async () => (await api().get(`/reporting/finance/clinic-sessions?from=${today}&to=${today}`).set(auth(fin.token))).body;
+    return { ...s, fin, add, toggle, report };
+  }
+
+  it("ticking and unticking updates the session, the totals and the audit log", async () => {
+    const s = await setup();
+    const a = await s.add("completed");
+    await s.add("completed");
+    expect((await s.toggle(a._id, true)).status).toBe(200);
+    let r = await s.report();
+    expect(r.totals).toMatchObject({ completed: 2, paidToClinicCount: 1 });
+    expect(r.clinics[0]).toMatchObject({ paidToClinicCount: 1 });
+    expect(r.rows.filter((x: { paidToClinic: boolean }) => x.paidToClinic)).toHaveLength(1);
+    const saved = await BookingSessionModel.findById(a._id).lean<{ paidToClinicBy?: string; paidToClinicAt?: Date }>();
+    expect(saved?.paidToClinicBy).toBe(s.fin.id);
+    expect(await mongoose.connection.collection("auditlogs").countDocuments({ actionType: "session_paid_to_clinic" })).toBe(1);
+
+    expect((await s.toggle(a._id, false)).status).toBe(200);
+    r = await s.report();
+    expect(r.totals).toMatchObject({ paidToClinicCount: 0 });
+    expect(await mongoose.connection.collection("auditlogs").countDocuments({ actionType: "session_paid_to_clinic_undone" })).toBe(1);
+  });
+
+  it("ticking twice records it once", async () => {
+    const s = await setup();
+    const a = await s.add("completed");
+    await s.toggle(a._id, true);
+    await s.toggle(a._id, true);
+    expect(await mongoose.connection.collection("auditlogs").countDocuments({ actionType: "session_paid_to_clinic" })).toBe(1);
+  });
+
+  it("only completed sessions, only finance and admin", async () => {
+    const s = await setup();
+    const noShow = await s.add("no_show");
+    const done = await s.add("completed");
+    expect((await s.toggle(noShow._id, true)).status).toBe(409);
+    const cs = await makeUser("cs");
+    expect((await s.toggle(done._id, true, cs.token)).status).toBe(403);
+    expect((await s.toggle(done._id, true, s.customer.token)).status).toBe(403);
+    expect((await s.toggle(new mongoose.Types.ObjectId(), true)).status).toBe(404);
+    expect((await api().put(`/reporting/finance/clinic-sessions/${done._id}/paid-to-clinic`).set(auth(s.fin.token)).send({})).status).toBe(400);
+  });
+
+  it("the downloads include it", async () => {
+    const s = await setup();
+    const a = await s.add("completed");
+    await s.toggle(a._id, true);
+    const doc = (await api().get(`/reporting/finance/report?type=clinic_sessions&from=${today}&to=${today}`).set(auth(s.fin.token))).body;
+    expect(doc.tables[1].rows[0].paidToClinic).toBe("Yes");
+    expect(doc.cards.find((c: { label: { en: string } }) => c.label.en === "Paid to clinics").value).toBe("1 / 1");
+    for (const url of [`/reporting/finance/clinic-sessions/export?from=${today}&to=${today}`, `/reporting/finance/report/export?type=clinic_sessions&from=${today}&to=${today}&format=pdf`]) {
+      expect((await api().get(url).set(auth(s.fin.token))).status).toBe(200);
+    }
   });
 });

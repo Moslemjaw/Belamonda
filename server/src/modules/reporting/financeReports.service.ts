@@ -756,6 +756,11 @@ async function clinicSessions(from: string, to: string): Promise<ReportDoc> {
       { label: L("Session value", "قيمة الجلسات"), value: r.totals.sessionValueKwd },
       { label: L("Cashback used", "الكاش باك المستخدم"), value: r.totals.cashbackKwd },
       { label: L("Paid at clinic", "المدفوع في العيادة"), value: r.totals.paidAtClinicKwd },
+      {
+        label: L("Paid to clinics", "المدفوع للعيادات"),
+        value: `${r.totals.paidToClinicCount} / ${r.totals.completed}`,
+        hint: L("Sessions", "جلسات"),
+      },
     ],
     tables: [
       {
@@ -768,6 +773,7 @@ async function clinicSessions(from: string, to: string): Promise<ReportDoc> {
           { key: "sessionValueKwd", label: L("Session value (KWD)", "قيمة الجلسات"), kind: "kwd" },
           { key: "cashbackKwd", label: L("Cashback (KWD)", "الكاش باك"), kind: "kwd" },
           { key: "paidAtClinicKwd", label: L("Paid at clinic (KWD)", "المدفوع في العيادة"), kind: "kwd" },
+          { key: "paidToClinicCount", label: L("Sessions paid to clinic", "جلسات مدفوعة للعيادة"), kind: "int" },
         ],
         rows: r.clinics.map((c) => ({ ...c })),
         totals: { clinicNameEn: "Total", ...r.totals },
@@ -785,6 +791,7 @@ async function clinicSessions(from: string, to: string): Promise<ReportDoc> {
           { key: "sessionValueKwd", label: L("Value (KWD)", "القيمة"), kind: "kwd" },
           { key: "cashbackKwd", label: L("Cashback (KWD)", "الكاش باك"), kind: "kwd" },
           { key: "paidAtClinicKwd", label: L("Paid at clinic (KWD)", "المدفوع"), kind: "kwd" },
+          { key: "paidToClinic", label: L("Paid to clinic", "مدفوع للعيادة") },
         ],
         rows: r.rows.map((row) => ({
           date: kwDateTime(row.date),
@@ -796,6 +803,7 @@ async function clinicSessions(from: string, to: string): Promise<ReportDoc> {
           sessionValueKwd: row.sessionValueKwd,
           cashbackKwd: row.cashbackKwd,
           paidAtClinicKwd: row.paidAtClinicKwd,
+          paidToClinic: row.status === "completed" ? (row.paidToClinic ? "Yes" : "No") : "",
         })),
         totals: { date: "Total", sessionValueKwd: r.totals.sessionValueKwd, cashbackKwd: r.totals.cashbackKwd, paidAtClinicKwd: r.totals.paidAtClinicKwd },
       },

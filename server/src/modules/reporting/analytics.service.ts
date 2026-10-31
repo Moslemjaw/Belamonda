@@ -1962,18 +1962,19 @@ export async function exportClinicSessionsXlsx(filters: { from?: string; to?: st
     "قيمة الجلسات / Session value (KWD)",
     "كاش باك / Cashback used (KWD)",
     "مدفوع في المركز / Paid at clinic (KWD)",
+    "جلسات مدفوعة للمركز / Sessions paid to clinic",
   ];
   addTitle(summary, "تقرير جلسات المراكز / Clinic sessions report", sHeaders.length);
   summary.getRow(2).values = sHeaders;
   styleHeaderRow(summary.getRow(2));
   report.clinics.forEach((c, i) => {
     const row = summary.getRow(i + 3);
-    row.values = [c.clinicNameAr || c.clinicNameEn, c.completed, c.noShow, parseKwd(c.sessionValueKwd) / 1000, parseKwd(c.cashbackKwd) / 1000, parseKwd(c.paidAtClinicKwd) / 1000];
+    row.values = [c.clinicNameAr || c.clinicNameEn, c.completed, c.noShow, parseKwd(c.sessionValueKwd) / 1000, parseKwd(c.cashbackKwd) / 1000, parseKwd(c.paidAtClinicKwd) / 1000, c.paidToClinicCount];
     styleDataRow(row, i % 2 === 1);
   });
   const t = report.totals;
   const sTotal = summary.getRow(report.clinics.length + 3);
-  sTotal.values = ["الإجمالي / Total", t.completed, t.noShow, parseKwd(t.sessionValueKwd) / 1000, parseKwd(t.cashbackKwd) / 1000, parseKwd(t.paidAtClinicKwd) / 1000];
+  sTotal.values = ["الإجمالي / Total", t.completed, t.noShow, parseKwd(t.sessionValueKwd) / 1000, parseKwd(t.cashbackKwd) / 1000, parseKwd(t.paidAtClinicKwd) / 1000, t.paidToClinicCount];
   totalRowStyle(sTotal);
   [4, 5, 6].forEach((c) => (summary.getColumn(c).numFmt = "0.000"));
   setAutoWidths(summary, 2, 3);
@@ -1991,6 +1992,7 @@ export async function exportClinicSessionsXlsx(filters: { from?: string; to?: st
     "كاش باك / Cashback (KWD)",
     "مدفوع في المركز / Paid at clinic (KWD)",
     "تم تسجيل الدفع / POS marked",
+    "مدفوع للمركز / Paid to clinic",
     "ملاحظة / Note",
   ];
   const usedNames = new Set<string>();
@@ -2018,13 +2020,14 @@ export async function exportClinicSessionsXlsx(filters: { from?: string; to?: st
         parseKwd(r.cashbackKwd) / 1000,
         parseKwd(r.paidAtClinicKwd) / 1000,
         r.clinicMarkedPaid ? "نعم / Yes" : "لا / No",
+        r.status !== "completed" ? "" : r.paidToClinic ? "نعم / Yes" : "لا / No",
         r.membershipCancelled ? "اشتراك ملغي / Membership cancelled" : "",
       ];
       styleDataRow(row, i % 2 === 1);
       row.getCell(7).font = { bold: true, color: { argb: r.status === "completed" ? "FF008000" : "FFCC0000" } };
     });
     const total = ws.getRow(rows.length + 3);
-    total.values = ["", "الإجمالي / Total", `${c.completed} حضر / completed, ${c.noShow} لم يحضر / no-show`, "", "", "", "", parseKwd(c.sessionValueKwd) / 1000, parseKwd(c.cashbackKwd) / 1000, parseKwd(c.paidAtClinicKwd) / 1000, "", ""];
+    total.values = ["", "الإجمالي / Total", `${c.completed} حضر / completed, ${c.noShow} لم يحضر / no-show`, "", "", "", "", parseKwd(c.sessionValueKwd) / 1000, parseKwd(c.cashbackKwd) / 1000, parseKwd(c.paidAtClinicKwd) / 1000, "", `${c.paidToClinicCount} / ${c.completed}`, ""];
     totalRowStyle(total);
     [8, 9, 10].forEach((col) => (ws.getColumn(col).numFmt = "0.000"));
     ws.autoFilter = { from: { row: 2, column: 1 }, to: { row: 2, column: dHeaders.length } };

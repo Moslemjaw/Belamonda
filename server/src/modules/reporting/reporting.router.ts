@@ -5,6 +5,8 @@ import { authRequired } from "../../middlewares/authRequired.js";
 import { requireRole } from "../../middlewares/requireRole.js";
 import { reportingStore } from "./reporting.store.js";
 import { PaymentModel } from "../../models/payment.model.js";
+import { BookingSessionModel } from "../../models/bookingSession.model.js";
+import { logAuditAction } from "../../services/audit.service.js";
 import {
   computeFinanceSnapshot,
   computePaymentsBreakdown,
@@ -232,6 +234,40 @@ reportingRouter.get("/finance/clinic-sessions", authRequired, requireRole(FINANC
   try {
     const data = await computeClinicSessionsReport({ from: str(req.query.from), to: str(req.query.to), clinicId: str(req.query.clinicId) });
     return res.json(data);
+  } catch (e) {
+    next(e);
+  }
+});
+
+// Finance ticks a completed session once Belamonda has paid the clinic for it.
+reportingRouter.put("/finance/clinic-sessions/:id/paid-to-clinic", authRequired, requireRole(FINANCE_ROLES), async (req, res, next) => {
+  try {
+    const parsed = z.object({ paid: z.boolean() }).safeParse(req.body);
+    if (!parsed.success) return res.status(400).json({ error: "VALIDATION_ERROR" });
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: "NOT_FOUND" });
+    const session = await BookingSessionModel.findById(req.params.id).select("status paidToClinicAt").lean<{ status: string; paidToClinicAt?: Date } | null>();
+    if (!session) return res.status(404).json({ error: "NOT_FOUND" });
+    if (session.status !== "completed") return res.status(409).json({ error: "SESSION_NOT_COMPLETED" });
+
+    const { paid } = parsed.data;
+    if (paid !== !!session.paidToClinicAt) {
+      await BookingSessionModel.updateOne(
+        { _id: req.params.id },
+        paid
+          ? { $set: { paidToClinicAt: new Date(), paidToClinicBy: req.auth!.userId } }
+          : { $unset: { paidToClinicAt: 1, paidToClinicBy: 1 } }
+      );
+      await logAuditAction({
+        actorId: req.auth!.userId,
+        actorRole: req.auth!.role as any,
+        actionType: paid ? "session_paid_to_clinic" : "session_paid_to_clinic_undone",
+        targetEntityType: "BookingSession",
+        targetEntityId: req.params.id,
+        beforeState: { paidToClinic: !paid },
+        afterState: { paidToClinic: paid },
+      });
+    }
+    return res.json({ ok: true, paidToClinic: paid });
   } catch (e) {
     next(e);
   }

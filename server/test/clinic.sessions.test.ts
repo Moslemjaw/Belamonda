@@ -96,6 +96,6 @@ describe("clinic sessions summary", () => {
     expect(r.clinics.map((c) => c.clinicId)).toEqual(["B", "A"]);
     expect(r.clinics[1]).toMatchObject({ completed: 1, noShow: 1, sessionValueKwd: "10.000", paidAtClinicKwd: "10.000" });
     expect(r.clinics[0]).toMatchObject({ completed: 1, noShow: 0, sessionValueKwd: "40.000", cashbackKwd: "15.000", paidAtClinicKwd: "25.000" });
-    expect(r.totals).toEqual({ completed: 2, noShow: 1, sessionValueKwd: "50.000", cashbackKwd: "15.000", paidAtClinicKwd: "35.000" });
+    expect(r.totals).toEqual({ completed: 2, noShow: 1, sessionValueKwd: "50.000", cashbackKwd: "15.000", paidAtClinicKwd: "35.000", paidToClinicCount: 0 });
   });
 });

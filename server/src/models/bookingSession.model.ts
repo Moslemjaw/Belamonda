@@ -39,6 +39,9 @@ const BookingSessionSchema = new Schema(
     clinicPaymentStatus: { type: String, enum: ["pending", "paid"], default: "pending" },
     clinicPaymentMarkedAt: { type: Date },
     clinicPaymentMarkedBy: { type: String },
+    // When Belamonda paid the clinic for this session, and who recorded it (unset = not paid yet)
+    paidToClinicAt: { type: Date },
+    paidToClinicBy: { type: String },
     bookingRequestId: { type: Schema.Types.ObjectId, ref: "BookingRequest" },
     sessionPriceKwd: { type: String }
   },
