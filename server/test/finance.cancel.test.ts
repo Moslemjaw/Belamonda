@@ -99,7 +99,7 @@ describe("installments list", () => {
 });
 
 describe("finance reports over the API", () => {
-  const types = ["monthly_summary", "package_sales", "payments_ledger", "installments_due", "clinic_sessions", "cashback"];
+  const types = ["monthly_summary", "package_sales", "payments_ledger", "installments_due", "clinic_sessions", "cashback_sessions", "cashback"];
 
   it.each(types)("%s previews and downloads as Excel and PDF", async (type) => {
     const fin = await makeUser("finance");
@@ -236,5 +236,37 @@ describe("paying clinics per session", () => {
     for (const url of [`/reporting/finance/clinic-sessions/export?from=${today}&to=${today}`, `/reporting/finance/report/export?type=clinic_sessions&from=${today}&to=${today}&format=pdf`]) {
       expect((await api().get(url).set(auth(s.fin.token))).status).toBe(200);
     }
+  });
+});
+
+describe("Cashback Sessions report", () => {
+  it("includes every session except laser, with totals that add up", async () => {
+    const fin = await makeUser("finance");
+    const customer = await makeUser("customer");
+    const cash = await makeMembership(customer.id, { offer: { category: "all", name: "Naumi Plus" } });
+    const laser = await makeMembership(customer.id, { offer: { category: "laser", name: "Laser 4" } });
+    const when = new Date();
+    const add = (m: typeof cash, status: string, extra: Record<string, unknown> = {}) =>
+      BookingSessionModel.create({ userOfferId: m.userOfferId, userId: customer.id, offerId: m.offerId, clinicId: m.clinicId, status, scheduledBy: "x", scheduledAt: when, sessionPriceKwd: "10.000", ...extra });
+    await add(cash, "completed", { clinicPaymentStatus: "paid" });
+    await add(cash, "completed", { paidToClinicAt: when });
+    await add(cash, "no_show");
+    await add(laser, "completed");
+
+    const res = await api().get(`/reporting/finance/report?type=cashback_sessions&from=${today}&to=${today}`).set(auth(fin.token));
+    expect(res.status).toBe(200);
+    const card = (en: string) => res.body.cards.find((c: { label: { en: string } }) => c.label.en === en).value;
+    expect(card("Completed")).toBe("2");
+    expect(card("No-shows")).toBe("1");
+    expect(card("Session value")).toBe("20.000");
+    expect(card("Customer paid")).toBe("1 / 2");
+    expect(card("Paid to clinics")).toBe("1 / 2");
+
+    const [clinics, packages, sessions] = res.body.tables;
+    expect(clinics.rows).toHaveLength(1);
+    expect(clinics.rows[0]).toMatchObject({ completed: 2, noShow: 1, sessionValueKwd: "20.000", customerPaid: 1, paidToClinicCount: 1 });
+    expect(packages.rows).toEqual([{ packageName: "Naumi Plus", completed: 2, noShow: 1, sessionValueKwd: "20.000", cashbackKwd: "0.000" }]);
+    expect(sessions.rows).toHaveLength(3);
+    expect(sessions.rows.some((r: { service: string }) => r.service.includes("Laser"))).toBe(false);
   });
 });

@@ -15,7 +15,7 @@ import {
   type PackageRevenueSummary,
   type RevenueMembership,
 } from "./revenue.service.js";
-import { computeClinicSessionsReport } from "./clinicSessions.service.js";
+import { computeClinicSessionsReport, summarizeClinicSessions, type ClinicSessionRow } from "./clinicSessions.service.js";
 
 /**
  * Finance reports. Every report is built as a ReportDoc: the same document is
@@ -57,6 +57,7 @@ export const FINANCE_REPORT_TYPES = [
   "payments_ledger",
   "installments_due",
   "clinic_sessions",
+  "cashback_sessions",
   "cashback",
 ] as const;
 export type FinanceReportType = (typeof FINANCE_REPORT_TYPES)[number];
@@ -812,6 +813,121 @@ async function clinicSessions(from: string, to: string): Promise<ReportDoc> {
   };
 }
 
+/** Per package: sessions and money across the given rows, highest value first. */
+export function summarizeSessionsByPackage(rows: ClinicSessionRow[]) {
+  const map = new Map<string, { packageName: string; completed: number; noShow: number; value: number; cashback: number }>();
+  for (const r of rows) {
+    const name = r.packageName || "—";
+    const cur = map.get(name) ?? { packageName: name, completed: 0, noShow: 0, value: 0, cashback: 0 };
+    if (r.status === "completed") cur.completed++;
+    if (r.status === "no_show") cur.noShow++;
+    cur.value += kwdToMils(r.sessionValueKwd);
+    cur.cashback += kwdToMils(r.cashbackKwd);
+    map.set(name, cur);
+  }
+  return [...map.values()]
+    .sort((a, b) => b.value - a.value || b.completed - a.completed)
+    .map((p) => ({ packageName: p.packageName, completed: p.completed, noShow: p.noShow, sessionValueKwd: milsToKwd(p.value), cashbackKwd: milsToKwd(p.cashback) }));
+}
+
+async function cashbackSessions(from: string, to: string): Promise<ReportDoc> {
+  const all = await computeClinicSessionsReport({ from, to });
+  const rows = all.rows.filter((r) => r.sessionType === "cashback");
+  const { clinics, totals } = summarizeClinicSessions(rows);
+  const done = rows.filter((r) => r.status === "completed");
+  const customerPaid = done.filter((r) => r.clinicMarkedPaid).length;
+  const yesNo = (r: ClinicSessionRow, v: boolean) => (r.status === "completed" ? (v ? "Yes" : "No") : "");
+  const count = (clinicId: string, pick: (r: ClinicSessionRow) => boolean) => done.filter((r) => r.clinicId === clinicId && pick(r)).length;
+
+  return {
+    type: "cashback_sessions",
+    title: L("Cashback Sessions", "جلسات الكاش باك"),
+    from,
+    to,
+    generatedAt: new Date().toISOString(),
+    cards: [
+      { label: L("Completed", "مكتملة"), value: String(totals.completed) },
+      { label: L("No-shows", "لم يحضر"), value: String(totals.noShow) },
+      { label: L("Session value", "قيمة الجلسات"), value: totals.sessionValueKwd, hint: L("KWD", "د.ك") },
+      { label: L("Cashback used", "الكاش باك المستخدم"), value: totals.cashbackKwd, hint: L("KWD", "د.ك") },
+      { label: L("Customer paid", "دفع العميل"), value: `${customerPaid} / ${totals.completed}`, hint: L("Marked paid at the clinic", "مسجلة مدفوعة في العيادة") },
+      { label: L("Paid to clinics", "المدفوع للعيادات"), value: `${totals.paidToClinicCount} / ${totals.completed}`, hint: L("Sessions", "جلسات") },
+    ],
+    tables: [
+      {
+        id: "clinics",
+        title: L("Per clinic", "لكل عيادة"),
+        columns: [
+          { key: "clinicNameEn", label: L("Clinic", "العيادة") },
+          { key: "completed", label: L("Completed", "مكتملة"), kind: "int" },
+          { key: "noShow", label: L("No-show", "لم يحضر"), kind: "int" },
+          { key: "sessionValueKwd", label: L("Session value (KWD)", "قيمة الجلسات"), kind: "kwd" },
+          { key: "cashbackKwd", label: L("Cashback (KWD)", "الكاش باك"), kind: "kwd" },
+          { key: "customerPaid", label: L("Customer paid", "دفع العميل"), kind: "int" },
+          { key: "paidToClinicCount", label: L("Paid to clinic", "مدفوع للعيادة"), kind: "int" },
+        ],
+        rows: clinics.map((c) => ({
+          clinicNameEn: c.clinicNameEn,
+          completed: c.completed,
+          noShow: c.noShow,
+          sessionValueKwd: c.sessionValueKwd,
+          cashbackKwd: c.cashbackKwd,
+          customerPaid: count(c.clinicId, (r) => r.clinicMarkedPaid),
+          paidToClinicCount: c.paidToClinicCount,
+        })),
+        totals: { clinicNameEn: "Total", completed: totals.completed, noShow: totals.noShow, sessionValueKwd: totals.sessionValueKwd, cashbackKwd: totals.cashbackKwd, customerPaid, paidToClinicCount: totals.paidToClinicCount },
+      },
+      {
+        id: "packages",
+        title: L("Per package", "لكل باقة"),
+        columns: [
+          { key: "packageName", label: L("Package", "الباقة") },
+          { key: "completed", label: L("Completed", "مكتملة"), kind: "int" },
+          { key: "noShow", label: L("No-show", "لم يحضر"), kind: "int" },
+          { key: "sessionValueKwd", label: L("Session value (KWD)", "قيمة الجلسات"), kind: "kwd" },
+          { key: "cashbackKwd", label: L("Cashback (KWD)", "الكاش باك"), kind: "kwd" },
+        ],
+        rows: summarizeSessionsByPackage(rows),
+        totals: { packageName: "Total", completed: totals.completed, noShow: totals.noShow, sessionValueKwd: totals.sessionValueKwd, cashbackKwd: totals.cashbackKwd },
+      },
+      {
+        id: "sessions",
+        title: L("All cashback sessions", "كل جلسات الكاش باك"),
+        columns: [
+          { key: "date", label: L("Date (Kuwait)", "التاريخ") },
+          { key: "clinicNameEn", label: L("Clinic", "العيادة") },
+          { key: "customerName", label: L("Customer", "العميل") },
+          { key: "customerPhone", label: L("Phone", "الهاتف") },
+          { key: "service", label: L("Package / service", "الباقة / الخدمة") },
+          { key: "status", label: L("Status", "الحالة") },
+          { key: "sessionValueKwd", label: L("Value (KWD)", "القيمة"), kind: "kwd" },
+          { key: "cashbackKwd", label: L("Cashback (KWD)", "الكاش باك"), kind: "kwd" },
+          { key: "customerPaid", label: L("Customer paid", "دفع العميل") },
+          { key: "paidToClinic", label: L("Paid to clinic", "مدفوع للعيادة") },
+        ],
+        rows: rows.map((row) => ({
+          date: kwDateTime(row.date),
+          clinicNameEn: row.clinicNameEn,
+          customerName: row.customerName,
+          customerPhone: row.customerPhone,
+          service: [row.packageName, row.extras].filter(Boolean).join(" + ") + (row.membershipCancelled ? " (membership cancelled)" : ""),
+          status: row.status === "no_show" ? "No-show" : "Completed",
+          sessionValueKwd: row.sessionValueKwd,
+          cashbackKwd: row.cashbackKwd,
+          customerPaid: yesNo(row, row.clinicMarkedPaid),
+          paidToClinic: yesNo(row, row.paidToClinic),
+        })),
+        totals: { date: "Total", sessionValueKwd: totals.sessionValueKwd, cashbackKwd: totals.cashbackKwd },
+      },
+    ],
+    notes: [
+      L("Cashback sessions are every session except those on laser packages.", "جلسات الكاش باك هي كل الجلسات عدا جلسات باقات الليزر."),
+      L("Session amounts are not revenue. No-shows carry no money.", "مبالغ الجلسات ليست إيراد. حالات عدم الحضور بدون مبالغ."),
+      L("Customer paid means the session was marked paid at the clinic. Paid to clinic means Belamonda ticked it as paid to the clinic.", "دفع العميل يعني تسجيل الدفع في العيادة. مدفوع للعيادة يعني أن بيلاموندا سجلت الدفع للعيادة."),
+    ],
+  };
+}
+
 async function walletTotals() {
   const agg = await WalletModel.aggregate([
     { $group: { _id: null, locked: { $sum: { $toDouble: "$lockedKwd" } }, unlocked: { $sum: { $toDouble: "$unlockedKwd" } }, count: { $sum: 1 } } },
@@ -920,6 +1036,8 @@ export async function buildFinanceReport(type: FinanceReportType, period: { from
       return installmentsDue(from, to);
     case "clinic_sessions":
       return clinicSessions(from, to);
+    case "cashback_sessions":
+      return cashbackSessions(from, to);
     case "cashback":
       return cashback(from, to);
   }

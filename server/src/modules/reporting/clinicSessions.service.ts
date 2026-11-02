@@ -50,6 +50,7 @@ export type SessionSource = {
   customer?: { fullName?: string; phone?: string };
   membership?: { status?: string; isStandalone?: boolean };
   offerName?: string;
+  offerCategory?: string;
 };
 
 export type ClinicSessionRow = {
@@ -71,6 +72,8 @@ export type ClinicSessionRow = {
   clinicMarkedPaid: boolean;
   /** Belamonda has paid the clinic for this session. */
   paidToClinic: boolean;
+  /** Laser-category packages are laser sessions; every other session is a cashback session. */
+  sessionType: "laser" | "cashback";
 };
 
 export type ClinicSessionsSummary = {
@@ -129,6 +132,7 @@ export function buildSessionRow(src: SessionSource): ClinicSessionRow {
     paidAtClinicKwd: milsToKwd(happened ? paidMils : 0),
     clinicMarkedPaid: s.clinicPaymentStatus === "paid" || r.clinicPaymentStatus === "paid",
     paidToClinic: happened && !!s.paidToClinicAt,
+    sessionType: src.offerCategory === "laser" ? "laser" : "cashback",
   };
 }
 
@@ -228,12 +232,13 @@ export async function computeClinicSessionsReport(filters: { from?: string; to?:
       : [],
   ]);
   const offerIds = [...new Set([...(memberships as any[]).map((m) => String(m.offerId)), ...sessions.map((x) => String(x.offerId))].filter(isOid))];
-  const offers = offerIds.length ? ((await OfferModel.find({ _id: { $in: offerIds } }).select("name").lean()) as any[]) : [];
+  const offers = offerIds.length ? ((await OfferModel.find({ _id: { $in: offerIds } }).select("name category").lean()) as any[]) : [];
 
   const paymentById = new Map((payments as any[]).map((p) => [String(p._id), p]));
   const membershipById = new Map((memberships as any[]).map((m) => [String(m._id), m]));
   const clinicById = new Map((clinics as any[]).map((c) => [String(c._id), c]));
   const offerName = new Map(offers.map((o) => [String(o._id), o.name as string]));
+  const offerCategory = new Map(offers.map((o) => [String(o._id), o.category as string]));
   const userById = new Map<string, any>();
   for (const u of users as any[]) {
     userById.set(String(u._id), u);
@@ -252,6 +257,7 @@ export async function computeClinicSessionsReport(filters: { from?: string; to?:
       customer: userById.get(s.userId),
       membership,
       offerName: offerName.get(String(membership?.offerId ?? s.offerId)),
+      offerCategory: offerCategory.get(String(membership?.offerId ?? s.offerId)),
     });
   });
 
