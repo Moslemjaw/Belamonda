@@ -285,8 +285,8 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
       BookingRequestModel.find({
         userOfferId: { $in: userOfferIdsStr },
         userId: req.auth!.userId,
-        status: { $in: ["awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted"] }
-      }).select("userOfferId").lean(),
+        status: { $in: ["request_received", "slot_assigned", "awaiting_session_payment", "under_review", "slot_proposed", "slot_accepted"] }
+      }).select("userOfferId proposedAt preferredAt createdAt").lean(),
       BookingSessionModel.find({
         userOfferId: { $in: userOfferObjectIds },
         userId: req.auth!.userId,
@@ -299,8 +299,15 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
       ])
     ]);
 
+    // Same rule as POST /me/request: a request whose date passed over 24h ago no longer blocks
+    // booking (booking again is what closes it), so it must not lock the button either.
+    const staleBefore = Date.now() - 24 * 60 * 60 * 1000;
+    const openRequests = pendingRequests.filter((r: any) => {
+      const when = r.proposedAt || r.preferredAt || r.createdAt;
+      return !when || new Date(when).getTime() >= staleBefore;
+    });
     const activeBookingsSet = new Set([
-      ...pendingRequests.map(r => r.userOfferId),
+      ...openRequests.map(r => r.userOfferId),
       ...scheduledSessions.map(s => s.userOfferId.toString())
     ]);
     const lastCompletedMap = Object.fromEntries(lastCompletedSessions.map(s => [s._id.toString(), s.lastCompletedAt]));
