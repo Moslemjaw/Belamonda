@@ -18,6 +18,7 @@ type Offer = {
   validityDays: number;
   cashbackPerSessionKwd: string;
   sessionIntervalDays?: number;
+  freeSessionsCount?: number;
   maxSessions?: number;
   signupCashbackKwd: string;
   cashbackActivationFeeKwd: string;
@@ -160,6 +161,9 @@ export default function OfferDetailPage() {
             <Highlight label={t("Validity", "الصلاحية")} value={`${offer.validityDays} ${t("days", "يوم")}`} icon="📅" />
             {offer.maxSessions && (
               <Highlight label={t("Max sessions", "الحد الأقصى للجلسات")} value={String(offer.maxSessions)} icon="✨" />
+            )}
+            {(offer.freeSessionsCount ?? 0) > 0 && (
+              <Highlight label={t("Free sessions", "جلسات مجانية")} value={t(`First ${offer.freeSessionsCount}`, `أول ${offer.freeSessionsCount}`)} icon="🎁" />
             )}
             {offer.sessionIntervalDays != null && offer.sessionIntervalDays > 0 && (
               <Highlight label={t("Session interval", "الفاصل بين الجلسات")} value={`${offer.sessionIntervalDays} ${t("days", "يوم")}`} icon="⏱" />

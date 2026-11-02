@@ -20,7 +20,7 @@ import { withTransaction } from "../../db/transaction.js";
 import * as bookingService from "./booking.service.js";
 import { acquireLease } from "../../jobs/lease.js";
 import { logAuditAction } from "../../services/audit.service.js";
-import { CancelSchema, RequestSchema, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findClinicStaffUserIds, findCsUserIds, findFinanceUserIds, loadOffer, loadUserOffer, maxAccessibleSessions, postSystemMessage, resolveSessionPrice } from "./scheduling.helpers.js";
+import { CancelSchema, RequestSchema, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findClinicStaffUserIds, findCsUserIds, findFinanceUserIds, isNextSessionFree, loadOffer, loadUserOffer, maxAccessibleSessions, postSystemMessage, resolveSessionPrice } from "./scheduling.helpers.js";
 
 export const customerRoutes = Router();
 
@@ -239,8 +239,11 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     const consumed = Math.max(uo.sessionsUsed ?? 0, committed);
     const isExtraSession = !!(offer.allowExtraPaidSessions && cap != null && consumed >= cap);
 
+    // The membership's first free sessions carry no fee, whatever the client sent.
+    const isFreeSession = !parsed.data.isStandalone && isNextSessionFree(offer, consumed);
+
     // Gate: pay-per-session / cashback logic
-    const resolvedPrice = resolveSessionPrice(offer, uo.clinicId, isExtraSession);
+    const resolvedPrice = isFreeSession ? undefined : resolveSessionPrice(offer, uo.clinicId, isExtraSession);
     let amountToPay = resolvedPrice;
     let cashbackDeducted = 0;
 
@@ -338,7 +341,9 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     // Compute session gross price for display on clinic/CS dashboards
     // Priority: client-provided session price > server-computed > offer config
     let sessionGross: string | undefined;
-    if (parsed.data.sessionGrossKwd) {
+    if (isFreeSession) {
+      sessionGross = "0.000";
+    } else if (parsed.data.sessionGrossKwd) {
       // Client sent the actual treatment price at the clinic
       sessionGross = parsed.data.sessionGrossKwd;
     } else if (parsed.data.isStandalone) {
@@ -363,7 +368,8 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
       bookingRoute: effectiveBookingRoute,
       status: effectiveInitialStatus,
       membershipType: uo.membershipType ?? "none",
-      hadCashback: cashbackDeducted > 0 || !!parsed.data.cashbackAppliedKwd,
+      hadCashback: !isFreeSession && (cashbackDeducted > 0 || !!parsed.data.cashbackAppliedKwd),
+      isFreeSession,
       sessionPriceKwd: sessionGross,
       cashbackDeductedKwd: finalCashbackDeducted,
       standaloneName: parsed.data.standaloneName,
@@ -380,7 +386,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
       await postSystemMessage(
         conv.id,
         "booking_requested",
-        `Customer requested a booking${parsed.data.preferredAt ? ` (preferred ${kwDateTime(parsed.data.preferredAt)})` : ""}.${parsed.data.notes ? ` Note: ${parsed.data.notes}` : ""}`,
+        `Customer requested a ${isFreeSession ? "free session" : "booking"}${parsed.data.preferredAt ? ` (preferred ${kwDateTime(parsed.data.preferredAt)})` : ""}.${parsed.data.notes ? ` Note: ${parsed.data.notes}` : ""}`,
         { bookingRequestId: breq.id, preferredAt: parsed.data.preferredAt }
       );
       const recipients = conv.participants.map((p) => p.userId).filter((u) => u !== req.auth!.userId);
@@ -468,9 +474,10 @@ customerRoutes.get("/me/booking-quote", authRequired, async (req, res) => {
   const isExtraSession = !!(offer.allowExtraPaidSessions && cap != null && consumed >= cap);
 
   const targetClinic = clinicId || uo.clinicId;
-  const listPrice = resolveSessionPrice(offer, targetClinic, isExtraSession);
+  const isFreeSession = isNextSessionFree(offer, consumed);
+  const listPrice = isFreeSession ? undefined : resolveSessionPrice(offer, targetClinic, isExtraSession);
   const listNum = parseFloat(listPrice ?? "0") || 0;
-  const rate = listNum > 0 ? listNum : parseFloat(offer.cashbackPerSessionKwd || "0");
+  const rate = isFreeSession ? 0 : listNum > 0 ? listNum : parseFloat(offer.cashbackPerSessionKwd || "0");
 
   let cashbackApplied = 0;
   let clinicPay = rate;
@@ -495,6 +502,7 @@ customerRoutes.get("/me/booking-quote", authRequired, async (req, res) => {
     installmentsPaid: uo.installmentsPaid ?? null,
     installmentCount: uo.installmentCount ?? null,
     isExtraSession,
+    isFreeSession,
   });
 });
 

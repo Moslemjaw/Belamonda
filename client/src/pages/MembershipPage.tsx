@@ -16,6 +16,7 @@ type Offer = {
   validityDays: number;
   maxSessions?: number;
   sessionIntervalDays?: number;
+  freeSessionsCount?: number;
   signupCashbackKwd: string;
   cashbackPerSessionKwd: string;
   cashbackActivationFeeKwd: string;
@@ -101,6 +102,14 @@ export default function MembershipPage() {
         isAr
           ? `${o.cashbackPerSessionKwd} د.ك كاش باك لكل جلسة`
           : `${o.cashbackPerSessionKwd} KWD per-session cashback`
+      );
+    }
+
+    if (o.freeSessionsCount && o.freeSessionsCount > 0) {
+      f.push(
+        isAr
+          ? `أول ${o.freeSessionsCount} جلسة مجاناً`
+          : o.freeSessionsCount === 1 ? "First session free" : `First ${o.freeSessionsCount} sessions free`
       );
     }
 

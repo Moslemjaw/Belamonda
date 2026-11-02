@@ -27,6 +27,7 @@ export type BookingRequestRecord = {
   cashbackDeductedKwd?: string;
   membershipType?: string;
   hadCashback?: boolean;
+  isFreeSession?: boolean;
   clinicPaymentStatus?: PaymentStatus;
   clinicPaymentMarkedAt?: string;
   clinicPaymentMarkedBy?: string;
@@ -94,6 +95,7 @@ function mapDoc(doc: any): BookingRequestRecord {
     cashbackDeductedKwd: doc.cashbackDeductedKwd,
     membershipType: doc.membershipType,
     hadCashback: doc.hadCashback,
+    isFreeSession: !!doc.isFreeSession,
     clinicPaymentStatus: doc.clinicPaymentStatus,
     clinicPaymentMarkedAt: toIso(doc.clinicPaymentMarkedAt),
     clinicPaymentMarkedBy: doc.clinicPaymentMarkedBy,
@@ -119,6 +121,7 @@ export const bookingRequestsStore = {
     standaloneName?: string;
     membershipType?: string;
     hadCashback?: boolean;
+    isFreeSession?: boolean;
     sessionPriceKwd?: string;
     cashbackDeductedKwd?: string;
     preferredAt?: string;

@@ -89,6 +89,8 @@ const OfferSchema = new Schema(
     validityDays: { type: Number, required: true, min: 1 },
     maxSessions: { type: Number, min: 1 },
     sessionIntervalDays: { type: Number, default: 0, min: 0 },
+    /** The first N sessions of a membership carry no session fee; the fee applies after that. */
+    freeSessionsCount: { type: Number, default: 0, min: 0 },
     /** Sessions expire N months after offer activation (0 = use validityDays). */
     sessionExpiryMonths: { type: Number, default: 0, min: 0 },
     /** Max bookings a single customer can make within any 7-day window. */

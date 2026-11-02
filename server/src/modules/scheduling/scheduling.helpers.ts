@@ -114,6 +114,7 @@ export type SchedOffer = {
   name?: string;
   maxSessions: number | null;
   sessionIntervalDays: number;
+  freeSessionsCount: number;
   cashbackPerSessionKwd?: string;
   validityDays?: number;
   payPerSession: boolean;
@@ -142,6 +143,11 @@ export function resolveSessionPrice(offer: SchedOffer, clinicId: string, isExtra
   return undefined;
 }
 
+/** The next session is free while the sessions used so far are below the offer's free count. */
+export function isNextSessionFree(offer: Pick<SchedOffer, "freeSessionsCount">, sessionsConsumed: number): boolean {
+  return sessionsConsumed < (offer.freeSessionsCount ?? 0);
+}
+
 export function mapOfferDocToSched(o: OfferDoc): SchedOffer {
   const overrides = (o.branchSessionPrices ?? []).map((b: { clinicId: unknown; sessionPriceKwd: unknown }) => ({
     clinicId: String(b.clinicId),
@@ -152,6 +158,7 @@ export function mapOfferDocToSched(o: OfferDoc): SchedOffer {
     name: (o as { name?: string }).name ?? undefined,
     maxSessions: o.maxSessions ?? null,
     sessionIntervalDays: o.sessionIntervalDays ?? 0,
+    freeSessionsCount: (o as any).freeSessionsCount ?? 0,
     cashbackPerSessionKwd: o.cashbackPerSessionKwd ?? undefined,
     validityDays: o.validityDays,
     payPerSession: o.payPerSession ?? false,
@@ -176,9 +183,13 @@ export function computeBookingRequestFinancials(
     membershipType?: string;
     hadCashback?: boolean;
     isStandalone?: boolean;
+    isFreeSession?: boolean;
   },
   offer: SchedOffer | null
 ) {
+  if (breq.isFreeSession) {
+    return { sessionGrossKwd: "0.000", clinicTakeKwd: "0.000", cashbackDeductedKwd: "0.000", usesCashback: false, isPrepaidMembership: false };
+  }
   const storedPrice = parseFloat(breq.sessionPriceKwd ?? "0") || 0;
   const storedCashback = parseFloat(breq.cashbackDeductedKwd ?? "0") || 0;
   const listFromOffer = offer ? parseFloat(resolveSessionPrice(offer, breq.clinicId) ?? "0") || 0 : 0;
@@ -226,6 +237,7 @@ export async function loadOffer(offerId: string): Promise<SchedOffer | null> {
     name: (legacy as any).name ?? undefined,
     maxSessions: legacy.maxSessions ?? null,
     sessionIntervalDays: legacy.sessionIntervalDays ?? 0,
+    freeSessionsCount: 0,
     cashbackPerSessionKwd: legacy.cashbackPerSessionKwd,
     payPerSession: false,
     branchSessionPrices: [],

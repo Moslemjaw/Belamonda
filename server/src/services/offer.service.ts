@@ -334,6 +334,7 @@ type OfferInput = {
   validityDays: number;
   maxSessions?: number;
   sessionIntervalDays?: number;
+  freeSessionsCount?: number;
   sessionExpiryMonths?: number;
   maxBookingsPerWeek?: number;
   maxActiveSessions?: number;
@@ -438,6 +439,7 @@ export async function createOffer(input: OfferInput) {
     validityDays: input.validityDays,
     maxSessions: input.maxSessions,
     sessionIntervalDays: input.sessionIntervalDays ?? 0,
+    freeSessionsCount: input.freeSessionsCount ?? 0,
     sessionExpiryMonths: input.sessionExpiryMonths ?? 0,
     maxBookingsPerWeek: input.maxBookingsPerWeek,
     maxActiveSessions: input.maxActiveSessions,

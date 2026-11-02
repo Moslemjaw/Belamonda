@@ -195,6 +195,8 @@ export type MyOfferItem = {
   hasActiveBooking?: boolean;
   lastCompletedSessionAt?: string;
   sessionIntervalDays?: number;
+  freeSessionsCount?: number;
+  freeSessionsLeft?: number;
   clinicLocked?: boolean;
   branchSessionPrices?: any[];
   isGroupOffer?: boolean;

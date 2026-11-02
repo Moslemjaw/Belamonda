@@ -82,6 +82,7 @@ export function serializeOffer(doc: OfferDoc, categorySlug?: string | null) {
     validityDays: doc.validityDays,
     maxSessions: doc.maxSessions,
     sessionIntervalDays: doc.sessionIntervalDays ?? 0,
+    freeSessionsCount: (doc as any).freeSessionsCount ?? 0,
     sessionExpiryMonths: (doc as any).sessionExpiryMonths ?? 0,
     maxBookingsPerWeek: (doc as any).maxBookingsPerWeek,
     maxActiveSessions: (doc as any).maxActiveSessions,

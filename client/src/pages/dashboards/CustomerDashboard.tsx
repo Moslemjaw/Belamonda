@@ -656,6 +656,14 @@ export default function CustomerDashboard() {
                <div className="text-xs text-surface-500 mb-1">{ar() ? "الخدمة / الباقة المختارة" : "Selected Service / Package"}</div>
                <div className="font-bold text-surface-900">{showBookingModal.treatmentName || showBookingModal.offerName || showBookingModal.offerId || "Booking"}</div>
                {(() => {
+                 if (showBookingModal.freeSessionsLeft > 0) {
+                   return (
+                     <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs">
+                       <div className="font-bold text-emerald-800">{ar() ? "هذه الجلسة مجانية" : "This session is free"}</div>
+                       <div className="text-emerald-700 mt-0.5">{ar() ? "لا توجد رسوم جلسة تدفعينها في العيادة." : "There's no session fee to pay at the clinic."}</div>
+                     </div>
+                   );
+                 }
                  const baseOffer = homeCatalogData?.items?.find((o: any) => o.id === showBookingModal.offerId) || showBookingModal;
                  const overrides = baseOffer?.branchSessionPrices || baseOffer?.clinicOverrides || [];
                  const currentClinicId = showBookingModal.clinicId;
@@ -723,7 +731,7 @@ export default function CustomerDashboard() {
                         const clinicOptionsPool = pool.length > 0 ? pool : (clinicsPublic?.items || []);
                         return clinicOptionsPool.map((c: any) => {
                            const override = overrides.find((b: any) => b.clinicId === c.id);
-                           const feeText = override && parseFloat(override.sessionPriceKwd) > 0 
+                           const feeText = !(showBookingModal.freeSessionsLeft > 0) && override && parseFloat(override.sessionPriceKwd) > 0 
                               ? (ar() ? ` (${override.sessionPriceKwd} د.ك)` : ` (${override.sessionPriceKwd} KWD)`) 
                               : "";
                            return <option key={c.id} value={c.id}>{ar() ? c.nameAr : c.nameEn}{feeText}</option>;

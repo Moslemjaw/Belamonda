@@ -283,6 +283,11 @@ export function OverviewTab({ s }: { s: CustomerDashboardState }) {
                                            <div className="text-[10px] font-bold uppercase tracking-wider text-surface-400">{ar() ? "العيادة المحددة" : "Assigned Clinic"}</div>
                                            <div className="text-sm font-bold text-surface-900 truncate">{clinicName}</div>
                                            {sessionPrice && <div className="text-[11px] text-surface-500 mt-0.5">{sessionPrice} {ar() ? "د.ك / جلسة" : "KWD / session"}</div>}
+                                           {(o as any).freeSessionsLeft > 0 && (
+                                             <div className="text-[11px] font-bold text-emerald-700 mt-0.5">
+                                               {ar() ? `جلسات مجانية متبقية: ${(o as any).freeSessionsLeft}` : `${(o as any).freeSessionsLeft} free ${(o as any).freeSessionsLeft === 1 ? "session" : "sessions"} left`}
+                                             </div>
+                                           )}
                                          </div>
                                        </div>
                                        {!pendingRequest ? (

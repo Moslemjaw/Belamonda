@@ -271,7 +271,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
     );
     const [offers, clinicsForNames] = await Promise.all([
       OfferModel.find({ _id: { $in: offerIds } })
-        .select("name nameAr clinicLocked clinicTransferFeeKwd branchSessionPrices sessionIntervalDays isGroupOffer groupSizeRequired groupRewardType groupRewardValue maxSessions allowExtraPaidSessions extraSessionPriceKwd subscriptionPriceKwd allowFullPayment allowInstallments maxInstallments depositAmountKwd allowDeposit allowAppointmentBooking category type")
+        .select("name nameAr clinicLocked clinicTransferFeeKwd branchSessionPrices sessionIntervalDays freeSessionsCount isGroupOffer groupSizeRequired groupRewardType groupRewardValue maxSessions allowExtraPaidSessions extraSessionPriceKwd subscriptionPriceKwd allowFullPayment allowInstallments maxInstallments depositAmountKwd allowDeposit allowAppointmentBooking category type")
         .lean(),
       ClinicModel.find({ _id: { $in: clinicIdsForLookup } }).select("nameEn nameAr").lean(),
     ]);
@@ -305,6 +305,13 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
     ]);
     const lastCompletedMap = Object.fromEntries(lastCompletedSessions.map(s => [s._id.toString(), s.lastCompletedAt]));
 
+    // Sessions already taken or booked per membership, for the "free sessions left" count.
+    const committedRows = await BookingSessionModel.aggregate([
+      { $match: { userOfferId: { $in: userOfferObjectIds }, status: { $ne: "cancelled" } } },
+      { $group: { _id: "$userOfferId", count: { $sum: 1 } } },
+    ]);
+    const committedMap = Object.fromEntries(committedRows.map((r: any) => [r._id.toString(), r.count as number]));
+
     const groupInviteCodes = [...new Set(items.map((i: any) => i.groupInviteCode).filter(Boolean))];
     const groupProgressMap: Record<string, string[]> = {};
     if (groupInviteCodes.length > 0) {
@@ -332,6 +339,8 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
         clinicLocked: offer.clinicLocked ?? undefined,
         branchSessionPrices: offer.branchSessionPrices || [],
         sessionIntervalDays: offer.sessionIntervalDays || 0,
+        freeSessionsCount: offer.freeSessionsCount || 0,
+        freeSessionsLeft: Math.max(0, (offer.freeSessionsCount || 0) - Math.max((item as any).sessionsUsed ?? 0, committedMap[uoId] ?? 0)),
         hasActiveBooking: activeBookingsSet.has(uoId),
         lastCompletedSessionAt: lastCompletedMap[uoId] 
           ? new Date(lastCompletedMap[uoId]).toISOString() 

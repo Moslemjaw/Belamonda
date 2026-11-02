@@ -48,6 +48,8 @@ const BookingRequestSchema = new Schema(
     cashbackDeductedKwd: { type: String },
     membershipType: { type: String },
     hadCashback: { type: Boolean, default: false },
+    /** Booked as one of the membership's free sessions: no session fee at booking or at the clinic. */
+    isFreeSession: { type: Boolean, default: false },
     clinicPaymentStatus: {
       type: String,
       enum: ["payment_pending", "paid", "refunded", "failed"] satisfies PaymentStatus[],

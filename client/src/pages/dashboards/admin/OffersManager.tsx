@@ -21,7 +21,7 @@ export function OffersManager() {
 
   const eforms = formsData?.items || [];
 
-  const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[], allowExtraPaidSessions: false, extraSessionPriceKwd: "", branchExtraSessionPrices: [] as { clinicId: string, priceKwd: string }[], allowAppointmentBooking: true, bookingFlow: "admin_forward" as "admin_forward" | "direct_clinic" };
+  const emptyForm = { nameEn: "", nameAr: "", clinicLocked: false, requireBranchSelection: true, clinicId: "", extraClinicIds: [] as string[], category: "laser", price: "99", validityDays: "365", maxSessions: "6", unlimitedSessions: false, sessionIntervalDays: "25", freeSessionsCount: "0", imageUrl: "", signupCashback: "0", perSessionCashback: "0", cashbackActivationFee: "0", clinicTransferFee: "0", allowFullPayment: true, allowInstallments: false, maxInstallments: "4", allowDeposit: false, depositAmount: "0", tagsEn: "", tagsAr: "", isCashbackOnly: false, offerExpirationDate: "", isGroupOffer: false, groupSizeRequired: "2", groupRewardType: "free_session", groupRewardValue: "", fullPaymentEFormId: "", installmentsEFormId: "", depositEFormId: "", allowENet: false, enetEFormId: "", clinicOverrides: [] as { clinicId: string, sessionPriceKwd: string }[], branchSubscriptionPrices: [] as { clinicId: string, priceKwd: string }[], allowExtraPaidSessions: false, extraSessionPriceKwd: "", branchExtraSessionPrices: [] as { clinicId: string, priceKwd: string }[], allowAppointmentBooking: true, bookingFlow: "admin_forward" as "admin_forward" | "direct_clinic" };
   const [form, setForm] = useState(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
   // Guards Create/Save against repeat clicks while the request (and image upload) is running —
@@ -78,6 +78,7 @@ export function OffersManager() {
       maxSessions: o.maxSessions ? String(o.maxSessions) : "0", 
       unlimitedSessions: !o.maxSessions, 
       sessionIntervalDays: String(o.sessionIntervalDays), 
+      freeSessionsCount: String(o.freeSessionsCount ?? 0),
       imageUrl: o.imageUrl || "", 
       signupCashback: String(o.signupCashbackKwd || o.signupCashback || "0"), 
       perSessionCashback: String(o.cashbackPerSessionKwd || o.perSessionCashback || "0"), 
@@ -129,6 +130,8 @@ export function OffersManager() {
     if (!(parseInt(form.validityDays) >= 1)) return ar() ? "المدة يجب أن تكون يوماً واحداً على الأقل." : "Validity must be at least 1 day.";
     if (!form.unlimitedSessions && !(parseInt(form.maxSessions) >= 1)) return ar() ? "أدخل عدد الجلسات (1 على الأقل) أو اختر غير محدود." : "Enter max sessions (at least 1) or choose Unlimited.";
     if (!(parseInt(form.sessionIntervalDays || "0") >= 0)) return ar() ? "الحد الأدنى للأيام لا يمكن أن يكون سالباً." : "Minimum days between sessions can't be negative.";
+    if (!(parseInt(form.freeSessionsCount || "0") >= 0)) return ar() ? "عدد الجلسات المجانية لا يمكن أن يكون سالباً." : "Free sessions can't be negative.";
+    if (!form.unlimitedSessions && parseInt(form.freeSessionsCount || "0") > parseInt(form.maxSessions)) return ar() ? "الجلسات المجانية لا يمكن أن تتجاوز عدد الجلسات." : "Free sessions can't be more than Max Sessions.";
     if (!form.clinicId) return ar() ? "اختر العيادة الرئيسية." : "Select a primary clinic.";
     if (!form.allowFullPayment && !form.allowInstallments && !form.allowDeposit && !form.allowENet) return ar() ? "فعّل طريقة دفع واحدة على الأقل." : "Enable at least one payment option.";
     if (form.allowInstallments && !(parseInt(form.maxInstallments) >= 2)) return ar() ? "عدد الأقساط يجب أن يكون 2 على الأقل." : "Installments must allow at least 2 payments.";
@@ -186,6 +189,7 @@ export function OffersManager() {
           cashbackActivationFeeKwd: `${Number(form.cashbackActivationFee || "0").toFixed(3)}`,
           clinicTransferFeeKwd: `${Number(form.clinicTransferFee || "0").toFixed(3)}`,
           sessionIntervalDays: parseInt(form.sessionIntervalDays) || 0,
+          freeSessionsCount: parseInt(form.freeSessionsCount) || 0,
           maxSessions: form.unlimitedSessions ? null : (parseInt(form.maxSessions) || null),
           allowFullPayment: !!form.allowFullPayment,
           allowInstallments: !!form.allowInstallments,
@@ -477,6 +481,12 @@ export function OffersManager() {
                 <p className="text-[11px] text-surface-500 mt-1">{ar()
                   ? "لا يمكن للعميل طلب جلسة جديدة قبل انقضاء هذه المدة من آخر جلسة مكتملة. يحصل الموظفون على تحذير (مع إمكانية التجاوز) عند الجدولة قبلها. 0 = بدون حد أدنى."
                   : "Customers can't request a new session until this many days after their last completed one, and staff get a warning (with override) when scheduling sooner. 0 = no minimum."}</p>
+              </div>)}
+              {F(ar() ? "الجلسات المجانية الأولى" : "Free First Sessions", <div>
+                <input className="input-field" type="number" min={0} value={form.freeSessionsCount} onChange={e => setForm({...form, freeSessionsCount: e.target.value})} />
+                <p className="text-[11px] text-surface-500 mt-1">{ar()
+                  ? "أول هذا العدد من الجلسات بدون رسوم، وبعدها يدفع العميل رسوم الجلسة المحددة للعيادة. 0 = بدون جلسات مجانية."
+                  : "This many sessions carry no fee, then the customer pays the clinic's session fee. 0 = no free sessions."}</p>
               </div>)}
             </div>
           </div>
