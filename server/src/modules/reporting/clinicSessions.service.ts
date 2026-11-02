@@ -113,7 +113,7 @@ export function buildSessionRow(src: SessionSource): ClinicSessionRow {
   const paidMils = Math.max(0, valueMils - cashbackMils);
 
   const isStandalone = !!(r.isStandalone || src.membership?.isStandalone);
-  const treatment = isStandalone || isTreatmentBooking(src.request, { name: src.offerName, nameAr: src.offerNameAr });
+  const treatment = !!src.membership?.isStandalone || isTreatmentBooking(src.request, { name: src.offerName, nameAr: src.offerNameAr });
   // Money only changes hands for sessions that actually took place.
   const happened = s.status === "completed";
 

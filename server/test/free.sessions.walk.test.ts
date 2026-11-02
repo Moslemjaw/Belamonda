@@ -176,7 +176,10 @@ describe("session type follows how it was booked", () => {
     expect(sessionTypeOf({ standaloneName: "One Session" }, offer)).toBe("laser");
     expect(sessionTypeOf({ standaloneName: "جلسة" }, offer)).toBe("laser");
     expect(sessionTypeOf({ standaloneName: "Hydrafacial" }, offer)).toBe("cashback");
-    expect(sessionTypeOf({ isStandalone: true, standaloneName: "One session" }, offer)).toBe("cashback");
+    // Old membership bookings wrongly flagged standalone still carry the package's name.
+    expect(sessionTypeOf({ isStandalone: true, standaloneName: "One session" }, offer)).toBe("laser");
+    expect(sessionTypeOf({ isStandalone: true, standaloneName: "Hydrafacial" }, offer)).toBe("cashback");
+    expect(sessionTypeOf({ isStandalone: true }, offer)).toBe("cashback");
     expect(sessionTypeOf(null, offer)).toBe("laser");
     expect(sessionTypeOf({}, offer)).toBe("laser");
     // Saved at booking, so renaming the package later can't change it.

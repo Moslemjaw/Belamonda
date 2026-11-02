@@ -16,9 +16,9 @@ export function isTreatmentBooking(booking: BookingLike | null | undefined, offe
   if (!booking) return false;
   // Saved at booking time since this was added, so renaming a package can't change it.
   if (typeof booking.isTreatmentBooking === "boolean") return booking.isTreatmentBooking;
-  if (booking.isStandalone) return true;
-  if (!booking.standaloneName) return false;
-  return !same(booking.standaloneName, offer?.name) && !same(booking.standaloneName, offer?.nameAr);
+  // Carrying the package's own name wins over isStandalone: some old membership bookings were flagged by mistake.
+  if (same(booking.standaloneName, offer?.name) || same(booking.standaloneName, offer?.nameAr)) return false;
+  return !!booking.isStandalone || !!booking.standaloneName;
 }
 
 export function sessionTypeOf(booking: BookingLike | null | undefined, offer?: PackageNames | null): SessionType {
