@@ -149,3 +149,23 @@ describe("the Book button while a booking is open", () => {
     expect((await BookingRequestModel.findById(id).lean<{ status: string }>())?.status).toBe("cancelled");
   });
 });
+
+describe("session type in the Sessions Log", () => {
+  it("laser packages show as laser, everything else as cashback, for sessions and requests", async () => {
+    const laser = await setup({ maxSessions: undefined, category: "laser" });
+    const other = await setup({ maxSessions: undefined, category: "all" });
+    const book = async (s: Awaited<ReturnType<typeof setup>>) =>
+      (await api().post("/scheduling/me/request").set(auth(s.customer.token)).send({ userOfferId: s.m.userOfferId })).body.request.id;
+    const laserId = await book(laser);
+    const otherId = await book(other);
+    const confirmed = await api().post(`/scheduling/clinic/requests/${laserId}/confirm`).set(auth(laser.staff.token)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() });
+    expect(confirmed.status).toBe(201);
+
+    const log = (await api().get("/scheduling/admin/sessions-log").set(auth(laser.admin.token))).body;
+    const rows = log.items ?? log.sessions ?? log;
+    const type = (customerId: string) => rows.find((r: { userId: string }) => r.userId === customerId)?.sessionType;
+    expect(type(laser.customer.id)).toBe("laser");
+    expect(type(other.customer.id)).toBe("cashback");
+    expect(otherId).toBeTruthy();
+  });
+});

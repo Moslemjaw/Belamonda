@@ -55,6 +55,7 @@ export default function AdminSessionsLogTab() {
   const [status, setStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterClinic, setFilterClinic] = useState("all");
+  const [filterType, setFilterType] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
@@ -119,6 +120,7 @@ export default function AdminSessionsLogTab() {
     startOfToday.setHours(0, 0, 0, 0);
     return sessions.filter(s => {
       if (filterClinic !== "all" && String(s.clinicId) !== filterClinic) return false;
+      if (filterType !== "all" && s.sessionType !== filterType) return false;
       if (status === "no_show") {
         // slot_assigned = admin sent suggested dates to clinic, don't treat as no_show
         const isScheduled = ['request_received', 'scheduled', 'rescheduled', 'awaiting_session_payment', 'under_review', 'slot_proposed', 'slot_accepted', 'confirmed', 'pending'].includes(s.status);
@@ -133,11 +135,11 @@ export default function AdminSessionsLogTab() {
       const offer = (s.offerName || "").toLowerCase();
       return name.includes(q) || phone.includes(q) || offer.includes(q);
     });
-  }, [sessions, filterClinic, searchQuery, status]);
+  }, [sessions, filterClinic, filterType, searchQuery, status]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterClinic, status, fromDate, toDate, pageSize]);
+  }, [searchQuery, filterClinic, filterType, status, fromDate, toDate, pageSize]);
 
   const totalPages = Math.max(1, Math.ceil(filteredSessions.length / pageSize));
   const paginatedSessions = useMemo(() => {
@@ -366,6 +368,11 @@ export default function AdminSessionsLogTab() {
               </option>
             ))}
           </select>
+          <select value={filterType} onChange={e => setFilterType(e.target.value)} aria-label={ar() ? "نوع الجلسة" : "Session type"} className="input-field w-full md:w-40 font-medium text-surface-700">
+            <option value="all">{ar() ? "جميع الأنواع" : "All Types"}</option>
+            <option value="laser">{ar() ? "ليزر" : "Laser"}</option>
+            <option value="cashback">{ar() ? "كاش باك" : "Cashback"}</option>
+          </select>
           <select value={status} onChange={e => setStatus(e.target.value)} className="input-field w-full md:w-40 font-medium text-surface-700">
             <option value="all">{ar() ? "جميع الحالات" : "All Statuses"}</option>
             <option value="scheduled">{ar() ? "مجدول" : "Scheduled"}</option>
@@ -570,6 +577,11 @@ export default function AdminSessionsLogTab() {
                       </td>
                       <td className="px-5 py-4 font-medium text-surface-700">
                         {s.offerName}
+                        {s.sessionType && (
+                          <span className={`block w-fit mt-1 px-2 py-0.5 rounded-md text-[10px] font-bold ${s.sessionType === "laser" ? "bg-violet-50 text-violet-700" : "bg-amber-50 text-amber-700"}`}>
+                            {s.sessionType === "laser" ? (ar() ? "ليزر" : "Laser") : (ar() ? "كاش باك" : "Cashback")}
+                          </span>
+                        )}
                       </td>
                       <td className="px-5 py-4">
                         <div className="flex items-center justify-between">

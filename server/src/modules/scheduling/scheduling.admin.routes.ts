@@ -181,7 +181,7 @@ adminRoutes.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_d
           }).select("_id fullName phone").lean()
         : Promise.resolve([]),
       uniqueOfferIds.length > 0
-        ? OfferModel.find({ _id: { $in: uniqueOfferIds } }).select("_id titleAr titleEn title name").lean()
+        ? OfferModel.find({ _id: { $in: uniqueOfferIds } }).select("_id titleAr titleEn title name category").lean()
         : Promise.resolve([]),
       (sessionIds.length > 0 || reqIdsFromSessions.length > 0)
         ? BookingRequestModel.find({
@@ -208,6 +208,9 @@ adminRoutes.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_d
 
     const userMap = new Map(users.map((u: any) => [u._id.toString(), { fullName: u.fullName, phone: u.phone }]));
     const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), (o as any).titleAr || (o as any).titleEn || (o as any).title || (o as any).name]));
+    // Laser packages are the ones in the laser category; every other session is a cashback session.
+    const laserOffers = new Set(offerDocs.filter((o: any) => o.category === "laser").map((o: any) => o._id.toString()));
+    const sessionType = (offerId: unknown) => (offerId && laserOffers.has(String(offerId)) ? "laser" : "cashback");
 
     const requestsBySessionMap = new Map<string, any>();
     for (const r of requestsForSessions) {
@@ -247,6 +250,7 @@ adminRoutes.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_d
         customerName: userMap.get(doc.userId)?.fullName || null,
         customerPhone: userMap.get(doc.userId)?.phone || null,
         offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
+        sessionType: sessionType(doc.offerId),
         createdAt: doc.createdAt?.toISOString() || doc.scheduledAt?.toISOString() || null,
         combinedSessionStatus: combinedStatus,
         clinicPaymentStatus: pStatus,
@@ -282,6 +286,7 @@ adminRoutes.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_d
         customerName: userMap.get(doc.userId)?.fullName || null,
         customerPhone: userMap.get(doc.userId)?.phone || null,
         offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
+        sessionType: sessionType(doc.offerId),
         createdAt: doc.createdAt?.toISOString() || doc.proposedAt?.toISOString() || null,
         combinedSessionStatus: combinedStatus,
         clinicPaymentStatus: pStatus,
