@@ -1,3 +1,5 @@
+import { BookingRequestModel } from "../../models/bookingRequest.model.js";
+import { isTreatmentBooking } from "../../services/sessionType.js";
 // Shared schemas, loaders and helpers for the scheduling routes.
 import { kwDate } from "../../utils/kwDate.js";
 import mongoose from "mongoose";
@@ -147,6 +149,25 @@ export function resolveSessionPrice(offer: SchedOffer, clinicId: string, isExtra
 /** The next session is free while the sessions used so far are below the offer's free count. */
 export function isNextSessionFree(offer: Pick<SchedOffer, "freeSessionsCount">, sessionsConsumed: number): boolean {
   return sessionsConsumed < (offer.freeSessionsCount ?? 0);
+}
+
+/**
+ * Sessions that count against the free sessions: all those used, minus treatments booked with
+ * the membership, because treatments don't use up the package's free sessions.
+ */
+export async function sessionsCountingTowardFree(
+  userOfferId: string,
+  offer: { freeSessionsCount?: number; name?: string | null; nameAr?: string | null },
+  consumed: number
+): Promise<number> {
+  if (!offer.freeSessionsCount || consumed <= 0) return consumed;
+  const requests = await BookingRequestModel.find({ userOfferId, scheduledSessionId: { $exists: true, $ne: null } })
+    .select("scheduledSessionId isStandalone standaloneName isTreatmentBooking")
+    .lean();
+  const sessionIds = (requests as any[]).filter((r) => isTreatmentBooking(r, offer)).map((r) => String(r.scheduledSessionId));
+  if (!sessionIds.length) return consumed;
+  const treatments = await BookingSessionModel.countDocuments({ _id: { $in: sessionIds }, status: { $ne: "cancelled" } });
+  return Math.max(0, consumed - treatments);
 }
 
 export function mapOfferDocToSched(o: OfferDoc): SchedOffer {

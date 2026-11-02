@@ -196,3 +196,42 @@ describe("session type follows how it was booked", () => {
     expect(ownRes.body.request).toMatchObject({ isFreeSession: true, isTreatmentBooking: false, sessionPriceKwd: "0.000" });
   });
 });
+
+describe("treatments don't use up free sessions", () => {
+  it("after treatments, the package's own free sessions are still there, then the fee applies", async () => {
+    const s = await setup({ maxSessions: undefined, name: "Sawa", payPerSession: true, sessionPriceKwd: "5.000", freeSessionsCount: 1 });
+    const left = async () => (await api().get("/commerce/me/offers").set(auth(s.customer.token))).body.items.find((i: { id: string }) => i.id === s.m.userOfferId).freeSessionsLeft;
+    const session = async (standaloneName: string) => {
+      await clearThrottle();
+      const booked = await api().post("/scheduling/me/request").set(auth(s.customer.token)).send({ userOfferId: s.m.userOfferId, standaloneName });
+      expect(booked.status).toBe(201);
+      const id = booked.body.request.id;
+      const confirm = await api().post(`/scheduling/clinic/requests/${id}/confirm`).set(auth(s.staff.token)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() });
+      expect(confirm.status).toBe(201);
+      await api().post(`/scheduling/clinic/sessions/${confirm.body.session.id}/mark`).set(auth(s.admin.token)).send({ status: "completed" });
+      return BookingRequestModel.findById(id).lean<any>();
+    };
+
+    expect(await left()).toBe(1);
+    expect((await session("Italian Filler")).isFreeSession).toBe(false);
+    expect((await session("Hydrafacial")).isFreeSession).toBe(false);
+    expect(await left()).toBe(1);
+
+    const quote = (await api().get(`/scheduling/me/booking-quote?userOfferId=${s.m.userOfferId}`).set(auth(s.customer.token))).body;
+    expect(quote.isFreeSession).toBe(true);
+
+    expect((await session("Sawa")).isFreeSession).toBe(true);
+    expect(await left()).toBe(0);
+
+    const next = await session("Sawa");
+    expect(next.isFreeSession).toBe(false);
+    expect(await PaymentModel.countDocuments({ bookingRequestId: String(next._id), purpose: "session_payment" })).toBe(1);
+  }, 60_000);
+
+  it("a manually added used session still counts", async () => {
+    const s = await setup({ maxSessions: undefined, name: "Sawa", payPerSession: true, sessionPriceKwd: "5.000", freeSessionsCount: 2 });
+    await UserOfferModel.updateOne({ _id: s.m.userOfferId }, { $set: { sessionsUsed: 2 } });
+    const quote = (await api().get(`/scheduling/me/booking-quote?userOfferId=${s.m.userOfferId}`).set(auth(s.customer.token))).body;
+    expect(quote.isFreeSession).toBe(false);
+  });
+});

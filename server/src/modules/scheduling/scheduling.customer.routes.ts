@@ -21,7 +21,7 @@ import * as bookingService from "./booking.service.js";
 import { acquireLease } from "../../jobs/lease.js";
 import { isTreatmentBooking } from "../../services/sessionType.js";
 import { logAuditAction } from "../../services/audit.service.js";
-import { CancelSchema, RequestSchema, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findClinicStaffUserIds, findCsUserIds, findFinanceUserIds, isNextSessionFree, loadOffer, loadUserOffer, maxAccessibleSessions, postSystemMessage, resolveSessionPrice } from "./scheduling.helpers.js";
+import { CancelSchema, RequestSchema, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findClinicStaffUserIds, findCsUserIds, findFinanceUserIds, isNextSessionFree, loadOffer, sessionsCountingTowardFree, loadUserOffer, maxAccessibleSessions, postSystemMessage, resolveSessionPrice } from "./scheduling.helpers.js";
 
 export const customerRoutes = Router();
 
@@ -244,7 +244,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     // Treatments are priced on their own; only the package's own sessions can be free.
     const isTreatment = isTreatmentBooking({ isStandalone: !!parsed.data.isStandalone, standaloneName: parsed.data.standaloneName }, offer);
     // The membership's first free sessions carry no fee, whatever the client sent.
-    const isFreeSession = !isTreatment && isNextSessionFree(offer, consumed);
+    const isFreeSession = !isTreatment && isNextSessionFree(offer, await sessionsCountingTowardFree(uo.id, offer, consumed));
 
     // Gate: pay-per-session / cashback logic
     const resolvedPrice = isFreeSession ? undefined : resolveSessionPrice(offer, uo.clinicId, isExtraSession);
@@ -480,7 +480,7 @@ customerRoutes.get("/me/booking-quote", authRequired, async (req, res) => {
   const isExtraSession = !!(offer.allowExtraPaidSessions && cap != null && consumed >= cap);
 
   const targetClinic = clinicId || uo.clinicId;
-  const isFreeSession = isNextSessionFree(offer, consumed);
+  const isFreeSession = isNextSessionFree(offer, await sessionsCountingTowardFree(uo.id, offer, consumed));
   const listPrice = isFreeSession ? undefined : resolveSessionPrice(offer, targetClinic, isExtraSession);
   const listNum = parseFloat(listPrice ?? "0") || 0;
   const rate = isFreeSession ? 0 : listNum > 0 ? listNum : parseFloat(offer.cashbackPerSessionKwd || "0");

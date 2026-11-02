@@ -319,6 +319,18 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
     ]);
     const committedMap = Object.fromEntries(committedRows.map((r: any) => [r._id.toString(), r.count as number]));
 
+    // Free sessions left per membership; treatments booked with it don't use them up.
+    const { sessionsCountingTowardFree } = await import("../scheduling/scheduling.helpers.js");
+    const freeLeftMap: Record<string, number> = {};
+    await Promise.all(
+      items.map(async (item: any) => {
+        const o = offerMap[item.offerId] as any;
+        if (!o?.freeSessionsCount) return;
+        const consumed = Math.max(item.sessionsUsed ?? 0, committedMap[item.id] ?? 0);
+        freeLeftMap[item.id] = Math.max(0, o.freeSessionsCount - (await sessionsCountingTowardFree(item.id, o, consumed)));
+      })
+    );
+
     const groupInviteCodes = [...new Set(items.map((i: any) => i.groupInviteCode).filter(Boolean))];
     const groupProgressMap: Record<string, string[]> = {};
     if (groupInviteCodes.length > 0) {
@@ -347,7 +359,7 @@ commerceRouter.get("/me/offers", authRequired, async (req, res, next) => {
         branchSessionPrices: offer.branchSessionPrices || [],
         sessionIntervalDays: offer.sessionIntervalDays || 0,
         freeSessionsCount: offer.freeSessionsCount || 0,
-        freeSessionsLeft: Math.max(0, (offer.freeSessionsCount || 0) - Math.max((item as any).sessionsUsed ?? 0, committedMap[uoId] ?? 0)),
+        freeSessionsLeft: freeLeftMap[uoId] ?? 0,
         hasActiveBooking: activeBookingsSet.has(uoId),
         lastCompletedSessionAt: lastCompletedMap[uoId] 
           ? new Date(lastCompletedMap[uoId]).toISOString() 
