@@ -240,18 +240,24 @@ describe("paying clinics per session", () => {
 });
 
 describe("Cashback Sessions report", () => {
-  it("includes every session except laser, with totals that add up", async () => {
+  it("lists treatments only, not sessions booked on the membership", async () => {
     const fin = await makeUser("finance");
     const customer = await makeUser("customer");
-    const cash = await makeMembership(customer.id, { offer: { category: "all", name: "Naumi Plus" } });
-    const laser = await makeMembership(customer.id, { offer: { category: "laser", name: "Laser 4" } });
+    const m = await makeMembership(customer.id, { offer: { category: "laser", name: "Sawa" } });
     const when = new Date();
-    const add = (m: typeof cash, status: string, extra: Record<string, unknown> = {}) =>
-      BookingSessionModel.create({ userOfferId: m.userOfferId, userId: customer.id, offerId: m.offerId, clinicId: m.clinicId, status, scheduledBy: "x", scheduledAt: when, sessionPriceKwd: "10.000", ...extra });
-    await add(cash, "completed", { clinicPaymentStatus: "paid" });
-    await add(cash, "completed", { paidToClinicAt: when });
-    await add(cash, "no_show");
-    await add(laser, "completed");
+    const add = async (status: string, standaloneName: string | null, extra: Record<string, unknown> = {}) => {
+      const session = await BookingSessionModel.create({ userOfferId: m.userOfferId, userId: customer.id, offerId: m.offerId, clinicId: m.clinicId, status, scheduledBy: "x", scheduledAt: when, sessionPriceKwd: "10.000", ...extra });
+      if (standaloneName) {
+        await mongoose.connection.collection("bookingrequests").insertOne({
+          userId: customer.id, userOfferId: m.userOfferId, offerId: m.offerId, clinicId: m.clinicId, status, standaloneName, scheduledSessionId: String(session._id),
+        });
+      }
+    };
+    await add("completed", "Italian Filler", { clinicPaymentStatus: "paid" });
+    await add("completed", "Italian Filler", { paidToClinicAt: when });
+    await add("no_show", "Hydrafacial");
+    await add("completed", "Sawa"); // booked on the membership
+    await add("completed", null); // entered by staff
 
     const res = await api().get(`/reporting/finance/report?type=cashback_sessions&from=${today}&to=${today}`).set(auth(fin.token));
     expect(res.status).toBe(200);
@@ -262,11 +268,13 @@ describe("Cashback Sessions report", () => {
     expect(card("Customer paid")).toBe("1 / 2");
     expect(card("Paid to clinics")).toBe("1 / 2");
 
-    const [clinics, packages, sessions] = res.body.tables;
-    expect(clinics.rows).toHaveLength(1);
+    const [clinics, treatments, sessions] = res.body.tables;
     expect(clinics.rows[0]).toMatchObject({ completed: 2, noShow: 1, sessionValueKwd: "20.000", customerPaid: 1, paidToClinicCount: 1 });
-    expect(packages.rows).toEqual([{ packageName: "Naumi Plus", completed: 2, noShow: 1, sessionValueKwd: "20.000", cashbackKwd: "0.000" }]);
+    expect(treatments.rows).toEqual([
+      { packageName: "Italian Filler", completed: 2, noShow: 0, sessionValueKwd: "20.000", cashbackKwd: "0.000" },
+      { packageName: "Hydrafacial", completed: 0, noShow: 1, sessionValueKwd: "0.000", cashbackKwd: "0.000" },
+    ]);
     expect(sessions.rows).toHaveLength(3);
-    expect(sessions.rows.some((r: { service: string }) => r.service.includes("Laser"))).toBe(false);
+    expect(sessions.rows.some((r: { service: string }) => r.service.includes("Sawa"))).toBe(false);
   });
 });

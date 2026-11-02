@@ -19,6 +19,7 @@ import { kwdToMils } from "../../utils/money.js";
 import { withTransaction } from "../../db/transaction.js";
 import * as bookingService from "./booking.service.js";
 import { acquireLease } from "../../jobs/lease.js";
+import { isTreatmentBooking } from "../../services/sessionType.js";
 import { logAuditAction } from "../../services/audit.service.js";
 import { CancelSchema, RequestSchema, computeBookingRequestFinancials, eligibilityError, ensureConversationFor, findClinicStaffUserIds, findCsUserIds, findFinanceUserIds, isNextSessionFree, loadOffer, loadUserOffer, maxAccessibleSessions, postSystemMessage, resolveSessionPrice } from "./scheduling.helpers.js";
 
@@ -95,6 +96,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
          isStandalone: true,
          bookingRoute: globalBookingRoute,
          standaloneName: parsed.data.standaloneName,
+         isTreatmentBooking: true,
          membershipType: "none",
          hadCashback: false,
          sessionPriceKwd: standalonePrice,
@@ -239,8 +241,10 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
     const consumed = Math.max(uo.sessionsUsed ?? 0, committed);
     const isExtraSession = !!(offer.allowExtraPaidSessions && cap != null && consumed >= cap);
 
+    // Treatments are priced on their own; only the package's own sessions can be free.
+    const isTreatment = isTreatmentBooking({ isStandalone: !!parsed.data.isStandalone, standaloneName: parsed.data.standaloneName }, offer);
     // The membership's first free sessions carry no fee, whatever the client sent.
-    const isFreeSession = !parsed.data.isStandalone && isNextSessionFree(offer, consumed);
+    const isFreeSession = !isTreatment && isNextSessionFree(offer, consumed);
 
     // Gate: pay-per-session / cashback logic
     const resolvedPrice = isFreeSession ? undefined : resolveSessionPrice(offer, uo.clinicId, isExtraSession);
@@ -273,6 +277,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
           offerId: uo.offerId,
           clinicId: uo.clinicId,
           isStandalone: !!parsed.data.isStandalone,
+          isTreatmentBooking: isTreatment,
           bookingRoute: effectiveBookingRoute,
           status: effectiveInitialStatus,
           membershipType: uo.membershipType ?? "none",
@@ -365,6 +370,7 @@ customerRoutes.post("/me/request", authRequired, async (req, res, next) => {
       offerId: uo.offerId,
       clinicId: uo.clinicId,
       isStandalone: !!parsed.data.isStandalone,
+      isTreatmentBooking: isTreatment,
       bookingRoute: effectiveBookingRoute,
       status: effectiveInitialStatus,
       membershipType: uo.membershipType ?? "none",

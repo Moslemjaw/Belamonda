@@ -150,22 +150,49 @@ describe("the Book button while a booking is open", () => {
   });
 });
 
-describe("session type in the Sessions Log", () => {
-  it("laser packages show as laser, everything else as cashback, for sessions and requests", async () => {
-    const laser = await setup({ maxSessions: undefined, category: "laser" });
-    const other = await setup({ maxSessions: undefined, category: "all" });
-    const book = async (s: Awaited<ReturnType<typeof setup>>) =>
-      (await api().post("/scheduling/me/request").set(auth(s.customer.token)).send({ userOfferId: s.m.userOfferId })).body.request.id;
-    const laserId = await book(laser);
-    const otherId = await book(other);
-    const confirmed = await api().post(`/scheduling/clinic/requests/${laserId}/confirm`).set(auth(laser.staff.token)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() });
+describe("session type follows how it was booked", () => {
+  it("on the membership = laser, from the treatments section = cashback, whatever the package category", async () => {
+    const onMembership = await setup({ maxSessions: undefined, category: "all", name: "Naumi Plus" });
+    const treatment = await setup({ maxSessions: undefined, category: "laser", name: "Sawa" });
+    const book = (s: Awaited<ReturnType<typeof setup>>, standaloneName: string) =>
+      api().post("/scheduling/me/request").set(auth(s.customer.token)).send({ userOfferId: s.m.userOfferId, standaloneName });
+    expect((await book(onMembership, "Naumi Plus")).status).toBe(201);
+    const t = await book(treatment, "Full Body Laser Hair Removal");
+    expect(t.status).toBe(201);
+    expect(t.body.request.isTreatmentBooking).toBe(true);
+    const confirmed = await api().post(`/scheduling/clinic/requests/${t.body.request.id}/confirm`).set(auth(treatment.staff.token)).send({ scheduledAt: new Date(Date.now() + 3600_000).toISOString() });
     expect(confirmed.status).toBe(201);
 
-    const log = (await api().get("/scheduling/admin/sessions-log").set(auth(laser.admin.token))).body;
+    const log = (await api().get("/scheduling/admin/sessions-log").set(auth(treatment.admin.token))).body;
     const rows = log.items ?? log.sessions ?? log;
-    const type = (customerId: string) => rows.find((r: { userId: string }) => r.userId === customerId)?.sessionType;
-    expect(type(laser.customer.id)).toBe("laser");
-    expect(type(other.customer.id)).toBe("cashback");
-    expect(otherId).toBeTruthy();
+    const row = (id: string) => rows.find((r: { userId: string }) => r.userId === id);
+    expect(row(onMembership.customer.id)).toMatchObject({ sessionType: "laser", offerName: "Naumi Plus" });
+    expect(row(treatment.customer.id)).toMatchObject({ sessionType: "cashback", offerName: "Full Body Laser Hair Removal" });
+  });
+
+  it("older bookings work too, and a different letter case isn't a treatment", async () => {
+    const { sessionTypeOf } = await import("../src/services/sessionType.js");
+    const offer = { name: "One session", nameAr: "جلسة" };
+    expect(sessionTypeOf({ standaloneName: "One Session" }, offer)).toBe("laser");
+    expect(sessionTypeOf({ standaloneName: "جلسة" }, offer)).toBe("laser");
+    expect(sessionTypeOf({ standaloneName: "Hydrafacial" }, offer)).toBe("cashback");
+    expect(sessionTypeOf({ isStandalone: true, standaloneName: "One session" }, offer)).toBe("cashback");
+    expect(sessionTypeOf(null, offer)).toBe("laser");
+    expect(sessionTypeOf({}, offer)).toBe("laser");
+    // Saved at booking, so renaming the package later can't change it.
+    expect(sessionTypeOf({ standaloneName: "Old name", isTreatmentBooking: false }, offer)).toBe("laser");
+  });
+
+  it("a treatment is never free, even with free sessions left on the membership", async () => {
+    const s = await setup({ maxSessions: undefined, name: "Sawa", payPerSession: true, sessionPriceKwd: "5.000", freeSessionsCount: 3 });
+    const res = await api().post("/scheduling/me/request").set(auth(s.customer.token)).send({ userOfferId: s.m.userOfferId, standaloneName: "Italian Filler", sessionGrossKwd: "90.000" });
+    expect(res.status).toBe(201);
+    const breq = await BookingRequestModel.findById(res.body.request.id).lean<any>();
+    expect(breq).toMatchObject({ isFreeSession: false, isTreatmentBooking: true, sessionPriceKwd: "90.000" });
+
+    // The package's own session is still free.
+    const own = await setup({ maxSessions: undefined, name: "Sawa", payPerSession: true, sessionPriceKwd: "5.000", freeSessionsCount: 3 });
+    const ownRes = await api().post("/scheduling/me/request").set(auth(own.customer.token)).send({ userOfferId: own.m.userOfferId, standaloneName: "Sawa", sessionGrossKwd: "5.000" });
+    expect(ownRes.body.request).toMatchObject({ isFreeSession: true, isTreatmentBooking: false, sessionPriceKwd: "0.000" });
   });
 });

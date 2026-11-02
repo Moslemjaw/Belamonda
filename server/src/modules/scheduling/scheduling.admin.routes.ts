@@ -11,6 +11,7 @@ import type { AppointmentStatus } from "@belamonda/shared";
 import { UserModel } from "../../models/user.model.js";
 import { ClinicModel } from "../../models/clinic.model.js";
 import { UserOfferModel } from "../../models/userOffer.model.js";
+import { isTreatmentBooking, sessionTypeOf } from "../../services/sessionType.js";
 import { OfferModel } from "../../models/offer.model.js";
 import { BookingSessionModel } from "../../models/bookingSession.model.js";
 import { BookingRequestModel } from "../../models/bookingRequest.model.js";
@@ -142,7 +143,7 @@ adminRoutes.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_d
         : Promise.resolve([]),
       isRequestStatus
         ? BookingRequestModel.find(requestQuery)
-            .select("userId clinicId status offerId sessionPriceKwd clinicPaymentStatus scheduledSessionId notes createdAt preferredAt proposedAt bookingRoute isStandalone standaloneName")
+            .select("userId clinicId status offerId sessionPriceKwd clinicPaymentStatus scheduledSessionId notes createdAt preferredAt proposedAt bookingRoute isStandalone standaloneName isTreatmentBooking")
             .sort({ createdAt: -1 })
             .limit(1000)
             .lean()
@@ -181,7 +182,7 @@ adminRoutes.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_d
           }).select("_id fullName phone").lean()
         : Promise.resolve([]),
       uniqueOfferIds.length > 0
-        ? OfferModel.find({ _id: { $in: uniqueOfferIds } }).select("_id titleAr titleEn title name category").lean()
+        ? OfferModel.find({ _id: { $in: uniqueOfferIds } }).select("_id titleAr titleEn title name nameAr").lean()
         : Promise.resolve([]),
       (sessionIds.length > 0 || reqIdsFromSessions.length > 0)
         ? BookingRequestModel.find({
@@ -189,7 +190,7 @@ adminRoutes.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_d
               { scheduledSessionId: { $in: sessionIds } },
               { _id: { $in: reqIdsFromSessions } }
             ]
-          }).select("_id scheduledSessionId clinicPaymentStatus sessionPriceKwd").lean()
+          }).select("_id scheduledSessionId clinicPaymentStatus sessionPriceKwd isStandalone standaloneName isTreatmentBooking").lean()
         : Promise.resolve([]),
       reqSessionIds.length > 0
         ? BookingSessionModel.find({ _id: { $in: reqSessionIds } }).select("_id status clinicPaymentStatus").lean()
@@ -208,9 +209,14 @@ adminRoutes.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_d
 
     const userMap = new Map(users.map((u: any) => [u._id.toString(), { fullName: u.fullName, phone: u.phone }]));
     const offerMap = new Map(offerDocs.map((o: any) => [o._id.toString(), (o as any).titleAr || (o as any).titleEn || (o as any).title || (o as any).name]));
-    // Laser packages are the ones in the laser category; every other session is a cashback session.
-    const laserOffers = new Set(offerDocs.filter((o: any) => o.category === "laser").map((o: any) => o._id.toString()));
-    const sessionType = (offerId: unknown) => (offerId && laserOffers.has(String(offerId)) ? "laser" : "cashback");
+    const offerDocMap = new Map(offerDocs.map((o: any) => [o._id.toString(), o]));
+    // Laser = booked on the membership, cashback = booked from the treatments section.
+    const typeOf = (booking: any, offerId: unknown) => sessionTypeOf(booking, offerDocMap.get(String(offerId)) as any);
+    // A treatment shows its own name rather than the membership that paid for it.
+    const serviceName = (booking: any, offerId: unknown) =>
+      isTreatmentBooking(booking, offerDocMap.get(String(offerId)) as any) && booking?.standaloneName
+        ? booking.standaloneName
+        : offerId ? (offerMap.get(String(offerId)) || "Unknown Offer") : "Standalone Booking";
 
     const requestsBySessionMap = new Map<string, any>();
     for (const r of requestsForSessions) {
@@ -249,8 +255,8 @@ adminRoutes.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_d
         status: doc.status,
         customerName: userMap.get(doc.userId)?.fullName || null,
         customerPhone: userMap.get(doc.userId)?.phone || null,
-        offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
-        sessionType: sessionType(doc.offerId),
+        offerName: serviceName(req, doc.offerId),
+        sessionType: typeOf(req, doc.offerId),
         createdAt: doc.createdAt?.toISOString() || doc.scheduledAt?.toISOString() || null,
         combinedSessionStatus: combinedStatus,
         clinicPaymentStatus: pStatus,
@@ -285,8 +291,8 @@ adminRoutes.get("/admin/sessions-log", authRequired, requireRole(["admin", "cs_d
         status: doc.status,
         customerName: userMap.get(doc.userId)?.fullName || null,
         customerPhone: userMap.get(doc.userId)?.phone || null,
-        offerName: doc.offerId ? (offerMap.get(doc.offerId.toString()) || "Unknown Offer") : "Standalone Booking",
-        sessionType: sessionType(doc.offerId),
+        offerName: serviceName(doc, doc.offerId),
+        sessionType: typeOf(doc, doc.offerId),
         createdAt: doc.createdAt?.toISOString() || doc.proposedAt?.toISOString() || null,
         combinedSessionStatus: combinedStatus,
         clinicPaymentStatus: pStatus,

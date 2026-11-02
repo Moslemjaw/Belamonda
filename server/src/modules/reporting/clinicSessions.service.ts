@@ -7,6 +7,7 @@ import { OfferModel } from "../../models/offer.model.js";
 import { ClinicModel } from "../../models/clinic.model.js";
 import { UserModel } from "../../models/user.model.js";
 import { kwDateRange } from "../../utils/kwDate.js";
+import { isTreatmentBooking, type SessionType } from "../../services/sessionType.js";
 import { kwdToMils, milsToKwd } from "../../utils/money.js";
 
 /**
@@ -43,6 +44,7 @@ export type SessionSource = {
     extraItems?: Extra[];
     isStandalone?: boolean;
     standaloneName?: string;
+    isTreatmentBooking?: boolean;
     clinicPaymentStatus?: string;
   };
   payment?: { amountKwd?: string; cashbackAppliedKwd?: string; grossAmountKwd?: string; status?: string };
@@ -50,7 +52,7 @@ export type SessionSource = {
   customer?: { fullName?: string; phone?: string };
   membership?: { status?: string; isStandalone?: boolean };
   offerName?: string;
-  offerCategory?: string;
+  offerNameAr?: string;
 };
 
 export type ClinicSessionRow = {
@@ -72,8 +74,8 @@ export type ClinicSessionRow = {
   clinicMarkedPaid: boolean;
   /** Belamonda has paid the clinic for this session. */
   paidToClinic: boolean;
-  /** Laser-category packages are laser sessions; every other session is a cashback session. */
-  sessionType: "laser" | "cashback";
+  /** Laser = booked on the membership, cashback = booked from the treatments section. */
+  sessionType: SessionType;
 };
 
 export type ClinicSessionsSummary = {
@@ -111,6 +113,7 @@ export function buildSessionRow(src: SessionSource): ClinicSessionRow {
   const paidMils = Math.max(0, valueMils - cashbackMils);
 
   const isStandalone = !!(r.isStandalone || src.membership?.isStandalone);
+  const treatment = isStandalone || isTreatmentBooking(src.request, { name: src.offerName, nameAr: src.offerNameAr });
   // Money only changes hands for sessions that actually took place.
   const happened = s.status === "completed";
 
@@ -122,7 +125,8 @@ export function buildSessionRow(src: SessionSource): ClinicSessionRow {
     date: s.scheduledAt ? new Date(s.scheduledAt).toISOString() : "",
     customerName: src.customer?.fullName || s.userId || "",
     customerPhone: src.customer?.phone ?? "",
-    packageName: isStandalone ? r.standaloneName || src.offerName || "Standalone session" : src.offerName ?? "",
+    // A treatment shows its own name rather than the membership that paid for it.
+    packageName: isStandalone || treatment ? r.standaloneName || src.offerName || "Standalone session" : src.offerName ?? "",
     isStandalone,
     membershipCancelled: src.membership?.status === "cancelled",
     extras: extras.map((e) => `${e.name ?? ""}${(e.qty ?? 1) > 1 ? ` x${e.qty}` : ""}`).filter(Boolean).join(", "),
@@ -132,7 +136,7 @@ export function buildSessionRow(src: SessionSource): ClinicSessionRow {
     paidAtClinicKwd: milsToKwd(happened ? paidMils : 0),
     clinicMarkedPaid: s.clinicPaymentStatus === "paid" || r.clinicPaymentStatus === "paid",
     paidToClinic: happened && !!s.paidToClinicAt,
-    sessionType: src.offerCategory === "laser" ? "laser" : "cashback",
+    sessionType: treatment ? "cashback" : "laser",
   };
 }
 
@@ -208,7 +212,7 @@ export async function computeClinicSessionsReport(filters: { from?: string; to?:
 
   const requests = (sessionIds.length
     ? await BookingRequestModel.find({ $or: [{ scheduledSessionId: { $in: sessionIds } }, { _id: { $in: requestIds } }] })
-        .select("scheduledSessionId sessionPaymentId sessionPriceKwd cashbackDeductedKwd totalBillKwd finalPaidKwd extraItems isStandalone standaloneName clinicPaymentStatus")
+        .select("scheduledSessionId sessionPaymentId sessionPriceKwd cashbackDeductedKwd totalBillKwd finalPaidKwd extraItems isStandalone standaloneName isTreatmentBooking clinicPaymentStatus")
         .lean()
     : []) as any[];
   const reqById = new Map(requests.map((r) => [String(r._id), r]));
@@ -232,13 +236,13 @@ export async function computeClinicSessionsReport(filters: { from?: string; to?:
       : [],
   ]);
   const offerIds = [...new Set([...(memberships as any[]).map((m) => String(m.offerId)), ...sessions.map((x) => String(x.offerId))].filter(isOid))];
-  const offers = offerIds.length ? ((await OfferModel.find({ _id: { $in: offerIds } }).select("name category").lean()) as any[]) : [];
+  const offers = offerIds.length ? ((await OfferModel.find({ _id: { $in: offerIds } }).select("name nameAr").lean()) as any[]) : [];
 
   const paymentById = new Map((payments as any[]).map((p) => [String(p._id), p]));
   const membershipById = new Map((memberships as any[]).map((m) => [String(m._id), m]));
   const clinicById = new Map((clinics as any[]).map((c) => [String(c._id), c]));
   const offerName = new Map(offers.map((o) => [String(o._id), o.name as string]));
-  const offerCategory = new Map(offers.map((o) => [String(o._id), o.category as string]));
+  const offerNameAr = new Map(offers.map((o) => [String(o._id), o.nameAr as string]));
   const userById = new Map<string, any>();
   for (const u of users as any[]) {
     userById.set(String(u._id), u);
@@ -257,7 +261,7 @@ export async function computeClinicSessionsReport(filters: { from?: string; to?:
       customer: userById.get(s.userId),
       membership,
       offerName: offerName.get(String(membership?.offerId ?? s.offerId)),
-      offerCategory: offerCategory.get(String(membership?.offerId ?? s.offerId)),
+      offerNameAr: offerNameAr.get(String(membership?.offerId ?? s.offerId)),
     });
   });
 

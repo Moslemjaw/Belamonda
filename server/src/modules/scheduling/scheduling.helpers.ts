@@ -112,6 +112,7 @@ export async function loadUserOffer(id: string): Promise<SchedUO | null> {
 export type SchedOffer = {
   id: string;
   name?: string;
+  nameAr?: string;
   maxSessions: number | null;
   sessionIntervalDays: number;
   freeSessionsCount: number;
@@ -156,6 +157,7 @@ export function mapOfferDocToSched(o: OfferDoc): SchedOffer {
   return {
     id: String(o._id),
     name: (o as { name?: string }).name ?? undefined,
+    nameAr: (o as { nameAr?: string }).nameAr ?? undefined,
     maxSessions: o.maxSessions ?? null,
     sessionIntervalDays: o.sessionIntervalDays ?? 0,
     freeSessionsCount: (o as any).freeSessionsCount ?? 0,

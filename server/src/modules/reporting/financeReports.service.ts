@@ -813,7 +813,7 @@ async function clinicSessions(from: string, to: string): Promise<ReportDoc> {
   };
 }
 
-/** Per package: sessions and money across the given rows, highest value first. */
+/** Per treatment: sessions and money across the given rows, highest value first. */
 export function summarizeSessionsByPackage(rows: ClinicSessionRow[]) {
   const map = new Map<string, { packageName: string; completed: number; noShow: number; value: number; cashback: number }>();
   for (const r of rows) {
@@ -879,9 +879,9 @@ async function cashbackSessions(from: string, to: string): Promise<ReportDoc> {
       },
       {
         id: "packages",
-        title: L("Per package", "لكل باقة"),
+        title: L("Per treatment", "لكل علاج"),
         columns: [
-          { key: "packageName", label: L("Package", "الباقة") },
+          { key: "packageName", label: L("Treatment", "العلاج") },
           { key: "completed", label: L("Completed", "مكتملة"), kind: "int" },
           { key: "noShow", label: L("No-show", "لم يحضر"), kind: "int" },
           { key: "sessionValueKwd", label: L("Session value (KWD)", "قيمة الجلسات"), kind: "kwd" },
@@ -898,7 +898,7 @@ async function cashbackSessions(from: string, to: string): Promise<ReportDoc> {
           { key: "clinicNameEn", label: L("Clinic", "العيادة") },
           { key: "customerName", label: L("Customer", "العميل") },
           { key: "customerPhone", label: L("Phone", "الهاتف") },
-          { key: "service", label: L("Package / service", "الباقة / الخدمة") },
+          { key: "service", label: L("Treatment", "العلاج") },
           { key: "status", label: L("Status", "الحالة") },
           { key: "sessionValueKwd", label: L("Value (KWD)", "القيمة"), kind: "kwd" },
           { key: "cashbackKwd", label: L("Cashback (KWD)", "الكاش باك"), kind: "kwd" },
@@ -921,7 +921,7 @@ async function cashbackSessions(from: string, to: string): Promise<ReportDoc> {
       },
     ],
     notes: [
-      L("Cashback sessions are every session except those on laser packages.", "جلسات الكاش باك هي كل الجلسات عدا جلسات باقات الليزر."),
+      L("Cashback sessions are treatments booked from the treatments section. Sessions booked on a membership are laser sessions.", "جلسات الكاش باك هي العلاجات المحجوزة من قسم العلاجات. الجلسات المحجوزة من العضوية هي جلسات الليزر."),
       L("Session amounts are not revenue. No-shows carry no money.", "مبالغ الجلسات ليست إيراد. حالات عدم الحضور بدون مبالغ."),
       L("Customer paid means the session was marked paid at the clinic. Paid to clinic means Belamonda ticked it as paid to the clinic.", "دفع العميل يعني تسجيل الدفع في العيادة. مدفوع للعيادة يعني أن بيلاموندا سجلت الدفع للعيادة."),
     ],

@@ -32,7 +32,7 @@ const REPORTS: { type: string; icon: string; name: Label; desc: Label }[] = [
   { type: "payments_ledger", icon: "💳", name: { en: "Payments Ledger", ar: "سجل المدفوعات" }, desc: { en: "Every payment, refund and manual entry, with who confirmed it", ar: "كل دفعة واسترداد وقيد يدوي ومن أكّده" } },
   { type: "installments_due", icon: "📅", name: { en: "Installments Due", ar: "الأقساط المستحقة" }, desc: { en: "Late and coming up, with phone numbers for follow-up", ar: "المتأخرة والقادمة مع أرقام الهواتف للمتابعة" } },
   { type: "clinic_sessions", icon: "🏥", name: { en: "Clinic Sessions", ar: "جلسات العيادات" }, desc: { en: "Sessions that happened at each clinic", ar: "الجلسات التي تمت في كل عيادة" } },
-  { type: "cashback_sessions", icon: "💆‍♀️", name: { en: "Cashback Sessions", ar: "جلسات الكاش باك" }, desc: { en: "Every session except laser: per clinic, per package and each session", ar: "كل الجلسات عدا الليزر: لكل عيادة ولكل باقة ولكل جلسة" } },
+  { type: "cashback_sessions", icon: "💆‍♀️", name: { en: "Cashback Sessions", ar: "جلسات الكاش باك" }, desc: { en: "Treatments booked from the treatments section: per clinic, per treatment and each session", ar: "العلاجات المحجوزة من قسم العلاجات: لكل عيادة ولكل علاج ولكل جلسة" } },
   { type: "cashback", icon: "🎁", name: { en: "Cashback & Adjustments", ar: "الكاش باك والتعديلات" }, desc: { en: "Balances owed, wallet activity and staff adjustments", ar: "الأرصدة المستحقة وحركة المحافظ وتعديلات الموظفين" } },
 ];
 
